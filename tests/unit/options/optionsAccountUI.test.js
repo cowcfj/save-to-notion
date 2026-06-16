@@ -80,6 +80,40 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
     jest.clearAllMocks();
   });
 
+  const createAccountProfile = (overrides = {}) => ({
+    userId: 'u1',
+    email: 'user@example.com',
+    displayName: 'Test User',
+    avatarUrl: null,
+    ...overrides,
+  });
+
+  const mockAccountSession = ({ token = 'token-123', profile = {} } = {}) => {
+    getAccountAccessToken.mockResolvedValue(token);
+    getAccountProfile.mockResolvedValue(createAccountProfile(profile));
+  };
+
+  const mockSignedOutAccountSession = ({ profile = null } = {}) => {
+    getAccountAccessToken.mockResolvedValue(null);
+    getAccountProfile.mockResolvedValue(profile);
+  };
+
+  const expectAccountLoggedIn = () => {
+    expect(document.querySelector('#account-logged-in').classList.contains('hidden')).toBe(false);
+    expect(document.querySelector('#account-logged-out').classList.contains('hidden')).toBe(true);
+  };
+
+  const expectAccountLoggedOut = () => {
+    expect(document.querySelector('#account-logged-out').classList.contains('hidden')).toBe(false);
+    expect(document.querySelector('#account-logged-in').classList.contains('hidden')).toBe(true);
+  };
+
+  const expectAvatarFallback = expectedText => {
+    const fallback = document.querySelector('#profile-avatar-fallback');
+    expect(fallback.classList.contains('hidden')).toBe(false);
+    expect(fallback.textContent).toBe(expectedText);
+  };
+
   describe('ENABLE_ACCOUNT feature flag', () => {
     it('ENABLE_ACCOUNT=false 時應隱藏 account card 與 advanced tab', () => {
       BUILD_ENV.ENABLE_ACCOUNT = false;
@@ -104,10 +138,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       initOptions();
       await flushAsyncClick();
 
-      expect(document.querySelector('#account-logged-out').classList.contains('hidden')).toBe(
-        false
-      );
-      expect(document.querySelector('#account-logged-in').classList.contains('hidden')).toBe(true);
+      expectAccountLoggedOut();
       expect(document.querySelector('#cloud-sync-card').classList.contains('hidden')).toBe(false);
       expect(document.querySelector('#drive-state-logged-out').classList.contains('hidden')).toBe(
         false
@@ -141,8 +172,7 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       initOptions();
       await flushAsyncClick();
 
-      expect(document.querySelector('#account-logged-in').classList.contains('hidden')).toBe(false);
-      expect(document.querySelector('#account-logged-out').classList.contains('hidden')).toBe(true);
+      expectAccountLoggedIn();
       expect(document.querySelector('#profile-display-name').textContent).toBe('Test User');
 
       const avatarImg = document.querySelector('#profile-avatar-img');
@@ -155,12 +185,12 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
     });
 
     it('displayName 為 null 時應顯示 email，avatar 為 null 時應回退', async () => {
-      getAccountAccessToken.mockResolvedValue('token-123');
-      getAccountProfile.mockResolvedValue({
-        userId: 'u1',
-        email: 'user@example.com',
-        displayName: null,
-        avatarUrl: null,
+      mockAccountSession({
+        profile: {
+          email: 'user@example.com',
+          displayName: null,
+          avatarUrl: null,
+        },
       });
       initOptions();
       await flushAsyncClick();
@@ -168,36 +198,32 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       expect(document.querySelector('#profile-display-name').textContent).toContain(
         'user@example.com'
       );
-      const fallback = document.querySelector('#profile-avatar-fallback');
-      expect(fallback.classList.contains('hidden')).toBe(false);
-      expect(fallback.textContent).toBe('U');
+      expectAvatarFallback('U');
     });
 
     it('displayName 為空白字串時應回退到 email，避免顯示空白名稱', async () => {
-      getAccountAccessToken.mockResolvedValue('token-123');
-      getAccountProfile.mockResolvedValue({
-        userId: 'u1',
-        email: 'user@example.com',
-        displayName: '   ',
-        avatarUrl: null,
+      mockAccountSession({
+        profile: {
+          email: 'user@example.com',
+          displayName: '   ',
+          avatarUrl: null,
+        },
       });
       initOptions();
       await flushAsyncClick();
 
       expect(document.querySelector('#profile-display-name').textContent).toBe('user@example.com');
 
-      const fallback = document.querySelector('#profile-avatar-fallback');
-      expect(fallback.classList.contains('hidden')).toBe(false);
-      expect(fallback.textContent).toBe('U');
+      expectAvatarFallback('U');
     });
 
     it('displayName 與 email 都缺失時應使用安全 fallback，避免呼叫 charAt 拋錯', async () => {
-      getAccountAccessToken.mockResolvedValue('token-123');
-      getAccountProfile.mockResolvedValue({
-        userId: 'u1',
-        email: '',
-        displayName: '   ',
-        avatarUrl: null,
+      mockAccountSession({
+        profile: {
+          email: '',
+          displayName: '   ',
+          avatarUrl: null,
+        },
       });
 
       expect(() => initOptions()).not.toThrow();
@@ -205,28 +231,21 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
 
       expect(document.querySelector('#profile-display-name').textContent).toBe('');
       expect(document.querySelector('#profile-email').textContent).toBe('');
-
-      const fallback = document.querySelector('#profile-avatar-fallback');
-      expect(fallback.classList.contains('hidden')).toBe(false);
-      expect(fallback.textContent).toBe('?');
+      expectAvatarFallback('?');
     });
 
     it('僅有殘留 profile 但 access token 已失效時，應視為未登入', async () => {
-      getAccountAccessToken.mockResolvedValue(null);
-      getAccountProfile.mockResolvedValue({
-        userId: 'u1',
-        email: 'stale@example.com',
-        displayName: 'Stale User',
-        avatarUrl: null,
+      mockSignedOutAccountSession({
+        profile: createAccountProfile({
+          email: 'stale@example.com',
+          displayName: 'Stale User',
+        }),
       });
       initOptions();
       await Promise.resolve();
       await Promise.resolve();
 
-      expect(document.querySelector('#account-logged-out').classList.contains('hidden')).toBe(
-        false
-      );
-      expect(document.querySelector('#account-logged-in').classList.contains('hidden')).toBe(true);
+      expectAccountLoggedOut();
       expect(document.querySelector('#cloud-sync-card').classList.contains('hidden')).toBe(false);
       expect(document.querySelector('#drive-state-logged-out').classList.contains('hidden')).toBe(
         false
@@ -361,52 +380,46 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
 
   describe('account_session_updated / account_session_cleared runtime 訊息', () => {
     it('收到 account_session_updated 訊息時應切換到已登入 UI 並顯示最新 profile', async () => {
-      getAccountProfile.mockResolvedValue(null);
-      getAccountAccessToken.mockResolvedValue(null);
+      mockSignedOutAccountSession();
       initOptions();
       await flushAsyncClick();
 
       const listener = globalThis.chrome.runtime.onMessage.addListener.mock.calls[0][0];
 
-      getAccountProfile.mockResolvedValue({
-        userId: 'u2',
-        email: 'new@example.com',
-        displayName: 'New',
-        avatarUrl: null,
+      mockAccountSession({
+        token: 'token-456',
+        profile: {
+          userId: 'u2',
+          email: 'new@example.com',
+          displayName: 'New',
+        },
       });
-      getAccountAccessToken.mockResolvedValue('token-456');
 
       listener({ action: 'account_session_updated' });
       await flushAsyncClick();
 
-      expect(document.querySelector('#account-logged-in').classList.contains('hidden')).toBe(false);
-      expect(document.querySelector('#account-logged-out').classList.contains('hidden')).toBe(true);
+      expectAccountLoggedIn();
       expect(document.querySelector('#profile-display-name').textContent).toBe('New');
       expect(document.querySelector('#profile-email').textContent).toBe('new@example.com');
     });
 
     it('收到 account_session_cleared 訊息時應切換到已登出 UI 並隱藏 account 卡資訊', async () => {
-      getAccountAccessToken.mockResolvedValue('token-123');
-      getAccountProfile.mockResolvedValue({
-        userId: 'u1',
-        email: 'user@example.com',
-        displayName: null,
-        avatarUrl: null,
+      mockAccountSession({
+        profile: {
+          displayName: null,
+          avatarUrl: null,
+        },
       });
       initOptions();
       await flushAsyncClick();
 
       const listener = globalThis.chrome.runtime.onMessage.addListener.mock.calls[0][0];
 
-      getAccountProfile.mockResolvedValue(null);
-      getAccountAccessToken.mockResolvedValue(null);
+      mockSignedOutAccountSession();
       listener({ action: 'account_session_cleared' });
       await flushAsyncClick();
 
-      expect(document.querySelector('#account-logged-out').classList.contains('hidden')).toBe(
-        false
-      );
-      expect(document.querySelector('#account-logged-in').classList.contains('hidden')).toBe(true);
+      expectAccountLoggedOut();
       expect(document.querySelector('#cloud-sync-card').classList.contains('hidden')).toBe(false);
       expect(document.querySelector('#drive-state-logged-out').classList.contains('hidden')).toBe(
         false
@@ -437,37 +450,23 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
 
   describe('Phase 2 refresh 語意驗證', () => {
     it('token 過期但 refresh 成功時，UI 應保持已登入（不切回未登入）', async () => {
-      getAccountAccessToken.mockResolvedValue('refreshed_token_xyz');
-      getAccountProfile.mockResolvedValue({
-        userId: 'u1',
-        email: 'user@example.com',
-        displayName: 'Test User',
-        avatarUrl: null,
-      });
+      expect.hasAssertions();
+      mockAccountSession({ token: 'refreshed_token_xyz' });
 
       initOptions();
       await flushAsyncClick();
 
-      expect(document.querySelector('#account-logged-in').classList.contains('hidden')).toBe(false);
-      expect(document.querySelector('#account-logged-out').classList.contains('hidden')).toBe(true);
+      expectAccountLoggedIn();
     });
 
     it('token 過期且 getAccountAccessToken 回 null（terminal failure 或無 refresh token），UI 應切回未登入', async () => {
-      getAccountAccessToken.mockResolvedValue(null);
-      getAccountProfile.mockResolvedValue({
-        userId: 'u1',
-        email: 'user@example.com',
-        displayName: 'Test User',
-        avatarUrl: null,
-      });
+      expect.hasAssertions();
+      mockSignedOutAccountSession({ profile: createAccountProfile() });
 
       initOptions();
       await flushAsyncClick();
 
-      expect(document.querySelector('#account-logged-out').classList.contains('hidden')).toBe(
-        false
-      );
-      expect(document.querySelector('#account-logged-in').classList.contains('hidden')).toBe(true);
+      expectAccountLoggedOut();
     });
 
     it('token 取得發生 transient rejection 時，有 profile 應保留 logged-in UI、顯示可重試提示，且 Cloud Sync 不應卡在 loading', async () => {
