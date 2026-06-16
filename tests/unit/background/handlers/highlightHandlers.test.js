@@ -59,6 +59,101 @@ describe('highlightHandlers', () => {
     mockServices.storageService.getConfig.mockResolvedValue({ notionApiKey });
   };
 
+  const mockRemotePageDeletedFlow = cleanupResult => {
+    mockSavedPageData();
+    mockServices.storageService.clearNotionStateWithRetry.mockResolvedValue(cleanupResult);
+    mockServices.tabService.confirmRemotePageMissing.mockReturnValue({
+      shouldDelete: true,
+      deletionPending: false,
+    });
+    mockHighlightSectionResult({
+      success: false,
+      error: 'OBJECT_NOT_FOUND',
+      details: { phase: 'fetch_blocks' },
+    });
+  };
+
+  const mockNoActiveTab = () => {
+    globalThis.chrome.tabs.query.mockResolvedValueOnce([]);
+  };
+
+  const mockStorageUpdateSuccess = () => {
+    mockServices.storageService.updateHighlights.mockResolvedValue();
+  };
+
+  const createValidationError = error => ({
+    success: false,
+    error,
+  });
+
+  const expectClearNotionStateRetry = () => {
+    expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
+      TEST_URL,
+      expect.objectContaining({
+        source: 'highlightHandlers.performHighlightUpdate',
+        expectedPageId: TEST_NOTION_PAGE_ID,
+      })
+    );
+  };
+
+  const expectResponseWithoutDetails = sendResponse => {
+    const response = sendResponse.mock.calls[0][0];
+    expect(response).not.toHaveProperty('details');
+  };
+
+  const expectNoActiveTabResponse = (sendResponse, { includesErrorCode = false } = {}) => {
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        error: ERROR_MESSAGES.PATTERNS[ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB],
+        ...(includesErrorCode ? { errorCode: ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB } : {}),
+      })
+    );
+  };
+
+  const expectNoSyncUpdateDependencies = () => {
+    expect(mockServices.storageService.getConfig).not.toHaveBeenCalled();
+    expect(mockServices.storageService.getSavedPageData).not.toHaveBeenCalled();
+    expect(mockServices.notionService.updateHighlightsSection).not.toHaveBeenCalled();
+  };
+
+  const expectRequestErrorResponse = (sendResponse, code) => {
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        error: expect.objectContaining({ code }),
+      })
+    );
+  };
+
+  const expectClearHighlightsSuccess = (sendResponse, visualCleared = true) => {
+    expect(sendResponse).toHaveBeenCalledWith({
+      success: true,
+      clearedCount: 2,
+      visualCleared,
+    });
+  };
+
+  const expectClearValidationRejected = ({
+    sendResponse,
+    sender,
+    validationError,
+    validator,
+    skippedValidator,
+  }) => {
+    expect(validator).toHaveBeenCalledWith(sender);
+    expect(skippedValidator).not.toHaveBeenCalled();
+    expect(mockServices.storageService.updateHighlights).not.toHaveBeenCalled();
+    expect(sendResponse).toHaveBeenCalledWith(validationError);
+  };
+
+  const executeNoActiveTabQueryFailure = async executeAction => {
+    mockNoActiveTab();
+    const sendResponse = await executeAction();
+    expectNoActiveTabResponse(sendResponse, { includesErrorCode: true });
+    return sendResponse;
+  };
+
   const executeHandler = async (
     handler,
     { request = {}, sender = createDefaultSender(), sendResponse = createSendResponse() } = {}
@@ -326,31 +421,15 @@ describe('highlightHandlers', () => {
     });
 
     it('cleanup retry 最終失敗時仍應回傳 PAGE_DELETED', async () => {
-      mockSavedPageData();
-      mockServices.storageService.clearNotionStateWithRetry.mockResolvedValue({
+      mockRemotePageDeletedFlow({
         cleared: false,
         attempts: 2,
         error: new Error('storage unavailable'),
       });
-      mockServices.tabService.confirmRemotePageMissing.mockReturnValue({
-        shouldDelete: true,
-        deletionPending: false,
-      });
-      mockHighlightSectionResult({
-        success: false,
-        error: 'OBJECT_NOT_FOUND',
-        details: { phase: 'fetch_blocks' },
-      });
 
       const sendResponse = await executeSyncHighlights();
 
-      expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
-        'https://example.com',
-        expect.objectContaining({
-          source: 'highlightHandlers.performHighlightUpdate',
-          expectedPageId: 'page1',
-        })
-      );
+      expectClearNotionStateRetry();
       // Re-arm: confirmRemotePageMissing 被呼叫兩次（初始確認 + 清除失敗後 re-arm）
       expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledTimes(2);
       expect(globalThis.Logger.error).toHaveBeenCalledWith(
@@ -369,38 +448,21 @@ describe('highlightHandlers', () => {
           errorCode: 'PAGE_DELETED',
         })
       );
-      const response = sendResponse.mock.calls[0][0];
-      expect(response).not.toHaveProperty('details');
+      expectResponseWithoutDetails(sendResponse);
     });
 
     it('cleanup skipped 時不應回傳 PAGE_DELETED 或重新標記 deletionPending', async () => {
-      mockSavedPageData();
-      mockServices.storageService.clearNotionStateWithRetry.mockResolvedValue({
+      mockRemotePageDeletedFlow({
         cleared: false,
         skipped: true,
         reason: 'pageId_mismatch',
         attempts: 1,
         recovered: false,
       });
-      mockServices.tabService.confirmRemotePageMissing.mockReturnValue({
-        shouldDelete: true,
-        deletionPending: false,
-      });
-      mockHighlightSectionResult({
-        success: false,
-        error: 'OBJECT_NOT_FOUND',
-        details: { phase: 'fetch_blocks' },
-      });
 
       const sendResponse = await executeSyncHighlights();
 
-      expect(mockServices.storageService.clearNotionStateWithRetry).toHaveBeenCalledWith(
-        'https://example.com',
-        expect.objectContaining({
-          source: 'highlightHandlers.performHighlightUpdate',
-          expectedPageId: 'page1',
-        })
-      );
+      expectClearNotionStateRetry();
       expect(mockServices.tabService.confirmRemotePageMissing).toHaveBeenCalledTimes(1);
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -413,8 +475,7 @@ describe('highlightHandlers', () => {
           errorCode: 'PAGE_DELETED',
         })
       );
-      const response = sendResponse.mock.calls[0][0];
-      expect(response).not.toHaveProperty('details');
+      expectResponseWithoutDetails(sendResponse);
     });
 
     it('應該在沒有新高亮時直接返回成功', async () => {
@@ -451,52 +512,24 @@ describe('highlightHandlers', () => {
       expect(mockServices.notionService.updateHighlightsSection).not.toHaveBeenCalled();
     });
 
-    it('應該處理缺少 sender.tab 的情況', async () => {
+    it.each([
+      ['缺少 sender.tab', createDefaultSender({ tab: null })],
+      ['缺少 sender.tab.url', createDefaultSender({ tab: { id: TEST_TAB_ID } })],
+    ])('應該處理%s的情況', async (_caseName, sender) => {
+      expect.hasAssertions();
+
       const sendResponse = await executeSyncHighlights({
-        sender: createDefaultSender({ tab: null }),
+        sender,
       });
 
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: ERROR_MESSAGES.PATTERNS[ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB],
-        })
-      );
-      expect(mockServices.storageService.getConfig).not.toHaveBeenCalled();
-      expect(mockServices.storageService.getSavedPageData).not.toHaveBeenCalled();
-      expect(mockServices.notionService.updateHighlightsSection).not.toHaveBeenCalled();
-    });
-
-    it('應該處理缺少 sender.tab.url 的情況', async () => {
-      const sendResponse = await executeSyncHighlights({
-        sender: createDefaultSender({ tab: { id: TEST_TAB_ID } }),
-      });
-
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: ERROR_MESSAGES.PATTERNS[ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB],
-        })
-      );
-      expect(mockServices.storageService.getConfig).not.toHaveBeenCalled();
-      expect(mockServices.storageService.getSavedPageData).not.toHaveBeenCalled();
-      expect(mockServices.notionService.updateHighlightsSection).not.toHaveBeenCalled();
+      expectNoActiveTabResponse(sendResponse);
+      expectNoSyncUpdateDependencies();
     });
   });
 
   describe('startHighlight', () => {
     it('沒有 active tab 時應回傳 NO_ACTIVE_TAB 且不記錄 generic error', async () => {
-      globalThis.chrome.tabs.query.mockResolvedValueOnce([]);
-
-      const sendResponse = await executeStartHighlight();
-
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: ERROR_MESSAGES.PATTERNS[ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB],
-          errorCode: ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB,
-        })
-      );
+      await executeNoActiveTabQueryFailure(executeStartHighlight);
       expect(mockServices.injectionService.ensureBundleInjected).not.toHaveBeenCalled();
       expect(globalThis.Logger.error).not.toHaveBeenCalledWith(
         '啟動高亮工具時出錯',
@@ -815,17 +848,9 @@ describe('highlightHandlers', () => {
     });
 
     it('UPDATE_REMOTE_HIGHLIGHTS 沒有 active tab 時應回傳 NO_ACTIVE_TAB errorCode', async () => {
-      globalThis.chrome.tabs.query.mockResolvedValueOnce([]);
-
-      const sendResponse = await executeUpdateRemoteHighlights({
-        sender: createInternalSender(),
-      });
-
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: ERROR_MESSAGES.PATTERNS[ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB],
-          errorCode: ERROR_MESSAGES.TECHNICAL.NO_ACTIVE_TAB,
+      await executeNoActiveTabQueryFailure(() =>
+        executeUpdateRemoteHighlights({
+          sender: createInternalSender(),
         })
       );
       expect(mockServices.injectionService.collectHighlights).not.toHaveBeenCalled();
@@ -1031,85 +1056,111 @@ describe('highlightHandlers', () => {
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
     });
 
-    it('應該處理缺少參數的情況', async () => {
-      const request = createUrlRequest(); // Missing highlights
+    it.each([
+      {
+        name: '缺少參數',
+        request: createUrlRequest(),
+        expectedCode: 'INVALID_REQUEST',
+      },
+      {
+        name: 'updateHighlights 失敗',
+        arrange: () =>
+          mockServices.storageService.updateHighlights.mockRejectedValue(
+            new Error('Update failed')
+          ),
+        expectedCode: 'INTERNAL_ERROR',
+      },
+    ])('應該處理$name的情況', async ({ arrange, request, expectedCode }) => {
+      expect.hasAssertions();
+      arrange?.();
 
-      const sendResponse = await executeUpdateHighlights({ request });
+      const sendResponse = await executeUpdateHighlights(request ? { request } : undefined);
 
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: expect.objectContaining({ code: 'INVALID_REQUEST' }),
-        })
-      );
-    });
-
-    it('應該處理 updateHighlights 失敗', async () => {
-      mockServices.storageService.updateHighlights.mockRejectedValue(new Error('Update failed'));
-
-      const sendResponse = await executeUpdateHighlights();
-
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: expect.objectContaining({ code: 'INTERNAL_ERROR' }),
-        })
-      );
+      expectRequestErrorResponse(sendResponse, expectedCode);
     });
   });
 
   describe('CLEAR_HIGHLIGHTS', () => {
     it('應該拒絕無效的 content script 請求', async () => {
-      const validationError = {
-        success: false,
-        error: 'content script 驗證失敗',
-      };
+      expect.hasAssertions();
+
+      const validationError = createValidationError('content script 驗證失敗');
       validateContentScriptRequest.mockReturnValueOnce(validationError);
 
-      const sendResponse = createSendResponse();
       const sender = createDefaultSender();
-      const request = createUrlRequest();
 
-      await executeClearHighlights({ request, sender, sendResponse });
+      const sendResponse = await executeClearHighlights({ sender });
 
-      expect(validateContentScriptRequest).toHaveBeenCalledWith(sender);
-      expect(validateInternalRequest).not.toHaveBeenCalled();
-      expect(mockServices.storageService.updateHighlights).not.toHaveBeenCalled();
-      expect(sendResponse).toHaveBeenCalledWith(validationError);
+      expectClearValidationRejected({
+        sendResponse,
+        sender,
+        validationError,
+        validator: validateContentScriptRequest,
+        skippedValidator: validateInternalRequest,
+      });
     });
 
     it('應該拒絕無效的 popup/internal 請求', async () => {
-      const validationError = {
-        success: false,
-        error: 'internal 驗證失敗',
-      };
+      expect.hasAssertions();
+
+      const validationError = createValidationError('internal 驗證失敗');
       validateInternalRequest.mockReturnValueOnce(validationError);
 
-      const sendResponse = createSendResponse();
       const sender = createInternalSender();
       const request = createUrlRequest({ tabId: TEST_TAB_ID });
 
-      await executeClearHighlights({ request, sender, sendResponse });
+      const sendResponse = await executeClearHighlights({ request, sender });
 
-      expect(validateInternalRequest).toHaveBeenCalledWith(sender);
-      expect(validateContentScriptRequest).not.toHaveBeenCalled();
-      expect(mockServices.storageService.updateHighlights).not.toHaveBeenCalled();
-      expect(sendResponse).toHaveBeenCalledWith(validationError);
-    });
-
-    it('應該成功清除標註', async () => {
-      mockServices.storageService.updateHighlights.mockResolvedValue();
-
-      const sendResponse = await executeClearHighlights();
-
-      expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(TEST_URL, []);
-      expect(mockServices.injectionService.clearPageHighlights).toHaveBeenCalledWith(1);
-      expect(sendResponse).toHaveBeenCalledWith({
-        success: true,
-        clearedCount: 2,
-        visualCleared: true,
+      expectClearValidationRejected({
+        sendResponse,
+        sender,
+        validationError,
+        validator: validateInternalRequest,
+        skippedValidator: validateContentScriptRequest,
       });
     });
+
+    it.each([
+      {
+        name: '應該成功清除標註',
+      },
+      {
+        name: '頁面視覺清除失敗時仍應回報 storage 清除成功',
+        arrange: () =>
+          mockServices.injectionService.clearPageHighlights.mockRejectedValueOnce(
+            new Error('Visual cleanup failed')
+          ),
+        visualCleared: false,
+      },
+      {
+        name: '應該允許 popup/internal sender 清除標註並清頁面高亮',
+        sender: createInternalSender(),
+        request: createUrlRequest({ tabId: TEST_TAB_ID }),
+        assertValidatedSender: true,
+      },
+    ])(
+      '$name',
+      async ({ arrange, request, sender, visualCleared = true, assertValidatedSender }) => {
+        mockStorageUpdateSuccess();
+        arrange?.();
+
+        const options = {};
+        if (request) {
+          options.request = request;
+        }
+        if (sender) {
+          options.sender = sender;
+        }
+        const sendResponse = await executeClearHighlights(options);
+
+        if (assertValidatedSender) {
+          expect(validateInternalRequest).toHaveBeenCalledWith(sender);
+        }
+        expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(TEST_URL, []);
+        expect(mockServices.injectionService.clearPageHighlights).toHaveBeenCalledWith(1);
+        expectClearHighlightsSuccess(sendResponse, visualCleared);
+      }
+    );
 
     it('content script request URL 是 shortlink 時，應以實際 tab URL 清除 permalink storage', async () => {
       const sendResponse = createSendResponse();
@@ -1118,7 +1169,7 @@ describe('highlightHandlers', () => {
       const sender = createDefaultSender({ url: permalinkUrl });
       const request = { url: shortlinkUrl };
 
-      mockServices.storageService.updateHighlights.mockResolvedValue();
+      mockStorageUpdateSuccess();
 
       await handlers[RUNTIME_ACTIONS.CLEAR_HIGHLIGHTS](request, sender, sendResponse);
 
@@ -1135,65 +1186,25 @@ describe('highlightHandlers', () => {
       });
     });
 
-    it('頁面視覺清除失敗時仍應回報 storage 清除成功', async () => {
-      mockServices.storageService.updateHighlights.mockResolvedValue();
-      mockServices.injectionService.clearPageHighlights.mockRejectedValueOnce(
-        new Error('Visual cleanup failed')
-      );
+    it.each([
+      {
+        name: '缺少 url',
+        request: {},
+        expectedCode: 'INVALID_REQUEST',
+      },
+      {
+        name: '清除失敗',
+        arrange: () =>
+          mockServices.storageService.updateHighlights.mockRejectedValue(new Error('Clear failed')),
+        expectedCode: 'INTERNAL_ERROR',
+      },
+    ])('應該處理$name的情況', async ({ arrange, request, expectedCode }) => {
+      expect.hasAssertions();
+      arrange?.();
 
-      const sendResponse = await executeClearHighlights();
+      const sendResponse = await executeClearHighlights(request ? { request } : undefined);
 
-      expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(TEST_URL, []);
-      expect(mockServices.injectionService.clearPageHighlights).toHaveBeenCalledWith(1);
-      expect(sendResponse).toHaveBeenCalledWith({
-        success: true,
-        clearedCount: 2,
-        visualCleared: false,
-      });
-    });
-
-    it('應該允許 popup/internal sender 清除標註並清頁面高亮', async () => {
-      const sender = createInternalSender();
-      const request = createUrlRequest({ tabId: TEST_TAB_ID });
-
-      mockServices.storageService.updateHighlights.mockResolvedValue();
-
-      const sendResponse = await executeClearHighlights({ request, sender });
-
-      expect(validateInternalRequest).toHaveBeenCalledWith(sender);
-      expect(mockServices.storageService.updateHighlights).toHaveBeenCalledWith(TEST_URL, []);
-      expect(mockServices.injectionService.clearPageHighlights).toHaveBeenCalledWith(1);
-      expect(sendResponse).toHaveBeenCalledWith({
-        success: true,
-        clearedCount: 2,
-        visualCleared: true,
-      });
-    });
-
-    it('應該處理缺少 url 的情況', async () => {
-      const request = {};
-
-      const sendResponse = await executeClearHighlights({ request });
-
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: expect.objectContaining({ code: 'INVALID_REQUEST' }),
-        })
-      );
-    });
-
-    it('應該處理清除失敗', async () => {
-      mockServices.storageService.updateHighlights.mockRejectedValue(new Error('Clear failed'));
-
-      const sendResponse = await executeClearHighlights();
-
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: expect.objectContaining({ code: 'INTERNAL_ERROR' }),
-        })
-      );
+      expectRequestErrorResponse(sendResponse, expectedCode);
     });
   });
 
