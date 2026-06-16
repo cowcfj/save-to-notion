@@ -97,6 +97,21 @@ describe('optionsLogExport', () => {
       globalThis.URL.revokeObjectURL = originalRevokeObjectURL;
     });
 
+    const expectResolvedExportFailureToRestoreButton = async response => {
+      mockSendMessage.mockResolvedValue(response);
+
+      initOptions();
+
+      const exportBtn = document.querySelector('#export-logs-button');
+      exportBtn.click();
+      await flushAsyncClick();
+
+      const statusEl = document.querySelector('#export-status');
+      expect(statusEl.textContent).toContain('匯出失敗');
+      expect(exportBtn.disabled).toBe(false);
+      expect(Logger.error).toHaveBeenCalled();
+    };
+
     it('should stay disabled while exporting and restore afterwards without changing text', async () => {
       mockSendMessage.mockResolvedValue({
         success: true,
@@ -162,19 +177,21 @@ describe('optionsLogExport', () => {
       expect(statusEl.className).toBe('status-message');
     });
 
-    it('當背景頁沒有回應時應顯示錯誤並恢復按鈕狀態', async () => {
-      mockSendMessage.mockResolvedValue(undefined);
-
-      initOptions();
-
-      const exportBtn = document.querySelector('#export-logs-button');
-      exportBtn.click();
-      await flushAsyncClick();
-
-      const statusEl = document.querySelector('#export-status');
-      expect(statusEl.textContent).toContain('匯出失敗');
-      expect(exportBtn.disabled).toBe(false);
-      expect(Logger.error).toHaveBeenCalled();
+    it.each([
+      {
+        name: '當背景頁沒有回應時應顯示錯誤並恢復按鈕狀態',
+        response: undefined,
+      },
+      {
+        name: '當背景頁返回明確錯誤時應顯示錯誤訊息',
+        response: { error: 'custom export error' },
+      },
+      {
+        name: '當背景頁返回 success false 時應顯示預設失敗訊息',
+        response: { success: false },
+      },
+    ])('$name', async ({ response }) => {
+      await expectResolvedExportFailureToRestoreButton(response);
     });
 
     it('日誌導出失敗時應先 sanitize error 並只記錄安全 payload', async () => {
@@ -204,36 +221,6 @@ describe('optionsLogExport', () => {
           stack: expect.stringContaining('api_key'),
         })
       );
-    });
-
-    it('當背景頁返回明確錯誤時應顯示錯誤訊息', async () => {
-      mockSendMessage.mockResolvedValue({ error: 'custom export error' });
-
-      initOptions();
-
-      const exportBtn = document.querySelector('#export-logs-button');
-      exportBtn.click();
-      await flushAsyncClick();
-
-      const statusEl = document.querySelector('#export-status');
-      expect(statusEl.textContent).toContain('匯出失敗');
-      expect(exportBtn.disabled).toBe(false);
-      expect(Logger.error).toHaveBeenCalled();
-    });
-
-    it('當背景頁返回 success false 時應顯示預設失敗訊息', async () => {
-      mockSendMessage.mockResolvedValue({ success: false });
-
-      initOptions();
-
-      const exportBtn = document.querySelector('#export-logs-button');
-      exportBtn.click();
-      await flushAsyncClick();
-
-      const statusEl = document.querySelector('#export-status');
-      expect(statusEl.textContent).toContain('匯出失敗');
-      expect(exportBtn.disabled).toBe(false);
-      expect(Logger.error).toHaveBeenCalled();
     });
   });
 });
