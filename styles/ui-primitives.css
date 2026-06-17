@@ -176,6 +176,11 @@ button.btn-icon:focus-visible {
   cursor: pointer;
 }
 
+.switch-wrapper:has(.switch-input:disabled) {
+  cursor: not-allowed;
+}
+
+
 /* 視覺隱藏原生 checkbox，但保留可聚焦/可點擊與螢幕報讀器語意 */
 .switch-input {
   position: absolute;
