@@ -426,6 +426,7 @@ describe('Destination profile domain services', () => {
     expect(DESTINATION_PROFILE_STORAGE_KEYS).toEqual({
       PROFILES: 'destinationProfiles',
       LAST_USED_PROFILE_ID: 'destinationLastUsedProfileId',
+      ACTIVE_PROFILE_ID: 'destinationActiveProfileId',
       VERSION: 'destinationProfilesVersion',
     });
   });
@@ -573,6 +574,17 @@ describe('Destination profile domain services', () => {
 
       expect(remaining.map(profile => profile.id)).toEqual(['default']);
       expect(storageData.destinationLastUsedProfileId).toBe('default');
+    });
+  });
+
+  describe('activeProfileId repository', () => {
+    it('writes and reads activeProfileId from local storage', async () => {
+      await repository.setActiveProfileId('destination_abc');
+      expect(await repository.getActiveProfileId()).toBe('destination_abc');
+    });
+
+    it('returns null when activeProfileId is absent or blank', async () => {
+      expect(await repository.getActiveProfileId()).toBeNull();
     });
   });
 });
