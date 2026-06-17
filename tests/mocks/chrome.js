@@ -26,6 +26,7 @@
 // ========== 內部狀態（跨測試共享）==========
 const localStorageData = {};
 const syncStorageData = {};
+const sessionStorageData = {};
 let mockTabIdCounter = 1000;
 
 /** @type {import('../').ChromeMock} */
@@ -128,6 +129,54 @@ const chrome = {
       clear: jest.fn(callback => {
         Object.keys(syncStorageData).forEach(key => {
           delete syncStorageData[key];
+        });
+        if (callback) {
+          callback();
+        }
+        return Promise.resolve();
+      }),
+    },
+    session: {
+      get: jest.fn((keys, callback) => {
+        const result = {};
+        if (typeof keys === 'string') {
+          if (sessionStorageData[keys] !== undefined) {
+            result[keys] = sessionStorageData[keys];
+          }
+        } else if (Array.isArray(keys)) {
+          keys.forEach(key => {
+            if (sessionStorageData[key] !== undefined) {
+              result[key] = sessionStorageData[key];
+            }
+          });
+        } else if (keys === null || keys === undefined) {
+          Object.assign(result, sessionStorageData);
+        }
+        if (callback) {
+          callback(result);
+        }
+        return Promise.resolve(result);
+      }),
+      set: jest.fn((items, callback) => {
+        Object.assign(sessionStorageData, items);
+        if (callback) {
+          callback();
+        }
+        return Promise.resolve();
+      }),
+      remove: jest.fn((keys, callback) => {
+        const keysArray = Array.isArray(keys) ? keys : [keys];
+        keysArray.forEach(key => {
+          delete sessionStorageData[key];
+        });
+        if (callback) {
+          callback();
+        }
+        return Promise.resolve();
+      }),
+      clear: jest.fn(callback => {
+        Object.keys(sessionStorageData).forEach(key => {
+          delete sessionStorageData[key];
         });
         if (callback) {
           callback();
@@ -309,14 +358,18 @@ const chrome = {
     Object.keys(syncStorageData).forEach(key => {
       delete syncStorageData[key];
     });
+    Object.keys(sessionStorageData).forEach(key => {
+      delete sessionStorageData[key];
+    });
     mockTabIdCounter = 1000;
   },
 
   /** 輔助方法：取得儲存資料（測試用） */
-  /** @returns {{local: object, sync: object}} */
+  /** @returns {{local: object, sync: object, session: object}} */
   _getStorage: () => ({
     local: { ...localStorageData },
     sync: { ...syncStorageData },
+    session: { ...sessionStorageData },
   }),
 };
 
