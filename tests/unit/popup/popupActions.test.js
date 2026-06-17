@@ -9,6 +9,7 @@ import {
   getPopupAccountState,
   startAccountLogin,
   openAccountManagement,
+  setPopupTempProfile,
 } from '../../../pages/popup/popupActions.js';
 import { ERROR_MESSAGES } from '../../../scripts/config/shared/messages.js';
 import { BUILD_ENV } from '../../../scripts/config/env/index.js';
@@ -443,6 +444,14 @@ describe('popupActions.js', () => {
         const state = await getDestinationState();
         expect(state.selectedProfileId).toBe('p2');
       });
+    });
+  });
+
+  describe('setPopupTempProfile', () => {
+    it('writes the temp profile id to session storage', async () => {
+      await setPopupTempProfile('p2');
+      const result = await chrome.storage.session.get('popupTempDestinationProfileId');
+      expect(result.popupTempDestinationProfileId).toBe('p2');
     });
   });
 

@@ -36,6 +36,7 @@ import {
   getPopupAccountState,
   startAccountLogin,
   openAccountManagement,
+  setPopupTempProfile,
 } from './popupActions.js';
 import Logger from '../../scripts/utils/Logger.js';
 import { BUILD_ENV } from '../../scripts/config/env/index.js';
@@ -268,6 +269,7 @@ function registerPopupEventListeners(elements, context) {
         return;
       }
       selectedDestinationProfileId = profileId;
+      void setPopupTempProfile(profileId);
       renderDestinationSelector(elements, {
         profiles: destinationProfiles,
         selectedProfileId: profileId,

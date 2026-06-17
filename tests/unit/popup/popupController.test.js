@@ -30,6 +30,7 @@ import {
   getPopupAccountState,
   startAccountLogin,
   openAccountManagement,
+  setPopupTempProfile,
 } from '../../../pages/popup/popupActions.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { BUILD_ENV } from '../../../scripts/config/env/index.js';
@@ -61,6 +62,7 @@ jest.mock('../../../pages/popup/popupActions.js', () => ({
   getPopupAccountState: jest.fn(),
   startAccountLogin: jest.fn(),
   openAccountManagement: jest.fn(),
+  setPopupTempProfile: jest.fn().mockResolvedValue(),
 }));
 jest.mock('../../../scripts/utils/Logger.js');
 jest.mock('../../../scripts/config/env/index.js', () => ({
@@ -899,6 +901,7 @@ describe('popup.js Controller', () => {
         ],
         selectedProfileId: 'work',
       });
+      expect(setPopupTempProfile).toHaveBeenCalledWith('work');
 
       savePage.mockResolvedValue({ success: false, error: 'Save failed' });
       await triggerEvent(mockElements.saveButton);

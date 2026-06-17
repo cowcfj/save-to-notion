@@ -362,3 +362,17 @@ export async function openAccountManagement() {
     return { success: false, error: UI_MESSAGES.ACCOUNT.ACCOUNT_MANAGEMENT_OPEN_FAILED };
   }
 }
+
+/**
+ * 設定 popup 臨時選擇的保存目標，存入 session storage 中。
+ *
+ * @param {string} profileId - 臨時選取的保存目標 ID
+ * @returns {Promise<void>}
+ */
+export async function setPopupTempProfile(profileId) {
+  try {
+    await chrome.storage.session.set({ [POPUP_TEMP_PROFILE_SESSION_KEY]: profileId });
+  } catch (error) {
+    Logger.warn('Failed to persist popup temp profile selection:', error);
+  }
+}
