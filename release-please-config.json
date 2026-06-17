@@ -68,15 +68,18 @@
         },
         {
           "type": "build",
-          "section": "👷 建置與 CI"
+          "section": "👷 建置與 CI",
+          "hidden": true
         },
         {
           "type": "ci",
-          "section": "👷 建置與 CI"
+          "section": "👷 建置與 CI",
+          "hidden": true
         },
         {
           "type": "chore",
-          "section": "🧹 其他變更"
+          "section": "🧹 其他變更",
+          "hidden": true
         }
       ]
     }
