@@ -197,8 +197,21 @@ jobs:
         if: steps.changed-files.outputs.has_changes == 'true'
         run: |
           BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          git diff -z --name-only "$BASE_SHA" HEAD -- scripts pages tests babel.config.js jest.config.js package.json package-lock.json | \
-            xargs -0 -r npx jest --config jest.config.js --ci --findRelatedTests --maxWorkers=2
+
+          # 取得所有變更檔案
+          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" HEAD -- scripts pages tests babel.config.js jest.config.js package.json package-lock.json)
+
+          # 過濾掉配置檔案（這些檔案無法用 --findRelatedTests）
+          TEST_FILES=$(echo "$CHANGED_FILES" | grep -v -E '^(package\.json|package-lock\.json|babel\.config\.js|jest\.config\.js)$' || true)
+
+          if [ -n "$TEST_FILES" ]; then
+            echo "Running related tests for changed source files:"
+            echo "$TEST_FILES"
+            echo "$TEST_FILES" | xargs npx jest --config jest.config.js --ci --findRelatedTests --maxWorkers=2
+          else
+            echo "::notice::Only config files changed, running smoke test instead of related tests"
+            npm test -- --listTests
+          fi
 
       - name: Jest config-change smoke suite
         if: steps.changes.outputs.ci-changed == 'true' || (github.event_name != 'pull_request' && (steps.changes.outputs.test-changed == 'true' || steps.changes.outputs.ci-changed == 'true'))
