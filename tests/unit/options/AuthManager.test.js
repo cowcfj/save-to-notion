@@ -80,14 +80,11 @@ function renderBasicAuthDom() {
         <input type="checkbox" id="enable-debug-logs" />
     `;
 }
-
 function renderExtendedAuthDom() {
   document.body.innerHTML = `
       <div id="auth-status"></div>
       <div id="oauth-status"></div>
       <button id="oauth-button"></button>
-      <button id="oauth-connect-button">${UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT}</button>
-      <button id="oauth-disconnect-button"></button>
       <button id="disconnect-button"></button>
       <input type="checkbox" id="oauth-connection-toggle" />
       <input id="api-key" />
