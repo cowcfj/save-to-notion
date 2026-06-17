@@ -186,11 +186,15 @@ jobs:
           git fetch --no-tags --depth=1 origin "$BASE_SHA"
           CHANGED_FILES=$(git diff --name-only "$BASE_SHA" HEAD -- scripts pages tests babel.config.js jest.config.js package.json package-lock.json | tr '\n' ' ')
           echo "files=$CHANGED_FILES" >> "$GITHUB_OUTPUT"
-          echo "Changed files: $CHANGED_FILES"
+          echo "變更的檔案: $CHANGED_FILES"
 
       - name: Jest related tests
         if: steps.changed-files.outputs.files != ''
-        run: npx jest --config jest.config.js --ci --findRelatedTests ${{ steps.changed-files.outputs.files }} --maxWorkers=2
+        run: |
+          FILES="${{ steps.changed-files.outputs.files }}"
+          if [ -n "$FILES" ]; then
+            npx jest --config jest.config.js --ci --findRelatedTests $FILES --maxWorkers=2
+          fi
 
       - name: Jest config-change smoke suite
         if: steps.changes.outputs.ci-changed == 'true' || (github.event_name != 'pull_request' && (steps.changes.outputs.test-changed == 'true' || steps.changes.outputs.ci-changed == 'true'))

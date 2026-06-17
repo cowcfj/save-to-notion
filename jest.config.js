@@ -16,7 +16,6 @@ module.exports = {
   projects: [
     {
       displayName: 'unit',
-      cacheDirectory: '<rootDir>/.jest-cache',
       testEnvironment: 'jsdom',
       testMatch: [
         '<rootDir>/tests/unit/**/*.test.js',
@@ -35,7 +34,6 @@ module.exports = {
     },
     {
       displayName: 'integration',
-      cacheDirectory: '<rootDir>/.jest-cache',
       testEnvironment: 'jsdom',
       testMatch: [
         '<rootDir>/tests/integration/**/*.test.js',
@@ -121,6 +119,8 @@ module.exports = {
   },
 
   // 防止測試掛起
+  // forceExit: false 讓掛起問題暴露出來,而非被掩蓋
+  // detectOpenHandles: false 為速度優化;遇到掛起時用 npm run test:ci:diagnostic 診斷
   forceExit: false,
   detectOpenHandles: false,
 

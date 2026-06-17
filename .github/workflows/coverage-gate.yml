@@ -23,6 +23,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238
@@ -43,7 +44,7 @@ jobs:
         run: |
           if [ ! -f "scripts/config/env/build.js" ] && [ -f "scripts/config/env/build.example.js" ]; then
             cp scripts/config/env/build.example.js scripts/config/env/build.js
-            echo "Created scripts/config/env/build.js from template for tests"
+            echo "已從範本建立 scripts/config/env/build.js 供測試使用"
           fi
 
       - name: Cache jest transform output
@@ -61,13 +62,13 @@ jobs:
         run: |
           LCOV_FILE="coverage/jest/lcov.info"
           if [ ! -f "$LCOV_FILE" ]; then
-            echo "Coverage file not found at $LCOV_FILE." >&2
+            echo "在 $LCOV_FILE 找不到覆蓋率檔案。" >&2
             exit 1
           fi
           if grep -q "^SF:" "$LCOV_FILE" && grep -q "end_of_record" "$LCOV_FILE"; then
             echo "file=$LCOV_FILE" >> "$GITHUB_OUTPUT"
           else
-            echo "Invalid LCOV format in $LCOV_FILE" >&2
+            echo "$LCOV_FILE 的 LCOV 格式無效" >&2
             exit 1
           fi
 
