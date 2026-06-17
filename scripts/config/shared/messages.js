@@ -32,6 +32,12 @@ const AUTH = {
 
   OPENING_NOTION: '正在打開 Notion...',
   OPEN_NOTION_FAILED: error => `打開 Notion 頁面失敗: ${error}`,
+  OAUTH_STATUS_DISCONNECTED: '未連接',
+  OAUTH_DISCONNECT_CONFIRM_TITLE: '斷開 Notion 連接',
+  OAUTH_DISCONNECT_CONFIRM_MESSAGE:
+    '斷開後將清除此擴充功能的 Notion 授權，需要時可重新連接。確定要斷開嗎？',
+  OAUTH_DISCONNECT_CONFIRM_OK: '斷開',
+  OAUTH_DISCONNECT_CONFIRM_CANCEL: '取消',
 };
 
 const SETUP = {
