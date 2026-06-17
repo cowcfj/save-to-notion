@@ -58,6 +58,7 @@ describe('confirmDialog', () => {
     const result = await promise;
 
     expect(result).toBe(false);
+    expect(document.querySelector('dialog')).toBeNull();
   });
 
   test('danger=true 時確認按鈕帶 btn-danger class', async () => {

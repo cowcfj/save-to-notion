@@ -13,8 +13,8 @@
  * @returns {Promise<boolean>}
  */
 export function confirmDialog({
-  title,
-  message,
+  title = '',
+  message = '',
   confirmLabel = '確定',
   cancelLabel = '取消',
   danger = false,
@@ -68,6 +68,12 @@ export function confirmDialog({
     cancelBtn.addEventListener('click', () => {
       result = false;
       dialog.close();
+    });
+    // 點擊對話框外部（遮罩層）視為取消
+    dialog.addEventListener('click', e => {
+      if (e.target === dialog) {
+        dialog.close();
+      }
     });
     // Esc 或其他原因關閉 → 視為取消
     dialog.addEventListener('close', () => cleanup(result));
