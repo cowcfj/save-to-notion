@@ -266,6 +266,10 @@ button.btn-icon:focus-visible {
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
 }
 
+.confirm-dialog:focus {
+  outline: none;
+}
+
 .confirm-dialog::backdrop {
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(4px);
