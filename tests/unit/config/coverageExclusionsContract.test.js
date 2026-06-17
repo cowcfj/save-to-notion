@@ -29,6 +29,15 @@ function readJestCoverageExclusions() {
   );
 }
 
+function escapeRegExp(value) {
+  return value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+}
+
+function hasSonarProperty(lines, propertyName) {
+  const propertyPattern = new RegExp(String.raw`^${escapeRegExp(propertyName)}\s*=`);
+  return lines.some(line => propertyPattern.test(line.trim()));
+}
+
 describe('coverage exclusion contract', () => {
   test('Sonar property parser normalizes whitespace and ignores comments', () => {
     const readFileSync = jest.spyOn(fs, 'readFileSync').mockReturnValue(`
@@ -47,6 +56,12 @@ describe('coverage exclusion contract', () => {
     } finally {
       readFileSync.mockRestore();
     }
+  });
+
+  test('Sonar property detection treats whitespace before equals as a declaration', () => {
+    const sonarProperties = ['sonar.coverage.exclusions = legacy/**'];
+
+    expect(hasSonarProperty(sonarProperties, 'sonar.coverage.exclusions')).toBe(true);
   });
 
   test('Jest keeps production coverage exclusions explicit', () => {
@@ -75,10 +90,8 @@ describe('coverage exclusion contract', () => {
   test('SonarCloud automatic analysis does not declare a CI LCOV import contract', () => {
     const sonarProperties = readSonarProperties();
 
-    expect(
-      sonarProperties.some(line => line.startsWith('sonar.javascript.lcov.reportPaths='))
-    ).toBe(false);
-    expect(sonarProperties.some(line => line.startsWith('sonar.coverage.exclusions='))).toBe(false);
+    expect(hasSonarProperty(sonarProperties, 'sonar.javascript.lcov.reportPaths')).toBe(false);
+    expect(hasSonarProperty(sonarProperties, 'sonar.coverage.exclusions')).toBe(false);
   });
 
   test('unit spec files remain excluded from Jest coverage accounting', () => {
