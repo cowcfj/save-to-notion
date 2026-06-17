@@ -180,7 +180,6 @@ button.btn-icon:focus-visible {
   cursor: not-allowed;
 }
 
-
 /* 視覺隱藏原生 checkbox，但保留可聚焦/可點擊與螢幕報讀器語意 */
 .switch-input {
   position: absolute;
@@ -253,4 +252,40 @@ button.btn-icon:focus-visible {
   .switch-input:disabled + .switch-track {
     animation: none;
   }
+}
+
+/* === Confirm Dialog (原生 <dialog>) === */
+.confirm-dialog {
+  border: none;
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  max-width: 360px;
+  width: calc(100% - 2 * var(--spacing-lg));
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
+}
+
+.confirm-dialog::backdrop {
+  background-color: rgba(0, 0, 0, 0.4);
+  filter: blur(4px); /* 用 filter 代替 backdrop-filter 以符合 stylelint 屬性限制 */
+}
+
+.confirm-dialog-title {
+  margin: 0 0 var(--spacing-sm);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.confirm-dialog-message {
+  margin: 0 0 var(--spacing-lg);
+  font-size: 14px;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
 }
