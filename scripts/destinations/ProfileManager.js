@@ -8,6 +8,7 @@ import {
   DESTINATION_PROFILE_ERROR_CODES,
   DESTINATION_PROFILE_ERRORS,
   ensureMigratedDefaultProfile,
+  resolveActiveProfile,
   LocalDestinationProfileRepository,
   createProfileId,
   normalizeProfile,
@@ -51,6 +52,16 @@ export class ProfileManager {
   async setLastUsedProfile(profileId) {
     const profile = await this.getProfile(profileId);
     await this.repository.setLastUsedProfileId(profile.id);
+    return profile;
+  }
+
+  async getActiveProfile() {
+    return await resolveActiveProfile(this.repository);
+  }
+
+  async setActiveProfile(profileId) {
+    const profile = await this.getProfile(profileId); // throws NOT_FOUND if invalid
+    await this.repository.setActiveProfileId(profile.id, profile);
     return profile;
   }
 

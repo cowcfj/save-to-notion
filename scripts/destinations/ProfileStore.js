@@ -229,6 +229,25 @@ export async function ensureMigratedDefaultProfile(repository) {
   return [defaultProfile];
 }
 
+export async function resolveActiveProfile(repository) {
+  const profiles = await ensureMigratedDefaultProfile(repository);
+  if (profiles.length === 0) {
+    return null;
+  }
+
+  const activeId = await repository.getActiveProfileId();
+  const active = profiles.find(p => p.id === activeId);
+  if (active) {
+    return active;
+  }
+
+  // 一次性遷移：activeProfileId 缺失或失效 → 用 lastUsedProfileId，否則第一個 profile
+  const lastUsedId = await repository.getLastUsedProfileId();
+  const seed = profiles.find(p => p.id === lastUsedId) || profiles[0];
+  await repository.setActiveProfileId(seed.id, seed);
+  return seed;
+}
+
 export class AccountGatedDestinationEntitlementProvider {
   async getDestinationEntitlement() {
     try {

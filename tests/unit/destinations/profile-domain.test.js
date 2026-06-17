@@ -5,6 +5,7 @@ import {
   DESTINATION_PROFILE_ERRORS,
   DESTINATION_PROFILE_STORAGE_KEYS,
   LocalDestinationProfileRepository,
+  resolveActiveProfile,
 } from '../../../scripts/destinations/ProfileStore.js';
 import { ProfileManager } from '../../../scripts/destinations/ProfileManager.js';
 import { ProfileResolver } from '../../../scripts/destinations/ProfileResolver.js';
@@ -585,6 +586,45 @@ describe('Destination profile domain services', () => {
 
     it('returns null when activeProfileId is absent or blank', async () => {
       expect(await repository.getActiveProfileId()).toBeNull();
+    });
+  });
+
+  describe('resolveActiveProfile', () => {
+    it('returns the profile pointed to by activeProfileId', async () => {
+      await repository.writeProfiles([
+        { id: 'default', notionDataSourceId: 'A', notionDataSourceType: 'database' },
+        { id: 'p2', notionDataSourceId: 'B', notionDataSourceType: 'page' },
+      ]);
+      await repository.setActiveProfileId('p2');
+      const profile = await resolveActiveProfile(repository);
+      expect(profile.id).toBe('p2');
+    });
+
+    it('migrates from lastUsedProfileId when activeProfileId is empty, then backfills', async () => {
+      await repository.writeProfiles(
+        [
+          { id: 'default', notionDataSourceId: 'A', notionDataSourceType: 'database' },
+          { id: 'p2', notionDataSourceId: 'B', notionDataSourceType: 'page' },
+        ],
+        { lastUsedProfileId: 'p2' }
+      );
+      const profile = await resolveActiveProfile(repository);
+      expect(profile.id).toBe('p2');
+      expect(await repository.getActiveProfileId()).toBe('p2'); // backfilled
+    });
+
+    it('falls back to first profile when both ids absent/invalid', async () => {
+      await repository.writeProfiles([
+        { id: 'default', notionDataSourceId: 'A', notionDataSourceType: 'database' },
+      ]);
+      await repository.setActiveProfileId('ghost');
+      const profile = await resolveActiveProfile(repository);
+      expect(profile.id).toBe('default');
+      expect(await repository.getActiveProfileId()).toBe('default'); // corrected
+    });
+
+    it('returns null when there are no profiles', async () => {
+      expect(await resolveActiveProfile(repository)).toBeNull();
     });
   });
 });
