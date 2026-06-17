@@ -309,6 +309,35 @@ describe('Destination profile domain services', () => {
   });
 
   describe('ProfileManager error branches', () => {
+    it('getProfile 找到 id 時回傳對應 profile', async () => {
+      storageData.destinationProfiles = [buildProfile(), buildSecondProfile()];
+
+      await expect(manager.getProfile('second')).resolves.toEqual(
+        expect.objectContaining({
+          id: 'second',
+          notionDataSourceId: 'source-2',
+        })
+      );
+    });
+
+    it('getActiveProfile 會回傳 activeProfileId 指向的 profile', async () => {
+      storageData.destinationProfiles = [buildProfile(), buildSecondProfile()];
+      storageData.destinationActiveProfileId = 'second';
+
+      await expect(manager.getActiveProfile()).resolves.toEqual(
+        expect.objectContaining({ id: 'second' })
+      );
+    });
+
+    it('setActiveProfile 會驗證 profile 並寫入 activeProfileId', async () => {
+      storageData.destinationProfiles = [buildProfile(), buildSecondProfile()];
+
+      const activeProfile = await manager.setActiveProfile('second');
+
+      expect(activeProfile).toEqual(expect.objectContaining({ id: 'second' }));
+      expect(storageData.destinationActiveProfileId).toBe('second');
+    });
+
     it('getProfile 找不到 id 時拋 NOT_FOUND', async () => {
       storageData.destinationProfiles = [buildProfile()];
 
