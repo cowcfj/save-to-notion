@@ -155,13 +155,12 @@ function createOptionsPageManagers() {
  */
 function hideOAuthControlsWhenDisabled() {
   if (!BUILD_ENV.ENABLE_OAUTH) {
-    const oauthConnectBtn = document.querySelector('#oauth-connect-button');
-    const oauthDisconnectBtn = document.querySelector('#oauth-disconnect-button');
-    if (oauthConnectBtn) {
-      oauthConnectBtn.classList.add('hidden');
-    }
-    if (oauthDisconnectBtn) {
-      oauthDisconnectBtn.classList.add('hidden');
+    const oauthToggle = document.querySelector('#oauth-connection-toggle');
+    if (oauthToggle) {
+      const oauthCard = oauthToggle.closest('.card');
+      if (oauthCard) {
+        oauthCard.classList.add('hidden');
+      }
     }
   }
 }

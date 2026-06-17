@@ -156,8 +156,7 @@ describe('options.html 結構', () => {
     );
     expect(zoomLabel?.dataset.uiMessage).toBe('OPTIONS.INTERFACE.ZOOM_LABEL');
     expect(zoomLabel?.textContent.trim()).toBe(UI_MESSAGES.OPTIONS.INTERFACE.ZOOM_LABEL);
-    expect(oauthRow?.querySelector('#oauth-connect-button')).not.toBeNull();
-    expect(oauthRow?.querySelector('#oauth-disconnect-button')).not.toBeNull();
+    expect(oauthRow?.querySelector('#oauth-connection-toggle')).not.toBeNull();
     expect(manualRow?.querySelector('#oauth-button')).not.toBeNull();
     expect(manualRow?.querySelector('#disconnect-button')).not.toBeNull();
     expect(css).toMatch(
