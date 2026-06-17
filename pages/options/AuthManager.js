@@ -19,6 +19,7 @@ import {
   mergeDataSourceConfig,
 } from '../../scripts/config/shared/storage.js';
 import { initiateNotionOAuth } from '../../scripts/auth/notionOAuthInitiator.js';
+import { confirmDialog } from './confirmDialog.js';
 import {
   exchangeNotionOAuthCode,
   saveNotionOAuthToken,
@@ -373,6 +374,49 @@ export class AuthManager {
   }
 
   /**
+   * 將 OAuth toggle 設為「已連接」(ON, 可操作)
+   *
+   * @private
+   */
+  _setOAuthToggleConnected() {
+    const toggle = this.elements.oauthConnectionToggle;
+    if (!toggle) {
+      return;
+    }
+    toggle.checked = true;
+    toggle.disabled = false;
+  }
+
+  /**
+   * 將 OAuth toggle 設為「未連接」(OFF, 可操作)
+   *
+   * @private
+   */
+  _setOAuthToggleDisconnected() {
+    const toggle = this.elements.oauthConnectionToggle;
+    if (!toggle) {
+      return;
+    }
+    toggle.checked = false;
+    toggle.disabled = false;
+  }
+
+  /**
+   * 將 OAuth toggle 設為 loading (鎖住, 防重複點擊)
+   *
+   * @private
+   * @param {boolean} desiredChecked - loading 期間 toggle 顯示的位置
+   */
+  _setOAuthToggleLoading(desiredChecked) {
+    const toggle = this.elements.oauthConnectionToggle;
+    if (!toggle) {
+      return;
+    }
+    toggle.checked = desiredChecked;
+    toggle.disabled = true;
+  }
+
+  /**
    * 解析已儲存的資料來源 ID
    *
    * @private
@@ -472,13 +516,8 @@ export class AuthManager {
     // 更新 OAuth 狀態區域
     this._renderConnectedStatus(this.elements.oauthStatus, `已連接 — ${workspaceName}`);
 
-    // OAuth 按鈕切換為已連接狀態
-    if (this.elements.oauthConnectButton) {
-      this.elements.oauthConnectButton.classList.add('hidden');
-    }
-    if (this.elements.oauthDisconnectButton) {
-      this.elements.oauthDisconnectButton.classList.remove('hidden');
-    }
+    // OAuth toggle 切換為已連接 (ON)
+    this._setOAuthToggleConnected();
 
     // 手動模式區域顯示提示（OAuth 已連接）
     this._renderConnectedStatus(this.elements.authStatus, UI_MESSAGES.AUTH.STATUS_CONNECTED);
@@ -522,17 +561,12 @@ export class AuthManager {
 
     this._resolveDataSourceIdAndNotice(sourceData);
 
-    // OAuth 區域顯示未連接
+    // OAuth 區域顯示未連接 (toggle OFF)
     if (this.elements.oauthStatus) {
-      this.elements.oauthStatus.textContent = '未連接 OAuth';
+      this.elements.oauthStatus.textContent = UI_MESSAGES.AUTH.OAUTH_STATUS_DISCONNECTED;
       this.elements.oauthStatus.className = AuthManager.CLASS_AUTH_STATUS;
     }
-    if (this.elements.oauthConnectButton) {
-      this.elements.oauthConnectButton.classList.remove('hidden');
-    }
-    if (this.elements.oauthDisconnectButton) {
-      this.elements.oauthDisconnectButton.classList.add('hidden');
-    }
+    this._setOAuthToggleDisconnected();
 
     // 載入資料來源列表
     this._loadDataSourcesSafely(
@@ -609,17 +643,12 @@ export class AuthManager {
       this.elements.disconnectButton.classList.add('hidden');
     }
 
-    // OAuth 區域也顯示未連接
+    // OAuth 區域也顯示未連接 (toggle OFF)
     if (this.elements.oauthStatus) {
-      this.elements.oauthStatus.textContent = '未連接';
+      this.elements.oauthStatus.textContent = UI_MESSAGES.AUTH.OAUTH_STATUS_DISCONNECTED;
       this.elements.oauthStatus.className = AuthManager.CLASS_AUTH_STATUS;
     }
-    if (this.elements.oauthConnectButton) {
-      this.elements.oauthConnectButton.classList.remove('hidden');
-    }
-    if (this.elements.oauthDisconnectButton) {
-      this.elements.oauthDisconnectButton.classList.add('hidden');
-    }
+    this._setOAuthToggleDisconnected();
 
     this.ui.hideDataSourceUpgradeNotice();
   }
@@ -649,14 +678,15 @@ export class AuthManager {
   }
 
   /**
-   * 還原 OAuth 連接按鈕至預設狀態
+   * 還原 OAuth toggle 至可操作狀態（解除 loading 鎖定）。
+   * 實際的 ON/OFF 位置由後續 checkAuthStatus() 依真實連接狀態決定。
    *
    * @private
    */
   _restoreOAuthConnectButton() {
-    if (this.elements.oauthConnectButton) {
-      this.elements.oauthConnectButton.disabled = false;
-      this.elements.oauthConnectButton.textContent = UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT;
+    const toggle = this.elements.oauthConnectionToggle;
+    if (toggle) {
+      toggle.disabled = false;
     }
   }
 
@@ -671,6 +701,9 @@ export class AuthManager {
       action: 'startOAuthFlow',
       error: sanitizeApiError(error, 'oauth_flow'),
     });
+
+    // 連接失敗：toggle 回到操作前的 OFF 位置（誠實 toggle 不變式）
+    this._setOAuthToggleDisconnected();
 
     const errorCode = typeof error?.code === 'string' ? error.code : '';
     const errorMsg = this._resolveOAuthErrorMessage(error, errorCode);
@@ -757,10 +790,11 @@ export class AuthManager {
     try {
       Logger.start('開始 Notion OAuth 流程', { action: 'startOAuthFlow' });
 
-      // 更新按鈕為載入狀態
-      if (this.elements.oauthConnectButton) {
-        this.elements.oauthConnectButton.disabled = true;
-        this.elements.oauthConnectButton.textContent = UI_MESSAGES.AUTH.OAUTH_CONNECTING;
+      // toggle 進入 loading：顯示往 ON 滑動並鎖住
+      this._setOAuthToggleLoading(true);
+      if (this.elements.oauthStatus) {
+        this.elements.oauthStatus.textContent = UI_MESSAGES.AUTH.OAUTH_CONNECTING;
+        this.elements.oauthStatus.className = AuthManager.CLASS_AUTH_STATUS;
       }
 
       // 取得 authorization code（CSRF state、authUrl、launchWebAuthFlow、callback 解析、state 驗證皆在共用 initiator 中）
@@ -791,6 +825,18 @@ export class AuthManager {
    * 斷開 OAuth 連接
    */
   async disconnectOAuth() {
+    const confirmed = await confirmDialog({
+      title: UI_MESSAGES.AUTH.OAUTH_DISCONNECT_CONFIRM_TITLE,
+      message: UI_MESSAGES.AUTH.OAUTH_DISCONNECT_CONFIRM_MESSAGE,
+      confirmLabel: UI_MESSAGES.AUTH.OAUTH_DISCONNECT_CONFIRM_OK,
+      cancelLabel: UI_MESSAGES.AUTH.OAUTH_DISCONNECT_CONFIRM_CANCEL,
+      danger: true,
+    });
+    if (!confirmed) {
+      // 取消：toggle 維持 ON（回寫，因為使用者點擊已使 checked 變 false）
+      this._setOAuthToggleConnected();
+      return;
+    }
     try {
       Logger.start('開始斷開 OAuth 連接', { action: 'disconnectOAuth' });
       const syncData = await chrome.storage.sync.get(['notionApiKey']);

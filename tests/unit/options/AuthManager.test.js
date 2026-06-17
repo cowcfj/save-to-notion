@@ -19,6 +19,9 @@ jest.mock('../../../scripts/config/env/index.js', () => ({
   },
 }));
 jest.mock('../../../pages/options/UIManager.js');
+jest.mock('../../../pages/options/confirmDialog.js', () => ({
+  confirmDialog: jest.fn().mockResolvedValue(true),
+}));
 jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
   default: {
@@ -86,6 +89,7 @@ function renderExtendedAuthDom() {
       <button id="oauth-connect-button">${UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT}</button>
       <button id="oauth-disconnect-button"></button>
       <button id="disconnect-button"></button>
+      <input type="checkbox" id="oauth-connection-toggle" />
       <input id="api-key" />
       <input id="database-id" />
       <input id="title-template" />
@@ -488,12 +492,8 @@ describe('AuthManager Extended', () => {
       expect(document.querySelector('#oauth-status').textContent).toContain(
         '已連接 — My Workspace'
       );
-      expect(document.querySelector('#oauth-connect-button').classList.contains('hidden')).toBe(
-        true
-      );
-      expect(document.querySelector('#oauth-disconnect-button').classList.contains('hidden')).toBe(
-        false
-      );
+      expect(document.querySelector('#oauth-connection-toggle').checked).toBe(true);
+      expect(document.querySelector('#oauth-connection-toggle').disabled).toBe(false);
       expect(mockLoadDatabases).toHaveBeenCalledWith('oauth_token_123');
       expect(document.querySelector('#database-id').value).toBe('ds_local_123');
       expect(document.querySelector('#title-template').value).toBe('{title} - custom');
@@ -753,10 +753,7 @@ describe('AuthManager Extended', () => {
         expect.stringContaining('已成功連接 Notion'),
         'success'
       );
-      expect(document.querySelector('#oauth-connect-button').disabled).toBe(false);
-      expect(document.querySelector('#oauth-connect-button').textContent).toBe(
-        UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT
-      );
+      expect(document.querySelector('#oauth-connection-toggle').disabled).toBe(false);
     });
 
     test.each([
@@ -919,10 +916,7 @@ describe('AuthManager Extended', () => {
         error: expect.any(String),
       });
       expect(chrome.storage.session.remove).toHaveBeenCalledWith('oauthState');
-      expect(document.querySelector('#oauth-connect-button').disabled).toBe(false);
-      expect(document.querySelector('#oauth-connect-button').textContent).toBe(
-        UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT
-      );
+      expect(document.querySelector('#oauth-connection-toggle').disabled).toBe(false);
     });
 
     test('Identity API 不可用時應顯示明確錯誤且不進入 OAuth 流程', async () => {
@@ -940,10 +934,7 @@ describe('AuthManager Extended', () => {
         `OAuth 連接失敗：${UI_MESSAGES.AUTH.OAUTH_UNAVAILABLE}`,
         'error'
       );
-      expect(document.querySelector('#oauth-connect-button').disabled).toBe(false);
-      expect(document.querySelector('#oauth-connect-button').textContent).toBe(
-        UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT
-      );
+      expect(document.querySelector('#oauth-connection-toggle').disabled).toBe(false);
     });
 
     test('缺少 OAUTH_CLIENT_ID 時應記錄錯誤、清理 state 並恢復按鈕', async () => {
@@ -964,10 +955,7 @@ describe('AuthManager Extended', () => {
         expect(chrome.storage.session.set).not.toHaveBeenCalled();
         expect(chrome.identity.launchWebAuthFlow).not.toHaveBeenCalled();
         expect(chrome.storage.session.remove).toHaveBeenCalledWith('oauthState');
-        expect(document.querySelector('#oauth-connect-button').disabled).toBe(false);
-        expect(document.querySelector('#oauth-connect-button').textContent).toBe(
-          UI_MESSAGES.AUTH.OAUTH_ACTION_CONNECT
-        );
+        expect(document.querySelector('#oauth-connection-toggle').disabled).toBe(false);
       } finally {
         BUILD_ENV.OAUTH_CLIENT_ID = originalOAuthClientId;
       }
@@ -1053,6 +1041,19 @@ describe('AuthManager Extended', () => {
         expect.stringContaining('斷開 OAuth 失敗'),
         'error'
       );
+    });
+
+    test('取消斷開 OAuth 時應維持 toggle ON 且不執行清除', async () => {
+      const { confirmDialog } = require('../../../pages/options/confirmDialog.js');
+      confirmDialog.mockResolvedValueOnce(false);
+
+      const checkAuthStatusSpy = jest.spyOn(authManager, 'checkAuthStatus').mockResolvedValue();
+
+      await authManager.disconnectOAuth();
+
+      expect(chrome.storage.local.remove).not.toHaveBeenCalled();
+      expect(checkAuthStatusSpy).not.toHaveBeenCalled();
+      expect(document.querySelector('#oauth-connection-toggle').checked).toBe(true);
     });
   });
 
