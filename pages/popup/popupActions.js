@@ -41,78 +41,169 @@ const POPUP_TEMP_PROFILE_SESSION_KEY = 'popupTempDestinationProfileId';
  */
 export async function checkSettings() {
   try {
-    const [syncResult, localResult] = await Promise.all([
-      chrome.storage.sync.get(['notionApiKey', 'notionDataSourceId', 'notionDatabaseId']),
-      chrome.storage.local.get([
-        'notionAuthMode',
-        'notionOAuthToken',
-        'notionDataSourceId',
-        'notionDatabaseId',
-      ]),
-    ]);
-    const isOAuth = localResult.notionAuthMode === AuthMode.OAUTH && localResult.notionOAuthToken;
+    const { syncResult, localResult } = await readSettingsStorage();
+    const authState = resolveSettingsAuthState(syncResult, localResult);
+    const dataSourceId = await resolveSettingsDataSourceId(syncResult, localResult);
 
-    // SOT：activeProfileId 指向的 profile 為當前生效目標；legacy 頂層 key 僅作安全網
-    let activeProfileDataSourceId = null;
-    try {
-      const service = new ProfileManager({ repository: new LocalDestinationProfileRepository() });
-      const activeProfile = await service.getActiveProfile();
-      activeProfileDataSourceId = activeProfile?.notionDataSourceId || null;
-    } catch (error) {
-      Logger.warn('checkSettings: failed to resolve active profile', {
-        action: 'checkSettings',
-        error: sanitizeApiError(error, 'checkSettings.getActiveProfile'),
-      });
-    }
+    await migratePopupDataSourceKeys(syncResult, localResult);
 
-    const legacyDataSourceId =
-      localResult.notionDataSourceId ||
-      localResult.notionDatabaseId ||
-      syncResult.notionDataSourceId ||
-      syncResult.notionDatabaseId;
-    const dataSourceId = activeProfileDataSourceId || legacyDataSourceId;
-    const hasManualApiKey = Boolean(syncResult.notionApiKey);
-    const hasAuth = Boolean(hasManualApiKey || isOAuth);
-    const valid = Boolean(hasAuth && dataSourceId);
-
-    await migrateDataSourceKeys({
-      localData: localResult,
-      syncData: syncResult,
-      storageArea: chrome.storage.local,
-      logger: Logger,
-      action: 'checkSettings',
-      retryContext: 'popup',
-    });
-
-    let authMode = null;
-    if (isOAuth) {
-      authMode = AuthMode.OAUTH;
-    } else if (hasManualApiKey) {
-      authMode = AuthMode.MANUAL;
-    }
-
-    let missingReason;
-    if (!valid) {
-      if (hasAuth) {
-        missingReason = 'missing_data_source';
-      } else {
-        missingReason = 'missing_auth';
-      }
-    }
-
-    return {
-      valid,
-      apiKey: syncResult.notionApiKey,
+    return buildSettingsCheckResult({
+      syncResult,
       dataSourceId,
-      authMode,
-      hasOAuthToken: Boolean(isOAuth),
-      hasManualApiKey,
-      missingReason,
-    };
+      authState,
+    });
   } catch (error) {
     Logger.warn('Failed to check settings:', error);
     return { valid: false, missingReason: 'unknown' };
   }
+}
+
+/**
+ * 讀取設置存儲
+ *
+ * @returns {Promise<{syncResult: object, localResult: object}>}
+ */
+async function readSettingsStorage() {
+  const [syncResult, localResult] = await Promise.all([
+    chrome.storage.sync.get(['notionApiKey', 'notionDataSourceId', 'notionDatabaseId']),
+    chrome.storage.local.get([
+      'notionAuthMode',
+      'notionOAuthToken',
+      'notionDataSourceId',
+      'notionDatabaseId',
+    ]),
+  ]);
+  return { syncResult, localResult };
+}
+
+/**
+ * 解析設置授權狀態
+ *
+ * @param {object} syncResult - 同步存儲讀取結果
+ * @param {object} localResult - 本地存儲讀取結果
+ * @returns {{isOAuth: boolean, hasManualApiKey: boolean, hasAuth: boolean}}
+ */
+function resolveSettingsAuthState(syncResult, localResult) {
+  const isOAuth = Boolean(
+    localResult.notionAuthMode === AuthMode.OAUTH && localResult.notionOAuthToken
+  );
+  const hasManualApiKey = Boolean(syncResult.notionApiKey);
+  const hasAuth = Boolean(hasManualApiKey || isOAuth);
+  return { isOAuth, hasManualApiKey, hasAuth };
+}
+
+/**
+ * 解析設置中的數據源 ID
+ *
+ * @param {object} syncResult - 同步存儲讀取結果
+ * @param {object} localResult - 本地存儲讀取結果
+ * @returns {Promise<string|null>}
+ */
+async function resolveSettingsDataSourceId(syncResult, localResult) {
+  const activeProfileDataSourceId = await resolveActiveProfileDataSourceId();
+  const legacyDataSourceId = resolveLegacyDataSourceId(syncResult, localResult);
+  return activeProfileDataSourceId || legacyDataSourceId;
+}
+
+/**
+ * 解析當前活動配置文件的數據源 ID
+ *
+ * @returns {Promise<string|null>}
+ */
+async function resolveActiveProfileDataSourceId() {
+  try {
+    const service = new ProfileManager({ repository: new LocalDestinationProfileRepository() });
+    const activeProfile = await service.getActiveProfile();
+    return activeProfile?.notionDataSourceId || null;
+  } catch (error) {
+    Logger.warn('checkSettings: failed to resolve active profile', {
+      action: 'checkSettings',
+      error: sanitizeApiError(error, 'checkSettings.getActiveProfile'),
+    });
+    return null;
+  }
+}
+
+/**
+ * 解析舊版數據源 ID
+ *
+ * @param {object} syncResult - 同步存儲讀取結果
+ * @param {object} localResult - 本地存儲讀取結果
+ * @returns {string|null}
+ */
+function resolveLegacyDataSourceId(syncResult, localResult) {
+  return (
+    localResult.notionDataSourceId ||
+    localResult.notionDatabaseId ||
+    syncResult.notionDataSourceId ||
+    syncResult.notionDatabaseId ||
+    null
+  );
+}
+
+/**
+ * 遷移彈出窗口數據源密鑰
+ *
+ * @param {object} syncResult - 同步存儲讀取結果
+ * @param {object} localResult - 本地存儲讀取結果
+ * @returns {Promise<void>}
+ */
+async function migratePopupDataSourceKeys(syncResult, localResult) {
+  await migrateDataSourceKeys({
+    localData: localResult,
+    syncData: syncResult,
+    storageArea: chrome.storage.local,
+    logger: Logger,
+    action: 'checkSettings',
+    retryContext: 'popup',
+  });
+}
+
+/**
+ * 構建設置檢查結果
+ *
+ * @param {object} params - 參數對象
+ * @param {object} params.syncResult - 同步結果
+ * @param {string|null} params.dataSourceId - 數據源 ID
+ * @param {object} params.authState - 授權狀態
+ * @returns {object}
+ */
+function buildSettingsCheckResult({ syncResult, dataSourceId, authState }) {
+  const { isOAuth, hasManualApiKey, hasAuth } = authState;
+  const valid = Boolean(hasAuth && dataSourceId);
+
+  let authMode = null;
+  if (isOAuth) {
+    authMode = AuthMode.OAUTH;
+  } else if (hasManualApiKey) {
+    authMode = AuthMode.MANUAL;
+  }
+
+  const missingReason = resolveMissingSettingsReason(valid, hasAuth);
+
+  return {
+    valid,
+    apiKey: syncResult.notionApiKey,
+    dataSourceId,
+    authMode,
+    hasOAuthToken: Boolean(isOAuth),
+    hasManualApiKey,
+    missingReason,
+  };
+}
+
+/**
+ * 解析缺失設置的原因
+ *
+ * @param {boolean} valid - 是否有效
+ * @param {boolean} hasAuth - 是否有授權
+ * @returns {'missing_data_source'|'missing_auth'|undefined}
+ */
+function resolveMissingSettingsReason(valid, hasAuth) {
+  if (valid) {
+    return undefined;
+  }
+  return hasAuth ? 'missing_data_source' : 'missing_auth';
 }
 
 /**
@@ -179,62 +270,19 @@ export async function savePage(profileId) {
  */
 export async function getDestinationState() {
   try {
-    const service = new ProfileManager({
-      repository: new LocalDestinationProfileRepository(),
-      entitlementProvider: new AccountGatedDestinationEntitlementProvider(),
-    });
-    const profiles = await service.listProfiles().catch(error => {
-      Logger.warn({
-        action: 'getDestinationState',
-        operation: 'listProfiles',
-        error: sanitizeApiError(error, 'getDestinationState.listProfiles'),
-      });
-      return [];
-    });
-    const tempResult = await chrome.storage.session
-      .get(POPUP_TEMP_PROFILE_SESSION_KEY)
-      .catch(error => {
-        Logger.warn({
-          action: 'getDestinationState',
-          operation: 'getSessionTempProfile',
-          error: sanitizeApiError(error, 'getDestinationState.getSessionTempProfile'),
-        });
-        return null;
-      });
-    const tempProfileId = tempResult?.[POPUP_TEMP_PROFILE_SESSION_KEY] || null;
-
-    const activeProfile = await service.getActiveProfile().catch(error => {
-      Logger.warn({
-        action: 'getDestinationState',
-        operation: 'getActiveProfile',
-        error: sanitizeApiError(error, 'getDestinationState.getActiveProfile'),
-      });
-      return null;
-    });
-
-    const entitlement = await service.getDestinationEntitlement().catch(error => {
-      Logger.warn({
-        action: 'getDestinationState',
-        operation: 'getDestinationEntitlement',
-        error: sanitizeApiError(error, 'getDestinationState.getDestinationEntitlement'),
-      });
-      return { maxProfiles: 1 };
-    });
-
-    const allowedProfiles = profiles.slice(0, entitlement.maxProfiles);
-    const tempIsValid = allowedProfiles.some(profile => profile.id === tempProfileId);
-    let selectedProfileId = allowedProfiles[0]?.id ?? null;
-    if (tempIsValid) {
-      selectedProfileId = tempProfileId;
-    } else if (allowedProfiles.some(profile => profile.id === activeProfile?.id)) {
-      selectedProfileId = activeProfile.id;
-    }
-
-    return {
+    const service = createDestinationProfileService();
+    const profiles = await readDestinationProfiles(service);
+    const tempProfileId = await readPopupTempProfileId();
+    const activeProfile = await readActiveDestinationProfile(service);
+    const entitlement = await readDestinationEntitlement(service);
+    const selectedProfileId = resolveSelectedDestinationProfileId({
       profiles,
-      selectedProfileId,
       entitlement,
-    };
+      tempProfileId,
+      activeProfile,
+    });
+
+    return { profiles, selectedProfileId, entitlement };
   } catch (error) {
     Logger.warn({
       action: 'getDestinationState',
@@ -243,6 +291,119 @@ export async function getDestinationState() {
     });
     return { profiles: [], selectedProfileId: null, entitlement: { maxProfiles: 1 } };
   }
+}
+
+/**
+ * 創建目標配置文件服務
+ *
+ * @returns {ProfileManager}
+ */
+function createDestinationProfileService() {
+  return new ProfileManager({
+    repository: new LocalDestinationProfileRepository(),
+    entitlementProvider: new AccountGatedDestinationEntitlementProvider(),
+  });
+}
+
+/**
+ * 記錄目標狀態警告日誌
+ *
+ * @param {string} operation - 操作名稱
+ * @param {Error|any} error - 錯誤對象
+ */
+function logDestinationStateWarning(operation, error) {
+  Logger.warn({
+    action: 'getDestinationState',
+    operation,
+    error: sanitizeApiError(error, `getDestinationState.${operation}`),
+  });
+}
+
+/**
+ * 讀取保存目標列表
+ *
+ * @param {ProfileManager} service - 配置文件服務實例
+ * @returns {Promise<Array<object>>}
+ */
+async function readDestinationProfiles(service) {
+  try {
+    return await service.listProfiles();
+  } catch (error) {
+    logDestinationStateWarning('listProfiles', error);
+    return [];
+  }
+}
+
+/**
+ * 讀取彈出窗口臨時配置文件 ID
+ *
+ * @returns {Promise<string|null>}
+ */
+async function readPopupTempProfileId() {
+  try {
+    const tempResult = await chrome.storage.session.get(POPUP_TEMP_PROFILE_SESSION_KEY);
+    return tempResult?.[POPUP_TEMP_PROFILE_SESSION_KEY] || null;
+  } catch (error) {
+    logDestinationStateWarning('getSessionTempProfile', error);
+    return null;
+  }
+}
+
+/**
+ * 讀取活動目標配置文件
+ *
+ * @param {ProfileManager} service - 配置文件服務實例
+ * @returns {Promise<object|null>}
+ */
+async function readActiveDestinationProfile(service) {
+  try {
+    return await service.getActiveProfile();
+  } catch (error) {
+    logDestinationStateWarning('getActiveProfile', error);
+    return null;
+  }
+}
+
+/**
+ * 讀取目標權益資訊
+ *
+ * @param {ProfileManager} service - 配置文件服務實例
+ * @returns {Promise<{maxProfiles: number}>}
+ */
+async function readDestinationEntitlement(service) {
+  try {
+    return await service.getDestinationEntitlement();
+  } catch (error) {
+    logDestinationStateWarning('getDestinationEntitlement', error);
+    return { maxProfiles: 1 };
+  }
+}
+
+/**
+ * 解析已選擇的目標配置文件 ID
+ *
+ * @param {object} params - 參數對象
+ * @param {Array<object>} params.profiles - 配置文件列表
+ * @param {object} params.entitlement - 權益資訊
+ * @param {string|null} params.tempProfileId - 臨時配置文件 ID
+ * @param {object|null} params.activeProfile - 活動配置文件
+ * @returns {string|null}
+ */
+function resolveSelectedDestinationProfileId({
+  profiles,
+  entitlement,
+  tempProfileId,
+  activeProfile,
+}) {
+  const allowedProfiles = profiles.slice(0, entitlement.maxProfiles);
+  const tempIsValid = allowedProfiles.some(profile => profile.id === tempProfileId);
+  if (tempIsValid) {
+    return tempProfileId;
+  }
+  if (allowedProfiles.some(profile => profile.id === activeProfile?.id)) {
+    return activeProfile.id;
+  }
+  return allowedProfiles[0]?.id ?? null;
 }
 
 /**
