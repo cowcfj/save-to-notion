@@ -50,6 +50,7 @@ const NOTION_ID_LENGTH = 32;
 const NOTION_UUID_SEGMENT_LENGTH = 36;
 const NOTION_ID_SEGMENT_LENGTHS = new Set([NOTION_ID_LENGTH, NOTION_UUID_SEGMENT_LENGTH]);
 const NOTION_ID_HEX_DIGITS = new Set('0123456789abcdefABCDEF'.split(''));
+const ARIA_HIDDEN_ATTRIBUTE = 'aria-hidden';
 let destinationProfilesUIController = null;
 
 function normalizeDestinationProfileName(value) {
@@ -88,6 +89,46 @@ function resolveCreateDestinationProfileErrorMessage(error) {
     : UI_MESSAGES.OPTIONS.DESTINATION.CREATE_FAILED;
 }
 
+function hasRemainingDestinationProfiles(remainingProfiles) {
+  if (!remainingProfiles) {
+    return false;
+  }
+  return remainingProfiles.length > 0;
+}
+
+function shouldReassignActiveDestinationProfile(
+  activeProfileId,
+  deletedProfileId,
+  remainingProfiles
+) {
+  if (activeProfileId !== deletedProfileId) {
+    return false;
+  }
+  return hasRemainingDestinationProfiles(remainingProfiles);
+}
+
+function resolveDestinationProfileId(profile) {
+  if (!profile) {
+    return null;
+  }
+  return profile.id ?? null;
+}
+
+function warnActiveDestinationProfileLookupFailure({
+  action,
+  error,
+  errorContext,
+  shouldLogConsoleError = false,
+}) {
+  if (shouldLogConsoleError) {
+    console.error('DEBUG ACTIVE PROFILE ERROR:', error);
+  }
+  Logger.warn('讀取啟用保存目標失敗', {
+    action,
+    error: sanitizeApiError(error, errorContext),
+  });
+}
+
 function createDestinationProfileService() {
   return new ProfileManager({
     repository: new LocalDestinationProfileRepository(),
@@ -118,10 +159,10 @@ function activateSidebarSection(sectionName, navItems, sections) {
   for (const section of sections) {
     if (section.id === targetSectionId) {
       section.classList.add('active');
-      section.setAttribute('aria-hidden', 'false');
+      section.setAttribute(ARIA_HIDDEN_ATTRIBUTE, 'false');
     } else {
       section.classList.remove('active');
-      section.setAttribute('aria-hidden', 'true');
+      section.setAttribute(ARIA_HIDDEN_ATTRIBUTE, 'true');
     }
   }
 
@@ -369,7 +410,7 @@ async function initDestinationProfilesUI(ui) {
 
     const track = document.createElement('span');
     track.className = 'switch-track';
-    track.setAttribute('aria-hidden', 'true');
+    track.setAttribute(ARIA_HIDDEN_ATTRIBUTE, 'true');
     const knob = document.createElement('span');
     knob.className = 'switch-knob';
     track.append(knob);
@@ -480,64 +521,90 @@ async function initDestinationProfilesUI(ui) {
     addButton.title = limitMessage;
   };
 
-  const renderDestinationProfiles = async () => {
-    let profiles = cachedProfiles;
-    let entitlement = DEFAULT_DESTINATION_ENTITLEMENT;
-
+  const listDestinationProfilesForRender = async () => {
     try {
-      profiles = await service.listProfiles();
+      const profiles = await service.listProfiles();
       cachedProfiles = profiles;
+      return profiles;
     } catch (error) {
       const safeError = sanitizeApiError(error, 'destinationProfileList');
       Logger.warn('讀取保存目標列表失敗', {
         action: 'renderDestinationProfiles',
         error: safeError,
       });
+      return cachedProfiles;
     }
+  };
 
+  const resolveDestinationEntitlementForRender = async () => {
     try {
-      entitlement = await service.getDestinationEntitlement();
+      return await service.getDestinationEntitlement();
     } catch (error) {
       const safeError = sanitizeApiError(error, 'destinationProfileEntitlement');
       Logger.warn('讀取保存目標權限失敗', {
         action: 'renderDestinationProfiles',
         error: safeError,
       });
+      return DEFAULT_DESTINATION_ENTITLEMENT;
     }
+  };
 
-    list.innerHTML = '';
-
-    let activeProfileId = null;
+  const resolveActiveDestinationProfileId = async (
+    action,
+    errorContext,
+    shouldLogConsoleError = false
+  ) => {
+    if (typeof service.getActiveProfile !== 'function') {
+      return null;
+    }
     try {
-      if (typeof service.getActiveProfile === 'function') {
-        const activeProfile = await service.getActiveProfile();
-        activeProfileId = activeProfile?.id ?? null;
-      }
+      const activeProfile = await service.getActiveProfile();
+      return resolveDestinationProfileId(activeProfile);
     } catch (error) {
-      console.error('DEBUG ACTIVE PROFILE ERROR:', error);
-      Logger.warn('讀取啟用保存目標失敗', {
-        action: 'renderDestinationProfiles',
-        error: sanitizeApiError(error, 'destinationProfileActive'),
+      warnActiveDestinationProfileLookupFailure({
+        action,
+        error,
+        errorContext,
+        shouldLogConsoleError,
       });
+      return null;
     }
+  };
 
+  const createDestinationProfileRow = (profile, activeProfileId, canDeleteProfile) => {
+    const isActive = profile.id === activeProfileId;
+    const row = document.createElement('div');
+    row.className = 'destination-profile-row';
+    row.setAttribute('role', 'radio');
+    row.setAttribute('aria-checked', isActive ? 'true' : 'false');
+    row.style.borderLeftColor = profile.color || '#2563eb';
+
+    const activeSwitch = createDestinationActiveSwitch(profile, isActive);
+    const content = renderProfileContent(profile);
+    const actions = renderProfileActions(profile, canDeleteProfile);
+
+    row.append(activeSwitch, content, actions);
+    return row;
+  };
+
+  const renderDestinationProfileRows = (profiles, activeProfileId) => {
+    list.innerHTML = '';
+    const canDeleteProfile = profiles.length > 1;
     for (const profile of profiles) {
-      const isActive = profile.id === activeProfileId;
-      const row = document.createElement('div');
-      row.className = 'destination-profile-row';
-      row.setAttribute('role', 'radio');
-      row.setAttribute('aria-checked', isActive ? 'true' : 'false');
-      row.style.borderLeftColor = profile.color || '#2563eb';
-
-      const canDeleteProfile = profiles.length > 1;
-      const activeSwitch = createDestinationActiveSwitch(profile, isActive);
-      const content = renderProfileContent(profile);
-      const actions = renderProfileActions(profile, canDeleteProfile);
-
-      row.append(activeSwitch, content, actions);
-      list.append(row);
+      list.append(createDestinationProfileRow(profile, activeProfileId, canDeleteProfile));
     }
+  };
 
+  const renderDestinationProfiles = async () => {
+    const profiles = await listDestinationProfilesForRender();
+    const entitlement = await resolveDestinationEntitlementForRender();
+    const activeProfileId = await resolveActiveDestinationProfileId(
+      'renderDestinationProfiles',
+      'destinationProfileActive',
+      true
+    );
+
+    renderDestinationProfileRows(profiles, activeProfileId);
     updateDestinationLimitState(profiles, entitlement);
   };
 
@@ -568,33 +635,40 @@ async function initDestinationProfilesUI(ui) {
     await renderDestinationProfiles();
   };
 
-  const deleteDestinationProfile = async profileId => {
-    let activeProfileId = null;
-    try {
-      if (typeof service.getActiveProfile === 'function') {
-        const activeProfile = await service.getActiveProfile();
-        activeProfileId = activeProfile?.id ?? null;
-      }
-    } catch (error) {
-      Logger.warn('讀取啟用保存目標失敗', {
-        action: 'deleteDestinationProfile',
-        error: sanitizeApiError(error, 'getActiveProfile'),
-      });
+  const reassignActiveDestinationProfileAfterDelete = async (
+    activeProfileId,
+    deletedProfileId,
+    remainingProfiles
+  ) => {
+    if (
+      !shouldReassignActiveDestinationProfile(activeProfileId, deletedProfileId, remainingProfiles)
+    ) {
+      return;
     }
 
-    const remainingProfiles = await service.deleteProfile(profileId);
-    if (activeProfileId === profileId && remainingProfiles && remainingProfiles.length > 0) {
-      try {
-        if (typeof service.setActiveProfile === 'function') {
-          await service.setActiveProfile(remainingProfiles[0].id);
-        }
-      } catch (error) {
-        Logger.warn('轉移啟用保存目標失敗', {
-          action: 'deleteDestinationProfile',
-          error: sanitizeApiError(error, 'setActiveProfile'),
-        });
+    try {
+      if (typeof service.setActiveProfile === 'function') {
+        await service.setActiveProfile(remainingProfiles[0].id);
       }
+    } catch (error) {
+      Logger.warn('轉移啟用保存目標失敗', {
+        action: 'deleteDestinationProfile',
+        error: sanitizeApiError(error, 'setActiveProfile'),
+      });
     }
+  };
+
+  const deleteDestinationProfile = async profileId => {
+    const activeProfileId = await resolveActiveDestinationProfileId(
+      'deleteDestinationProfile',
+      'getActiveProfile'
+    );
+    const remainingProfiles = await service.deleteProfile(profileId);
+    await reassignActiveDestinationProfileAfterDelete(
+      activeProfileId,
+      profileId,
+      remainingProfiles
+    );
     await renderDestinationProfiles();
   };
 
