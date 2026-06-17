@@ -63,8 +63,7 @@ export class AuthManager {
     this.elements.testApiButton = document.querySelector('#test-api-button');
     this.elements.authStatus = document.querySelector('#auth-status');
     // OAuth 專用元素
-    this.elements.oauthConnectButton = document.querySelector('#oauth-connect-button');
-    this.elements.oauthDisconnectButton = document.querySelector('#oauth-disconnect-button');
+    this.elements.oauthConnectionToggle = document.querySelector('#oauth-connection-toggle');
     this.elements.oauthStatus = document.querySelector('#oauth-status');
     // 其他相關設定
     this.elements.titleTemplateInput = document.querySelector('#title-template');
@@ -130,8 +129,6 @@ export class AuthManager {
    */
   _bindAuthActionButtons() {
     const clickBindings = [
-      [this.elements.oauthConnectButton, () => this.startOAuthFlow()],
-      [this.elements.oauthDisconnectButton, () => this.disconnectOAuth()],
       [this.elements.oauthButton, () => this.startNotionSetup()],
       [this.elements.disconnectButton, () => this.disconnectFromNotion()],
       [this.elements.testApiButton, () => this.testApiKey()],
@@ -140,6 +137,8 @@ export class AuthManager {
     for (const [element, handler] of clickBindings) {
       this._bindClickListener(element, handler);
     }
+
+    this._bindOAuthConnectionToggle();
   }
 
   /**
@@ -155,6 +154,28 @@ export class AuthManager {
     }
 
     element.addEventListener('click', handler);
+  }
+
+  /**
+   * 綁定 OAuth 連接 toggle。
+   * 依 toggle 切換後的 checked 分派：勾選 → 連接；取消勾選 → 斷開。
+   * toggle 位置不直接代表狀態，由 connect/disconnect 流程結果回寫。
+   *
+   * @private
+   */
+  _bindOAuthConnectionToggle() {
+    const toggle = this.elements.oauthConnectionToggle;
+    if (!toggle) {
+      return;
+    }
+
+    toggle.addEventListener('change', () => {
+      if (toggle.checked) {
+        this.startOAuthFlow();
+      } else {
+        this.disconnectOAuth();
+      }
+    });
   }
 
   /**
