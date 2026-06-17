@@ -1,40 +1,174 @@
-*.pem
-
-# 建置環境配置（含 OAuth 敏感資訊，不追蹤）
-scripts/config/env/build.js
-
-.DS# 內部文檔目錄(所有內部開發文檔)
-.history/
-
-# 測試相關文件
-test_output.txt
-playwright-report/
-test-results/
-.nyc_output/
-*.lcov===========================================================
+# ============================================================
 # 🔒 GitHub 同步安全策略
 # 默認原則：除了核心代碼和正式發布文檔，其他文件默認不同步
 # 詳細策略見 internal/guides/GITHUB_SYNC_POLICY.md
 # ============================================================
 
-# 內部文檔目錄（所有內部開發文檔）
+# ============================================================
+# 📂 敏感配置和憑證
+# ============================================================
+*.pem
+scripts/config/env/build.js
+
+# ============================================================
+# 📂 內部開發文檔（不同步到 GitHub）
+# ============================================================
 internal/
-archive/*
+archive/
+docs/
+
+# AI Agent 工具配置目錄
+.qwen/
+.roo/
+.kiro/
+.claude/
+.serena/
+.kilocode/
+.worktrees/
+.cursor/
+.gemini/
+.antigravitycli/
+.clinerules/
+.agents/rules/
+.agents/skills/
+.agents/evals/
+.agents/.shared/staging/
+.superpowers/
+.cursor/rules/byterover-rules.mdc
+.trae/documents/
+
+# AI Agent 配置文件
+# AGENTS.md is tracked to serve as AI context for CodeRabbit and Cursor
+QWEN.md
+CLAUDE.md
+DESIGN.md
+AGENTS.md
+.github/copilot-instructions.md
+AI_AGENT_QUICK_REF.md
+.antigravityignore
+.serenaignore
+.mcp.json
+
+# 內部指南文檔模式
+*_GUIDE.md
+*_INTERNAL.md
+*_LOCAL.md
+*_TODO.md
+*_SPEC.md
+*_PLAN.md
+*_REPORT.md
+*_STRATEGY.md
+*_CHECKLIST.md
+*_IMPLEMENTATION.md
+*_ISSUE.md
+*_DIAGNOSTIC.md
+*_BACKUP.md
+*_report.json
+
+# 項目管理文檔
+PROJECT_ROADMAP.md
+PROJECT_STANDARDS.md
+STANDARDS_SETUP_COMPLETE.md
+GITHUB_SYNC_POLICY.md
+GOALS.md
+QUICK_START.md
+MCP_SETUP.md
+diagnose-mcp.md
+DOCUMENTATION_STRATEGY.md
+SEAMLESS_MIGRATION.md
+UPGRADE_DATA_SAFETY.md
+CODECOV_SETUP.md
+
+# 清理和分析報告
+CLEANUP_*.md
+DATA_CLEANUP_ANALYSIS.md
+NODE_MODULES_EXPLANATION.md
+NODE_MODULES_*.md
+PERFORMANCE_*.md
+PERFORMANCE_ANALYSIS.md
+
+# 修復和調試文檔
+FIX_COMPLETE_*.md
+DEBUG_*.md
+DIAGNOSTIC_*.md
+QUICK_TEST_*.md
+PR64-FIX-REPORT.md
+PR64-COMPLETE-SOLUTION.md
+REGEX_USAGE_ANALYSIS.md
+
+# 發布流程文檔
+RELEASE_CHECKLIST_*.md
+RELEASE_COMPLETE_*.md
+RELEASE_SUMMARY_*.md
+RELEASE_NOTES_SHORT_*.md
+RELEASE_NOTES_v*.md
+GITHUB_RELEASE_TEMPLATE.md
+GITHUB_RELEASE_v*.md
+github-release-*.md
+CHANGELOG_v*.md
+
+# 整合和功能文檔
+INTEGRATION_SUMMARY.md
+FEATURE_COMPARISON.md
+IMPLEMENTATION_COMPLETE.md
+FILE_ORGANIZATION.md
+
+# 用戶指南（版本特定，內部）
+USER_GUIDE_v*.md
+
+# UI 改進文檔（內部）
+UI_IMPROVEMENT_*.md
+
+# 版本總結（內部）
+VERSION_SUMMARY_*.md
+
+# 協作提案（內部討論）
+COLLABORATION_PROPOSAL.md
+
+# 備份文檔
+README_BACKUP.md
+PROJECT_EVALUATION_REPORT_OLD.md
+
+# ============================================================
+# 🏗️ 構建產物和臨時文件
+# ============================================================
+/dist
+/.tmp
+build/
+release/
+release-package/
+
+# ============================================================
+# 🧪 測試相關
+# ============================================================
 # 覆蓋率報告 - 由 CI 自動產生,不進 git (見 docs/adr/0009-ci-generated-coverage-trust-model.md)
 coverage/
+.nyc_output/
+*.lcov
 
-# 測試和開發文件
+# 測試產物和報告
+test_output.txt
+playwright-report/
+test-results/
 tests/manual/
 tests/results/
 tests/screenshots/
+tests/reports/
 tests/*.md
-!tests/mocks/
-!tests/unit/
-!tests/helpers/
-!tests/setup.js
+tests/e2e/coverage-merger-lcov.js
+tests/integration/thomas-frank-integration.test.js
+
+# 測試相關 HTML
 *test.html
 *-test.html
 test-*.html
+*preview.html
+generate-icons.html
+logo-design.html
+new-logo-preview.html
+*-design.html
+
+# 測試報告文件
 test-report-*.json
 test-report-*.md
 TESTING_GUIDE.md
@@ -45,211 +179,59 @@ TEST_v*.md
 TEST_E2E_MCP_GUIDE.md
 TEST_COVERAGE_*.md
 TEST_FIX_*.md
-*preview.html
-generate-icons.html
-logo-design.html
-new-logo-preview.html
-*-design.html
+
+# 測試臨時目錄
 /tmp/notion-clipper-tests/
 demos/
 promo-images/*.html
-release/
-tests/e2e/coverage-merger-lcov.js
-tests/integration/thomas-frank-integration.test.js
+
+# 保留測試核心目錄
+!tests/mocks/
+!tests/unit/
+!tests/helpers/
+!tests/setup.js
 
 # ============================================================
-# 📂 內部開發文檔（不同步到 GitHub）
+# 📦 依賴和包管理
 # ============================================================
-
-# AI Agent 指南、配置和內部文檔
-.qwen/
-.roo/
-.kiro/
-QWEN.md
-CLAUDE.md
-.serena/
-.claude/
-.kilocode/
-.worktrees/
-# AGENTS.md is tracked to serve as AI context for CodeRabbit and Cursor
-AI_AGENT_QUICK_REF.md
-*_GUIDE.md
-*_INTERNAL.md
-*_LOCAL.md
-*_TODO.md
-.github/copilot-instructions.md
-
-# 項目規劃和策略文檔
-PROJECT_ROADMAP.md
-PROJECT_STANDARDS.md
-*_REPORT.md
-*_STRATEGY.md
-*_CHECKLIST.md
-STANDARDS_SETUP_COMPLETE.md
-GITHUB_SYNC_POLICY.md
-GOALS.md
-QUICK_START.md
-MCP_SETUP.md
-diagnose-mcp.md
-DOCUMENTATION_STRATEGY.md
-
-# 功能規格和計劃文檔
-*_SPEC.md
-*_PLAN.md
-SEAMLESS_MIGRATION.md
-UPGRADE_DATA_SAFETY.md
-
-# Codecov 內部設置文檔
-CODECOV_SETUP.md
-
-# 清理和優化報告
-CLEANUP_*.md
-DATA_CLEANUP_ANALYSIS.md
-NODE_MODULES_EXPLANATION.md
-
-# 修復和調試文檔
-FIX_COMPLETE_*.md
-DEBUG_*.md
-DIAGNOSTIC_*.md
-*_ISSUE.md
-*_DIAGNOSTIC.md
-
-# 發布流程文檔
-*_CHECKLIST.md
-RELEASE_CHECKLIST_*.md
-RELEASE_COMPLETE_*.md
-GITHUB_RELEASE_TEMPLATE.md
-GITHUB_RELEASE_v*.md
-RELEASE_SUMMARY_*.md
-NODE_MODULES_*.md
-INTEGRATION_SUMMARY.md
-PERFORMANCE_ANALYSIS.md
-FEATURE_COMPARISON.md
-DATA_CLEANUP_ANALYSIS.md
-/dist
-/.tmp
-
-# 臨時工作文檔
-*_PLAN.md
-PERFORMANCE_*.md
-INTEGRATION_SUMMARY.md
-
-# 版本總結（內部）
-VERSION_SUMMARY_*.md
-
-# 短期發布說明（保留完整版本）
-RELEASE_NOTES_SHORT_*.md
-
-# UI 改進文檔（內部）
-UI_IMPROVEMENT_*.md
-
-# 用戶指南（版本特定，內部）
-USER_GUIDE_v*.md
-
-# 備份文檔
-*_BACKUP.md
-README_BACKUP.md
-PROJECT_EVALUATION_REPORT_OLD.md
-CLEANUP_REPORT_*.md
-QUICK_TEST_*.md
-DEBUG_*.md
-GITHUB_RELEASE_TEMPLATE.md
-RELEASE_CHECKLIST_*.md
-FIX_COMPLETE_*.md
-RELEASE_COMPLETE_*.md
-CHANGELOG_v*.md
-.eslintrc.json.backup
-
-# Chrome Store 發布相關（內部流程）
-GITHUB_RELEASE_v*.md
-RELEASE_NOTES_SHORT_*.md
-RELEASE_NOTES_v*.md
-github-release-*.md
-
-# 協作提案（內部討論）
-COLLABORATION_PROPOSAL.md
-
-# 構建腳本（開發工具）
-build/
-build.sh
-cleanup.sh
-*.sh
-*.zip
-
-# 允許 promo-images 的圖片文件
-!promo-images/*.png
-!promo-images/*.jpg
-
-# Node.js 依賴
 node_modules/
 # package-lock.json - 需要提交以支持 CI/CD 缓存
 npm-debug.log*
 yarn-debug.log*
-yarn-error.log*# =
-===========================================================
-# 🚨 最新違規文件修正 (2025-10-06)
+yarn-error.log*
+
 # ============================================================
+# 🛠️ 開發工具和配置
+# ============================================================
+.DS_Store
+.history/
+.jest-cache/
+.codegraph/
 
-# 實施文檔（內部）
-*_IMPLEMENTATION.md
-IMPLEMENTATION_COMPLETE.md
+# 構建和清理腳本
+build.sh
+cleanup.sh
+*.sh
 
-# 文件組織文檔（內部）
-FILE_ORGANIZATION.md
+# 打包文件
+*.zip
+
+# ESLint 備份
+.eslintrc.json.backup
+
+# 程式碼備份
 popup/popup.js.backup
 scripts/background.js.bak
-PR64-FIX-REPORT.md
-PR64-COMPLETE-SOLUTION.md
-REGEX_USAGE_ANALYSIS.md
-tests/reports/
-.trae/documents/
-.clinerules/
-.kilocode/rules/
-.roo/rules/
-.windsurf/rules/
-.kiro/steering/
-.qoder/rules/
-.augment/rules/
-.agents/rules/
-.clinerules/byterover-rules.md
-.kilocode/rules/byterover-rules.md
-.roo/rules/byterover-rules.md
-.windsurf/rules/byterover-rules.md
-.cursor/rules/byterover-rules.mdc
-.kiro/steering/byterover-rules.md
-.qoder/rules/byterover-rules.md
-.augment/rules/byterover-rules.md*.bak
-.agents/skills/
-docs/design/README.md
-docs/
-docs/eslint_report.txt
-docs/README.md
-docs/archive/
-docs/design/README.md
-docs/guides/
-docs/reports/
-docs/specs/
-.agents/skills/
-# Deprecated Configurations
+
+# ============================================================
+# 🚫 已棄用的配置
+# ============================================================
 .deepsource.toml
-.serenaignore
 skills-lock.json
-.agents/.shared/staging/
-.superpowers/
-*_report.json
-AGENTS.md
-.antigravityignore
-DESIGN.md
-scripts/config/env/build.js
-# Release package（純構建產物，所有檔案皆不追蹤）
-# 替換歷史逐檔規則為目錄級 ignore,確保新增構建產物不會漏 ignore。
-release-package/
-.antigravitycli/5c437353-ee07-48da-939d-8ad77dc27875.json
-.agents/evals/complexity-reduction/eval.yaml
-.agents/evals/complexity-reduction/tasks/negative-trigger-1.yaml
-.agents/evals/complexity-reduction/tasks/positive-trigger-1.yaml
-.agents/evals/complexity-reduction/tasks/positive-trigger-2.yaml
-.gemini/
-.cursor/
-.mcp.json
-.codegraph/
+
+# ============================================================
+# ✅ 例外規則（允許追蹤的文件）
+# ============================================================
+# 允許 promo-images 的圖片文件
+!promo-images/*.png
+!promo-images/*.jpg

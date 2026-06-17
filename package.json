@@ -12,6 +12,7 @@
     "test:coverage": "jest --config jest.config.js --coverage",
     "test:quick": "jest --config jest.config.js --onlyChanged",
     "test:ci": "jest --config jest.config.js --ci --coverage --coverageReporters=text --coverageReporters=lcov --maxWorkers=2",
+    "test:ci:diagnostic": "jest --config jest.config.js --ci --coverage --coverageReporters=text --coverageReporters=lcov --maxWorkers=2 --detectOpenHandles",
     "test:e2e": "npm run build:prod && playwright test --project=chromium",
     "test:e2e:ui": "playwright test --ui --project=chromium",
     "perf:e2e": "npm run build:prod && playwright test --project=perf",

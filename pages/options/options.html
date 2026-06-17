@@ -330,6 +330,7 @@
                   </div>
 
                   <!-- 回退選擇器 -->
+                  <label for="database-select" class="sr-only" data-ui-message="OPTIONS.DESTINATION.FALLBACK_LABEL">選擇資料庫</label>
                   <select id="database-select" class="hidden">
                     <option value="" data-ui-message="OPTIONS.DESTINATION.FALLBACK_OPTION"></option>
                   </select>
@@ -829,7 +830,7 @@
               <label
                 for="title-template"
                 data-ui-message="OPTIONS.TEMPLATES.TITLE_TEMPLATE_LABEL"
-              ></label>
+              >頁面標題範本</label>
               <input
                 type="text"
                 id="title-template"
@@ -1078,6 +1079,7 @@
                 </svg>
                 <span class="button-text">匯出備份</span>
               </button>
+              <label for="import-data-file" class="sr-only" data-ui-message="OPTIONS.DATA_MANAGEMENT.IMPORT_FILE_LABEL">選擇備份檔案</label>
               <input type="file" id="import-data-file" accept=".json" class="hidden" />
               <button id="import-data-button" class="btn-secondary">
                 <svg aria-hidden="true" focusable="false" width="16" height="16" class="icon-svg">
