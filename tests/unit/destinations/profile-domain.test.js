@@ -309,7 +309,7 @@ describe('Destination profile domain services', () => {
     );
   });
 
-  it('resolveProfileForSave 未明確指定 profile 時會忽略超出 entitlement 的 last-used profile', async () => {
+  it('resolveProfileForSave 未明確指定 profile 時會忽略超出 entitlement 的 active profile', async () => {
     entitlementProvider.getDestinationEntitlement.mockResolvedValue({
       maxProfiles: 1,
       source: 'test',
@@ -336,10 +336,40 @@ describe('Destination profile domain services', () => {
         updatedAt: 2,
       },
     ];
-    storageData.destinationLastUsedProfileId = 'second';
+    storageData.destinationActiveProfileId = 'second';
 
     await expect(resolver.resolveProfileForSave()).resolves.toEqual(
       expect.objectContaining({ id: 'default' })
+    );
+  });
+
+  it('resolveProfileForSave 未明確指定 profile 時會優先使用 activeProfileId 指向的 profile', async () => {
+    storageData.destinationProfiles = [
+      {
+        id: 'default',
+        name: 'Default',
+        icon: 'bookmark',
+        color: '#2563eb',
+        notionDataSourceId: 'source-1',
+        notionDataSourceType: 'database',
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      {
+        id: 'second',
+        name: 'Second',
+        icon: 'bookmark',
+        color: '#16a34a',
+        notionDataSourceId: 'source-2',
+        notionDataSourceType: 'page',
+        createdAt: 2,
+        updatedAt: 2,
+      },
+    ];
+    storageData.destinationActiveProfileId = 'second';
+
+    await expect(resolver.resolveProfileForSave()).resolves.toEqual(
+      expect.objectContaining({ id: 'second' })
     );
   });
 

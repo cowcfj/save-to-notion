@@ -59,10 +59,10 @@ export class ProfileResolver {
       return profiles[profileIndex];
     }
 
-    const lastUsedProfileId = await this.repository.getLastUsedProfileId();
-    const lastUsedProfile = allowedProfiles.find(profile => profile.id === lastUsedProfileId);
-    if (lastUsedProfile) {
-      return lastUsedProfile;
+    const activeProfileId = await this.repository.getActiveProfileId();
+    const activeProfile = allowedProfiles.find(profile => profile.id === activeProfileId);
+    if (activeProfile) {
+      return activeProfile;
     }
 
     return allowedProfiles[0];
