@@ -3,6 +3,7 @@ const ESM_TRANSFORM_IGNORE_PATTERNS = [
 ];
 
 module.exports = {
+  cacheDirectory: '<rootDir>/.jest-cache',
   // 測試環境 - 使用 jsdom 環境來支持 DOM 測試
   testEnvironment: 'jsdom',
 
@@ -15,6 +16,7 @@ module.exports = {
   projects: [
     {
       displayName: 'unit',
+      cacheDirectory: '<rootDir>/.jest-cache',
       testEnvironment: 'jsdom',
       testMatch: [
         '<rootDir>/tests/unit/**/*.test.js',
@@ -33,6 +35,7 @@ module.exports = {
     },
     {
       displayName: 'integration',
+      cacheDirectory: '<rootDir>/.jest-cache',
       testEnvironment: 'jsdom',
       testMatch: [
         '<rootDir>/tests/integration/**/*.test.js',
@@ -119,7 +122,7 @@ module.exports = {
 
   // 防止測試掛起
   forceExit: false,
-  detectOpenHandles: true,
+  detectOpenHandles: false,
 
   // 增加超時時間（30秒）
   // 默認逾時設定 10 秒，促使超時測試能提早報錯

@@ -7,7 +7,7 @@ name: SonarCloud Scan
 # - 詳見 docs/adr/0009-ci-generated-coverage-trust-model.md
 on:
   workflow_run:
-    workflows: ["CI"]
+    workflows: ["Coverage Gate"]
     types: [completed]
 
 env:

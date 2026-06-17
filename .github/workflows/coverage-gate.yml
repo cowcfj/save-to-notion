@@ -1,0 +1,88 @@
+name: Coverage Gate
+
+on:
+  merge_group:
+    types: [checks_requested]
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  jest-coverage:
+    name: Jest Full Coverage
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238
+        with:
+          node-version: 20.x
+          cache: npm
+
+      - name: Upgrade npm
+        run: npm install -g npm@11.8.0 --ignore-scripts
+
+      - name: Install dependencies
+        env:
+          PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: 'true'
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+        run: npm ci --ignore-scripts
+
+      - name: Prepare build env for tests
+        run: |
+          if [ ! -f "scripts/config/env/build.js" ] && [ -f "scripts/config/env/build.example.js" ]; then
+            cp scripts/config/env/build.example.js scripts/config/env/build.js
+            echo "Created scripts/config/env/build.js from template for tests"
+          fi
+
+      - name: Cache jest transform output
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae
+        with:
+          path: .jest-cache
+          key: ${{ runner.os }}-jest-${{ hashFiles('jest.config.js', 'jest.config.*.js', 'package-lock.json') }}
+          restore-keys: ${{ runner.os }}-jest-
+
+      - name: Jest unit and integration tests with coverage
+        run: npm run test:ci
+
+      - name: Validate coverage file
+        id: validate-coverage
+        run: |
+          LCOV_FILE="coverage/jest/lcov.info"
+          if [ ! -f "$LCOV_FILE" ]; then
+            echo "Coverage file not found at $LCOV_FILE." >&2
+            exit 1
+          fi
+          if grep -q "^SF:" "$LCOV_FILE" && grep -q "end_of_record" "$LCOV_FILE"; then
+            echo "file=$LCOV_FILE" >> "$GITHUB_OUTPUT"
+          else
+            echo "Invalid LCOV format in $LCOV_FILE" >&2
+            exit 1
+          fi
+
+      - name: Upload jest coverage artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: jest-coverage-${{ github.sha }}
+          path: coverage/jest/lcov.info
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2
+        with:
+          files: ${{ steps.validate-coverage.outputs.file }}
+          flags: unit
+          fail_ci_if_error: false
+          use_oidc: true
