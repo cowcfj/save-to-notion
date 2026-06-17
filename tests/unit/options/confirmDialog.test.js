@@ -1,5 +1,5 @@
 // @jest-environment jsdom
-/* global document, HTMLDialogElement */
+/* global document, HTMLDialogElement, MouseEvent */
 import { confirmDialog } from '../../../pages/options/confirmDialog.js';
 
 // jsdom 28 未實作 showModal/close — polyfill 成可觀測的 open 屬性切換
@@ -85,5 +85,59 @@ describe('confirmDialog', () => {
 
     cancelBtn.click();
     await promise;
+  });
+
+  test('點擊對話框內部 padding（座標落在範圍內）不應關閉', async () => {
+    const promise = confirmDialog({ title: 'T', message: 'M' });
+    const { dialog } = getDialogButtons();
+    // 模擬實際 layout：dialog 佔據 (100,100)–(300,250)
+    dialog.getBoundingClientRect = () => ({
+      left: 100,
+      top: 100,
+      right: 300,
+      bottom: 250,
+      width: 200,
+      height: 150,
+    });
+
+    // 點擊 padding 區域：event.target === dialog，但座標在 rect 內
+    dialog.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 110, clientY: 110 }));
+
+    expect(dialog.open).toBe(true);
+    expect(document.querySelector('dialog')).not.toBeNull();
+
+    // 收尾，避免 pending promise
+    dialog.close();
+    await promise;
+  });
+
+  test('點擊遮罩層（座標落在範圍外）應 resolve(false) 並關閉', async () => {
+    const promise = confirmDialog({ title: 'T', message: 'M' });
+    const { dialog } = getDialogButtons();
+    dialog.getBoundingClientRect = () => ({
+      left: 100,
+      top: 100,
+      right: 300,
+      bottom: 250,
+      width: 200,
+      height: 150,
+    });
+
+    dialog.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 10, clientY: 10 }));
+
+    const result = await promise;
+    expect(result).toBe(false);
+    expect(document.querySelector('dialog')).toBeNull();
+  });
+
+  test('jsdom 零尺寸 rect 下點擊 dialog 仍關閉（測試環境相容）', async () => {
+    const promise = confirmDialog({ title: 'T', message: 'M' });
+    const { dialog } = getDialogButtons();
+    // jsdom 預設 getBoundingClientRect 全為 0，沒有 layout
+    dialog.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 0, clientY: 0 }));
+
+    const result = await promise;
+    expect(result).toBe(false);
+    expect(document.querySelector('dialog')).toBeNull();
   });
 });

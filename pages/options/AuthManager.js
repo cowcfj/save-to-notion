@@ -839,6 +839,8 @@ export class AuthManager {
     }
     try {
       Logger.start('開始斷開 OAuth 連接', { action: 'disconnectOAuth' });
+      // toggle 進入 loading：顯示往 OFF 滑動並鎖住，防止斷開期間重複觸發
+      this._setOAuthToggleLoading(false);
       const syncData = await chrome.storage.sync.get(['notionApiKey']);
       const nextAuthEpoch = await getNextAuthEpoch();
 

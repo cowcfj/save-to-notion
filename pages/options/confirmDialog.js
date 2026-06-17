@@ -69,9 +69,25 @@ export function confirmDialog({
       result = false;
       dialog.close();
     });
-    // 點擊對話框外部（遮罩層）視為取消
+    // 點擊對話框外部（遮罩層）視為取消。
+    // 原生 <dialog> 的 padding 區域仍屬 dialog 元素本身，單看 event.target
+    // 無法區分「點 padding」與「點遮罩」，故以點擊座標是否落在 dialog 矩形外判定。
     dialog.addEventListener('click', event => {
-      if (event.target === dialog) {
+      if (event.target !== dialog) {
+        return;
+      }
+      const rect = dialog.getBoundingClientRect();
+      // 無 layout（如 jsdom，寬高為 0）→ 無法做座標判定，沿用「點擊即關閉」
+      if (rect.width === 0 && rect.height === 0) {
+        dialog.close();
+        return;
+      }
+      const insideDialog =
+        event.clientX >= rect.left &&
+        event.clientX <= rect.right &&
+        event.clientY >= rect.top &&
+        event.clientY <= rect.bottom;
+      if (!insideDialog) {
         dialog.close();
       }
     });
