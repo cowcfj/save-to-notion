@@ -11,19 +11,9 @@ function normalizeCoveragePattern(pattern) {
     .replace(/^\*\*\//, '');
 }
 
-function readSonarCoverageExclusions() {
+function readSonarProperties() {
   const properties = fs.readFileSync(path.join(rootDir, 'sonar-project.properties'), 'utf8');
-  const line = properties
-    .split(/\r?\n/)
-    .find(entry => entry.startsWith('sonar.coverage.exclusions='));
-  expect(line).toBeDefined();
-  return new Set(
-    line
-      .slice('sonar.coverage.exclusions='.length)
-      .split(',')
-      .map(pattern => normalizeCoveragePattern(pattern))
-      .filter(Boolean)
-  );
+  return properties.split(/\r?\n/).filter(Boolean);
 }
 
 function readJestCoverageExclusions() {
@@ -37,9 +27,8 @@ function readJestCoverageExclusions() {
 }
 
 describe('coverage exclusion contract', () => {
-  test('Jest and Sonar keep production coverage exclusions aligned', () => {
+  test('Jest keeps production coverage exclusions explicit', () => {
     const jestExclusions = readJestCoverageExclusions();
-    const sonarExclusions = readSonarCoverageExclusions();
     const productionCoverageExclusions = [
       'scripts/config/index.js',
       'scripts/config/extension/**/*.js',
@@ -57,26 +46,23 @@ describe('coverage exclusion contract', () => {
       expect({
         pattern,
         jest: jestExclusions.has(pattern),
-        sonar: sonarExclusions.has(pattern),
-      }).toEqual({ pattern, jest: true, sonar: true });
+      }).toEqual({ pattern, jest: true });
     });
   });
 
-  test('Sonar excludes non-production generated outputs and coverage artifacts', () => {
-    const sonarExclusions = readSonarCoverageExclusions();
-    ['node_modules/**', 'dist/**', 'coverage/**', 'playwright-report/**'].forEach(pattern => {
-      expect({ pattern, sonar: sonarExclusions.has(pattern) }).toEqual({ pattern, sonar: true });
-    });
+  test('SonarCloud automatic analysis does not declare a CI LCOV import contract', () => {
+    const sonarProperties = readSonarProperties();
+
+    expect(
+      sonarProperties.some(line => line.startsWith('sonar.javascript.lcov.reportPaths='))
+    ).toBe(false);
+    expect(sonarProperties.some(line => line.startsWith('sonar.coverage.exclusions='))).toBe(false);
   });
 
-  test('unit spec files remain excluded from coverage accounting', () => {
+  test('unit spec files remain excluded from Jest coverage accounting', () => {
     const jestExclusions = readJestCoverageExclusions();
-    const sonarExclusions = readSonarCoverageExclusions();
 
     expect(jestExclusions.has('scripts/**/*.test.js')).toBe(true);
     expect(jestExclusions.has('scripts/**/*.spec.js')).toBe(true);
-    expect(sonarExclusions.has('*.test.js')).toBe(true);
-    expect(sonarExclusions.has('*.spec.js')).toBe(true);
-    expect(sonarExclusions.has('tests/**')).toBe(true);
   });
 });

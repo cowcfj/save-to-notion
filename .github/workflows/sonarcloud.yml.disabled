@@ -1,3 +1,8 @@
+# Archived on 2026-06-18.
+# Coverage quality is owned by Codecov / Coverage Gate. SonarCloud GitHub Action
+# was disabled because PR workflow_run artifact lookup coupled static analysis to
+# LCOV generation and manual heavy gate approval. Keep this file as reference
+# only; GitHub Actions will not run the .disabled extension.
 name: SonarCloud Scan
 
 # Trigger 設計：依賴 Coverage Gate workflow 跑完後上傳 jest coverage artifact。
