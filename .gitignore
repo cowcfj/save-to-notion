@@ -183,6 +183,7 @@ TEST_FIX_*.md
 # 測試臨時目錄
 /tmp/notion-clipper-tests/
 demos/
+promo-images/*.html
 
 # 保留測試核心目錄
 !tests/mocks/
