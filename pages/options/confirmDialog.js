@@ -70,8 +70,8 @@ export function confirmDialog({
       dialog.close();
     });
     // 點擊對話框外部（遮罩層）視為取消
-    dialog.addEventListener('click', e => {
-      if (e.target === dialog) {
+    dialog.addEventListener('click', event => {
+      if (event.target === dialog) {
         dialog.close();
       }
     });

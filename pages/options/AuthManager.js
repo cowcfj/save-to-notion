@@ -877,6 +877,7 @@ export class AuthManager {
       const safeMessage = sanitizeApiError(error, 'disconnect_oauth');
       const errorMsg = ErrorHandler.formatUserMessage(safeMessage);
       this.ui.showStatus(`斷開 OAuth 失敗：${errorMsg}`, 'error');
+      this._setOAuthToggleConnected();
     }
   }
 
