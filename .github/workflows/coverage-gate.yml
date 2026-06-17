@@ -48,6 +48,7 @@ jobs:
               - 'package-lock.json'
               - 'sonar-project.properties'
               - 'codecov.yml'
+              - '.github/workflows/ci.yml'
               - '.github/workflows/coverage-gate.yml'
               - '.github/workflows/sonarcloud.yml'
 

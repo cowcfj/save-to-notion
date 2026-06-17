@@ -72,6 +72,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          TRIGGER_EVENT: ${{ github.event.workflow_run.event }}
         run: |
           PR_COUNT=$(jq -r '.workflow_run.pull_requests | length' "$GITHUB_EVENT_PATH")
           if [ "$PR_COUNT" -gt 0 ]; then
@@ -79,6 +80,13 @@ jobs:
             echo "number=$(jq -r '.workflow_run.pull_requests[0].number' "$GITHUB_EVENT_PATH")" >> "$GITHUB_OUTPUT"
             echo "head=$(jq -r '.workflow_run.pull_requests[0].head.ref' "$GITHUB_EVENT_PATH")" >> "$GITHUB_OUTPUT"
             echo "base=$(jq -r '.workflow_run.pull_requests[0].base.ref' "$GITHUB_EVENT_PATH")" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # 只有 PR 觸發的 Coverage Gate run 才回退到 gh pr list 查 PR；
+          # push (main/develop) 觸發的 run 沒有對應 PR，避免誤匹配開放中的 PR 把 push run 當成 PR 分析。
+          if [ "$TRIGGER_EVENT" != "pull_request" ]; then
+            echo "is_pr=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
