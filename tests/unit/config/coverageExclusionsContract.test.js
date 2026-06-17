@@ -13,7 +13,10 @@ function normalizeCoveragePattern(pattern) {
 
 function readSonarProperties() {
   const properties = fs.readFileSync(path.join(rootDir, 'sonar-project.properties'), 'utf8');
-  return properties.split(/\r?\n/).filter(Boolean);
+  return properties
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => line && !line.startsWith('#'));
 }
 
 function readJestCoverageExclusions() {
@@ -27,6 +30,25 @@ function readJestCoverageExclusions() {
 }
 
 describe('coverage exclusion contract', () => {
+  test('Sonar property parser normalizes whitespace and ignores comments', () => {
+    const readFileSync = jest.spyOn(fs, 'readFileSync').mockReturnValue(`
+      # comment
+        sonar.projectKey=cowcfj_save-to-notion
+
+        # sonar.coverage.exclusions=legacy/**
+        sonar.sources=scripts,pages
+    `);
+
+    try {
+      expect(readSonarProperties()).toEqual([
+        'sonar.projectKey=cowcfj_save-to-notion',
+        'sonar.sources=scripts,pages',
+      ]);
+    } finally {
+      readFileSync.mockRestore();
+    }
+  });
+
   test('Jest keeps production coverage exclusions explicit', () => {
     const jestExclusions = readJestCoverageExclusions();
     const productionCoverageExclusions = [
