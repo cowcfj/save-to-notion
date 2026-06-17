@@ -614,10 +614,12 @@ describe('Destination profile options UI', () => {
       expect(service.setActiveProfile).toHaveBeenCalledWith('default');
     });
 
-    it('blocks turning off the currently active switch and restores it', async () => {
+    it('ignores clicks on the currently active switch', async () => {
       const service = await renderDestinationSwitchesWithSecondProfileActive();
+      const activeInput = document.querySelector('input[data-profile-id="p2"]');
 
-      const activeInput = await changeProfileSwitch('p2', false);
+      activeInput.click();
+      await flushAsyncClick();
 
       expect(activeInput.checked).toBe(true);
       expect(service.setActiveProfile).not.toHaveBeenCalled();

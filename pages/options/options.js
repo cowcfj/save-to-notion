@@ -681,13 +681,6 @@ async function initDestinationProfilesUI(ui) {
     }
     const profileId = input.dataset.profileId;
 
-    // 不可關閉當前 active：嘗試關掉已勾選列 → 還原並提示
-    if (!input.checked) {
-      input.checked = true;
-      ui.showStatus(UI_MESSAGES.OPTIONS.DESTINATION.AT_LEAST_ONE_REQUIRED, 'info');
-      return;
-    }
-
     try {
       await service.setActiveProfile(profileId);
       const profile = await service.getProfile(profileId);

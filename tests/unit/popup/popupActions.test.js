@@ -445,6 +445,32 @@ describe('popupActions.js', () => {
         const state = await getDestinationState();
         expect(state.selectedProfileId).toBe(expectedProfileId);
       });
+
+      it('falls back to activeProfileId without warning when session storage is unavailable', async () => {
+        await chrome.storage.local.set({
+          destinationProfiles: [
+            makeDestinationProfile({ notionDataSourceId: 'A' }),
+            makeResearchProfile({ id: 'p2', notionDataSourceId: 'B' }),
+          ],
+          destinationActiveProfileId: 'p2',
+        });
+        const originalSessionStorage = chrome.storage.session;
+        try {
+          delete chrome.storage.session;
+
+          const state = await getDestinationState();
+
+          expect(state.selectedProfileId).toBe('p2');
+          expect(Logger.warn).not.toHaveBeenCalledWith(
+            expect.objectContaining({
+              action: 'getDestinationState',
+              operation: 'getSessionTempProfile',
+            })
+          );
+        } finally {
+          chrome.storage.session = originalSessionStorage;
+        }
+      });
     });
   });
 
@@ -453,6 +479,22 @@ describe('popupActions.js', () => {
       await setPopupTempProfile('p2');
       const result = await chrome.storage.session.get('popupTempDestinationProfileId');
       expect(result.popupTempDestinationProfileId).toBe('p2');
+    });
+
+    it('silently skips persistence when session storage is unavailable', async () => {
+      const originalSessionStorage = chrome.storage.session;
+      try {
+        delete chrome.storage.session;
+
+        await setPopupTempProfile('p2');
+
+        expect(Logger.warn).not.toHaveBeenCalledWith(
+          'Failed to persist popup temp profile selection:',
+          expect.anything()
+        );
+      } finally {
+        chrome.storage.session = originalSessionStorage;
+      }
     });
   });
 

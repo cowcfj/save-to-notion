@@ -26,6 +26,10 @@ import { ProfileManager } from '../../scripts/destinations/ProfileManager.js';
 
 const POPUP_TEMP_PROFILE_SESSION_KEY = 'popupTempDestinationProfileId';
 
+function getPopupSessionStorage() {
+  return globalThis.chrome?.storage?.session || null;
+}
+
 /**
  * 檢查設置是否完整
  *
@@ -340,8 +344,13 @@ async function readDestinationProfiles(service) {
  * @returns {Promise<string|null>}
  */
 async function readPopupTempProfileId() {
+  const sessionStorage = getPopupSessionStorage();
+  if (typeof sessionStorage?.get !== 'function') {
+    return null;
+  }
+
   try {
-    const tempResult = await chrome.storage.session.get(POPUP_TEMP_PROFILE_SESSION_KEY);
+    const tempResult = await sessionStorage.get(POPUP_TEMP_PROFILE_SESSION_KEY);
     return tempResult?.[POPUP_TEMP_PROFILE_SESSION_KEY] || null;
   } catch (error) {
     logDestinationStateWarning('getSessionTempProfile', error);
@@ -531,8 +540,13 @@ export async function openAccountManagement() {
  * @returns {Promise<void>}
  */
 export async function setPopupTempProfile(profileId) {
+  const sessionStorage = getPopupSessionStorage();
+  if (typeof sessionStorage?.set !== 'function') {
+    return;
+  }
+
   try {
-    await chrome.storage.session.set({ [POPUP_TEMP_PROFILE_SESSION_KEY]: profileId });
+    await sessionStorage.set({ [POPUP_TEMP_PROFILE_SESSION_KEY]: profileId });
   } catch (error) {
     Logger.warn('Failed to persist popup temp profile selection:', error);
   }
