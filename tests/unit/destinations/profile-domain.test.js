@@ -41,6 +41,30 @@ describe('Destination profile domain services', () => {
   let resolver = null;
   let entitlementProvider = null;
 
+  const buildProfile = (overrides = {}) => ({
+    id: 'default',
+    name: 'Default',
+    icon: 'bookmark',
+    color: '#2563eb',
+    notionDataSourceId: 'source-1',
+    notionDataSourceType: 'database',
+    createdAt: 1,
+    updatedAt: 1,
+    ...overrides,
+  });
+
+  const buildSecondProfile = (overrides = {}) =>
+    buildProfile({
+      id: 'second',
+      name: 'Second',
+      color: '#16a34a',
+      notionDataSourceId: 'source-2',
+      notionDataSourceType: 'page',
+      createdAt: 2,
+      updatedAt: 2,
+      ...overrides,
+    });
+
   beforeEach(() => {
     storageData = {};
     chromeStorage = {
@@ -99,16 +123,11 @@ describe('Destination profile domain services', () => {
 
   it('已有 destinationProfiles 時不會重複建立 Default profile', async () => {
     storageData.destinationProfiles = [
-      {
+      buildProfile({
         id: 'existing',
         name: 'Existing',
-        icon: 'bookmark',
-        color: '#2563eb',
         notionDataSourceId: 'existing-source',
-        notionDataSourceType: 'database',
-        createdAt: 1,
-        updatedAt: 1,
-      },
+      }),
     ];
     storageData.notionDataSourceId = 'legacy-source';
 
@@ -169,18 +188,7 @@ describe('Destination profile domain services', () => {
       maxProfiles: 1,
       source: 'test',
     });
-    storageData.destinationProfiles = [
-      {
-        id: 'default',
-        name: 'Default',
-        icon: 'bookmark',
-        color: '#2563eb',
-        notionDataSourceId: 'source-1',
-        notionDataSourceType: 'database',
-        createdAt: 1,
-        updatedAt: 1,
-      },
-    ];
+    storageData.destinationProfiles = [buildProfile()];
 
     await expect(
       manager.createProfile({
@@ -195,18 +203,7 @@ describe('Destination profile domain services', () => {
   });
 
   it('createProfile 會拒絕 caller-provided duplicate id', async () => {
-    storageData.destinationProfiles = [
-      {
-        id: 'default',
-        name: 'Default',
-        icon: 'bookmark',
-        color: '#2563eb',
-        notionDataSourceId: 'source-1',
-        notionDataSourceType: 'database',
-        createdAt: 1,
-        updatedAt: 1,
-      },
-    ];
+    storageData.destinationProfiles = [buildProfile()];
 
     await expect(
       manager.createProfile({
@@ -219,18 +216,7 @@ describe('Destination profile domain services', () => {
   });
 
   it('createProfile 會將 caller-provided id trim 後檢查 duplicate', async () => {
-    storageData.destinationProfiles = [
-      {
-        id: 'default',
-        name: 'Default',
-        icon: 'bookmark',
-        color: '#2563eb',
-        notionDataSourceId: 'source-1',
-        notionDataSourceType: 'database',
-        createdAt: 1,
-        updatedAt: 1,
-      },
-    ];
+    storageData.destinationProfiles = [buildProfile()];
 
     await expect(
       manager.createProfile({
@@ -247,28 +233,7 @@ describe('Destination profile domain services', () => {
       maxProfiles: 1,
       source: 'test',
     });
-    storageData.destinationProfiles = [
-      {
-        id: 'default',
-        name: 'Default',
-        icon: 'bookmark',
-        color: '#2563eb',
-        notionDataSourceId: 'source-1',
-        notionDataSourceType: 'database',
-        createdAt: 1,
-        updatedAt: 1,
-      },
-      {
-        id: 'second',
-        name: 'Second',
-        icon: 'bookmark',
-        color: '#16a34a',
-        notionDataSourceId: 'source-2',
-        notionDataSourceType: 'page',
-        createdAt: 2,
-        updatedAt: 2,
-      },
-    ];
+    storageData.destinationProfiles = [buildProfile(), buildSecondProfile()];
 
     await expect(resolver.resolveProfileForSave('second')).rejects.toThrow(
       '此保存目標目前不可使用'
@@ -280,28 +245,7 @@ describe('Destination profile domain services', () => {
       maxProfiles: 1,
       source: 'test',
     });
-    storageData.destinationProfiles = [
-      {
-        id: 'default',
-        name: 'Default',
-        icon: 'bookmark',
-        color: '#2563eb',
-        notionDataSourceId: 'source-1',
-        notionDataSourceType: 'database',
-        createdAt: 1,
-        updatedAt: 1,
-      },
-      {
-        id: 'second',
-        name: 'Second',
-        icon: 'bookmark',
-        color: '#16a34a',
-        notionDataSourceId: 'source-2',
-        notionDataSourceType: 'page',
-        createdAt: 2,
-        updatedAt: 2,
-      },
-    ];
+    storageData.destinationProfiles = [buildProfile(), buildSecondProfile()];
     storageData.destinationActiveProfileId = 'second';
 
     await expect(resolver.resolveProfileForSave()).resolves.toEqual(
@@ -310,28 +254,7 @@ describe('Destination profile domain services', () => {
   });
 
   it('resolveProfileForSave 未明確指定 profile 時會優先使用 activeProfileId 指向的 profile', async () => {
-    storageData.destinationProfiles = [
-      {
-        id: 'default',
-        name: 'Default',
-        icon: 'bookmark',
-        color: '#2563eb',
-        notionDataSourceId: 'source-1',
-        notionDataSourceType: 'database',
-        createdAt: 1,
-        updatedAt: 1,
-      },
-      {
-        id: 'second',
-        name: 'Second',
-        icon: 'bookmark',
-        color: '#16a34a',
-        notionDataSourceId: 'source-2',
-        notionDataSourceType: 'page',
-        createdAt: 2,
-        updatedAt: 2,
-      },
-    ];
+    storageData.destinationProfiles = [buildProfile(), buildSecondProfile()];
     storageData.destinationActiveProfileId = 'second';
 
     await expect(resolver.resolveProfileForSave()).resolves.toEqual(
@@ -340,18 +263,7 @@ describe('Destination profile domain services', () => {
   });
 
   it('更新 Default profile 時會同步回寫舊保存目標 keys', async () => {
-    storageData.destinationProfiles = [
-      {
-        id: 'default',
-        name: 'Default',
-        icon: 'bookmark',
-        color: '#2563eb',
-        notionDataSourceId: 'source-1',
-        notionDataSourceType: 'database',
-        createdAt: 1,
-        updatedAt: 1,
-      },
-    ];
+    storageData.destinationProfiles = [buildProfile()];
 
     await manager.updateProfile('default', {
       notionDataSourceId: 'source-2',
@@ -364,18 +276,7 @@ describe('Destination profile domain services', () => {
   });
 
   it('updateProfile 會忽略 updates.id 並保留原始 profile id', async () => {
-    storageData.destinationProfiles = [
-      {
-        id: 'default',
-        name: 'Default',
-        icon: 'bookmark',
-        color: '#2563eb',
-        notionDataSourceId: 'source-1',
-        notionDataSourceType: 'database',
-        createdAt: 1,
-        updatedAt: 1,
-      },
-    ];
+    storageData.destinationProfiles = [buildProfile()];
 
     const updated = await manager.updateProfile('default', {
       id: 'mutated-id',
@@ -390,28 +291,7 @@ describe('Destination profile domain services', () => {
 
   it('刪除 active profile 時會把 active 指向剩餘第一個 profile', async () => {
     storageData.destinationActiveProfileId = 'second';
-    storageData.destinationProfiles = [
-      {
-        id: 'default',
-        name: 'Default',
-        icon: 'bookmark',
-        color: '#2563eb',
-        notionDataSourceId: 'source-1',
-        notionDataSourceType: 'database',
-        createdAt: 1,
-        updatedAt: 1,
-      },
-      {
-        id: 'second',
-        name: 'Second',
-        icon: 'bookmark',
-        color: '#16a34a',
-        notionDataSourceId: 'source-2',
-        notionDataSourceType: 'page',
-        createdAt: 2,
-        updatedAt: 2,
-      },
-    ];
+    storageData.destinationProfiles = [buildProfile(), buildSecondProfile()];
 
     await manager.deleteProfile('second');
 
@@ -429,18 +309,6 @@ describe('Destination profile domain services', () => {
   });
 
   describe('ProfileManager error branches', () => {
-    const buildProfile = overrides => ({
-      id: 'default',
-      name: 'Default',
-      icon: 'bookmark',
-      color: '#2563eb',
-      notionDataSourceId: 'source-1',
-      notionDataSourceType: 'database',
-      createdAt: 1,
-      updatedAt: 1,
-      ...overrides,
-    });
-
     it('getProfile 找不到 id 時拋 NOT_FOUND', async () => {
       storageData.destinationProfiles = [buildProfile()];
 
@@ -503,15 +371,7 @@ describe('Destination profile domain services', () => {
     });
 
     it('deleteProfile 對不存在 id 拋 NOT_FOUND', async () => {
-      storageData.destinationProfiles = [
-        buildProfile(),
-        buildProfile({
-          id: 'second',
-          notionDataSourceId: 'source-2',
-          createdAt: 2,
-          updatedAt: 2,
-        }),
-      ];
+      storageData.destinationProfiles = [buildProfile(), buildSecondProfile()];
 
       await expect(manager.deleteProfile('missing')).rejects.toThrow(
         DESTINATION_PROFILE_ERRORS.NOT_FOUND
@@ -520,15 +380,7 @@ describe('Destination profile domain services', () => {
 
     it('deleteProfile 刪除非 active profile 時保留原 activeProfileId', async () => {
       storageData.destinationActiveProfileId = 'default';
-      storageData.destinationProfiles = [
-        buildProfile(),
-        buildProfile({
-          id: 'second',
-          notionDataSourceId: 'source-2',
-          createdAt: 2,
-          updatedAt: 2,
-        }),
-      ];
+      storageData.destinationProfiles = [buildProfile(), buildSecondProfile()];
 
       const remaining = await manager.deleteProfile('second');
 
