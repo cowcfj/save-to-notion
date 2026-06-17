@@ -1,5 +1,61 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.80.0](https://github.com/cowcfj/save-to-notion/compare/v2.79.0...v2.80.0) (2026-06-17)
+
+
+### ✨ 新功能
+
+* add URL sanitization for logging privacy ([#693](https://github.com/cowcfj/save-to-notion/issues/693)) ([9417b54](https://github.com/cowcfj/save-to-notion/commit/9417b54a06db3ed0b37026a2e82d460e2ee511d6))
+* 更新 .gitignore 以排除新文件夾和配置 ([417fbb6](https://github.com/cowcfj/save-to-notion/commit/417fbb6053e8bc239588e974f935d112a564dc31))
+
+
+### 🐛 Bug 修復
+
+* **a11y:** add missing form labels for accessibility compliance ([a11e809](https://github.com/cowcfj/save-to-notion/commit/a11e809e23cd6770c7cae569baf9b48428f25b95))
+* add missing form labels for accessibility compliance ([#714](https://github.com/cowcfj/save-to-notion/issues/714)) ([a11e809](https://github.com/cowcfj/save-to-notion/commit/a11e809e23cd6770c7cae569baf9b48428f25b95))
+* enhance URL handling for logging security ([#680](https://github.com/cowcfj/save-to-notion/issues/680)) ([5f0cd18](https://github.com/cowcfj/save-to-notion/commit/5f0cd18111e2aa11da527410f387051e32d4f36f))
+* **gitignore:** 補回 promo-images/*.html 忽略規則 ([6ef1ab5](https://github.com/cowcfj/save-to-notion/commit/6ef1ab5ef2d78d95ec2b82c20c0a56a3a297b8b4))
+
+
+### ♻️ 代碼重構
+
+* clean up toolbar references and update tests ([#708](https://github.com/cowcfj/save-to-notion/issues/708)) ([b05eefd](https://github.com/cowcfj/save-to-notion/commit/b05eefd1291396cc185e32fd1e26b4d77b0104ee))
+* migrate highlight actions to modules ([#715](https://github.com/cowcfj/save-to-notion/issues/715)) ([ea9573c](https://github.com/cowcfj/save-to-notion/commit/ea9573c84a51aaf35e2bbe396986f28e6dae5bc4))
+* reduce complexity in DataSourceManager ([#702](https://github.com/cowcfj/save-to-notion/issues/702)) ([336479a](https://github.com/cowcfj/save-to-notion/commit/336479a57ddf176db4ba3bfbb0247873e95a9b1d))
+* reduce complexity in page complexity detector ([#691](https://github.com/cowcfj/save-to-notion/issues/691)) ([fe69575](https://github.com/cowcfj/save-to-notion/commit/fe69575c73161040a1a92b2faf019d0bda48b481))
+* reduce complexity in popup destination selector ([#698](https://github.com/cowcfj/save-to-notion/issues/698)) ([fc0062e](https://github.com/cowcfj/save-to-notion/commit/fc0062ef248495f1abe604cd22c02620f09c754e))
+* reduce complexity in StorageService and introduce StorageMigrationScanner ([#683](https://github.com/cowcfj/save-to-notion/issues/683)) ([e609358](https://github.com/cowcfj/save-to-notion/commit/e60935889c00760d122ffd15e4333ea2759363b4))
+* reduce drive cloud sync complexity and download complexity ([#703](https://github.com/cowcfj/save-to-notion/issues/703)) ([af4b714](https://github.com/cowcfj/save-to-notion/commit/af4b71487546998e0d2c7bf3c292c744f272442b))
+* reduce duplication in action handler edge case tests ([#706](https://github.com/cowcfj/save-to-notion/issues/706)) ([7e79384](https://github.com/cowcfj/save-to-notion/commit/7e79384651cc4ca9e1dd4ce7952814569679918c))
+* reduce highlight cleanup helper complexity ([#687](https://github.com/cowcfj/save-to-notion/issues/687)) ([743911f](https://github.com/cowcfj/save-to-notion/commit/743911fca42821242a5d330c4dddef6928d8855e))
+* reduce migration handler complexity ([#684](https://github.com/cowcfj/save-to-notion/issues/684)) ([f77ad7f](https://github.com/cowcfj/save-to-notion/commit/f77ad7f711ce7af8975836feed152a8bb35e7bce))
+* reduce path utils complexity ([#690](https://github.com/cowcfj/save-to-notion/issues/690)) ([3d1a4b2](https://github.com/cowcfj/save-to-notion/commit/3d1a4b2489077e5a0de05bf24b75394388d40bd8))
+* reduce popup controller complexity ([#678](https://github.com/cowcfj/save-to-notion/issues/678)) ([b432b74](https://github.com/cowcfj/save-to-notion/commit/b432b7484f37f897b48e401b02bdc7df48ebec40))
+* reduce ProfileManager createProfile complexity ([#697](https://github.com/cowcfj/save-to-notion/issues/697)) ([7c2065e](https://github.com/cowcfj/save-to-notion/commit/7c2065e01ec8a9bd038d5360e38a1205d8b959eb))
+* reduce text search complexity ([#689](https://github.com/cowcfj/save-to-notion/issues/689)) ([ffb33d4](https://github.com/cowcfj/save-to-notion/commit/ffb33d4315cf8d5ac2bed779e603fac1eee0d5b9))
+* rename and extend SAVE_PAGE_FROM_RAIL functionality ([#709](https://github.com/cowcfj/save-to-notion/issues/709)) ([8279251](https://github.com/cowcfj/save-to-notion/commit/8279251b7f1480510d69f6f05d7b036778b2da23))
+* simplify account callback logic and enhance error handling ([#696](https://github.com/cowcfj/save-to-notion/issues/696)) ([a3c96ab](https://github.com/cowcfj/save-to-notion/commit/a3c96ab829a2dcfc56bdaf6fad408e833b9d7fa0))
+* simplify account session refresh logic ([#695](https://github.com/cowcfj/save-to-notion/issues/695)) ([4c56afb](https://github.com/cowcfj/save-to-notion/commit/4c56afb883aafc3766e4e10e2eca486a93106b3f))
+* simplify auth manager logic ([#701](https://github.com/cowcfj/save-to-notion/issues/701)) ([79ad0e4](https://github.com/cowcfj/save-to-notion/commit/79ad0e426db12c4539bfa0635d78c0b52e10b838))
+* simplify HighlightMigration data migration logic ([#685](https://github.com/cowcfj/save-to-notion/issues/685)) ([89ba8b4](https://github.com/cowcfj/save-to-notion/commit/89ba8b4bea0113371a9e578609f19464b0b5f393))
+* simplify InjectionService logging and error handling ([#681](https://github.com/cowcfj/save-to-notion/issues/681)) ([69a3828](https://github.com/cowcfj/save-to-notion/commit/69a382875cc29e6e5af179b48fc2e194345ae2a5))
+* simplify MigrationService complexity ([#686](https://github.com/cowcfj/save-to-notion/issues/686)) ([aa7a42a](https://github.com/cowcfj/save-to-notion/commit/aa7a42adc99739fc803ef3dc7612101a994cb26c))
+* simplify MigrationTool logic and reduce duplication ([#705](https://github.com/cowcfj/save-to-notion/issues/705)) ([44a119a](https://github.com/cowcfj/save-to-notion/commit/44a119aeb091026eacd5383db91f22aa4bda1b48))
+* simplify onboarding logic and error handling ([#700](https://github.com/cowcfj/save-to-notion/issues/700)) ([851fbf0](https://github.com/cowcfj/save-to-notion/commit/851fbf03eeebe8104cfd41d5d23bc6a6ef26a6b7))
+* simplify range handling logic ([#688](https://github.com/cowcfj/save-to-notion/issues/688)) ([969bb92](https://github.com/cowcfj/save-to-notion/commit/969bb92ef21db446af9f78fb659d7312b35ab6c8))
+* simplify RetryManager logic and address warnings ([#692](https://github.com/cowcfj/save-to-notion/issues/692)) ([071eb52](https://github.com/cowcfj/save-to-notion/commit/071eb52da32a4baf7ba3c78189734b79b6ad8183))
+* simplify sidepanel UI complexity ([#699](https://github.com/cowcfj/save-to-notion/issues/699)) ([d42e3d6](https://github.com/cowcfj/save-to-notion/commit/d42e3d6f84f837734717e9227d404573e713ebaa))
+* simplify storage health checks and data validation ([#704](https://github.com/cowcfj/save-to-notion/issues/704)) ([38112af](https://github.com/cowcfj/save-to-notion/commit/38112afb898d2cfa03e2f9b69075250b0f1d4686))
+* 簡化 HighlightMigration 的數據遷移邏輯 ([89ba8b4](https://github.com/cowcfj/save-to-notion/commit/89ba8b4bea0113371a9e578609f19464b0b5f393))
+
+
+### 🧹 其他變更
+
+* **ci:** optimize coverage checks by splitting workflow and caching ([#720](https://github.com/cowcfj/save-to-notion/issues/720)) ([80507f3](https://github.com/cowcfj/save-to-notion/commit/80507f3e82d88a4ef896d9407091ade5a3a91906))
+* **deps:** bump dompurify from 3.4.7 to 3.4.9 ([#713](https://github.com/cowcfj/save-to-notion/issues/713)) ([d1aa6d7](https://github.com/cowcfj/save-to-notion/commit/d1aa6d703afbfbfc0e065543604b0a956d48438f))
+* reduce release-please PR noise ([#712](https://github.com/cowcfj/save-to-notion/issues/712)) ([cda364b](https://github.com/cowcfj/save-to-notion/commit/cda364b3e699967a079ed08982d836f307ae2309))
+* 整理 .gitignore，去除重複項目並改善組織結構 ([03ed8f0](https://github.com/cowcfj/save-to-notion/commit/03ed8f070a994652e0abfbfb8b2df3ff7f16c31d))
+
 ## [2.79.0](https://github.com/cowcfj/save-to-notion/compare/v2.78.0...v2.79.0) (2026-06-09)
 
 ### ✨ 新功能
