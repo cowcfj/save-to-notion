@@ -438,7 +438,7 @@ describe('Destination profile options UI', () => {
     expect(service.listProfiles).toHaveBeenCalledTimes(2);
   });
 
-  it('保存目標套用與刪除按鈕應呼叫對應 service flow', async () => {
+  it('保存目標啟用開關與刪除按鈕應呼叫對應 service flow', async () => {
     const profiles = [
       {
         id: 'default',
@@ -469,21 +469,22 @@ describe('Destination profile options UI', () => {
     initOptions();
     await flushAsyncClick();
 
-    document.querySelector('button[data-action="edit"]').click();
+    const input = document.querySelector('input[data-profile-id="profile-2"]');
+    input.checked = true;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
     await flushAsyncClick();
 
-    expect(document.querySelector('#database-id').value).toBe('target-page-id');
-    expect(document.querySelector('#database-type').value).toBe('page');
+    expect(service.setActiveProfile).toHaveBeenCalledWith('profile-2');
     expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
-      UI_MESSAGES.OPTIONS.DESTINATION.APPLY_SUCCESS('Second'),
-      'info'
+      UI_MESSAGES.OPTIONS.DESTINATION.ACTIVATED('Second'),
+      'success'
     );
 
     document.querySelector('button[data-action="delete"][data-profile-id="profile-2"]').click();
     await flushAsyncClick();
 
     expect(service.deleteProfile).toHaveBeenCalledWith('profile-2');
-    expect(service.listProfiles).toHaveBeenCalledTimes(2);
+    expect(service.listProfiles).toHaveBeenCalledTimes(3);
   });
 
   it('刪除保存目標失敗時應顯示錯誤而不是留下 unhandled rejection', async () => {
@@ -546,6 +547,84 @@ describe('Destination profile options UI', () => {
     expect(Logger.warn).toHaveBeenCalledWith('保存目標操作失敗', {
       action: 'destinationProfileAction',
       error: sanitizeApiError(renameError, 'destinationProfileAction'),
+    });
+  });
+
+  describe('destination profile radio-as-switch', () => {
+    const twoProfiles = [
+      {
+        id: 'default',
+        name: 'Default',
+        color: '#2563eb',
+        notionDataSourceId: 'A',
+        notionDataSourceType: 'database',
+      },
+      {
+        id: 'p2',
+        name: 'Second',
+        color: '#16a34a',
+        notionDataSourceId: 'B',
+        notionDataSourceType: 'page',
+      },
+    ];
+
+    it('renders one radio input per profile inside role=radio rows', async () => {
+      const service = buildProfileManagerMock({ profiles: twoProfiles });
+      await renderDestinationProfilesWithService(service);
+      expect(document.querySelectorAll('input[name="active-destination"]')).toHaveLength(2);
+      expect(document.querySelectorAll('.destination-profile-row[role="radio"]')).toHaveLength(2);
+    });
+
+    it('checks the row matching activeProfileId', async () => {
+      const service = buildProfileManagerMock({ profiles: twoProfiles });
+      service.getActiveProfile.mockResolvedValue(twoProfiles[1]); // p2 active
+      await renderDestinationProfilesWithService(service);
+      const checked = document.querySelector('input[name="active-destination"]:checked');
+      expect(checked.dataset.profileId).toBe('p2');
+    });
+
+    it('calls setActiveProfile when a non-active switch is toggled on', async () => {
+      const service = buildProfileManagerMock({ profiles: twoProfiles });
+      service.getActiveProfile.mockResolvedValue(twoProfiles[1]); // p2 active
+      await renderDestinationProfilesWithService(service);
+      const input = document.querySelector('input[data-profile-id="default"]');
+      input.checked = true;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      await flushAsyncClick();
+      expect(service.setActiveProfile).toHaveBeenCalledWith('default');
+    });
+
+    it('blocks turning off the currently active switch and restores it', async () => {
+      const service = buildProfileManagerMock({ profiles: twoProfiles });
+      service.getActiveProfile.mockResolvedValue(twoProfiles[1]); // p2 active
+      await renderDestinationProfilesWithService(service);
+      const activeInput = document.querySelector('input[data-profile-id="p2"]');
+      activeInput.checked = false;
+      activeInput.dispatchEvent(new Event('change', { bubbles: true }));
+      await flushAsyncClick();
+      expect(activeInput.checked).toBe(true);
+      expect(service.setActiveProfile).not.toHaveBeenCalled();
+    });
+
+    it('reassigns activeProfileId to first remaining profile when active profile is deleted', async () => {
+      const profiles = [
+        {
+          id: 'default',
+          name: 'Default',
+          notionDataSourceId: 'A',
+          notionDataSourceType: 'database',
+        },
+        { id: 'p2', name: 'Second', notionDataSourceId: 'B', notionDataSourceType: 'page' },
+      ];
+      const service = buildProfileManagerMock({ profiles });
+      service.getActiveProfile.mockResolvedValue(profiles[1]); // p2 active
+      service.deleteProfile.mockResolvedValue([profiles[0]]); // 刪 p2 後剩 default
+      await renderDestinationProfilesWithService(service);
+
+      document.querySelector('button[data-action="delete"][data-profile-id="p2"]').click();
+      await flushAsyncClick();
+
+      expect(service.setActiveProfile).toHaveBeenCalledWith('default');
     });
   });
 });

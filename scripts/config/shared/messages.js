@@ -92,6 +92,8 @@ const OPTIONS = {
     CREATE_LIMIT_REACHED: BACKGROUND_MESSAGES.DESTINATION_PROFILE.CREATE_LIMIT_REACHED,
     CREATE_FAILED: '新增保存目標失敗，請稍後再試。',
     APPLY_SUCCESS: profileName => `已套用 ${profileName} 到編輯欄位`,
+    ACTIVATED: profileName => `已啟用保存目標：${profileName}`,
+    AT_LEAST_ONE_REQUIRED: '必須至少啟用一個保存目標。',
     ACTION_FAILED: '保存目標操作失敗，請稍後再試。',
   },
   INTERFACE: {

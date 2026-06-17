@@ -34,7 +34,6 @@ const DESTINATION_PROFILE_ACTIONS = {
   RENAME: 'rename',
   CANCEL_NAME: 'cancel-name',
   SAVE_NAME: 'save-name',
-  EDIT: 'edit',
   DELETE: 'delete',
 };
 const DESTINATION_TARGET_FIELD_SELECTORS = {
@@ -193,6 +192,7 @@ function initializeOptionsManagers({ ui, auth, dataSource, storage, migration })
  */
 function refreshDestinationProfilesUI(ui) {
   initDestinationProfilesUI(ui).catch(error => {
+    console.error('INIT UI CRITICAL ERROR:', error);
     const safeError = sanitizeApiError(error, 'initDestinationProfilesUI');
     Logger.warn('初始化保存目標 UI 失敗', {
       action: 'initDestinationProfilesUI',
@@ -352,6 +352,32 @@ async function initDestinationProfilesUI(ui) {
     ui.showStatus(UI_MESSAGES.OPTIONS.DESTINATION.PROFILE_NAME_REQUIRED, 'error');
   };
 
+  const createDestinationActiveSwitch = (profile, isActive) => {
+    const label = document.createElement('label');
+    label.className = 'switch-wrapper';
+
+    const input = document.createElement('input');
+    input.type = 'radio';
+    input.name = 'active-destination';
+    input.className = 'switch-input';
+    input.checked = isActive;
+    input.dataset.profileId = profile.id;
+    input.setAttribute(
+      'aria-label',
+      `啟用保存目標：${profile.name || UI_MESSAGES.OPTIONS.DESTINATION.DEFAULT_PROFILE_NAME}`
+    );
+
+    const track = document.createElement('span');
+    track.className = 'switch-track';
+    track.setAttribute('aria-hidden', 'true');
+    const knob = document.createElement('span');
+    knob.className = 'switch-knob';
+    track.append(knob);
+
+    label.append(input, track);
+    return label;
+  };
+
   const createDestinationActionButton = ({
     action,
     profileId,
@@ -422,11 +448,6 @@ async function initDestinationProfilesUI(ui) {
         action: DESTINATION_PROFILE_ACTIONS.RENAME,
         profileId: profile.id,
         text: UI_MESSAGES.OPTIONS.DESTINATION.ACTION_RENAME,
-      }),
-      createDestinationActionButton({
-        action: DESTINATION_PROFILE_ACTIONS.EDIT,
-        profileId: profile.id,
-        text: UI_MESSAGES.OPTIONS.DESTINATION.ACTION_APPLY,
       })
     );
 
@@ -486,16 +507,34 @@ async function initDestinationProfilesUI(ui) {
 
     list.innerHTML = '';
 
+    let activeProfileId = null;
+    try {
+      if (typeof service.getActiveProfile === 'function') {
+        const activeProfile = await service.getActiveProfile();
+        activeProfileId = activeProfile?.id ?? null;
+      }
+    } catch (error) {
+      console.error('DEBUG ACTIVE PROFILE ERROR:', error);
+      Logger.warn('讀取啟用保存目標失敗', {
+        action: 'renderDestinationProfiles',
+        error: sanitizeApiError(error, 'destinationProfileActive'),
+      });
+    }
+
     for (const profile of profiles) {
+      const isActive = profile.id === activeProfileId;
       const row = document.createElement('div');
       row.className = 'destination-profile-row';
+      row.setAttribute('role', 'radio');
+      row.setAttribute('aria-checked', isActive ? 'true' : 'false');
       row.style.borderLeftColor = profile.color || '#2563eb';
 
       const canDeleteProfile = profiles.length > 1;
+      const activeSwitch = createDestinationActiveSwitch(profile, isActive);
       const content = renderProfileContent(profile);
       const actions = renderProfileActions(profile, canDeleteProfile);
 
-      row.append(content, actions);
+      row.append(activeSwitch, content, actions);
       list.append(row);
     }
 
@@ -529,17 +568,33 @@ async function initDestinationProfilesUI(ui) {
     await renderDestinationProfiles();
   };
 
-  const applyDestinationProfileToForm = async profileId => {
-    const profile = await service.getProfile(profileId);
-    document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.ID).value =
-      profile.notionDataSourceId;
-    document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.TYPE).value =
-      profile.notionDataSourceType;
-    ui.showStatus(UI_MESSAGES.OPTIONS.DESTINATION.APPLY_SUCCESS(profile.name), 'info');
-  };
-
   const deleteDestinationProfile = async profileId => {
-    await service.deleteProfile(profileId);
+    let activeProfileId = null;
+    try {
+      if (typeof service.getActiveProfile === 'function') {
+        const activeProfile = await service.getActiveProfile();
+        activeProfileId = activeProfile?.id ?? null;
+      }
+    } catch (error) {
+      Logger.warn('讀取啟用保存目標失敗', {
+        action: 'deleteDestinationProfile',
+        error: sanitizeApiError(error, 'getActiveProfile'),
+      });
+    }
+
+    const remainingProfiles = await service.deleteProfile(profileId);
+    if (activeProfileId === profileId && remainingProfiles && remainingProfiles.length > 0) {
+      try {
+        if (typeof service.setActiveProfile === 'function') {
+          await service.setActiveProfile(remainingProfiles[0].id);
+        }
+      } catch (error) {
+        Logger.warn('轉移啟用保存目標失敗', {
+          action: 'deleteDestinationProfile',
+          error: sanitizeApiError(error, 'setActiveProfile'),
+        });
+      }
+    }
     await renderDestinationProfiles();
   };
 
@@ -571,7 +626,6 @@ async function initDestinationProfilesUI(ui) {
     [DESTINATION_PROFILE_ACTIONS.RENAME]: enterDestinationProfileNameEdit,
     [DESTINATION_PROFILE_ACTIONS.CANCEL_NAME]: cancelDestinationProfileNameEdit,
     [DESTINATION_PROFILE_ACTIONS.SAVE_NAME]: saveDestinationProfileName,
-    [DESTINATION_PROFILE_ACTIONS.EDIT]: applyDestinationProfileToForm,
     [DESTINATION_PROFILE_ACTIONS.DELETE]: deleteDestinationProfile,
   };
 
@@ -594,6 +648,33 @@ async function initDestinationProfilesUI(ui) {
         error: safeError,
       });
       ui.showStatus(UI_MESSAGES.OPTIONS.DESTINATION.ACTION_FAILED, 'error');
+    }
+  });
+
+  list.addEventListener('change', async event => {
+    const input = event.target;
+    if (!input?.matches?.('input[name="active-destination"]')) {
+      return;
+    }
+    const profileId = input.dataset.profileId;
+
+    // 不可關閉當前 active：嘗試關掉已勾選列 → 還原並提示
+    if (!input.checked) {
+      input.checked = true;
+      ui.showStatus(UI_MESSAGES.OPTIONS.DESTINATION.AT_LEAST_ONE_REQUIRED, 'info');
+      return;
+    }
+
+    try {
+      await service.setActiveProfile(profileId);
+      const profile = await service.getProfile(profileId);
+      ui.showStatus(UI_MESSAGES.OPTIONS.DESTINATION.ACTIVATED(profile.name), 'success');
+      await renderDestinationProfiles();
+    } catch (error) {
+      const safeError = sanitizeApiError(error, 'destinationProfileActivate');
+      Logger.warn('啟用保存目標失敗', { action: 'activateDestinationProfile', error: safeError });
+      ui.showStatus(UI_MESSAGES.OPTIONS.DESTINATION.ACTION_FAILED, 'error');
+      await renderDestinationProfiles(); // 還原 UI 至實際 active
     }
   });
 
