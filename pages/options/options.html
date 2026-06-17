@@ -157,33 +157,20 @@
             <h3>Notion 連接</h3>
             <div class="connection-row">
               <div id="oauth-status" class="auth-status"></div>
-              <div class="auth-actions connection-actions">
-                <button id="oauth-connect-button" class="btn-primary">
-                  <span class="icon"
-                    ><svg
-                      width="16"
-                      height="16"
-                      class="icon-svg"
-                      aria-hidden="true"
-                      focusable="false"
-                    >
-                      <use href="#icon-link" /></svg
-                  ></span>
-                  <span>以 OAuth 連接 Notion</span>
-                </button>
-                <button id="oauth-disconnect-button" class="btn-danger hidden">
-                  <span class="icon"
-                    ><svg
-                      width="16"
-                      height="16"
-                      class="icon-svg"
-                      aria-hidden="true"
-                      focusable="false"
-                    >
-                      <use href="#icon-unlink" /></svg
-                  ></span>
-                  <span>斷開 OAuth</span>
-                </button>
+              <div class="connection-actions">
+                <label class="switch-wrapper" for="oauth-connection-toggle">
+                  <input
+                    type="checkbox"
+                    id="oauth-connection-toggle"
+                    role="switch"
+                    class="switch-input"
+                    aria-label="Notion 連接"
+                    aria-describedby="oauth-status"
+                  />
+                  <span class="switch-track" aria-hidden="true">
+                    <span class="switch-knob"></span>
+                  </span>
+                </label>
               </div>
             </div>
             <p class="section-desc text-sm mt-sm">
@@ -330,7 +317,12 @@
                   </div>
 
                   <!-- 回退選擇器 -->
-                  <label for="database-select" class="sr-only" data-ui-message="OPTIONS.DESTINATION.FALLBACK_LABEL">選擇資料庫</label>
+                  <label
+                    for="database-select"
+                    class="sr-only"
+                    data-ui-message="OPTIONS.DESTINATION.FALLBACK_LABEL"
+                    >選擇資料庫</label
+                  >
                   <select id="database-select" class="hidden">
                     <option value="" data-ui-message="OPTIONS.DESTINATION.FALLBACK_OPTION"></option>
                   </select>
@@ -827,10 +819,9 @@
           <div class="card">
             <h3 data-ui-message="OPTIONS.TEMPLATES.PAGE_PROPERTIES_TITLE">頁面屬性</h3>
             <div class="form-group">
-              <label
-                for="title-template"
-                data-ui-message="OPTIONS.TEMPLATES.TITLE_TEMPLATE_LABEL"
-              >頁面標題範本</label>
+              <label for="title-template" data-ui-message="OPTIONS.TEMPLATES.TITLE_TEMPLATE_LABEL"
+                >頁面標題範本</label
+              >
               <input
                 type="text"
                 id="title-template"
@@ -1079,7 +1070,12 @@
                 </svg>
                 <span class="button-text">匯出備份</span>
               </button>
-              <label for="import-data-file" class="sr-only" data-ui-message="OPTIONS.DATA_MANAGEMENT.IMPORT_FILE_LABEL">選擇備份檔案</label>
+              <label
+                for="import-data-file"
+                class="sr-only"
+                data-ui-message="OPTIONS.DATA_MANAGEMENT.IMPORT_FILE_LABEL"
+                >選擇備份檔案</label
+              >
               <input type="file" id="import-data-file" accept=".json" class="hidden" />
               <button id="import-data-button" class="btn-secondary">
                 <svg aria-hidden="true" focusable="false" width="16" height="16" class="icon-svg">

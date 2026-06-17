@@ -286,21 +286,19 @@ describe('optionsInitialization', () => {
       );
     });
 
-    it('當 OAuth 被停用時應隱藏連接按鈕', () => {
+    it('當 OAuth 被停用時應隱藏整個 OAuth 卡片區塊', () => {
       BUILD_ENV.ENABLE_OAUTH = false;
       document.body.innerHTML += `
-        <button id="oauth-connect-button" style="display:block"></button>
-        <button id="oauth-disconnect-button" style="display:block"></button>
+        <div class="card">
+          <input type="checkbox" id="oauth-connection-toggle" />
+        </div>
       `;
 
       initOptions();
 
-      expect(document.querySelector('#oauth-connect-button').classList.contains('hidden')).toBe(
-        true
-      );
-      expect(document.querySelector('#oauth-disconnect-button').classList.contains('hidden')).toBe(
-        true
-      );
+      const toggle = document.querySelector('#oauth-connection-toggle');
+      const card = toggle?.closest('.card');
+      expect(card?.classList.contains('hidden')).toBe(true);
     });
 
     it('應監聽 storageUsageUpdate 事件並更新儲存使用量', () => {
