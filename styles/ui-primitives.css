@@ -92,10 +92,18 @@ button.btn-icon:hover {
  * sm = 8px (component-internal gaps)，md = 16px (component-level gaps，例如 form group / card section)。
  * 詳見 DESIGN.md「Spacing」章節。
  */
-.mt-sm { margin-top: var(--spacing-sm); }
-.mt-md { margin-top: var(--spacing-md); }
-.mb-sm { margin-bottom: var(--spacing-sm); }
-.mb-md { margin-bottom: var(--spacing-md); }
+.mt-sm {
+  margin-top: var(--spacing-sm);
+}
+.mt-md {
+  margin-top: var(--spacing-md);
+}
+.mb-sm {
+  margin-bottom: var(--spacing-sm);
+}
+.mb-md {
+  margin-bottom: var(--spacing-md);
+}
 
 /* === Focus States === */
 .btn-primary:focus-visible,
@@ -159,4 +167,85 @@ button.btn-icon:focus-visible {
 .status-message.warning {
   background-color: var(--status-warning-bg);
   color: var(--status-warning-text);
+}
+
+/* === Toggle Switch (先行範式：可複製到其他 checkbox) === */
+.switch-wrapper {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+/* 視覺隱藏原生 checkbox，但保留可聚焦/可點擊與螢幕報讀器語意 */
+.switch-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.switch-track {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--color-disabled);
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+
+.switch-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-bg);
+  transition: transform 0.2s ease;
+}
+
+.switch-input:checked + .switch-track {
+  background: var(--color-success);
+}
+
+.switch-input:checked + .switch-track .switch-knob {
+  transform: translateX(20px);
+}
+
+.switch-input:disabled + .switch-track {
+  opacity: 0.6;
+  cursor: not-allowed;
+  animation: switch-pulse 1s ease-in-out infinite;
+}
+
+.switch-input:focus-visible + .switch-track {
+  box-shadow: 0 0 0 3px var(--focus-ring-primary);
+}
+
+@keyframes switch-pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch-track,
+  .switch-knob {
+    transition: none;
+  }
+  .switch-input:disabled + .switch-track {
+    animation: none;
+  }
 }
