@@ -113,6 +113,20 @@ describe('Destination profile options UI', () => {
     return document.querySelector('input[data-role="destination-profile-name-edit"]');
   }
 
+  async function renderDestinationProfilesWithReadFailure(methodName, error) {
+    const service = buildProfileManagerMock({
+      [methodName]: jest.fn().mockRejectedValue(error),
+    });
+    await renderDestinationProfilesWithService(service);
+  }
+
+  function expectDestinationProfileRenderWarning(message, error, context) {
+    expect(Logger.warn).toHaveBeenCalledWith(message, {
+      action: 'renderDestinationProfiles',
+      error: sanitizeApiError(error, context),
+    });
+  }
+
   it('未登入且已達上限時，新增保存目標按鈕應 disabled 並顯示原因', async () => {
     ProfileManager.mockImplementationOnce(() => ({
       ensureMigratedDefaultProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
@@ -154,32 +168,28 @@ describe('Destination profile options UI', () => {
 
   it('render 應在 entitlement 讀取失敗時仍渲染 profiles 並記錄警告', async () => {
     const entitlementError = new Error('entitlement failed');
-    const service = buildProfileManagerMock({
-      getDestinationEntitlement: jest.fn().mockRejectedValue(entitlementError),
-    });
 
-    await renderDestinationProfilesWithService(service);
+    await renderDestinationProfilesWithReadFailure('getDestinationEntitlement', entitlementError);
 
     expect(document.querySelector('.destination-profile-title').textContent).toBe('Default');
-    expect(Logger.warn).toHaveBeenCalledWith('讀取保存目標權限失敗', {
-      action: 'renderDestinationProfiles',
-      error: sanitizeApiError(entitlementError, 'destinationProfileEntitlement'),
-    });
+    expectDestinationProfileRenderWarning(
+      '讀取保存目標權限失敗',
+      entitlementError,
+      'destinationProfileEntitlement'
+    );
   });
 
   it('render 應在 profile list 讀取失敗時使用空列表並記錄警告', async () => {
     const listError = new Error('list failed');
-    const service = buildProfileManagerMock({
-      listProfiles: jest.fn().mockRejectedValue(listError),
-    });
 
-    await renderDestinationProfilesWithService(service);
+    await renderDestinationProfilesWithReadFailure('listProfiles', listError);
 
     expect(document.querySelector('.destination-profile-row')).toBeNull();
-    expect(Logger.warn).toHaveBeenCalledWith('讀取保存目標列表失敗', {
-      action: 'renderDestinationProfiles',
-      error: sanitizeApiError(listError, 'destinationProfileList'),
-    });
+    expectDestinationProfileRenderWarning(
+      '讀取保存目標列表失敗',
+      listError,
+      'destinationProfileList'
+    );
   });
 
   it('已達付費方案上限時應顯示付費方案提示', async () => {
@@ -568,6 +578,21 @@ describe('Destination profile options UI', () => {
       },
     ];
 
+    async function renderDestinationSwitchesWithSecondProfileActive() {
+      const service = buildProfileManagerMock({ profiles: twoProfiles });
+      service.getActiveProfile.mockResolvedValue(twoProfiles[1]); // p2 active
+      await renderDestinationProfilesWithService(service);
+      return service;
+    }
+
+    async function changeProfileSwitch(profileId, checked) {
+      const input = document.querySelector(`input[data-profile-id="${profileId}"]`);
+      input.checked = checked;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      await flushAsyncClick();
+      return input;
+    }
+
     it('renders one radio input per profile inside role=radio rows', async () => {
       const service = buildProfileManagerMock({ profiles: twoProfiles });
       await renderDestinationProfilesWithService(service);
@@ -576,32 +601,24 @@ describe('Destination profile options UI', () => {
     });
 
     it('checks the row matching activeProfileId', async () => {
-      const service = buildProfileManagerMock({ profiles: twoProfiles });
-      service.getActiveProfile.mockResolvedValue(twoProfiles[1]); // p2 active
-      await renderDestinationProfilesWithService(service);
+      await renderDestinationSwitchesWithSecondProfileActive();
       const checked = document.querySelector('input[name="active-destination"]:checked');
       expect(checked.dataset.profileId).toBe('p2');
     });
 
     it('calls setActiveProfile when a non-active switch is toggled on', async () => {
-      const service = buildProfileManagerMock({ profiles: twoProfiles });
-      service.getActiveProfile.mockResolvedValue(twoProfiles[1]); // p2 active
-      await renderDestinationProfilesWithService(service);
-      const input = document.querySelector('input[data-profile-id="default"]');
-      input.checked = true;
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-      await flushAsyncClick();
+      const service = await renderDestinationSwitchesWithSecondProfileActive();
+
+      await changeProfileSwitch('default', true);
+
       expect(service.setActiveProfile).toHaveBeenCalledWith('default');
     });
 
     it('blocks turning off the currently active switch and restores it', async () => {
-      const service = buildProfileManagerMock({ profiles: twoProfiles });
-      service.getActiveProfile.mockResolvedValue(twoProfiles[1]); // p2 active
-      await renderDestinationProfilesWithService(service);
-      const activeInput = document.querySelector('input[data-profile-id="p2"]');
-      activeInput.checked = false;
-      activeInput.dispatchEvent(new Event('change', { bubbles: true }));
-      await flushAsyncClick();
+      const service = await renderDestinationSwitchesWithSecondProfileActive();
+
+      const activeInput = await changeProfileSwitch('p2', false);
+
       expect(activeInput.checked).toBe(true);
       expect(service.setActiveProfile).not.toHaveBeenCalled();
     });
