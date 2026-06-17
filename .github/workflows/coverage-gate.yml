@@ -1,19 +1,79 @@
 name: Coverage Gate
+run-name: Coverage Gate @ ${{ github.ref_name }} (${{ github.event_name }})
 
 on:
-  merge_group:
-    types: [checks_requested]
+  pull_request:
+    branches: [main, develop]
+    types: [opened, reopened, synchronize, ready_for_review]
   push:
     branches: [main, develop]
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  coverage-classifier:
+    name: Coverage Gate Classifier
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      should-run: ${{ steps.decision.outputs.should-run }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Detect coverage-relevant changes
+        id: changes
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@6852f92c20ea7fd3b0c25de3b5112db3a98da050
+        with:
+          filters: |
+            coverage-relevant:
+              - 'scripts/**'
+              - 'pages/**'
+              - 'tests/**'
+              - 'babel.config.js'
+              - 'jest.config.js'
+              - 'jest.config.*.js'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'sonar-project.properties'
+              - 'codecov.yml'
+              - '.github/workflows/coverage-gate.yml'
+              - '.github/workflows/sonarcloud.yml'
+
+      - name: Decide whether full coverage is required
+        id: decision
+        run: |
+          SHOULD_RUN=false
+
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            SHOULD_RUN=true
+          elif [ "${{ startsWith(github.head_ref, 'release-please--') }}" = "true" ]; then
+            SHOULD_RUN=false
+          elif [ "${{ steps.changes.outputs.coverage-relevant }}" = "true" ]; then
+            SHOULD_RUN=true
+          fi
+
+          echo "should-run=$SHOULD_RUN" >> "$GITHUB_OUTPUT"
+          echo "Coverage required: $SHOULD_RUN"
+
   jest-coverage:
     name: Jest Full Coverage
+    needs: coverage-classifier
+    if: needs.coverage-classifier.outputs.should-run == 'true'
     runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.event_name == 'pull_request' && 'manual-heavy-gate' || 'coverage-auto' }}
     permissions:
       id-token: write
       contents: read
