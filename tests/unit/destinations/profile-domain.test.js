@@ -5,6 +5,7 @@ import {
   DESTINATION_PROFILE_ERRORS,
   DESTINATION_PROFILE_STORAGE_KEYS,
   LocalDestinationProfileRepository,
+  resolveActiveProfile,
 } from '../../../scripts/destinations/ProfileStore.js';
 import { ProfileManager } from '../../../scripts/destinations/ProfileManager.js';
 import { ProfileResolver } from '../../../scripts/destinations/ProfileResolver.js';
@@ -39,6 +40,30 @@ describe('Destination profile domain services', () => {
   let manager = null;
   let resolver = null;
   let entitlementProvider = null;
+
+  const buildProfile = (overrides = {}) => ({
+    id: 'default',
+    name: 'Default',
+    icon: 'bookmark',
+    color: '#2563eb',
+    notionDataSourceId: 'source-1',
+    notionDataSourceType: 'database',
+    createdAt: 1,
+    updatedAt: 1,
+    ...overrides,
+  });
+
+  const buildSecondProfile = (overrides = {}) =>
+    buildProfile({
+      id: 'second',
+      name: 'Second',
+      color: '#16a34a',
+      notionDataSourceId: 'source-2',
+      notionDataSourceType: 'page',
+      createdAt: 2,
+      updatedAt: 2,
+      ...overrides,
+    });
 
   beforeEach(() => {
     storageData = {};
@@ -98,16 +123,11 @@ describe('Destination profile domain services', () => {
 
   it('已有 destinationProfiles 時不會重複建立 Default profile', async () => {
     storageData.destinationProfiles = [
-      {
+      buildProfile({
         id: 'existing',
         name: 'Existing',
-        icon: 'bookmark',
-        color: '#2563eb',
         notionDataSourceId: 'existing-source',
-        notionDataSourceType: 'database',
-        createdAt: 1,
-        updatedAt: 1,
-      },
+      }),
     ];
     storageData.notionDataSourceId = 'legacy-source';
 
@@ -168,18 +188,7 @@ describe('Destination profile domain services', () => {
       maxProfiles: 1,
       source: 'test',
     });
-    storageData.destinationProfiles = [
-      {
-        id: 'default',
-        name: 'Default',
-        icon: 'bookmark',
-        color: '#2563eb',
-        notionDataSourceId: 'source-1',
-        notionDataSourceType: 'database',
-        createdAt: 1,
-        updatedAt: 1,
-      },
-    ];
+    storageData.destinationProfiles = [buildProfile()];
 
     await expect(
       manager.createProfile({
@@ -194,18 +203,7 @@ describe('Destination profile domain services', () => {
   });
 
   it('createProfile 會拒絕 caller-provided duplicate id', async () => {
-    storageData.destinationProfiles = [
-      {
-        id: 'default',
-        name: 'Default',
-        icon: 'bookmark',
-        color: '#2563eb',
-        notionDataSourceId: 'source-1',
-        notionDataSourceType: 'database',
-        createdAt: 1,
-        updatedAt: 1,
-      },
-    ];
+    storageData.destinationProfiles = [buildProfile()];
 
     await expect(
       manager.createProfile({
@@ -218,18 +216,7 @@ describe('Destination profile domain services', () => {
   });
 
   it('createProfile 會將 caller-provided id trim 後檢查 duplicate', async () => {
-    storageData.destinationProfiles = [
-      {
-        id: 'default',
-        name: 'Default',
-        icon: 'bookmark',
-        color: '#2563eb',
-        notionDataSourceId: 'source-1',
-        notionDataSourceType: 'database',
-        createdAt: 1,
-        updatedAt: 1,
-      },
-    ];
+    storageData.destinationProfiles = [buildProfile()];
 
     await expect(
       manager.createProfile({
@@ -246,115 +233,37 @@ describe('Destination profile domain services', () => {
       maxProfiles: 1,
       source: 'test',
     });
-    storageData.destinationProfiles = [
-      {
-        id: 'default',
-        name: 'Default',
-        icon: 'bookmark',
-        color: '#2563eb',
-        notionDataSourceId: 'source-1',
-        notionDataSourceType: 'database',
-        createdAt: 1,
-        updatedAt: 1,
-      },
-      {
-        id: 'second',
-        name: 'Second',
-        icon: 'bookmark',
-        color: '#16a34a',
-        notionDataSourceId: 'source-2',
-        notionDataSourceType: 'page',
-        createdAt: 2,
-        updatedAt: 2,
-      },
-    ];
+    storageData.destinationProfiles = [buildProfile(), buildSecondProfile()];
 
     await expect(resolver.resolveProfileForSave('second')).rejects.toThrow(
       '此保存目標目前不可使用'
     );
   });
 
-  it('getLastUsedProfile 會忽略超出 entitlement 上限的 last-used profile', async () => {
+  it('resolveProfileForSave 未明確指定 profile 時會忽略超出 entitlement 的 active profile', async () => {
     entitlementProvider.getDestinationEntitlement.mockResolvedValue({
       maxProfiles: 1,
       source: 'test',
     });
-    storageData.destinationProfiles = [
-      {
-        id: 'default',
-        name: 'Default',
-        icon: 'bookmark',
-        color: '#2563eb',
-        notionDataSourceId: 'source-1',
-        notionDataSourceType: 'database',
-        createdAt: 1,
-        updatedAt: 1,
-      },
-      {
-        id: 'second',
-        name: 'Second',
-        icon: 'bookmark',
-        color: '#16a34a',
-        notionDataSourceId: 'source-2',
-        notionDataSourceType: 'page',
-        createdAt: 2,
-        updatedAt: 2,
-      },
-    ];
-    storageData.destinationLastUsedProfileId = 'second';
-
-    await expect(manager.getLastUsedProfile()).resolves.toEqual(
-      expect.objectContaining({ id: 'default' })
-    );
-  });
-
-  it('resolveProfileForSave 未明確指定 profile 時會忽略超出 entitlement 的 last-used profile', async () => {
-    entitlementProvider.getDestinationEntitlement.mockResolvedValue({
-      maxProfiles: 1,
-      source: 'test',
-    });
-    storageData.destinationProfiles = [
-      {
-        id: 'default',
-        name: 'Default',
-        icon: 'bookmark',
-        color: '#2563eb',
-        notionDataSourceId: 'source-1',
-        notionDataSourceType: 'database',
-        createdAt: 1,
-        updatedAt: 1,
-      },
-      {
-        id: 'second',
-        name: 'Second',
-        icon: 'bookmark',
-        color: '#16a34a',
-        notionDataSourceId: 'source-2',
-        notionDataSourceType: 'page',
-        createdAt: 2,
-        updatedAt: 2,
-      },
-    ];
-    storageData.destinationLastUsedProfileId = 'second';
+    storageData.destinationProfiles = [buildProfile(), buildSecondProfile()];
+    storageData.destinationActiveProfileId = 'second';
 
     await expect(resolver.resolveProfileForSave()).resolves.toEqual(
       expect.objectContaining({ id: 'default' })
     );
   });
 
+  it('resolveProfileForSave 未明確指定 profile 時會優先使用 activeProfileId 指向的 profile', async () => {
+    storageData.destinationProfiles = [buildProfile(), buildSecondProfile()];
+    storageData.destinationActiveProfileId = 'second';
+
+    await expect(resolver.resolveProfileForSave()).resolves.toEqual(
+      expect.objectContaining({ id: 'second' })
+    );
+  });
+
   it('更新 Default profile 時會同步回寫舊保存目標 keys', async () => {
-    storageData.destinationProfiles = [
-      {
-        id: 'default',
-        name: 'Default',
-        icon: 'bookmark',
-        color: '#2563eb',
-        notionDataSourceId: 'source-1',
-        notionDataSourceType: 'database',
-        createdAt: 1,
-        updatedAt: 1,
-      },
-    ];
+    storageData.destinationProfiles = [buildProfile()];
 
     await manager.updateProfile('default', {
       notionDataSourceId: 'source-2',
@@ -367,18 +276,7 @@ describe('Destination profile domain services', () => {
   });
 
   it('updateProfile 會忽略 updates.id 並保留原始 profile id', async () => {
-    storageData.destinationProfiles = [
-      {
-        id: 'default',
-        name: 'Default',
-        icon: 'bookmark',
-        color: '#2563eb',
-        notionDataSourceId: 'source-1',
-        notionDataSourceType: 'database',
-        createdAt: 1,
-        updatedAt: 1,
-      },
-    ];
+    storageData.destinationProfiles = [buildProfile()];
 
     const updated = await manager.updateProfile('default', {
       id: 'mutated-id',
@@ -391,99 +289,59 @@ describe('Destination profile domain services', () => {
     expect(storageData.notionDataSourceId).toBe('source-2');
   });
 
-  it('刪除 last-used profile 時會把 last-used 指向剩餘第一個 profile', async () => {
-    storageData.destinationLastUsedProfileId = 'second';
-    storageData.destinationProfiles = [
-      {
-        id: 'default',
-        name: 'Default',
-        icon: 'bookmark',
-        color: '#2563eb',
-        notionDataSourceId: 'source-1',
-        notionDataSourceType: 'database',
-        createdAt: 1,
-        updatedAt: 1,
-      },
-      {
-        id: 'second',
-        name: 'Second',
-        icon: 'bookmark',
-        color: '#16a34a',
-        notionDataSourceId: 'source-2',
-        notionDataSourceType: 'page',
-        createdAt: 2,
-        updatedAt: 2,
-      },
-    ];
+  it('刪除 active profile 時會把 active 指向剩餘第一個 profile', async () => {
+    storageData.destinationActiveProfileId = 'second';
+    storageData.destinationProfiles = [buildProfile(), buildSecondProfile()];
 
     await manager.deleteProfile('second');
 
     expect(storageData.destinationProfiles.map(profile => profile.id)).toEqual(['default']);
-    expect(storageData.destinationLastUsedProfileId).toBe('default');
+    expect(storageData.destinationActiveProfileId).toBe('default');
   });
 
   it('repository 使用 canonical destination storage keys', () => {
     expect(DESTINATION_PROFILE_STORAGE_KEYS).toEqual({
       PROFILES: 'destinationProfiles',
       LAST_USED_PROFILE_ID: 'destinationLastUsedProfileId',
+      ACTIVE_PROFILE_ID: 'destinationActiveProfileId',
       VERSION: 'destinationProfilesVersion',
     });
   });
 
   describe('ProfileManager error branches', () => {
-    const buildProfile = overrides => ({
-      id: 'default',
-      name: 'Default',
-      icon: 'bookmark',
-      color: '#2563eb',
-      notionDataSourceId: 'source-1',
-      notionDataSourceType: 'database',
-      createdAt: 1,
-      updatedAt: 1,
-      ...overrides,
+    it('getProfile 找到 id 時回傳對應 profile', async () => {
+      storageData.destinationProfiles = [buildProfile(), buildSecondProfile()];
+
+      await expect(manager.getProfile('second')).resolves.toEqual(
+        expect.objectContaining({
+          id: 'second',
+          notionDataSourceId: 'source-2',
+        })
+      );
+    });
+
+    it('getActiveProfile 會回傳 activeProfileId 指向的 profile', async () => {
+      storageData.destinationProfiles = [buildProfile(), buildSecondProfile()];
+      storageData.destinationActiveProfileId = 'second';
+
+      await expect(manager.getActiveProfile()).resolves.toEqual(
+        expect.objectContaining({ id: 'second' })
+      );
+    });
+
+    it('setActiveProfile 會驗證 profile 並寫入 activeProfileId', async () => {
+      storageData.destinationProfiles = [buildProfile(), buildSecondProfile()];
+
+      const activeProfile = await manager.setActiveProfile('second');
+
+      expect(activeProfile).toEqual(expect.objectContaining({ id: 'second' }));
+      expect(storageData.destinationActiveProfileId).toBe('second');
     });
 
     it('getProfile 找不到 id 時拋 NOT_FOUND', async () => {
       storageData.destinationProfiles = [buildProfile()];
 
       await expect(manager.getProfile('missing')).rejects.toThrow(
-        DESTINATION_PROFILE_ERRORS.NOT_FOUND
-      );
-    });
-
-    it('getLastUsedProfile 在 entitlement.maxProfiles 為 0 時回 null', async () => {
-      entitlementProvider.getDestinationEntitlement.mockResolvedValue({
-        maxProfiles: 0,
-        source: 'test',
-      });
-      storageData.destinationProfiles = [buildProfile()];
-
-      await expect(manager.getLastUsedProfile()).resolves.toBeNull();
-    });
-
-    it('setLastUsedProfile happy path 會寫入 lastUsedProfileId 並回傳 profile', async () => {
-      storageData.destinationProfiles = [
-        buildProfile(),
-        buildProfile({
-          id: 'second',
-          name: 'Second',
-          notionDataSourceId: 'source-2',
-          notionDataSourceType: 'page',
-          createdAt: 2,
-          updatedAt: 2,
-        }),
-      ];
-
-      const result = await manager.setLastUsedProfile('second');
-
-      expect(result.id).toBe('second');
-      expect(storageData.destinationLastUsedProfileId).toBe('second');
-    });
-
-    it('setLastUsedProfile 對不存在 id 拋 NOT_FOUND', async () => {
-      storageData.destinationProfiles = [buildProfile()];
-
-      await expect(manager.setLastUsedProfile('missing')).rejects.toThrow(
         DESTINATION_PROFILE_ERRORS.NOT_FOUND
       );
     });
@@ -542,37 +400,81 @@ describe('Destination profile domain services', () => {
     });
 
     it('deleteProfile 對不存在 id 拋 NOT_FOUND', async () => {
-      storageData.destinationProfiles = [
-        buildProfile(),
-        buildProfile({
-          id: 'second',
-          notionDataSourceId: 'source-2',
-          createdAt: 2,
-          updatedAt: 2,
-        }),
-      ];
+      storageData.destinationProfiles = [buildProfile(), buildSecondProfile()];
 
       await expect(manager.deleteProfile('missing')).rejects.toThrow(
         DESTINATION_PROFILE_ERRORS.NOT_FOUND
       );
     });
 
-    it('deleteProfile 刪除非 last-used profile 時保留原 lastUsedProfileId', async () => {
-      storageData.destinationLastUsedProfileId = 'default';
-      storageData.destinationProfiles = [
-        buildProfile(),
-        buildProfile({
-          id: 'second',
-          notionDataSourceId: 'source-2',
-          createdAt: 2,
-          updatedAt: 2,
-        }),
-      ];
+    it('deleteProfile 刪除非 active profile 時保留原 activeProfileId', async () => {
+      storageData.destinationActiveProfileId = 'default';
+      storageData.destinationProfiles = [buildProfile(), buildSecondProfile()];
 
       const remaining = await manager.deleteProfile('second');
 
       expect(remaining.map(profile => profile.id)).toEqual(['default']);
-      expect(storageData.destinationLastUsedProfileId).toBe('default');
+      expect(storageData.destinationActiveProfileId).toBe('default');
+    });
+
+    it('deleteProfile 刪除 active profile 時改派為第一個剩餘 profile', async () => {
+      storageData.destinationActiveProfileId = 'second';
+      storageData.destinationProfiles = [buildProfile(), buildSecondProfile()];
+
+      const remaining = await manager.deleteProfile('second');
+
+      expect(remaining.map(profile => profile.id)).toEqual(['default']);
+      expect(storageData.destinationActiveProfileId).toBe('default');
+    });
+  });
+
+  describe('activeProfileId repository', () => {
+    it('writes and reads activeProfileId from local storage', async () => {
+      await repository.setActiveProfileId('destination_abc');
+      expect(await repository.getActiveProfileId()).toBe('destination_abc');
+    });
+
+    it('returns null when activeProfileId is absent or blank', async () => {
+      expect(await repository.getActiveProfileId()).toBeNull();
+    });
+  });
+
+  describe('resolveActiveProfile', () => {
+    it('returns the profile pointed to by activeProfileId', async () => {
+      await repository.writeProfiles([
+        { id: 'default', notionDataSourceId: 'A', notionDataSourceType: 'database' },
+        { id: 'p2', notionDataSourceId: 'B', notionDataSourceType: 'page' },
+      ]);
+      await repository.setActiveProfileId('p2');
+      const profile = await resolveActiveProfile(repository);
+      expect(profile.id).toBe('p2');
+    });
+
+    it('migrates from lastUsedProfileId when activeProfileId is empty, then backfills', async () => {
+      await repository.writeProfiles(
+        [
+          { id: 'default', notionDataSourceId: 'A', notionDataSourceType: 'database' },
+          { id: 'p2', notionDataSourceId: 'B', notionDataSourceType: 'page' },
+        ],
+        { lastUsedProfileId: 'p2' }
+      );
+      const profile = await resolveActiveProfile(repository);
+      expect(profile.id).toBe('p2');
+      expect(await repository.getActiveProfileId()).toBe('p2'); // backfilled
+    });
+
+    it('falls back to first profile when both ids absent/invalid', async () => {
+      await repository.writeProfiles([
+        { id: 'default', notionDataSourceId: 'A', notionDataSourceType: 'database' },
+      ]);
+      await repository.setActiveProfileId('ghost');
+      const profile = await resolveActiveProfile(repository);
+      expect(profile.id).toBe('default');
+      expect(await repository.getActiveProfileId()).toBe('default'); // corrected
+    });
+
+    it('returns null when there are no profiles', async () => {
+      expect(await resolveActiveProfile(repository)).toBeNull();
     });
   });
 });

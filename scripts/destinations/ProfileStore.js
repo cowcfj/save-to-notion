@@ -11,6 +11,7 @@ import Logger from '../utils/Logger.js';
 export const DESTINATION_PROFILE_STORAGE_KEYS = {
   PROFILES: 'destinationProfiles',
   LAST_USED_PROFILE_ID: 'destinationLastUsedProfileId',
+  ACTIVE_PROFILE_ID: 'destinationActiveProfileId',
   VERSION: 'destinationProfilesVersion',
 };
 
@@ -148,6 +149,7 @@ export class LocalDestinationProfileRepository {
     return await storageLocal.get([
       DESTINATION_PROFILE_STORAGE_KEYS.PROFILES,
       DESTINATION_PROFILE_STORAGE_KEYS.LAST_USED_PROFILE_ID,
+      DESTINATION_PROFILE_STORAGE_KEYS.ACTIVE_PROFILE_ID,
       DESTINATION_PROFILE_STORAGE_KEYS.VERSION,
       ...LEGACY_DATA_SOURCE_KEYS,
     ]);
@@ -156,6 +158,12 @@ export class LocalDestinationProfileRepository {
   async getLastUsedProfileId() {
     const state = await this.getRawState();
     const id = state[DESTINATION_PROFILE_STORAGE_KEYS.LAST_USED_PROFILE_ID];
+    return typeof id === 'string' && id.trim() ? id : null;
+  }
+
+  async getActiveProfileId() {
+    const state = await this.getRawState();
+    const id = state[DESTINATION_PROFILE_STORAGE_KEYS.ACTIVE_PROFILE_ID];
     return typeof id === 'string' && id.trim() ? id : null;
   }
 
@@ -171,6 +179,10 @@ export class LocalDestinationProfileRepository {
         options.lastUsedProfileId ?? null;
     }
 
+    if (options.activeProfileId !== undefined) {
+      values[DESTINATION_PROFILE_STORAGE_KEYS.ACTIVE_PROFILE_ID] = options.activeProfileId ?? null;
+    }
+
     await storageLocal.set(values);
   }
 
@@ -179,6 +191,16 @@ export class LocalDestinationProfileRepository {
     await storageLocal.set({
       [DESTINATION_PROFILE_STORAGE_KEYS.LAST_USED_PROFILE_ID]: profileId,
     });
+  }
+
+  async setActiveProfileId(profileId, legacyTargetProfile = null) {
+    const storageLocal = this._requireStorage();
+    await storageLocal.set({
+      [DESTINATION_PROFILE_STORAGE_KEYS.ACTIVE_PROFILE_ID]: profileId,
+    });
+    if (legacyTargetProfile) {
+      await this.writeLegacyTarget(legacyTargetProfile);
+    }
   }
 
   async writeLegacyTarget(profile) {
@@ -205,6 +227,25 @@ export async function ensureMigratedDefaultProfile(repository) {
   });
   await repository.writeLegacyTarget(defaultProfile);
   return [defaultProfile];
+}
+
+export async function resolveActiveProfile(repository) {
+  const profiles = await ensureMigratedDefaultProfile(repository);
+  if (profiles.length === 0) {
+    return null;
+  }
+
+  const activeId = await repository.getActiveProfileId();
+  const active = profiles.find(p => p.id === activeId);
+  if (active) {
+    return active;
+  }
+
+  // 一次性遷移：activeProfileId 缺失或失效 → 用 lastUsedProfileId，否則第一個 profile
+  const lastUsedId = await repository.getLastUsedProfileId();
+  const seed = profiles.find(p => p.id === lastUsedId) || profiles[0];
+  await repository.setActiveProfileId(seed.id, seed);
+  return seed;
 }
 
 export class AccountGatedDestinationEntitlementProvider {

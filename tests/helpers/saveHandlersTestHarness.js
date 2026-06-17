@@ -126,7 +126,6 @@ export function createMockServices() {
         notionDataSourceId: 'db-123',
         notionDataSourceType: 'database',
       }),
-      setLastUsedProfile: jest.fn().mockResolvedValue(),
     },
   };
 }

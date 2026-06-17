@@ -52,9 +52,6 @@ describe('saveHandlers savePage', () => {
       'https://example.com',
       expect.objectContaining({ destinationProfileId: 'default' })
     );
-    expect(context.mockServices.destinationProfileResolver.setLastUsedProfile).toHaveBeenCalledWith(
-      'default'
-    );
   });
 
   test('savePage: payload 帶 profileId 時應使用該 profile 的 Notion target', async () => {

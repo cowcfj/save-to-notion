@@ -8,6 +8,7 @@ import {
   DESTINATION_PROFILE_ERROR_CODES,
   DESTINATION_PROFILE_ERRORS,
   ensureMigratedDefaultProfile,
+  resolveActiveProfile,
   LocalDestinationProfileRepository,
   createProfileId,
   normalizeProfile,
@@ -36,21 +37,13 @@ export class ProfileManager {
     return await this.entitlementProvider.getDestinationEntitlement();
   }
 
-  async getLastUsedProfile() {
-    const profiles = await this.listProfiles();
-    const entitlement = await this.getDestinationEntitlement();
-    const allowedProfiles = profiles.slice(0, entitlement.maxProfiles);
-    if (allowedProfiles.length === 0) {
-      return null;
-    }
-
-    const lastUsedProfileId = await this.repository.getLastUsedProfileId();
-    return allowedProfiles.find(profile => profile.id === lastUsedProfileId) || allowedProfiles[0];
+  async getActiveProfile() {
+    return await resolveActiveProfile(this.repository);
   }
 
-  async setLastUsedProfile(profileId) {
-    const profile = await this.getProfile(profileId);
-    await this.repository.setLastUsedProfileId(profile.id);
+  async setActiveProfile(profileId) {
+    const profile = await this.getProfile(profileId); // throws NOT_FOUND if invalid
+    await this.repository.setActiveProfileId(profile.id, profile);
     return profile;
   }
 
@@ -120,12 +113,13 @@ export class ProfileManager {
       throw new Error(DESTINATION_PROFILE_ERRORS.NOT_FOUND);
     }
 
-    const lastUsedProfileId = await this.repository.getLastUsedProfileId();
-    const nextLastUsedProfileId =
-      lastUsedProfileId === profileId ? nextProfiles[0].id : lastUsedProfileId;
-    await this.repository.writeProfiles(nextProfiles, {
-      lastUsedProfileId: nextLastUsedProfileId,
-    });
+    const activeProfileId = await this.repository.getActiveProfileId();
+    if (activeProfileId === profileId) {
+      const nextActiveProfile = nextProfiles[0];
+      await this.repository.setActiveProfileId(nextActiveProfile.id, nextActiveProfile);
+    }
+
+    await this.repository.writeProfiles(nextProfiles);
     return nextProfiles;
   }
 }

@@ -727,7 +727,7 @@ select:focus {
 
 .destination-profile-row {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
   min-height: 48px;
@@ -738,7 +738,7 @@ select:focus {
   background: var(--card-bg);
 }
 
-.destination-profile-row > div:first-child {
+.destination-profile-row > div:first-of-type {
   min-width: 0;
 }
 

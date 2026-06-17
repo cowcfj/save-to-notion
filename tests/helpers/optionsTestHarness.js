@@ -17,8 +17,9 @@ export function appendSaveFormFields() {
 }
 
 export async function flushAsyncClick() {
-  await Promise.resolve();
-  await Promise.resolve();
+  for (let i = 0; i < 10; i += 1) {
+    await Promise.resolve();
+  }
 }
 
 export async function waitForLoggerWarn(Logger, message) {
@@ -191,6 +192,8 @@ export function buildProfileManagerMock(overrides = {}) {
     }),
     updateProfile: jest.fn(),
     createProfile: jest.fn().mockResolvedValue({ id: 'profile-2' }),
+    getActiveProfile: jest.fn().mockResolvedValue(profiles[0]),
+    setActiveProfile: jest.fn().mockResolvedValue(profiles[0]),
     deleteProfile: jest.fn().mockResolvedValue(profiles),
     ...overrides,
   };

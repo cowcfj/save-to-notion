@@ -200,4 +200,16 @@ describe('options.html 結構', () => {
       /\.connection-row\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*auto;/
     );
   });
+
+  test('保存目標 profile row 應保留 switch、內容與 actions 三欄 layout', () => {
+    const cssPath = path.resolve(__dirname, '../../../pages/options/options.css');
+    const css = fs.readFileSync(cssPath, 'utf8');
+
+    expect(css).toMatch(
+      /\.destination-profile-row\s*\{[^}]*grid-template-columns:\s*auto\s+minmax\(0,\s*1fr\)\s+auto;/
+    );
+    expect(css).toMatch(
+      /\.destination-profile-row\s*>\s*div:first-of-type\s*\{[^}]*min-width:\s*0;/
+    );
+  });
 });

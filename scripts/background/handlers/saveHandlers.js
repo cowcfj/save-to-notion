@@ -710,23 +710,6 @@ export function createSaveHandlers(services) {
     }
   }
 
-  async function rememberLastUsedDestinationProfile(destinationProfile) {
-    if (
-      !destinationProfile?.id ||
-      typeof destinationProfileResolver?.setLastUsedProfile !== 'function'
-    ) {
-      return;
-    }
-
-    await destinationProfileResolver.setLastUsedProfile(destinationProfile.id).catch(error => {
-      Logger.warn('更新最後使用保存目的地失敗（不影響保存流程）', {
-        action: 'rememberLastUsedDestinationProfile',
-        profileId: destinationProfile.id,
-        error,
-      });
-    });
-  }
-
   /**
    * 驗證請求並獲取配置
    *
@@ -886,7 +869,6 @@ export function createSaveHandlers(services) {
       lastVerifiedAt: Date.now(),
       destinationProfileId: destinationProfile?.id ?? null,
     });
-    await rememberLastUsedDestinationProfile(destinationProfile);
   }
 
   async function recordUrlAlias(originalUrl, normUrl) {
@@ -958,7 +940,6 @@ export function createSaveHandlers(services) {
       lastUpdated: Date.now(),
       destinationProfileId: destinationProfile?.id ?? savedData.destinationProfileId ?? null,
     });
-    await rememberLastUsedDestinationProfile(destinationProfile);
   }
 
   async function handleHighlightOnlyUpdate(params) {

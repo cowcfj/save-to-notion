@@ -26,16 +26,6 @@ export class ProfileResolver {
     return await this.entitlementProvider.getDestinationEntitlement();
   }
 
-  async setLastUsedProfile(profileId) {
-    const profiles = await this.ensureMigratedDefaultProfile();
-    const profile = profiles.find(item => item.id === profileId);
-    if (!profile) {
-      throw new Error(DESTINATION_PROFILE_ERRORS.NOT_FOUND);
-    }
-    await this.repository.setLastUsedProfileId(profile.id);
-    return profile;
-  }
-
   async resolveProfileForSave(profileId) {
     const profiles = await this.ensureMigratedDefaultProfile();
     if (profiles.length === 0) {
@@ -59,10 +49,10 @@ export class ProfileResolver {
       return profiles[profileIndex];
     }
 
-    const lastUsedProfileId = await this.repository.getLastUsedProfileId();
-    const lastUsedProfile = allowedProfiles.find(profile => profile.id === lastUsedProfileId);
-    if (lastUsedProfile) {
-      return lastUsedProfile;
+    const activeProfileId = await this.repository.getActiveProfileId();
+    const activeProfile = allowedProfiles.find(profile => profile.id === activeProfileId);
+    if (activeProfile) {
+      return activeProfile;
     }
 
     return allowedProfiles[0];

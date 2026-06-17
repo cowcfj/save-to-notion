@@ -34,7 +34,6 @@ const DESTINATION_PROFILE_ACTIONS = {
   RENAME: 'rename',
   CANCEL_NAME: 'cancel-name',
   SAVE_NAME: 'save-name',
-  EDIT: 'edit',
   DELETE: 'delete',
 };
 const DESTINATION_TARGET_FIELD_SELECTORS = {
@@ -51,6 +50,7 @@ const NOTION_ID_LENGTH = 32;
 const NOTION_UUID_SEGMENT_LENGTH = 36;
 const NOTION_ID_SEGMENT_LENGTHS = new Set([NOTION_ID_LENGTH, NOTION_UUID_SEGMENT_LENGTH]);
 const NOTION_ID_HEX_DIGITS = new Set('0123456789abcdefABCDEF'.split(''));
+const ARIA_HIDDEN_ATTRIBUTE = 'aria-hidden';
 let destinationProfilesUIController = null;
 
 function normalizeDestinationProfileName(value) {
@@ -89,6 +89,28 @@ function resolveCreateDestinationProfileErrorMessage(error) {
     : UI_MESSAGES.OPTIONS.DESTINATION.CREATE_FAILED;
 }
 
+function resolveDestinationProfileId(profile) {
+  if (!profile) {
+    return null;
+  }
+  return profile.id ?? null;
+}
+
+function warnActiveDestinationProfileLookupFailure({
+  action,
+  error,
+  errorContext,
+  shouldLogConsoleError = false,
+}) {
+  if (shouldLogConsoleError) {
+    console.error('DEBUG ACTIVE PROFILE ERROR:', error);
+  }
+  Logger.warn('讀取啟用保存目標失敗', {
+    action,
+    error: sanitizeApiError(error, errorContext),
+  });
+}
+
 function createDestinationProfileService() {
   return new ProfileManager({
     repository: new LocalDestinationProfileRepository(),
@@ -119,10 +141,10 @@ function activateSidebarSection(sectionName, navItems, sections) {
   for (const section of sections) {
     if (section.id === targetSectionId) {
       section.classList.add('active');
-      section.setAttribute('aria-hidden', 'false');
+      section.setAttribute(ARIA_HIDDEN_ATTRIBUTE, 'false');
     } else {
       section.classList.remove('active');
-      section.setAttribute('aria-hidden', 'true');
+      section.setAttribute(ARIA_HIDDEN_ATTRIBUTE, 'true');
     }
   }
 
@@ -352,6 +374,32 @@ async function initDestinationProfilesUI(ui) {
     ui.showStatus(UI_MESSAGES.OPTIONS.DESTINATION.PROFILE_NAME_REQUIRED, 'error');
   };
 
+  const createDestinationActiveSwitch = (profile, isActive) => {
+    const label = document.createElement('label');
+    label.className = 'switch-wrapper';
+
+    const input = document.createElement('input');
+    input.type = 'radio';
+    input.name = 'active-destination';
+    input.className = 'switch-input';
+    input.checked = isActive;
+    input.dataset.profileId = profile.id;
+    input.setAttribute(
+      'aria-label',
+      `啟用保存目標：${profile.name || UI_MESSAGES.OPTIONS.DESTINATION.DEFAULT_PROFILE_NAME}`
+    );
+
+    const track = document.createElement('span');
+    track.className = 'switch-track';
+    track.setAttribute(ARIA_HIDDEN_ATTRIBUTE, 'true');
+    const knob = document.createElement('span');
+    knob.className = 'switch-knob';
+    track.append(knob);
+
+    label.append(input, track);
+    return label;
+  };
+
   const createDestinationActionButton = ({
     action,
     profileId,
@@ -422,11 +470,6 @@ async function initDestinationProfilesUI(ui) {
         action: DESTINATION_PROFILE_ACTIONS.RENAME,
         profileId: profile.id,
         text: UI_MESSAGES.OPTIONS.DESTINATION.ACTION_RENAME,
-      }),
-      createDestinationActionButton({
-        action: DESTINATION_PROFILE_ACTIONS.EDIT,
-        profileId: profile.id,
-        text: UI_MESSAGES.OPTIONS.DESTINATION.ACTION_APPLY,
       })
     );
 
@@ -459,46 +502,90 @@ async function initDestinationProfilesUI(ui) {
     addButton.title = limitMessage;
   };
 
-  const renderDestinationProfiles = async () => {
-    let profiles = cachedProfiles;
-    let entitlement = DEFAULT_DESTINATION_ENTITLEMENT;
-
+  const listDestinationProfilesForRender = async () => {
     try {
-      profiles = await service.listProfiles();
+      const profiles = await service.listProfiles();
       cachedProfiles = profiles;
+      return profiles;
     } catch (error) {
       const safeError = sanitizeApiError(error, 'destinationProfileList');
       Logger.warn('讀取保存目標列表失敗', {
         action: 'renderDestinationProfiles',
         error: safeError,
       });
+      return cachedProfiles;
     }
+  };
 
+  const resolveDestinationEntitlementForRender = async () => {
     try {
-      entitlement = await service.getDestinationEntitlement();
+      return await service.getDestinationEntitlement();
     } catch (error) {
       const safeError = sanitizeApiError(error, 'destinationProfileEntitlement');
       Logger.warn('讀取保存目標權限失敗', {
         action: 'renderDestinationProfiles',
         error: safeError,
       });
+      return DEFAULT_DESTINATION_ENTITLEMENT;
     }
+  };
 
+  const resolveActiveDestinationProfileId = async (
+    action,
+    errorContext,
+    shouldLogConsoleError = false
+  ) => {
+    if (typeof service.getActiveProfile !== 'function') {
+      return null;
+    }
+    try {
+      const activeProfile = await service.getActiveProfile();
+      return resolveDestinationProfileId(activeProfile);
+    } catch (error) {
+      warnActiveDestinationProfileLookupFailure({
+        action,
+        error,
+        errorContext,
+        shouldLogConsoleError,
+      });
+      return null;
+    }
+  };
+
+  const createDestinationProfileRow = (profile, activeProfileId, canDeleteProfile) => {
+    const isActive = profile.id === activeProfileId;
+    const row = document.createElement('div');
+    row.className = 'destination-profile-row';
+    row.setAttribute('role', 'radio');
+    row.setAttribute('aria-checked', isActive ? 'true' : 'false');
+    row.style.borderLeftColor = profile.color || '#2563eb';
+
+    const activeSwitch = createDestinationActiveSwitch(profile, isActive);
+    const content = renderProfileContent(profile);
+    const actions = renderProfileActions(profile, canDeleteProfile);
+
+    row.append(activeSwitch, content, actions);
+    return row;
+  };
+
+  const renderDestinationProfileRows = (profiles, activeProfileId) => {
     list.innerHTML = '';
-
+    const canDeleteProfile = profiles.length > 1;
     for (const profile of profiles) {
-      const row = document.createElement('div');
-      row.className = 'destination-profile-row';
-      row.style.borderLeftColor = profile.color || '#2563eb';
-
-      const canDeleteProfile = profiles.length > 1;
-      const content = renderProfileContent(profile);
-      const actions = renderProfileActions(profile, canDeleteProfile);
-
-      row.append(content, actions);
-      list.append(row);
+      list.append(createDestinationProfileRow(profile, activeProfileId, canDeleteProfile));
     }
+  };
 
+  const renderDestinationProfiles = async () => {
+    const profiles = await listDestinationProfilesForRender();
+    const entitlement = await resolveDestinationEntitlementForRender();
+    const activeProfileId = await resolveActiveDestinationProfileId(
+      'renderDestinationProfiles',
+      'destinationProfileActive',
+      true
+    );
+
+    renderDestinationProfileRows(profiles, activeProfileId);
     updateDestinationLimitState(profiles, entitlement);
   };
 
@@ -527,15 +614,6 @@ async function initDestinationProfilesUI(ui) {
     editingProfileId = null;
     draftProfileName = '';
     await renderDestinationProfiles();
-  };
-
-  const applyDestinationProfileToForm = async profileId => {
-    const profile = await service.getProfile(profileId);
-    document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.ID).value =
-      profile.notionDataSourceId;
-    document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.TYPE).value =
-      profile.notionDataSourceType;
-    ui.showStatus(UI_MESSAGES.OPTIONS.DESTINATION.APPLY_SUCCESS(profile.name), 'info');
   };
 
   const deleteDestinationProfile = async profileId => {
@@ -571,7 +649,6 @@ async function initDestinationProfilesUI(ui) {
     [DESTINATION_PROFILE_ACTIONS.RENAME]: enterDestinationProfileNameEdit,
     [DESTINATION_PROFILE_ACTIONS.CANCEL_NAME]: cancelDestinationProfileNameEdit,
     [DESTINATION_PROFILE_ACTIONS.SAVE_NAME]: saveDestinationProfileName,
-    [DESTINATION_PROFILE_ACTIONS.EDIT]: applyDestinationProfileToForm,
     [DESTINATION_PROFILE_ACTIONS.DELETE]: deleteDestinationProfile,
   };
 
@@ -594,6 +671,26 @@ async function initDestinationProfilesUI(ui) {
         error: safeError,
       });
       ui.showStatus(UI_MESSAGES.OPTIONS.DESTINATION.ACTION_FAILED, 'error');
+    }
+  });
+
+  list.addEventListener('change', async event => {
+    const input = event.target;
+    if (!input?.matches?.('input[name="active-destination"]')) {
+      return;
+    }
+    const profileId = input.dataset.profileId;
+
+    try {
+      await service.setActiveProfile(profileId);
+      const profile = await service.getProfile(profileId);
+      ui.showStatus(UI_MESSAGES.OPTIONS.DESTINATION.ACTIVATED(profile.name), 'success');
+      await renderDestinationProfiles();
+    } catch (error) {
+      const safeError = sanitizeApiError(error, 'destinationProfileActivate');
+      Logger.warn('啟用保存目標失敗', { action: 'activateDestinationProfile', error: safeError });
+      ui.showStatus(UI_MESSAGES.OPTIONS.DESTINATION.ACTION_FAILED, 'error');
+      await renderDestinationProfiles(); // 還原 UI 至實際 active
     }
   });
 

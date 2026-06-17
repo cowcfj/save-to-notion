@@ -338,7 +338,6 @@ function createMigrationServiceMock() {
 function createDestinationProfileResolverMock() {
   return {
     resolveProfileForSave: jest.fn().mockResolvedValue(createDefaultProfile()),
-    setLastUsedProfile: jest.fn().mockResolvedValue(),
   };
 }
 

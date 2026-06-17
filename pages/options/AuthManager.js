@@ -34,6 +34,7 @@ export class AuthManager {
   // 將常數綁定到類別上供實例使用
   static CLASS_AUTH_SUCCESS = 'auth-status success';
   static CLASS_AUTH_STATUS = 'auth-status';
+  static ATTR_ARIA_CHECKED = 'aria-checked';
   static MIN_API_KEY_LENGTH_FOR_DATASOURCE_LOAD = 20;
   static API_KEY_INPUT_DEBOUNCE_MS = 1000;
 
@@ -384,6 +385,7 @@ export class AuthManager {
       return;
     }
     toggle.checked = true;
+    toggle.setAttribute(AuthManager.ATTR_ARIA_CHECKED, 'true');
     toggle.disabled = false;
   }
 
@@ -398,6 +400,7 @@ export class AuthManager {
       return;
     }
     toggle.checked = false;
+    toggle.setAttribute(AuthManager.ATTR_ARIA_CHECKED, 'false');
     toggle.disabled = false;
   }
 
@@ -413,6 +416,7 @@ export class AuthManager {
       return;
     }
     toggle.checked = desiredChecked;
+    toggle.setAttribute(AuthManager.ATTR_ARIA_CHECKED, desiredChecked ? 'true' : 'false');
     toggle.disabled = true;
   }
 
