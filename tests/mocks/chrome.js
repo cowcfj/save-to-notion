@@ -103,6 +103,10 @@ const chrome = {
           });
         } else if (keys === null || keys === undefined) {
           Object.assign(result, syncStorageData);
+        } else if (typeof keys === 'object') {
+          Object.entries(keys).forEach(([key, defaultValue]) => {
+            result[key] = syncStorageData[key] === undefined ? defaultValue : syncStorageData[key];
+          });
         }
         if (callback) {
           callback(result);
@@ -151,6 +155,11 @@ const chrome = {
           });
         } else if (keys === null || keys === undefined) {
           Object.assign(result, sessionStorageData);
+        } else if (typeof keys === 'object') {
+          Object.entries(keys).forEach(([key, defaultValue]) => {
+            result[key] =
+              sessionStorageData[key] === undefined ? defaultValue : sessionStorageData[key];
+          });
         }
         if (callback) {
           callback(result);

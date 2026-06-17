@@ -387,6 +387,16 @@ describe('Destination profile domain services', () => {
       expect(remaining.map(profile => profile.id)).toEqual(['default']);
       expect(storageData.destinationActiveProfileId).toBe('default');
     });
+
+    it('deleteProfile 刪除 active profile 時改派為第一個剩餘 profile', async () => {
+      storageData.destinationActiveProfileId = 'second';
+      storageData.destinationProfiles = [buildProfile(), buildSecondProfile()];
+
+      const remaining = await manager.deleteProfile('second');
+
+      expect(remaining.map(profile => profile.id)).toEqual(['default']);
+      expect(storageData.destinationActiveProfileId).toBe('default');
+    });
   });
 
   describe('activeProfileId repository', () => {

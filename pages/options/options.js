@@ -89,24 +89,6 @@ function resolveCreateDestinationProfileErrorMessage(error) {
     : UI_MESSAGES.OPTIONS.DESTINATION.CREATE_FAILED;
 }
 
-function hasRemainingDestinationProfiles(remainingProfiles) {
-  if (!remainingProfiles) {
-    return false;
-  }
-  return remainingProfiles.length > 0;
-}
-
-function shouldReassignActiveDestinationProfile(
-  activeProfileId,
-  deletedProfileId,
-  remainingProfiles
-) {
-  if (activeProfileId !== deletedProfileId) {
-    return false;
-  }
-  return hasRemainingDestinationProfiles(remainingProfiles);
-}
-
 function resolveDestinationProfileId(profile) {
   if (!profile) {
     return null;
@@ -233,7 +215,6 @@ function initializeOptionsManagers({ ui, auth, dataSource, storage, migration })
  */
 function refreshDestinationProfilesUI(ui) {
   initDestinationProfilesUI(ui).catch(error => {
-    console.error('INIT UI CRITICAL ERROR:', error);
     const safeError = sanitizeApiError(error, 'initDestinationProfilesUI');
     Logger.warn('初始化保存目標 UI 失敗', {
       action: 'initDestinationProfilesUI',
@@ -635,40 +616,8 @@ async function initDestinationProfilesUI(ui) {
     await renderDestinationProfiles();
   };
 
-  const reassignActiveDestinationProfileAfterDelete = async (
-    activeProfileId,
-    deletedProfileId,
-    remainingProfiles
-  ) => {
-    if (
-      !shouldReassignActiveDestinationProfile(activeProfileId, deletedProfileId, remainingProfiles)
-    ) {
-      return;
-    }
-
-    try {
-      if (typeof service.setActiveProfile === 'function') {
-        await service.setActiveProfile(remainingProfiles[0].id);
-      }
-    } catch (error) {
-      Logger.warn('轉移啟用保存目標失敗', {
-        action: 'deleteDestinationProfile',
-        error: sanitizeApiError(error, 'setActiveProfile'),
-      });
-    }
-  };
-
   const deleteDestinationProfile = async profileId => {
-    const activeProfileId = await resolveActiveDestinationProfileId(
-      'deleteDestinationProfile',
-      'getActiveProfile'
-    );
-    const remainingProfiles = await service.deleteProfile(profileId);
-    await reassignActiveDestinationProfileAfterDelete(
-      activeProfileId,
-      profileId,
-      remainingProfiles
-    );
+    await service.deleteProfile(profileId);
     await renderDestinationProfiles();
   };
 

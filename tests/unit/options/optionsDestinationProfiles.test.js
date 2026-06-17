@@ -623,7 +623,7 @@ describe('Destination profile options UI', () => {
       expect(service.setActiveProfile).not.toHaveBeenCalled();
     });
 
-    it('reassigns activeProfileId to first remaining profile when active profile is deleted', async () => {
+    it('delegates deletion to service.deleteProfile without reassigning at the UI layer', async () => {
       const profiles = [
         {
           id: 'default',
@@ -641,7 +641,8 @@ describe('Destination profile options UI', () => {
       document.querySelector('button[data-action="delete"][data-profile-id="p2"]').click();
       await flushAsyncClick();
 
-      expect(service.setActiveProfile).toHaveBeenCalledWith('default');
+      expect(service.deleteProfile).toHaveBeenCalledWith('p2');
+      expect(service.setActiveProfile).not.toHaveBeenCalled();
     });
   });
 });
