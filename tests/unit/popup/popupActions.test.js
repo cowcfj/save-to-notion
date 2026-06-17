@@ -216,6 +216,23 @@ describe('popupActions.js', () => {
       expect(result.valid).toBe(true);
       expect(result.dataSourceId).toBe('local-db-id');
     });
+
+    it('reports valid when a non-default active profile has a target but legacy top-level keys are absent', async () => {
+      await chrome.storage.local.set({
+        destinationProfiles: [
+          { id: 'default', notionDataSourceId: 'AAA', notionDataSourceType: 'database' },
+          { id: 'p2', notionDataSourceId: 'BBB', notionDataSourceType: 'page' },
+        ],
+        destinationActiveProfileId: 'p2',
+        notionAuthMode: 'oauth',
+        notionOAuthToken: 'tok',
+      });
+      await chrome.storage.sync.set({ notionApiKey: '' });
+
+      const result = await checkSettings();
+      expect(result.valid).toBe(true);
+      expect(result.dataSourceId).toBe('BBB');
+    });
   });
 
   describe('checkPageStatus', () => {

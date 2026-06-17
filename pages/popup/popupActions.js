@@ -50,10 +50,25 @@ export async function checkSettings() {
     ]);
     const isOAuth = localResult.notionAuthMode === AuthMode.OAUTH && localResult.notionOAuthToken;
 
-    // Local 優先，sync 回退（向後兼容 v2.47.0 前僅存於 sync 的升級用戶）
-    const localDataSourceId = localResult.notionDataSourceId || localResult.notionDatabaseId;
-    const syncDataSourceId = syncResult.notionDataSourceId || syncResult.notionDatabaseId;
-    const dataSourceId = localDataSourceId || syncDataSourceId;
+    // SOT：activeProfileId 指向的 profile 為當前生效目標；legacy 頂層 key 僅作安全網
+    let activeProfileDataSourceId = null;
+    try {
+      const service = new ProfileManager({ repository: new LocalDestinationProfileRepository() });
+      const activeProfile = await service.getActiveProfile();
+      activeProfileDataSourceId = activeProfile?.notionDataSourceId || null;
+    } catch (error) {
+      Logger.warn('checkSettings: failed to resolve active profile', {
+        action: 'checkSettings',
+        error: sanitizeApiError(error, 'checkSettings.getActiveProfile'),
+      });
+    }
+
+    const legacyDataSourceId =
+      localResult.notionDataSourceId ||
+      localResult.notionDatabaseId ||
+      syncResult.notionDataSourceId ||
+      syncResult.notionDatabaseId;
+    const dataSourceId = activeProfileDataSourceId || legacyDataSourceId;
     const hasManualApiKey = Boolean(syncResult.notionApiKey);
     const hasAuth = Boolean(hasManualApiKey || isOAuth);
     const valid = Boolean(hasAuth && dataSourceId);
