@@ -24,6 +24,8 @@ import {
 } from '../../scripts/destinations/ProfileStore.js';
 import { ProfileManager } from '../../scripts/destinations/ProfileManager.js';
 
+const POPUP_TEMP_PROFILE_SESSION_KEY = 'popupTempDestinationProfileId';
+
 /**
  * 檢查設置是否完整
  *
@@ -189,14 +191,27 @@ export async function getDestinationState() {
       });
       return [];
     });
-    const selectedProfile = await service.getLastUsedProfile().catch(error => {
+    const tempResult = await chrome.storage.session
+      .get(POPUP_TEMP_PROFILE_SESSION_KEY)
+      .catch(error => {
+        Logger.warn({
+          action: 'getDestinationState',
+          operation: 'getSessionTempProfile',
+          error: sanitizeApiError(error, 'getDestinationState.getSessionTempProfile'),
+        });
+        return null;
+      });
+    const tempProfileId = tempResult?.[POPUP_TEMP_PROFILE_SESSION_KEY] || null;
+
+    const activeProfile = await service.getActiveProfile().catch(error => {
       Logger.warn({
         action: 'getDestinationState',
-        operation: 'getLastUsedProfile',
-        error: sanitizeApiError(error, 'getDestinationState.getLastUsedProfile'),
+        operation: 'getActiveProfile',
+        error: sanitizeApiError(error, 'getDestinationState.getActiveProfile'),
       });
       return null;
     });
+
     const entitlement = await service.getDestinationEntitlement().catch(error => {
       Logger.warn({
         action: 'getDestinationState',
@@ -205,9 +220,15 @@ export async function getDestinationState() {
       });
       return { maxProfiles: 1 };
     });
-    const selectedProfileId = profiles.some(profile => profile.id === selectedProfile?.id)
-      ? selectedProfile.id
-      : (profiles[0]?.id ?? null);
+
+    const allowedProfiles = profiles.slice(0, entitlement.maxProfiles);
+    const tempIsValid = allowedProfiles.some(profile => profile.id === tempProfileId);
+    let selectedProfileId = allowedProfiles[0]?.id ?? null;
+    if (tempIsValid) {
+      selectedProfileId = tempProfileId;
+    } else if (allowedProfiles.some(profile => profile.id === activeProfile?.id)) {
+      selectedProfileId = activeProfile.id;
+    }
 
     return {
       profiles,

@@ -13,6 +13,7 @@ import {
 import { ERROR_MESSAGES } from '../../../scripts/config/shared/messages.js';
 import { BUILD_ENV } from '../../../scripts/config/env/index.js';
 import Logger from '../../../scripts/utils/Logger.js';
+import { ProfileManager } from '../../../scripts/destinations/ProfileManager.js';
 
 jest.mock('../../../scripts/config/env/index.js', () => ({
   BUILD_ENV: {
@@ -24,17 +25,23 @@ jest.mock('../../../scripts/config/env/index.js', () => ({
 jest.mock('../../../scripts/auth/accountSession.js', () => ({
   getAccountProfile: jest.fn(),
   getAccountAccessToken: jest.fn(),
+  getAccountSession: jest.fn(),
+  isAccountSessionExpired: jest.fn(),
 }));
 
 describe('popupActions.js', () => {
   const {
     getAccountProfile,
     getAccountAccessToken,
+    getAccountSession,
+    isAccountSessionExpired,
   } = require('../../../scripts/auth/accountSession.js');
 
   beforeEach(() => {
     jest.clearAllMocks();
     jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+    getAccountSession.mockResolvedValue(null);
+    isAccountSessionExpired.mockReturnValue(true);
     // 確保每次測試前 storage 是空的
     chrome._clearStorage();
     BUILD_ENV.ENABLE_ACCOUNT = true;
@@ -342,7 +349,7 @@ describe('popupActions.js', () => {
       expect(result.entitlement.maxProfiles).toBeGreaterThanOrEqual(1);
     });
 
-    it('last-used 讀取失敗時仍應保留 profiles 並回退選第一個 profile', async () => {
+    it('active 讀取失敗時仍應保留 profiles 並回退選第一個 profile', async () => {
       await chrome.storage.local.set({
         destinationProfiles: [
           {
@@ -356,18 +363,11 @@ describe('popupActions.js', () => {
             updatedAt: 1,
           },
         ],
-        destinationLastUsedProfileId: 'default',
+        destinationActiveProfileId: 'default',
       });
-      const originalGet = chrome.storage.local.get;
-      let getCallCount = 0;
-      chrome.storage.local.get = jest.fn(keys => {
-        getCallCount += 1;
-        const keyList = Array.isArray(keys) ? keys : [keys];
-        if (getCallCount >= 3 && keyList.includes('destinationLastUsedProfileId')) {
-          return Promise.reject(new Error('last-used failed'));
-        }
-        return originalGet.call(chrome.storage.local, keys);
-      });
+      const activeSpy = jest
+        .spyOn(ProfileManager.prototype, 'getActiveProfile')
+        .mockRejectedValueOnce(new Error('active failed'));
 
       try {
         const result = await getDestinationState();
@@ -378,12 +378,12 @@ describe('popupActions.js', () => {
         expect(Logger.warn).toHaveBeenCalledWith(
           expect.objectContaining({
             action: 'getDestinationState',
-            operation: 'getLastUsedProfile',
+            operation: 'getActiveProfile',
             error: expect.any(String),
           })
         );
       } finally {
-        chrome.storage.local.get = originalGet;
+        activeSpy.mockRestore();
       }
     });
 
@@ -408,6 +408,41 @@ describe('popupActions.js', () => {
 
       expect(result.profiles.map(profile => profile.id)).toEqual(['default']);
       expect(result.selectedProfileId).toBe('default');
+    });
+
+    describe('getDestinationState selection precedence', () => {
+      beforeEach(() => {
+        getAccountSession.mockResolvedValue({
+          accessToken: 'valid-token',
+          expiresAt: Date.now() + 100_000,
+        });
+        isAccountSessionExpired.mockReturnValue(false);
+      });
+
+      it('prefers session temp selection over activeProfileId', async () => {
+        await chrome.storage.local.set({
+          destinationProfiles: [
+            { id: 'default', notionDataSourceId: 'A', notionDataSourceType: 'database' },
+            { id: 'p2', notionDataSourceId: 'B', notionDataSourceType: 'page' },
+          ],
+          destinationActiveProfileId: 'default',
+        });
+        await chrome.storage.session.set({ popupTempDestinationProfileId: 'p2' });
+        const state = await getDestinationState();
+        expect(state.selectedProfileId).toBe('p2');
+      });
+
+      it('falls back to activeProfileId when no session temp selection', async () => {
+        await chrome.storage.local.set({
+          destinationProfiles: [
+            { id: 'default', notionDataSourceId: 'A', notionDataSourceType: 'database' },
+            { id: 'p2', notionDataSourceId: 'B', notionDataSourceType: 'page' },
+          ],
+          destinationActiveProfileId: 'p2',
+        });
+        const state = await getDestinationState();
+        expect(state.selectedProfileId).toBe('p2');
+      });
     });
   });
 
