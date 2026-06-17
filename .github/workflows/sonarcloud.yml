@@ -1,13 +1,13 @@
 name: SonarCloud Scan
 
-# Trigger 設計：依賴 CI workflow 跑完後上傳 jest coverage artifact，本 workflow 透過
+# Trigger 設計：依賴 Coverage Gate workflow 跑完後上傳 jest coverage artifact，本 workflow 透過
 # workflow_run 取用該 artifact，避免重複跑 jest。
-# - 若 CI 因 paths-filter 沒跑 jest，就沒有 coverage artifact，本 workflow 跳過 scan
+# - 若 Coverage Gate 因 paths-filter 沒跑 jest，就沒有 coverage artifact，本 workflow 跳過 scan
 #   （sonar-project.properties 等 config 變更由 push to main/develop 時補抓）。
 # - 詳見 docs/adr/0009-ci-generated-coverage-trust-model.md
 on:
   workflow_run:
-    workflows: ["CI"]
+    workflows: ["Coverage Gate"]
     types: [completed]
 
 env:

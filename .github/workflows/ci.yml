@@ -178,18 +178,31 @@ jobs:
           key: ${{ runner.os }}-jest-${{ hashFiles('jest.config.js', 'jest.config.*.js', 'package-lock.json') }}
           restore-keys: ${{ runner.os }}-jest-
 
-      - name: Jest unit tests with coverage
-        if: steps.changes.outputs.test-changed == 'true' || steps.changes.outputs.ci-changed == 'true'
-        run: npm run test:ci
+      - name: Detect changed source files for related tests
+        id: changed-files
+        if: (steps.changes.outputs.test-changed == 'true' || steps.changes.outputs.ci-changed == 'true') && github.event_name == 'pull_request'
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" HEAD -- scripts pages tests babel.config.js jest.config.js package.json package-lock.json)
+          if [ -n "$CHANGED_FILES" ]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "變更的檔案:"
+            echo "$CHANGED_FILES"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Upload jest coverage artifact
-        if: steps.changes.outputs.test-changed == 'true' || steps.changes.outputs.ci-changed == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: jest-coverage-${{ github.event.pull_request.head.sha || github.sha }}
-          path: coverage/jest/lcov.info
-          retention-days: 7
-          if-no-files-found: error
+      - name: Jest related tests
+        if: steps.changed-files.outputs.has_changes == 'true'
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          git diff -z --name-only "$BASE_SHA" HEAD -- scripts pages tests babel.config.js jest.config.js package.json package-lock.json | \
+            xargs -0 -r npx jest --config jest.config.js --ci --findRelatedTests --maxWorkers=2
+
+      - name: Jest config-change smoke suite
+        if: steps.changes.outputs.ci-changed == 'true' || (github.event_name != 'pull_request' && (steps.changes.outputs.test-changed == 'true' || steps.changes.outputs.ci-changed == 'true'))
+        run: npm test -- --listTests
 
       # E2E 測試從 CI 移除：Chrome headless 模式不支持 Extension Service Worker
       # （Chromium Issue #41309918）。E2E 可在本地用 npm run test:e2e 跑（headed 模式）。
@@ -266,37 +279,6 @@ jobs:
             .tmp/size-report-current.json
             .tmp/size-report-delta.json
           if-no-files-found: ignore
-
-      - name: Validate coverage file
-        id: validate-coverage
-        if: steps.changes.outputs.test-changed == 'true' || steps.changes.outputs.ci-changed == 'true'
-        run: |
-          LCOV_FILE="coverage/jest/lcov.info"
-          if [ ! -f "$LCOV_FILE" ]; then
-            echo "⚠️ Coverage file not found at $LCOV_FILE."
-            echo "valid=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          # 檢查文件是否包含有效的 LCOV 格式（至少包含 SF: 和 end_of_record）
-          if grep -q "^SF:" "$LCOV_FILE" && grep -q "end_of_record" "$LCOV_FILE"; then
-            LINE_COUNT=$(wc -l < "$LCOV_FILE")
-            echo "✅ Valid LCOV file detected ($LINE_COUNT lines)"
-            echo "valid=true" >> $GITHUB_OUTPUT
-            echo "file=$LCOV_FILE" >> $GITHUB_OUTPUT
-          else
-            echo "⚠️ Invalid LCOV format in $LCOV_FILE"
-            echo "valid=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Upload coverage to Codecov
-        if: (steps.changes.outputs.test-changed == 'true' || steps.changes.outputs.ci-changed == 'true') && steps.validate-coverage.outputs.valid == 'true'
-        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6
-        with:
-          files: ${{ steps.validate-coverage.outputs.file }}
-          flags: unit
-          fail_ci_if_error: false
-          use_oidc: true
 
       - name: Upload Test Artifacts (Action Report)
         if: always()
