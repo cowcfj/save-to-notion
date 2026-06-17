@@ -261,14 +261,15 @@ button.btn-icon:focus-visible {
   padding: var(--spacing-lg);
   max-width: 360px;
   width: calc(100% - 2 * var(--spacing-lg));
-  background-color: var(--color-bg);
+  background: var(--color-bg);
   color: var(--color-text);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
 }
 
 .confirm-dialog::backdrop {
-  background-color: rgba(0, 0, 0, 0.4);
-  filter: blur(4px); /* 用 filter 代替 backdrop-filter 以符合 stylelint 屬性限制 */
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 .confirm-dialog-title {
