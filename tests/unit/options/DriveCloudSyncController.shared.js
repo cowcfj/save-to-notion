@@ -12,14 +12,8 @@ export const getConfirmDialogMock = () =>
   require('../../../pages/options/confirmDialog.js').confirmDialog;
 
 export async function flushAsyncWork() {
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
+  // Let Jest flush queued Promise callbacks without advancing delayed status timers.
+  await jest.advanceTimersByTimeAsync(0);
 }
 
 const getStorageString = (key, state) => (Object.hasOwn(state, key) ? { [key]: state[key] } : {});
