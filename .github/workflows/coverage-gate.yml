@@ -50,7 +50,6 @@ jobs:
               - 'codecov.yml'
               - '.github/workflows/ci.yml'
               - '.github/workflows/coverage-gate.yml'
-              - '.github/workflows/sonarcloud.yml'
 
       - name: Decide whether full coverage is required
         id: decision

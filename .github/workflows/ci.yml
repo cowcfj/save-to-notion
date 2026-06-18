@@ -50,7 +50,6 @@ jobs:
               - 'sonar-project.properties'
               - 'codecov.yml'
               - '.github/workflows/ci.yml'
-              - '.github/workflows/sonarcloud.yml'
             bundle-changed:
               - 'scripts/**'
               - 'pages/**'
@@ -67,7 +66,6 @@ jobs:
               - '.github/workflows/ci.yml'
             ci-changed:
               - '.github/workflows/ci.yml'
-              - '.github/workflows/sonarcloud.yml'
               - 'jest.config.js'
               - 'jest.config.*.js'
               - 'sonar-project.properties'
