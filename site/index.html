@@ -364,7 +364,9 @@
     </div>
 
     <h2>🎬 功能展示</h2>
-    <p style="text-align: center; color: #475569; margin-bottom: 10px">💡 點擊圖片可查看大圖</p>
+    <p style="text-align: center; color: #475569; margin-bottom: 10px">
+      💡 點擊圖片（或聚焦後按 Enter／空白鍵）可查看大圖
+    </p>
 
     <div class="feature-showcase">
       <div class="image-grid">
@@ -416,7 +418,11 @@
       <span class="lightbox-close" aria-label="關閉大圖">&times;</span>
       <span class="lightbox-nav lightbox-prev" aria-label="上一張">&#10094;</span>
       <div class="lightbox-content">
-        <img id="lightbox-img" src="" alt="" />
+        <img
+          id="lightbox-img"
+          src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="
+          alt=""
+        />
         <div id="lightbox-caption" class="lightbox-caption"></div>
       </div>
       <span class="lightbox-nav lightbox-next" aria-label="下一張">&#10095;</span>
@@ -558,11 +564,11 @@
 
     <hr style="margin: 40px 0; border: none; border-top: 1px solid #eee" />
     <p style="text-align: center; color: #64748b; font-size: 0.9em">
-      Made with ❤️ for Notion users |
+      用 ❤️ 為 Notion 使用者打造 |
       <a href="https://github.com/cowcfj/save-to-notion">GitHub</a> |
       <a
         href="https://chromewebstore.google.com/detail/save-to-notion-smart-clip/gmelegphcncnddlaeogfhododhbcbmhp"
-        >Chrome Store</a
+        >Chrome 商店</a
       >
     </p>
 
@@ -626,7 +632,7 @@
           };
 
           card.addEventListener('click', openHandler);
-          card.addEventListener('keydown', (e) => {
+          card.addEventListener('keydown', e => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
               openHandler();
@@ -683,7 +689,7 @@
         // 綁定關閉與導航點擊/按鍵事件
         if (closeBtn) {
           closeBtn.addEventListener('click', closeLightbox);
-          closeBtn.addEventListener('keydown', (e) => {
+          closeBtn.addEventListener('keydown', e => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
               closeLightbox();
@@ -693,11 +699,11 @@
 
         const setupNavButton = (btn, direction) => {
           if (btn) {
-            btn.addEventListener('click', (e) => {
+            btn.addEventListener('click', e => {
               e.stopPropagation();
               navigateLightbox(direction);
             });
-            btn.addEventListener('keydown', (e) => {
+            btn.addEventListener('keydown', e => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 e.stopPropagation();
@@ -711,7 +717,7 @@
         setupNavButton(nextBtn, 1);
 
         // 點擊背景關閉 Lightbox
-        lightbox.addEventListener('click', (e) => {
+        lightbox.addEventListener('click', e => {
           if (e.target === lightbox) {
             closeLightbox();
           }
@@ -764,7 +770,7 @@
         }
 
         // 全域鍵盤事件管理與焦點鎖定 (Focus Trap)
-        document.addEventListener('keydown', (e) => {
+        document.addEventListener('keydown', e => {
           if (!lightbox.classList.contains('active')) return;
 
           handleLightboxShortcut(e);
@@ -774,7 +780,7 @@
         let touchStartX = 0;
         lightbox.addEventListener(
           'touchstart',
-          (e) => {
+          e => {
             touchStartX = e.changedTouches[0].screenX;
           },
           { passive: true }
@@ -782,7 +788,7 @@
 
         lightbox.addEventListener(
           'touchend',
-          (e) => {
+          e => {
             const touchEndX = e.changedTouches[0].screenX;
             const diff = touchStartX - touchEndX;
             if (Math.abs(diff) > 50) {

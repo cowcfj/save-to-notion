@@ -185,12 +185,12 @@ function createMigrateLegacyHighlightsMock() {
       );
 
       if (result?.found) {
-        chrome.storage.local.set({
+        await chrome.storage.local.set({
           [storageKey]: buildMigratedHighlightRecord(result),
         });
       }
     } catch (error) {
-      console.error('❌ 遷移舊版標註失敗:', error);
+      console.error('遷移舊版標註失敗:', error);
     }
   });
 }
@@ -364,7 +364,7 @@ describe('Background Tab Listeners', () => {
       await migrateLegacyHighlights(tabId, normUrl, storageKey);
 
       // Assert
-      expect(console.error).toHaveBeenCalledWith('❌ 遷移舊版標註失敗:', expect.any(Error));
+      expect(console.error).toHaveBeenCalledWith('遷移舊版標註失敗:', expect.any(Error));
     });
 
     test('應該處理空的遷移結果', async () => {

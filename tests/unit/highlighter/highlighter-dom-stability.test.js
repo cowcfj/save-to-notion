@@ -77,8 +77,6 @@ function standardWaitForDOMStability(options = {}) {
       observer.observe(targetContainer, {
         childList: true,
         subtree: true,
-        characterData: true,
-        attributes: true,
       });
     } catch {
       // NOSONAR
