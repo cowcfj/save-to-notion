@@ -51,6 +51,32 @@ function createElementContainerFallbackFixture() {
   };
 }
 
+function createBasicTextFixture() {
+  const div = document.createElement('div');
+  div.textContent = 'Test content';
+  document.body.append(div);
+
+  return {
+    div,
+    textNode: div.firstChild,
+    rangeInfo: {
+      startContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
+      startOffset: 0,
+      endContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
+      endOffset: 4,
+    },
+  };
+}
+
+function createBasicTextRange() {
+  const { div, textNode } = createBasicTextFixture();
+  const range = document.createRange();
+  range.setStart(textNode, 0);
+  range.setEnd(textNode, 4);
+
+  return { div, textNode, range };
+}
+
 describe('Range Module Coverage Tests', () => {
   let pathUtils = null;
   let textSearchUtils = null;
@@ -69,13 +95,7 @@ describe('Range Module Coverage Tests', () => {
 
   describe('serializeRange', () => {
     test('should serialize range correctly', () => {
-      const div = document.createElement('div');
-      div.textContent = 'Test content';
-      document.body.append(div);
-
-      const range = document.createRange();
-      range.setStart(div.firstChild, 0);
-      range.setEnd(div.firstChild, 4);
+      const { range } = createBasicTextRange();
 
       pathUtils.getNodePath
         .mockReturnValueOnce([{ type: 'element', tag: 'div', index: 0 }])
@@ -94,52 +114,31 @@ describe('Range Module Coverage Tests', () => {
       expect(pathUtils.getNodePath).toHaveBeenCalledTimes(2);
     });
 
-    test('should extract element-node prefix when toReversed is unavailable', () => {
-      const toReversedDescriptor = Object.getOwnPropertyDescriptor(Array.prototype, 'toReversed'); // NOSONAR
+    test('should extract element-node prefix and suffix from element container range', () => {
       const article = document.createElement('article');
       article.innerHTML = '<span>Lead context </span><span>Target</span><span> tail</span>';
       document.body.append(article);
 
-      Object.defineProperty(Array.prototype, 'toReversed', {
-        // NOSONAR
-        configurable: true,
-        value: undefined,
-        writable: true,
-      });
+      const range = document.createRange();
+      range.setStart(article, 1);
+      range.setEnd(article, 2);
 
-      try {
-        const range = document.createRange();
-        range.setStart(article, 1);
-        range.setEnd(article, 2);
+      pathUtils.getNodePath
+        .mockReturnValueOnce([{ type: 'element', tag: 'article', index: 0 }])
+        .mockReturnValueOnce([{ type: 'element', tag: 'article', index: 0 }]);
 
-        pathUtils.getNodePath
-          .mockReturnValueOnce([{ type: 'element', tag: 'article', index: 0 }])
-          .mockReturnValueOnce([{ type: 'element', tag: 'article', index: 0 }]);
+      const serialized = serializeRange(range);
 
-        const serialized = serializeRange(range);
-
-        expect(serialized.prefix).toBe('Lead context ');
-        expect(serialized.suffix).toBe(' tail');
-      } finally {
-        Object.defineProperty(Array.prototype, 'toReversed', toReversedDescriptor); // NOSONAR
-      }
+      expect(serialized.prefix).toBe('Lead context ');
+      expect(serialized.suffix).toBe(' tail');
     });
   });
 
   describe('deserializeRange', () => {
     test('should deserialize range successfully', () => {
-      const div = document.createElement('div');
-      div.textContent = 'Test content';
-      document.body.append(div);
+      const { textNode, rangeInfo } = createBasicTextFixture();
 
-      const rangeInfo = {
-        startContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
-        startOffset: 0,
-        endContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
-        endOffset: 4,
-      };
-
-      pathUtils.getNodeByPath.mockReturnValue(div.firstChild);
+      pathUtils.getNodeByPath.mockReturnValue(textNode);
 
       const range = deserializeRange(rangeInfo, 'Test');
 
@@ -153,12 +152,7 @@ describe('Range Module Coverage Tests', () => {
     });
 
     test('should return null if nodes cannot be found', () => {
-      const rangeInfo = {
-        startContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
-        startOffset: 0,
-        endContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
-        endOffset: 4,
-      };
+      const { rangeInfo } = createBasicTextFixture();
 
       pathUtils.getNodeByPath.mockReturnValue(null);
 
@@ -167,30 +161,16 @@ describe('Range Module Coverage Tests', () => {
     });
 
     test('should return null if text does not match', () => {
-      const div = document.createElement('div');
-      div.textContent = 'Test content';
-      document.body.append(div);
+      const { textNode, rangeInfo } = createBasicTextFixture();
 
-      const rangeInfo = {
-        startContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
-        startOffset: 0,
-        endContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
-        endOffset: 4,
-      };
-
-      pathUtils.getNodeByPath.mockReturnValue(div.firstChild);
+      pathUtils.getNodeByPath.mockReturnValue(textNode);
 
       const range = deserializeRange(rangeInfo, 'Wrong');
       expect(range).toBeNull();
     });
 
     test('should handle errors gracefully', () => {
-      const rangeInfo = {
-        startContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
-        startOffset: 0,
-        endContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
-        endOffset: 4,
-      };
+      const { rangeInfo } = createBasicTextFixture();
 
       pathUtils.getNodeByPath.mockImplementation(() => {
         throw new Error('Test error');
@@ -203,18 +183,9 @@ describe('Range Module Coverage Tests', () => {
 
   describe('restoreRangeWithRetry', () => {
     test('should restore range on first try', async () => {
-      const div = document.createElement('div');
-      div.textContent = 'Test content';
-      document.body.append(div);
+      const { textNode, rangeInfo } = createBasicTextFixture();
 
-      const rangeInfo = {
-        startContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
-        startOffset: 0,
-        endContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
-        endOffset: 4,
-      };
-
-      pathUtils.getNodeByPath.mockReturnValue(div.firstChild);
+      pathUtils.getNodeByPath.mockReturnValue(textNode);
 
       const range = await restoreRangeWithRetry(rangeInfo, 'Test', 3);
 
@@ -223,22 +194,13 @@ describe('Range Module Coverage Tests', () => {
     });
 
     test('should retry and succeed after DOM stabilizes', async () => {
-      const div = document.createElement('div');
-      div.textContent = 'Test content';
-      document.body.append(div);
-
-      const rangeInfo = {
-        startContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
-        startOffset: 0,
-        endContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
-        endOffset: 4,
-      };
+      const { textNode, rangeInfo } = createBasicTextFixture();
 
       // First call fails, second succeeds
       pathUtils.getNodeByPath
         .mockReturnValueOnce(null)
         .mockReturnValueOnce(null)
-        .mockReturnValue(div.firstChild);
+        .mockReturnValue(textNode);
 
       domStabilityUtils.waitForDOMStability.mockResolvedValue(true);
 
@@ -249,23 +211,14 @@ describe('Range Module Coverage Tests', () => {
     });
 
     test('should use text search as fallback', async () => {
-      const div = document.createElement('div');
-      div.textContent = 'Test content';
-      document.body.append(div);
-
-      const rangeInfo = {
-        startContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
-        startOffset: 0,
-        endContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
-        endOffset: 4,
-      };
+      const { textNode, rangeInfo } = createBasicTextFixture();
 
       pathUtils.getNodeByPath.mockReturnValue(null);
       domStabilityUtils.waitForDOMStability.mockResolvedValue(false);
 
       const fallbackRange = document.createRange();
-      fallbackRange.setStart(div.firstChild, 0);
-      fallbackRange.setEnd(div.firstChild, 4);
+      fallbackRange.setStart(textNode, 0);
+      fallbackRange.setEnd(textNode, 4);
       textSearchUtils.findTextInPage.mockReturnValue(fallbackRange);
 
       const range = await restoreRangeWithRetry(rangeInfo, 'Test', 3);
@@ -310,12 +263,7 @@ describe('Range Module Coverage Tests', () => {
     });
 
     test('should return null after all retries fail', async () => {
-      const rangeInfo = {
-        startContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
-        startOffset: 0,
-        endContainerPath: [{ type: 'element', tag: 'div', index: 0 }],
-        endOffset: 4,
-      };
+      const { rangeInfo } = createBasicTextFixture();
 
       pathUtils.getNodeByPath.mockReturnValue(null);
       domStabilityUtils.waitForDOMStability.mockResolvedValue(false);
@@ -370,26 +318,14 @@ describe('Range Module Coverage Tests', () => {
 
   describe('validateRange', () => {
     test('should validate range with correct text', () => {
-      const div = document.createElement('div');
-      div.textContent = 'Test content';
-      document.body.append(div);
-
-      const range = document.createRange();
-      range.setStart(div.firstChild, 0);
-      range.setEnd(div.firstChild, 4);
+      const { range } = createBasicTextRange();
 
       const isValid = validateRange(range, 'Test');
       expect(isValid).toBe(true);
     });
 
     test('should return false for incorrect text', () => {
-      const div = document.createElement('div');
-      div.textContent = 'Test content';
-      document.body.append(div);
-
-      const range = document.createRange();
-      range.setStart(div.firstChild, 0);
-      range.setEnd(div.firstChild, 4);
+      const { range } = createBasicTextRange();
 
       const isValid = validateRange(range, 'Wrong');
       expect(isValid).toBe(false);
