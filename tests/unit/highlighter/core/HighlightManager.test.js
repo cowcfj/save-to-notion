@@ -77,6 +77,23 @@ function createRestoreItem(overrides = {}) {
   };
 }
 
+function prepareRestoreItem(overrides = {}) {
+  mockRestoredRange();
+  return createRestoreItem(overrides);
+}
+
+async function runRestoreScenario(manager, itemOverrides, configureApplyHighlightAPI = () => {}) {
+  const item = prepareRestoreItem(itemOverrides);
+  const applyHighlightApiSpy = jest.spyOn(manager, 'applyHighlightAPI');
+
+  configureApplyHighlightAPI(applyHighlightApiSpy);
+
+  const result = await manager.restoreLocalHighlight(item);
+  applyHighlightApiSpy.mockRestore();
+
+  return { item, result };
+}
+
 function mockRestoredRange() {
   const range = document.createRange();
   jest.mocked(restoreRangeWithRetry).mockResolvedValue(range);
@@ -837,100 +854,88 @@ describe('core/HighlightManager', () => {
     });
 
     test('should rollback highlight when applyHighlightAPI returns false', async () => {
-      const item = createRestoreItem({
-        id: 'h5',
-        text: 'rollback test',
-        color: 'invalid-color',
-      });
-      mockRestoredRange();
-      jest.spyOn(manager, 'applyHighlightAPI').mockReturnValue(false);
-
-      const result = await manager.restoreLocalHighlight(item);
+      const { result } = await runRestoreScenario(
+        manager,
+        {
+          id: 'h5',
+          text: 'rollback test',
+          color: 'invalid-color',
+        },
+        applyHighlightApiSpy => applyHighlightApiSpy.mockReturnValue(false)
+      );
 
       expect(result).toBe(false);
       expect(manager.highlights.size).toBe(0);
-
-      manager.applyHighlightAPI.mockRestore();
     });
 
     test('should retry with fallback color when original color cannot be applied', async () => {
-      const item = createRestoreItem({
-        id: 'h8',
-        text: 'fallback test',
-        color: 'blue',
-      });
-      mockRestoredRange();
-
-      jest
-        .spyOn(manager, 'applyHighlightAPI')
-        .mockImplementationOnce(() => false)
-        .mockImplementationOnce(() => true);
-
-      const result = await manager.restoreLocalHighlight(item);
+      const { result } = await runRestoreScenario(
+        manager,
+        {
+          id: 'h8',
+          text: 'fallback test',
+          color: 'blue',
+        },
+        applyHighlightApiSpy =>
+          applyHighlightApiSpy
+            .mockImplementationOnce(() => false)
+            .mockImplementationOnce(() => true)
+      );
 
       expect(result).toBe(true);
       expect(manager.highlights.get('h8')?.color).toBe('yellow');
-
-      manager.applyHighlightAPI.mockRestore();
     });
 
     test('should rebuild style objects and retry when initial attempts fail', async () => {
-      const item = createRestoreItem({
-        id: 'h9',
-        text: 'rebuild style test',
-        color: 'blue',
-      });
-      mockRestoredRange();
-
-      jest
-        .spyOn(manager, 'applyHighlightAPI')
-        .mockImplementationOnce(() => false)
-        .mockImplementationOnce(() => false)
-        .mockImplementationOnce(() => true);
-
-      const result = await manager.restoreLocalHighlight(item);
+      const { result } = await runRestoreScenario(
+        manager,
+        {
+          id: 'h9',
+          text: 'rebuild style test',
+          color: 'blue',
+        },
+        applyHighlightApiSpy =>
+          applyHighlightApiSpy
+            .mockImplementationOnce(() => false)
+            .mockImplementationOnce(() => false)
+            .mockImplementationOnce(() => true)
+      );
 
       expect(result).toBe(true);
       expect(mockStyleManager.initialize).toHaveBeenCalled();
-
-      manager.applyHighlightAPI.mockRestore();
     });
 
     test('should cleanup stale entry when applyHighlightAPI throws', async () => {
-      const item = createRestoreItem({
-        id: 'h7',
-        text: 'throw test',
-        color: 'yellow',
-      });
-      mockRestoredRange();
-      jest.spyOn(manager, 'applyHighlightAPI').mockImplementation(() => {
-        throw new Error('styleManager failure');
-      });
-
-      const result = await manager.restoreLocalHighlight(item);
+      const { result } = await runRestoreScenario(
+        manager,
+        {
+          id: 'h7',
+          text: 'throw test',
+          color: 'yellow',
+        },
+        applyHighlightApiSpy =>
+          applyHighlightApiSpy.mockImplementation(() => {
+            throw new Error('styleManager failure');
+          })
+      );
 
       expect(result).toBe(false);
       expect(manager.highlights.size).toBe(0);
-
-      manager.applyHighlightAPI.mockRestore();
     });
 
     test('should cancel restore when styles cannot be reinitialized', async () => {
-      const item = createRestoreItem({
+      const itemOverrides = {
         id: 'h10',
         text: 'no reinitialize test',
         color: 'blue',
-      });
-      mockRestoredRange();
+      };
       mockStyleManager.initialize = undefined;
-      jest.spyOn(manager, 'applyHighlightAPI').mockReturnValue(false);
-
-      const result = await manager.restoreLocalHighlight(item);
+      const { result } = await runRestoreScenario(manager, itemOverrides, applyHighlightApiSpy =>
+        applyHighlightApiSpy.mockReturnValue(false)
+      );
 
       expect(result).toBe(false);
       expect(manager.highlights.has('h10')).toBe(false);
-
-      manager.applyHighlightAPI.mockRestore();
     });
 
     test('should cleanup restored entry when restore flow throws after ID resolution', async () => {
