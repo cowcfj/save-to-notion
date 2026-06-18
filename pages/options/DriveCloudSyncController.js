@@ -35,6 +35,7 @@ import {
 import Logger from '../../scripts/utils/Logger.js';
 import { ErrorHandler } from '../../scripts/utils/ErrorHandler.js';
 import { sanitizeApiError } from '../../scripts/utils/ApiErrorSanitizer.js';
+import { confirmDialog } from './confirmDialog.js';
 
 const DRIVE_SYNC_IDENTITY_INIT_FAILED = 'drive_sync_identity_init_failed';
 const MANUAL_UPLOAD_OUTCOME = {
@@ -688,7 +689,13 @@ async function _checkCrossInstallAndConfirm() {
   const remoteId = preflight.sourceInstallationId ?? null;
   const isCrossInstall = _isCrossInstall(remoteId, localId);
   if (isCrossInstall) {
-    return globalThis.confirm(UI_MESSAGES.CLOUD_SYNC.CONFIRM_CROSS_INSTALL_UPLOAD);
+    return confirmDialog({
+      title: UI_MESSAGES.CLOUD_SYNC.CONFIRM_CROSS_INSTALL_UPLOAD_TITLE,
+      message: UI_MESSAGES.CLOUD_SYNC.CONFIRM_CROSS_INSTALL_UPLOAD,
+      confirmLabel: UI_MESSAGES.CLOUD_SYNC.CONFIRM_CROSS_INSTALL_UPLOAD_OK,
+      cancelLabel: UI_MESSAGES.CLOUD_SYNC.CONFIRM_CROSS_INSTALL_UPLOAD_CANCEL,
+      danger: true,
+    });
   }
   return true;
 }
@@ -812,7 +819,13 @@ async function _confirmManualDownload() {
   let isDownloadConfirmed = false;
   try {
     const confirmationMessage = await buildDownloadConfirmationMessage();
-    isDownloadConfirmed = globalThis.confirm(confirmationMessage);
+    isDownloadConfirmed = await confirmDialog({
+      title: UI_MESSAGES.CLOUD_SYNC.CONFIRM_DOWNLOAD_TITLE,
+      message: confirmationMessage,
+      confirmLabel: UI_MESSAGES.CLOUD_SYNC.CONFIRM_DOWNLOAD_OK,
+      cancelLabel: UI_MESSAGES.CLOUD_SYNC.CONFIRM_DOWNLOAD_CANCEL,
+      danger: true,
+    });
     return isDownloadConfirmed;
   } finally {
     if (!isDownloadConfirmed) {
@@ -926,7 +939,22 @@ function resolveSnapshotSourceLabel(remoteInstallationId, localInstallationId) {
  * 處理 disconnect（含確認）
  */
 async function handleDisconnect() {
-  const confirmed = globalThis.confirm(UI_MESSAGES.CLOUD_SYNC.CONFIRM_DISCONNECT);
+  let confirmed = false;
+  try {
+    confirmed = await confirmDialog({
+      title: UI_MESSAGES.CLOUD_SYNC.CONFIRM_DISCONNECT_TITLE,
+      message: UI_MESSAGES.CLOUD_SYNC.CONFIRM_DISCONNECT,
+      confirmLabel: UI_MESSAGES.CLOUD_SYNC.CONFIRM_DISCONNECT_OK,
+      cancelLabel: UI_MESSAGES.CLOUD_SYNC.CONFIRM_DISCONNECT_CANCEL,
+      danger: true,
+    });
+  } catch (error) {
+    Logger.error('[CloudSync] Disconnect confirmation failed', {
+      error: getSafeError(error, 'drive_disconnect_confirm'),
+    });
+    showSyncStatus(UI_MESSAGES.CLOUD_SYNC.DISCONNECT_FAILED, 'error');
+    return;
+  }
   if (!confirmed) {
     return;
   }
@@ -1029,8 +1057,26 @@ function bindCloudSyncButtons() {
   // 衝突 - 強制上傳
   el(DOM.BTN_CONFLICT_FORCE_UPLOAD)?.addEventListener(
     'click',
-    () => {
-      const confirmed = globalThis.confirm(UI_MESSAGES.CLOUD_SYNC.CONFIRM_FORCE_UPLOAD);
+    async () => {
+      let confirmed = false;
+      try {
+        confirmed = await confirmDialog({
+          title: UI_MESSAGES.CLOUD_SYNC.CONFIRM_FORCE_UPLOAD_TITLE,
+          message: UI_MESSAGES.CLOUD_SYNC.CONFIRM_FORCE_UPLOAD,
+          confirmLabel: UI_MESSAGES.CLOUD_SYNC.CONFIRM_FORCE_UPLOAD_OK,
+          cancelLabel: UI_MESSAGES.CLOUD_SYNC.CONFIRM_FORCE_UPLOAD_CANCEL,
+          danger: true,
+        });
+      } catch (error) {
+        Logger.error('[CloudSync] Force upload confirmation failed', {
+          error: getSafeError(error, 'drive_force_upload_confirm'),
+        });
+        showSyncStatus(
+          `${UI_MESSAGES.CLOUD_SYNC.UPLOAD_FAILED_PREFIX}${getUserFriendlyErrorMessage(error, 'drive_force_upload_confirm')}`,
+          'error'
+        );
+        return;
+      }
       if (confirmed) {
         handleUpload(true).catch(() => {});
       }

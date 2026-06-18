@@ -250,6 +250,11 @@ const STORAGE = {
   MIGRATION_DELETE_RESULT_SUMMARY: (success, failed, total) =>
     `成功: ${success}, 失敗: ${failed}, 總計: ${total}`,
 
+  MIGRATION_DELETE_CONFIRM_TITLE: count => `刪除 ${count} 個頁面的舊版標註數據`,
+  MIGRATION_DELETE_CONFIRM_MESSAGE: '此操作無法還原！',
+  MIGRATION_DELETE_CONFIRM_OK: '刪除',
+  MIGRATION_DELETE_CONFIRM_CANCEL: '取消',
+
   HEALTH_CORRUPTED: count => `發現 ${count} 個損壞的數據項`,
   HEALTH_MIGRATION_LEFTOVERS: (count, size) => `${count} 個舊版格式升級殘留（${size} KB）`,
   HEALTH_LEGACY_SAVED: count => `${count} 個舊版網頁保存紀錄（重訪相關網頁時會自動升級）`,
@@ -377,6 +382,19 @@ const CLOUD_SYNC = {
   CONFIRM_CROSS_INSTALL_UPLOAD:
     '目前雲端備份來自其他裝置或擴展安裝。\n\n若繼續上載，可能覆蓋該裝置最近的備份。確定要繼續嗎？',
   TRANSIENT_AUTH_ERROR: BACKGROUND_MESSAGES.DRIVE_SYNC.TRANSIENT_AUTH_ERROR,
+
+  CONFIRM_DOWNLOAD_TITLE: '還原 Google Drive 備份',
+  CONFIRM_DOWNLOAD_OK: '還原',
+  CONFIRM_DOWNLOAD_CANCEL: '取消',
+  CONFIRM_DISCONNECT_TITLE: '中斷 Google Drive 連線',
+  CONFIRM_DISCONNECT_OK: '中斷連線',
+  CONFIRM_DISCONNECT_CANCEL: '取消',
+  CONFIRM_FORCE_UPLOAD_TITLE: '覆蓋較新的雲端版本',
+  CONFIRM_FORCE_UPLOAD_OK: '強制上載',
+  CONFIRM_FORCE_UPLOAD_CANCEL: '取消',
+  CONFIRM_CROSS_INSTALL_UPLOAD_TITLE: '覆蓋其他裝置的雲端備份',
+  CONFIRM_CROSS_INSTALL_UPLOAD_OK: '繼續上載',
+  CONFIRM_CROSS_INSTALL_UPLOAD_CANCEL: '取消',
 };
 
 const LOGS = {
