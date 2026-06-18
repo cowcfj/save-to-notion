@@ -66,6 +66,117 @@ const getFromStorage = (keys, state) => {
   return { ...state };
 };
 
+const DEFAULT_DISCONNECTED_CONNECTION = {
+  connected: false,
+  email: null,
+  connectedAt: null,
+};
+
+const DEFAULT_EMPTY_SNAPSHOT = {
+  exists: false,
+  updatedAt: null,
+  size: null,
+  sourceInstallationId: null,
+  sourceProfileId: null,
+};
+
+const REMOTE_CONNECTED_AT = '2026-04-20T00:00:00.000Z';
+const REMOTE_SNAPSHOT_UPDATED_AT = '2026-04-20T09:30:00Z';
+const LOCAL_INSTALLATION_ID = 'local-id-001';
+const REMOTE_INSTALLATION_ID = 'remote-id-999';
+
+const CROSS_INSTALL_SNAPSHOT = {
+  exists: true,
+  updatedAt: 'time',
+  size: null,
+  sourceInstallationId: REMOTE_INSTALLATION_ID,
+  sourceProfileId: null,
+};
+
+function setupCloudSyncDom() {
+  document.body.innerHTML = `
+    <div id="cloud-sync-card">
+      <div id="drive-state-logged-out"></div>
+      <div id="drive-state-disconnected"></div>
+      <div id="drive-state-connected"></div>
+      <div id="drive-state-conflict">
+        <p id="drive-conflict-remote-time"></p>
+      </div>
+      <div id="drive-error-banner">
+        <div id="drive-error-code"></div>
+        <div id="drive-error-time"></div>
+      </div>
+      <div id="drive-loading-overlay">
+        <div id="drive-loading-text"></div>
+      </div>
+      <div id="drive-sync-status"></div>
+      <div id="drive-connected-email"></div>
+      <div id="drive-last-upload-text"></div>
+      <p id="drive-source-warning" hidden></p>
+
+      <select id="drive-frequency-select">
+        <option value="off">Off</option>
+        <option value="daily">Daily</option>
+        <option value="weekly">Weekly</option>
+        <option value="monthly">Every 30 days</option>
+      </select>
+      <output id="drive-auto-sync-status" aria-live="polite">
+        <span id="drive-auto-sync-status-text"></span>
+      </output>
+
+      <button id="drive-connect-button"></button>
+      <button id="drive-login-prompt-button"></button>
+      <button id="drive-upload-button"></button>
+      <button id="drive-download-button"></button>
+      <button id="drive-disconnect-button"></button>
+      <button id="drive-conflict-download-button"></button>
+      <button id="drive-conflict-force-upload-button"></button>
+    </div>
+  `;
+}
+
+function installChromeMock(sendMessage, storageState) {
+  globalThis.chrome = {
+    runtime: {
+      sendMessage,
+    },
+    storage: {
+      local: {
+        get: jest.fn().mockImplementation(async keys => getFromStorage(keys, storageState)),
+        set: jest.fn().mockImplementation(async patch => {
+          Object.assign(storageState, patch);
+        }),
+        remove: jest.fn().mockImplementation(async keys => {
+          const keyList = Array.isArray(keys) ? keys : [keys];
+          for (const key of keyList) {
+            delete storageState[key];
+          }
+        }),
+      },
+    },
+  };
+}
+
+function setupConfirmDialogMock() {
+  getConfirmDialogMock().mockReset();
+  getConfirmDialogMock().mockResolvedValue(true);
+}
+
+function spyOnDriveClientDefaults() {
+  jest.spyOn(driveClient, 'getDriveSyncMetadata');
+  jest.spyOn(driveClient, 'ensureDriveSyncIdentity').mockResolvedValue('local-install');
+  jest.spyOn(driveClient, 'startDriveOAuthFlow').mockResolvedValue();
+  jest.spyOn(driveClient, 'disconnectDrive').mockResolvedValue();
+  jest.spyOn(driveClient, 'clearDriveSyncMetadata').mockResolvedValue();
+  jest.spyOn(driveClient, 'fetchDriveConnectionStatus').mockResolvedValue({
+    ...DEFAULT_DISCONNECTED_CONNECTION,
+  });
+  jest.spyOn(driveClient, 'fetchDriveSnapshotStatus').mockResolvedValue({
+    ...DEFAULT_EMPTY_SNAPSHOT,
+  });
+  jest.spyOn(driveClient, 'setDriveConnection');
+}
+
 describe('DriveCloudSyncController', () => {
   let mockSendMessage;
   let loggerErrorSpy;
@@ -73,92 +184,13 @@ describe('DriveCloudSyncController', () => {
 
   beforeEach(() => {
     jest.useFakeTimers();
-    // Setup DOM
-    document.body.innerHTML = `
-      <div id="cloud-sync-card">
-        <div id="drive-state-logged-out"></div>
-        <div id="drive-state-disconnected"></div>
-        <div id="drive-state-connected"></div>
-        <div id="drive-state-conflict">
-          <p id="drive-conflict-remote-time"></p>
-        </div>
-        <div id="drive-error-banner">
-          <div id="drive-error-code"></div>
-          <div id="drive-error-time"></div>
-        </div>
-        <div id="drive-loading-overlay">
-          <div id="drive-loading-text"></div>
-        </div>
-        <div id="drive-sync-status"></div>
-        <div id="drive-connected-email"></div>
-        <div id="drive-last-upload-text"></div>
-        <p id="drive-source-warning" hidden></p>
-
-        <select id="drive-frequency-select">
-          <option value="off">Off</option>
-          <option value="daily">Daily</option>
-          <option value="weekly">Weekly</option>
-          <option value="monthly">Every 30 days</option>
-        </select>
-        <output id="drive-auto-sync-status" aria-live="polite">
-          <span id="drive-auto-sync-status-text"></span>
-        </output>
-
-        <button id="drive-connect-button"></button>
-        <button id="drive-login-prompt-button"></button>
-        <button id="drive-upload-button"></button>
-        <button id="drive-download-button"></button>
-        <button id="drive-disconnect-button"></button>
-        <button id="drive-conflict-download-button"></button>
-        <button id="drive-conflict-force-upload-button"></button>
-      </div>
-    `;
-
+    setupCloudSyncDom();
     mockSendMessage = jest.fn().mockResolvedValue({ success: true });
-    const storageState = {};
-
-    globalThis.chrome = {
-      runtime: {
-        sendMessage: mockSendMessage,
-      },
-      storage: {
-        local: {
-          get: jest.fn().mockImplementation(async keys => getFromStorage(keys, storageState)),
-          set: jest.fn().mockImplementation(async patch => {
-            Object.assign(storageState, patch);
-          }),
-          remove: jest.fn().mockImplementation(async keys => {
-            const keyList = Array.isArray(keys) ? keys : [keys];
-            for (const key of keyList) {
-              delete storageState[key];
-            }
-          }),
-        },
-      },
-    };
+    installChromeMock(mockSendMessage, {});
     loggerErrorSpy = jest.spyOn(Logger, 'error').mockImplementation(() => {});
     loggerWarnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => {});
-    getConfirmDialogMock().mockReset();
-    getConfirmDialogMock().mockResolvedValue(true);
-
-    jest.spyOn(driveClient, 'getDriveSyncMetadata');
-    jest.spyOn(driveClient, 'ensureDriveSyncIdentity').mockResolvedValue('local-install');
-    jest.spyOn(driveClient, 'startDriveOAuthFlow').mockResolvedValue();
-    jest.spyOn(driveClient, 'disconnectDrive').mockResolvedValue();
-    jest.spyOn(driveClient, 'clearDriveSyncMetadata').mockResolvedValue();
-    jest.spyOn(driveClient, 'fetchDriveConnectionStatus').mockResolvedValue({
-      connected: false,
-      email: null,
-      connectedAt: null,
-    });
-    jest.spyOn(driveClient, 'fetchDriveSnapshotStatus').mockResolvedValue({
-      exists: false,
-      updatedAt: null,
-      size: null,
-      sourceInstallationId: null,
-      sourceProfileId: null,
-    });
-    jest.spyOn(driveClient, 'setDriveConnection');
+    setupConfirmDialogMock();
+    spyOnDriveClientDefaults();
   });
 
   afterEach(() => {
@@ -384,27 +416,41 @@ describe('DriveCloudSyncController', () => {
       expect(text).toContain('）');
     });
 
-    it('lastSuccessfulUploadAt 為 null 但 lastKnownRemoteUpdatedAt 有值 → 顯示「雲端備份」', () => {
-      renderCloudSyncCard({
-        connectionEmail: 'cross-device@test.dev',
-        lastSuccessfulUploadAt: null,
-        lastKnownRemoteUpdatedAt: '2026-04-19T12:00:00Z',
-      });
-      const text = document.querySelector('#drive-last-upload-text').textContent;
-      expect(text).toContain(UI_MESSAGES.CLOUD_SYNC.LAST_REMOTE_PREFIX);
-      expect(text).not.toContain(UI_MESSAGES.CLOUD_SYNC.NEVER_UPLOADED);
-      expect(text).not.toContain(UI_MESSAGES.CLOUD_SYNC.LAST_UPLOAD_PREFIX);
-    });
+    it.each([
+      {
+        name: 'lastSuccessfulUploadAt 為 null 但 lastKnownRemoteUpdatedAt 有值 → 顯示「雲端備份」',
+        metadata: {
+          connectionEmail: 'cross-device@test.dev',
+          lastSuccessfulUploadAt: null,
+          lastKnownRemoteUpdatedAt: '2026-04-19T12:00:00Z',
+        },
+        expectedText: [UI_MESSAGES.CLOUD_SYNC.LAST_REMOTE_PREFIX],
+        absentText: [
+          UI_MESSAGES.CLOUD_SYNC.NEVER_UPLOADED,
+          UI_MESSAGES.CLOUD_SYNC.LAST_UPLOAD_PREFIX,
+        ],
+      },
+      {
+        name: 'lastSuccessfulUploadAt 優先於 lastKnownRemoteUpdatedAt',
+        metadata: {
+          connectionEmail: 'priority@test.dev',
+          lastSuccessfulUploadAt: '2026-04-21T09:00:00Z',
+          lastKnownRemoteUpdatedAt: '2026-04-19T12:00:00Z',
+        },
+        expectedText: [UI_MESSAGES.CLOUD_SYNC.LAST_UPLOAD_PREFIX],
+        absentText: [UI_MESSAGES.CLOUD_SYNC.LAST_REMOTE_PREFIX],
+      },
+    ])('$name', ({ metadata, expectedText, absentText }) => {
+      expect.hasAssertions();
+      renderCloudSyncCard(metadata);
 
-    it('lastSuccessfulUploadAt 優先於 lastKnownRemoteUpdatedAt', () => {
-      renderCloudSyncCard({
-        connectionEmail: 'priority@test.dev',
-        lastSuccessfulUploadAt: '2026-04-21T09:00:00Z',
-        lastKnownRemoteUpdatedAt: '2026-04-19T12:00:00Z',
-      });
       const text = document.querySelector('#drive-last-upload-text').textContent;
-      expect(text).toContain(UI_MESSAGES.CLOUD_SYNC.LAST_UPLOAD_PREFIX);
-      expect(text).not.toContain(UI_MESSAGES.CLOUD_SYNC.LAST_REMOTE_PREFIX);
+      for (const expected of expectedText) {
+        expect(text).toContain(expected);
+      }
+      for (const absent of absentText) {
+        expect(text).not.toContain(absent);
+      }
     });
 
     it('兩者皆無 → 維持「尚未上載」', () => {
@@ -625,11 +671,7 @@ describe('DriveCloudSyncController', () => {
       expect(document.querySelector('#drive-conflict-download-button').disabled).toBe(true);
 
       resolveSnapshotStatus({
-        exists: false,
-        updatedAt: null,
-        size: null,
-        sourceInstallationId: null,
-        sourceProfileId: null,
+        ...DEFAULT_EMPTY_SNAPSHOT,
       });
       await flushAsyncWork();
 
@@ -677,18 +719,14 @@ describe('DriveCloudSyncController', () => {
         .mockResolvedValueOnce({ connectionEmail: null })
         .mockResolvedValue({
           connectionEmail: 'pageshow@test.dev',
-          connectedAt: '2026-04-20T00:00:00.000Z',
+          connectedAt: REMOTE_CONNECTED_AT,
         });
       driveClient.fetchDriveConnectionStatus
-        .mockResolvedValueOnce({
-          connected: false,
-          email: null,
-          connectedAt: null,
-        })
+        .mockResolvedValueOnce({ ...DEFAULT_DISCONNECTED_CONNECTION })
         .mockResolvedValueOnce({
           connected: true,
           email: 'pageshow@test.dev',
-          connectedAt: '2026-04-20T00:00:00.000Z',
+          connectedAt: REMOTE_CONNECTED_AT,
         });
 
       await initCloudSyncController(true);
@@ -706,7 +744,7 @@ describe('DriveCloudSyncController', () => {
       expect(driveClient.setDriveConnection).toHaveBeenCalledWith(
         {
           email: 'pageshow@test.dev',
-          connectedAt: '2026-04-20T00:00:00.000Z',
+          connectedAt: REMOTE_CONNECTED_AT,
         },
         expect.objectContaining({ resetConflicts: false })
       );
@@ -750,21 +788,35 @@ describe('DriveCloudSyncController', () => {
       );
     });
 
-    it('sanitizes upload errors before logging', async () => {
-      mockSendMessage.mockRejectedValueOnce(new Error('unauthorized: API token is invalid'));
+    it.each([
+      {
+        name: 'upload',
+        buttonSelector: '#drive-upload-button',
+        logMessage: '[CloudSync] Upload failed',
+        errorContext: 'drive_sync_upload',
+      },
+      {
+        name: 'download',
+        buttonSelector: '#drive-download-button',
+        logMessage: '[CloudSync] Download failed',
+        errorContext: 'drive_sync_download',
+      },
+    ])(
+      'sanitizes $name errors before logging',
+      async ({ buttonSelector, logMessage, errorContext }) => {
+        expect.hasAssertions();
+        mockSendMessage.mockRejectedValueOnce(new Error('unauthorized: API token is invalid'));
 
-      await initCloudSyncController(true);
+        await initCloudSyncController(true);
 
-      document.querySelector('#drive-upload-button').click();
-      await flushAsyncWork();
+        document.querySelector(buttonSelector).click();
+        await flushAsyncWork();
 
-      expect(loggerErrorSpy).toHaveBeenCalledWith('[CloudSync] Upload failed', {
-        error: sanitizeApiError(
-          new Error('unauthorized: API token is invalid'),
-          'drive_sync_upload'
-        ),
-      });
-    });
+        expect(loggerErrorSpy).toHaveBeenCalledWith(logMessage, {
+          error: sanitizeApiError(new Error('unauthorized: API token is invalid'), errorContext),
+        });
+      }
+    );
 
     it('shows an error when download is rejected by background', async () => {
       mockSendMessage.mockResolvedValueOnce({
@@ -789,22 +841,6 @@ describe('DriveCloudSyncController', () => {
       expect(document.querySelector('#drive-loading-overlay').classList.contains('hidden')).toBe(
         true
       );
-    });
-
-    it('sanitizes download errors before logging', async () => {
-      mockSendMessage.mockRejectedValueOnce(new Error('unauthorized: API token is invalid'));
-
-      await initCloudSyncController(true);
-
-      document.querySelector('#drive-download-button').click();
-      await flushAsyncWork();
-
-      expect(loggerErrorSpy).toHaveBeenCalledWith('[CloudSync] Download failed', {
-        error: sanitizeApiError(
-          new Error('unauthorized: API token is invalid'),
-          'drive_sync_download'
-        ),
-      });
     });
 
     it('skips download when user cancels confirmation', async () => {
@@ -934,11 +970,7 @@ describe('DriveCloudSyncController', () => {
       expect(document.querySelector('#drive-upload-button').disabled).toBe(true);
 
       // Resolve the mock promise to let initialization continue
-      resolveConnectionStatus({
-        connected: false,
-        email: null,
-        connectedAt: null,
-      });
+      resolveConnectionStatus({ ...DEFAULT_DISCONNECTED_CONNECTION });
 
       await initPromise;
 
@@ -950,140 +982,143 @@ describe('DriveCloudSyncController', () => {
       expect(document.querySelector('#drive-upload-button').disabled).toBe(false);
     });
 
-    it('syncs remote drive connection on init', async () => {
-      driveClient.fetchDriveConnectionStatus.mockResolvedValue({
-        connected: true,
-        email: 'remote@test.dev',
-        connectedAt: '2026-04-20T00:00:00.000Z',
-      });
-      driveClient.getDriveSyncMetadata.mockResolvedValue({
-        connectionEmail: 'remote@test.dev',
-        connectedAt: '2026-04-20T00:00:00.000Z',
-      });
-      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
-        exists: false,
-        updatedAt: null,
-      });
+    it.each([
+      {
+        name: 'syncs remote drive connection on init',
+        remoteStatus: {
+          connected: true,
+          email: 'remote@test.dev',
+          connectedAt: REMOTE_CONNECTED_AT,
+        },
+        localMetadata: {
+          connectionEmail: 'remote@test.dev',
+          connectedAt: REMOTE_CONNECTED_AT,
+        },
+        expectedConnection: {
+          email: 'remote@test.dev',
+          connectedAt: REMOTE_CONNECTED_AT,
+        },
+        renderedEmail: 'remote@test.dev',
+      },
+      {
+        name: 'server 未回傳 connectedAt 時保留既有本地 connectedAt，避免以空值覆寫 metadata',
+        remoteStatus: {
+          connected: true,
+          email: 'no-ts@test.dev',
+          connectedAt: null,
+        },
+        localMetadata: {
+          connectionEmail: 'no-ts@test.dev',
+          connectedAt: '2026-04-18T08:30:00.000Z',
+        },
+        expectedConnection: {
+          email: 'no-ts@test.dev',
+          connectedAt: '2026-04-18T08:30:00.000Z',
+        },
+      },
+      {
+        name: 'server 未回傳 connectedAt 且 email 不同時，不重用既有本地 connectedAt',
+        now: '2026-04-21T10:20:30.000Z',
+        remoteStatus: {
+          connected: true,
+          email: 'new-account@test.dev',
+          connectedAt: null,
+        },
+        localMetadata: {
+          connectionEmail: 'old-account@test.dev',
+          connectedAt: '2026-04-18T08:30:00.000Z',
+        },
+        expectedConnection: {
+          email: 'new-account@test.dev',
+          connectedAt: '2026-04-21T10:20:30.000Z',
+        },
+      },
+    ])('$name', async ({ now, remoteStatus, localMetadata, expectedConnection, renderedEmail }) => {
+      expect.hasAssertions();
+      if (now) {
+        jest.setSystemTime(new Date(now));
+      }
+      driveClient.fetchDriveConnectionStatus.mockResolvedValue(remoteStatus);
+      driveClient.getDriveSyncMetadata.mockResolvedValue(localMetadata);
 
       await initCloudSyncController(true);
 
       expect(driveClient.fetchDriveConnectionStatus).toHaveBeenCalled();
       expect(driveClient.setDriveConnection).toHaveBeenCalledWith(
-        {
-          email: 'remote@test.dev',
-          connectedAt: '2026-04-20T00:00:00.000Z',
-        },
+        expectedConnection,
         expect.objectContaining({ resetConflicts: false })
       );
-      expect(document.querySelector('#drive-connected-email').textContent).toBe('remote@test.dev');
+      if (renderedEmail) {
+        expect(document.querySelector('#drive-connected-email').textContent).toBe(renderedEmail);
+      }
     });
 
-    it('server 未回傳 connectedAt 時保留既有本地 connectedAt，避免以空值覆寫 metadata', async () => {
-      driveClient.fetchDriveConnectionStatus.mockResolvedValue({
-        connected: true,
-        email: 'no-ts@test.dev',
-        connectedAt: null,
-      });
-      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
-        exists: false,
-        updatedAt: null,
-      });
-      driveClient.getDriveSyncMetadata.mockResolvedValue({
-        connectionEmail: 'no-ts@test.dev',
-        connectedAt: '2026-04-18T08:30:00.000Z',
-      });
-
-      await initCloudSyncController(true);
-
-      expect(driveClient.setDriveConnection).toHaveBeenCalledWith(
-        {
-          email: 'no-ts@test.dev',
-          connectedAt: '2026-04-18T08:30:00.000Z',
-        },
-        expect.objectContaining({ resetConflicts: false })
-      );
-    });
-
-    it('server 未回傳 connectedAt 且 email 不同時，不重用既有本地 connectedAt', async () => {
-      jest.setSystemTime(new Date('2026-04-21T10:20:30.000Z'));
-      driveClient.fetchDriveConnectionStatus.mockResolvedValue({
-        connected: true,
-        email: 'new-account@test.dev',
-        connectedAt: null,
-      });
-      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
-        exists: false,
-        updatedAt: null,
-      });
-      driveClient.getDriveSyncMetadata.mockResolvedValue({
-        connectionEmail: 'old-account@test.dev',
-        connectedAt: '2026-04-18T08:30:00.000Z',
-      });
-
-      await initCloudSyncController(true);
-
-      expect(driveClient.setDriveConnection).toHaveBeenCalledWith(
-        {
-          email: 'new-account@test.dev',
-          connectedAt: '2026-04-21T10:20:30.000Z',
-        },
-        expect.objectContaining({ resetConflicts: false })
-      );
-    });
-
-    it('reconnect 後查詢遠端 snapshot 並寫入 lastKnownRemoteUpdatedAt', async () => {
-      driveClient.fetchDriveConnectionStatus.mockResolvedValue({
-        connected: true,
+    it.each([
+      {
+        name: 'reconnect 後查詢遠端 snapshot 並寫入 lastKnownRemoteUpdatedAt',
         email: 'reconnect@test.dev',
-        connectedAt: '2026-04-21T00:00:00Z',
-      });
-      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
-        exists: true,
-        updatedAt: '2026-04-20T09:30:00Z',
-        size: 1024,
-      });
-      const setSnapshotSpy = jest
-        .spyOn(driveClient, 'setLastKnownRemoteUpdatedAt')
-        .mockResolvedValue();
-      driveClient.getDriveSyncMetadata.mockResolvedValue({
-        connectionEmail: 'reconnect@test.dev',
-        lastKnownRemoteUpdatedAt: '2026-04-20T09:30:00Z',
-      });
-
-      await initCloudSyncController(true);
-
-      expect(driveClient.fetchDriveSnapshotStatus).toHaveBeenCalled();
-      expect(setSnapshotSpy).toHaveBeenCalledWith('2026-04-20T09:30:00Z');
-      expect(document.querySelector('#drive-last-upload-text').textContent).toContain(
-        UI_MESSAGES.CLOUD_SYNC.LAST_REMOTE_PREFIX
-      );
-    });
-
-    it('reconnect 時遠端無 snapshot → 顯示「尚未上載」且 lastKnownRemoteUpdatedAt 清為 null', async () => {
-      driveClient.fetchDriveConnectionStatus.mockResolvedValue({
-        connected: true,
+        snapshotStatus: {
+          exists: true,
+          updatedAt: REMOTE_SNAPSHOT_UPDATED_AT,
+          size: 1024,
+        },
+        localMetadata: {
+          connectionEmail: 'reconnect@test.dev',
+          lastKnownRemoteUpdatedAt: REMOTE_SNAPSHOT_UPDATED_AT,
+        },
+        expectedSnapshotWrite: REMOTE_SNAPSHOT_UPDATED_AT,
+        expectedLastUploadText: UI_MESSAGES.CLOUD_SYNC.LAST_REMOTE_PREFIX,
+        lastUploadTextMatcher: 'toContain',
+      },
+      {
+        name: 'reconnect 時遠端無 snapshot → 顯示「尚未上載」且 lastKnownRemoteUpdatedAt 清為 null',
         email: 'empty-remote@test.dev',
-        connectedAt: '2026-04-21T00:00:00Z',
-      });
-      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
-        exists: false,
-        updatedAt: null,
-        size: null,
-      });
-      const setSnapshotSpy = jest
-        .spyOn(driveClient, 'setLastKnownRemoteUpdatedAt')
-        .mockResolvedValue();
-      driveClient.getDriveSyncMetadata.mockResolvedValue({
-        connectionEmail: 'empty-remote@test.dev',
-      });
+        snapshotStatus: {
+          exists: false,
+          updatedAt: null,
+          size: null,
+        },
+        localMetadata: {
+          connectionEmail: 'empty-remote@test.dev',
+        },
+        expectedSnapshotWrite: null,
+        expectedLastUploadText: UI_MESSAGES.CLOUD_SYNC.NEVER_UPLOADED,
+        lastUploadTextMatcher: 'toBe',
+      },
+    ])(
+      '$name',
+      async ({
+        email,
+        snapshotStatus,
+        localMetadata,
+        expectedSnapshotWrite,
+        expectedLastUploadText,
+        lastUploadTextMatcher,
+      }) => {
+        expect.hasAssertions();
+        driveClient.fetchDriveConnectionStatus.mockResolvedValue({
+          connected: true,
+          email,
+          connectedAt: '2026-04-21T00:00:00Z',
+        });
+        driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce(snapshotStatus);
+        const setSnapshotSpy = jest
+          .spyOn(driveClient, 'setLastKnownRemoteUpdatedAt')
+          .mockResolvedValue();
+        driveClient.getDriveSyncMetadata.mockResolvedValue(localMetadata);
 
-      await initCloudSyncController(true);
+        await initCloudSyncController(true);
 
-      expect(setSnapshotSpy).toHaveBeenCalledWith(null);
-      expect(document.querySelector('#drive-last-upload-text').textContent).toBe(
-        UI_MESSAGES.CLOUD_SYNC.NEVER_UPLOADED
-      );
-    });
+        const lastUploadText = document.querySelector('#drive-last-upload-text').textContent;
+        expect(driveClient.fetchDriveSnapshotStatus).toHaveBeenCalled();
+        expect(setSnapshotSpy).toHaveBeenCalledWith(expectedSnapshotWrite);
+        if (lastUploadTextMatcher === 'toContain') {
+          expect(lastUploadText).toContain(expectedLastUploadText);
+        } else {
+          expect(lastUploadText).toBe(expectedLastUploadText);
+        }
+      }
+    );
 
     it('snapshot status 查詢失敗時不阻擋連線，且記錄 warn', async () => {
       driveClient.fetchDriveConnectionStatus.mockResolvedValue({
@@ -1162,63 +1197,49 @@ describe('DriveCloudSyncController', () => {
       expect(driveClient.fetchDriveConnectionStatus).not.toHaveBeenCalled();
     });
 
-    it('refreshes remote drive connection when window regains focus', async () => {
+    it.each([
+      {
+        name: 'refreshes remote drive connection when window regains focus',
+        eventTarget: globalThis,
+        eventName: 'focus',
+        email: 'focus@test.dev',
+      },
+      {
+        name: 'refreshes remote drive connection when page becomes visible again',
+        eventTarget: document,
+        eventName: 'visibilitychange',
+        email: 'visible@test.dev',
+        visibilityState: 'visible',
+      },
+    ])('$name', async ({ eventTarget, eventName, email, visibilityState }) => {
+      expect.hasAssertions();
       driveClient.getDriveSyncMetadata.mockRestore();
       driveClient.setDriveConnection.mockRestore();
 
       driveClient.fetchDriveConnectionStatus
-        .mockResolvedValueOnce({
-          connected: false,
-          email: null,
-          connectedAt: null,
-        })
+        .mockResolvedValueOnce({ ...DEFAULT_DISCONNECTED_CONNECTION })
         .mockResolvedValueOnce({
           connected: true,
-          email: 'focus@test.dev',
-          connectedAt: '2026-04-20T00:00:00.000Z',
+          email,
+          connectedAt: REMOTE_CONNECTED_AT,
         });
 
+      if (visibilityState) {
+        Object.defineProperty(document, 'visibilityState', {
+          configurable: true,
+          value: visibilityState,
+        });
+      }
+
       await initCloudSyncController(true);
-      globalThis.dispatchEvent(new Event('focus'));
+      eventTarget.dispatchEvent(new Event(eventName));
       await flushAsyncWork();
 
       expect(driveClient.fetchDriveConnectionStatus).toHaveBeenCalledTimes(2);
 
       const storedMetadata = await driveClient.getDriveSyncMetadata();
-      expect(storedMetadata.connectionEmail).toBe('focus@test.dev');
-      expect(storedMetadata.connectedAt).toBe('2026-04-20T00:00:00.000Z');
-    });
-
-    it('refreshes remote drive connection when page becomes visible again', async () => {
-      driveClient.getDriveSyncMetadata.mockRestore();
-      driveClient.setDriveConnection.mockRestore();
-
-      driveClient.fetchDriveConnectionStatus
-        .mockResolvedValueOnce({
-          connected: false,
-          email: null,
-          connectedAt: null,
-        })
-        .mockResolvedValueOnce({
-          connected: true,
-          email: 'visible@test.dev',
-          connectedAt: '2026-04-20T00:00:00.000Z',
-        });
-
-      Object.defineProperty(document, 'visibilityState', {
-        configurable: true,
-        value: 'visible',
-      });
-
-      await initCloudSyncController(true);
-      document.dispatchEvent(new Event('visibilitychange'));
-      await flushAsyncWork();
-
-      expect(driveClient.fetchDriveConnectionStatus).toHaveBeenCalledTimes(2);
-
-      const storedMetadata = await driveClient.getDriveSyncMetadata();
-      expect(storedMetadata.connectionEmail).toBe('visible@test.dev');
-      expect(storedMetadata.connectedAt).toBe('2026-04-20T00:00:00.000Z');
+      expect(storedMetadata.connectionEmail).toBe(email);
+      expect(storedMetadata.connectedAt).toBe(REMOTE_CONNECTED_AT);
     });
 
     it('focus 觸發的 snapshot status 同步 MUST NOT 清除 needsManualReview / lastErrorCode', async () => {
@@ -1245,11 +1266,11 @@ describe('DriveCloudSyncController', () => {
         });
       driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
         exists: true,
-        updatedAt: '2026-04-20T09:30:00Z',
+        updatedAt: REMOTE_SNAPSHOT_UPDATED_AT,
       });
       driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
         exists: true,
-        updatedAt: '2026-04-20T09:30:00Z',
+        updatedAt: REMOTE_SNAPSHOT_UPDATED_AT,
       });
 
       await initCloudSyncController(true);
@@ -1282,20 +1303,14 @@ describe('DriveCloudSyncController', () => {
       driveClient.setDriveConnection.mockRestore();
 
       driveClient.fetchDriveConnectionStatus
-        .mockResolvedValueOnce({
-          connected: false,
-          email: null,
-          connectedAt: null,
-        })
+        .mockResolvedValueOnce({ ...DEFAULT_DISCONNECTED_CONNECTION })
         .mockResolvedValueOnce({
           connected: true,
           email: 'first-connect@test.dev',
           connectedAt: null,
         });
       driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
-        exists: false,
-        updatedAt: null,
-        size: null,
+        ...DEFAULT_EMPTY_SNAPSHOT,
       });
 
       await initCloudSyncController(true);
@@ -1349,11 +1364,11 @@ describe('DriveCloudSyncController', () => {
       driveClient.fetchDriveConnectionStatus.mockResolvedValue({
         connected: true,
         email: 'fresh@a.com',
-        connectedAt: '2026-04-20T00:00:00.000Z',
+        connectedAt: REMOTE_CONNECTED_AT,
       });
       driveClient.getDriveSyncMetadata.mockResolvedValue({
         connectionEmail: 'fresh@a.com',
-        connectedAt: '2026-04-20T00:00:00.000Z',
+        connectedAt: REMOTE_CONNECTED_AT,
       });
 
       await refreshCloudSyncCard({ syncRemote: true });
@@ -1362,7 +1377,7 @@ describe('DriveCloudSyncController', () => {
       expect(driveClient.setDriveConnection).toHaveBeenCalledWith(
         {
           email: 'fresh@a.com',
-          connectedAt: '2026-04-20T00:00:00.000Z',
+          connectedAt: REMOTE_CONNECTED_AT,
         },
         expect.objectContaining({ resetConflicts: false })
       );
@@ -1374,7 +1389,7 @@ describe('DriveCloudSyncController', () => {
       driveClient.fetchDriveConnectionStatus.mockResolvedValue({
         connected: true,
         email: 'fresh@a.com',
-        connectedAt: '2026-04-20T00:00:00.000Z',
+        connectedAt: REMOTE_CONNECTED_AT,
       });
       driveClient.ensureDriveSyncIdentity.mockRejectedValueOnce(identityError);
       driveClient.getDriveSyncMetadata.mockResolvedValue({ connectionEmail: null });
@@ -1397,9 +1412,7 @@ describe('DriveCloudSyncController', () => {
 
     it('clears local metadata when remote state reports disconnected', async () => {
       driveClient.fetchDriveConnectionStatus.mockResolvedValue({
-        connected: false,
-        email: null,
-        connectedAt: null,
+        ...DEFAULT_DISCONNECTED_CONNECTION,
       });
       driveClient.getDriveSyncMetadata.mockResolvedValue({ connectionEmail: null });
 
@@ -1419,19 +1432,19 @@ describe('DriveCloudSyncController', () => {
       });
       driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
         exists: true,
-        updatedAt: '2026-04-20T09:30:00Z',
+        updatedAt: REMOTE_SNAPSHOT_UPDATED_AT,
       });
       const setSnapshotSpy = jest
         .spyOn(driveClient, 'setLastKnownRemoteUpdatedAt')
         .mockResolvedValue();
       driveClient.getDriveSyncMetadata.mockResolvedValue({
         connectionEmail: 'refresh@test.dev',
-        lastKnownRemoteUpdatedAt: '2026-04-20T09:30:00Z',
+        lastKnownRemoteUpdatedAt: REMOTE_SNAPSHOT_UPDATED_AT,
       });
 
       await refreshCloudSyncCard({ syncRemote: true });
 
-      expect(setSnapshotSpy).toHaveBeenCalledWith('2026-04-20T09:30:00Z');
+      expect(setSnapshotSpy).toHaveBeenCalledWith(REMOTE_SNAPSHOT_UPDATED_AT);
       expect(document.querySelector('#drive-last-upload-text').textContent).toContain(
         UI_MESSAGES.CLOUD_SYNC.LAST_REMOTE_PREFIX
       );
@@ -1498,8 +1511,8 @@ describe('DriveCloudSyncController', () => {
   describe('Source Warning (_updateSourceWarning via renderCloudSyncCard)', () => {
     it('sourceInstallationId 與 installationId 不同時顯示 warning', () => {
       renderCloudSyncCard(
-        { connectionEmail: 'user@test.dev', installationId: 'local-id-001' },
-        { snapshotStatus: { sourceInstallationId: 'remote-id-999' } }
+        { connectionEmail: 'user@test.dev', installationId: LOCAL_INSTALLATION_ID },
+        { snapshotStatus: { sourceInstallationId: REMOTE_INSTALLATION_ID } }
       );
       const warning = document.querySelector('#drive-source-warning');
       expect(warning.hidden).toBe(false);
@@ -1516,7 +1529,7 @@ describe('DriveCloudSyncController', () => {
 
     it('sourceInstallationId 為 null 時隱藏 warning', () => {
       renderCloudSyncCard(
-        { connectionEmail: 'user@test.dev', installationId: 'local-id-001' },
+        { connectionEmail: 'user@test.dev', installationId: LOCAL_INSTALLATION_ID },
         { snapshotStatus: { sourceInstallationId: null } }
       );
       expect(document.querySelector('#drive-source-warning').hidden).toBe(true);
@@ -1525,7 +1538,7 @@ describe('DriveCloudSyncController', () => {
     it('installationId 為 null 時隱藏 warning', () => {
       renderCloudSyncCard(
         { connectionEmail: 'user@test.dev', installationId: null },
-        { snapshotStatus: { sourceInstallationId: 'remote-id-999' } }
+        { snapshotStatus: { sourceInstallationId: REMOTE_INSTALLATION_ID } }
       );
       expect(document.querySelector('#drive-source-warning').hidden).toBe(true);
     });
@@ -1533,8 +1546,8 @@ describe('DriveCloudSyncController', () => {
     it('disconnected 狀態時 warning 應隱藏', () => {
       // 先讓 warning 顯示
       renderCloudSyncCard(
-        { connectionEmail: 'user@test.dev', installationId: 'local-id-001' },
-        { snapshotStatus: { sourceInstallationId: 'remote-id-999' } }
+        { connectionEmail: 'user@test.dev', installationId: LOCAL_INSTALLATION_ID },
+        { snapshotStatus: { sourceInstallationId: REMOTE_INSTALLATION_ID } }
       );
       expect(document.querySelector('#drive-source-warning').hidden).toBe(false);
 
@@ -1549,27 +1562,44 @@ describe('DriveCloudSyncController', () => {
       // 基礎連線狀態：已連線
       driveClient.getDriveSyncMetadata.mockResolvedValue({
         connectionEmail: 'user@test.dev',
-        installationId: 'local-id-001',
+        installationId: LOCAL_INSTALLATION_ID,
       });
       await initCloudSyncController(true);
     });
 
-    it('偵測跨安裝且使用者取消時，不應送出 DRIVE_SYNC_MANUAL_UPLOAD', async () => {
-      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
-        exists: true,
-        updatedAt: 'time',
-        size: null,
-        sourceInstallationId: 'remote-id-999',
-        sourceProfileId: null,
-      });
-      getConfirmDialogMock().mockResolvedValueOnce(false);
+    it.each([
+      {
+        name: '偵測跨安裝且使用者取消時，不應送出 DRIVE_SYNC_MANUAL_UPLOAD',
+        confirmResult: false,
+        expectUpload: false,
+      },
+      {
+        name: '偵測跨安裝且使用者確認時，應送出 DRIVE_SYNC_MANUAL_UPLOAD',
+        confirmResult: true,
+        expectUpload: true,
+      },
+    ])('$name', async ({ confirmResult, expectUpload }) => {
+      expect.hasAssertions();
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({ ...CROSS_INSTALL_SNAPSHOT });
+      getConfirmDialogMock().mockResolvedValueOnce(confirmResult);
+      mockSendMessage.mockResolvedValueOnce({ success: true });
 
       document.querySelector('#drive-upload-button').click();
       await flushAsyncWork();
 
-      expect(mockSendMessage).not.toHaveBeenCalledWith(
-        expect.objectContaining({ action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD })
-      );
+      const uploadMessage = expect.objectContaining({
+        action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD,
+      });
+      if (expectUpload) {
+        expect(mockSendMessage).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD,
+            force: false,
+          })
+        );
+      } else {
+        expect(mockSendMessage).not.toHaveBeenCalledWith(uploadMessage);
+      }
     });
 
     it('metadata 缺 installation id 時 preflight 會先建立 identity 再判斷跨安裝', async () => {
@@ -1577,14 +1607,8 @@ describe('DriveCloudSyncController', () => {
         connectionEmail: 'user@test.dev',
         installationId: null,
       });
-      driveClient.ensureDriveSyncIdentity.mockResolvedValue('local-id-001');
-      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
-        exists: true,
-        updatedAt: 'time',
-        size: null,
-        sourceInstallationId: 'remote-id-999',
-        sourceProfileId: null,
-      });
+      driveClient.ensureDriveSyncIdentity.mockResolvedValue(LOCAL_INSTALLATION_ID);
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({ ...CROSS_INSTALL_SNAPSHOT });
       getConfirmDialogMock().mockResolvedValueOnce(false);
 
       document.querySelector('#drive-upload-button').click();
@@ -1604,13 +1628,7 @@ describe('DriveCloudSyncController', () => {
     });
 
     it('preflight 確認期間應先禁用按鈕，取消後恢復互動', async () => {
-      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
-        exists: true,
-        updatedAt: 'time',
-        size: null,
-        sourceInstallationId: 'remote-id-999',
-        sourceProfileId: null,
-      });
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({ ...CROSS_INSTALL_SNAPSHOT });
 
       const uploadBtn = document.querySelector('#drive-upload-button');
       const overlay = document.querySelector('#drive-loading-overlay');
@@ -1634,28 +1652,6 @@ describe('DriveCloudSyncController', () => {
       expect(overlay.classList.contains('hidden')).toBe(true);
     });
 
-    it('偵測跨安裝且使用者確認時，應送出 DRIVE_SYNC_MANUAL_UPLOAD', async () => {
-      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
-        exists: true,
-        updatedAt: 'time',
-        size: null,
-        sourceInstallationId: 'remote-id-999',
-        sourceProfileId: null,
-      });
-      getConfirmDialogMock().mockResolvedValueOnce(true);
-      mockSendMessage.mockResolvedValueOnce({ success: true });
-
-      document.querySelector('#drive-upload-button').click();
-      await flushAsyncWork();
-
-      expect(mockSendMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD,
-          force: false,
-        })
-      );
-    });
-
     it('preflight 查詢失敗時，仍應送出 DRIVE_SYNC_MANUAL_UPLOAD（fail-open）', async () => {
       driveClient.fetchDriveSnapshotStatus.mockRejectedValueOnce(new Error('NETWORK_ERROR'));
       mockSendMessage.mockResolvedValueOnce({ success: true });
@@ -1676,13 +1672,7 @@ describe('DriveCloudSyncController', () => {
     });
 
     it('identity 初始化失敗時應阻止 upload 並顯示錯誤', async () => {
-      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({
-        exists: true,
-        updatedAt: 'time',
-        size: null,
-        sourceInstallationId: 'remote-id-999',
-        sourceProfileId: null,
-      });
+      driveClient.fetchDriveSnapshotStatus.mockResolvedValueOnce({ ...CROSS_INSTALL_SNAPSHOT });
       driveClient.ensureDriveSyncIdentity.mockRejectedValueOnce(new Error('IDENTITY_ERROR'));
       mockSendMessage.mockResolvedValueOnce({ success: true });
 
@@ -1708,10 +1698,10 @@ describe('DriveCloudSyncController', () => {
         exists: true,
         updatedAt: 'time',
         size: null,
-        sourceInstallationId: 'local-id-001',
+        sourceInstallationId: LOCAL_INSTALLATION_ID,
         sourceProfileId: null,
       });
-      driveClient.ensureDriveSyncIdentity.mockResolvedValueOnce('local-id-001');
+      driveClient.ensureDriveSyncIdentity.mockResolvedValueOnce(LOCAL_INSTALLATION_ID);
       mockSendMessage.mockResolvedValueOnce({ success: true });
 
       document.querySelector('#drive-upload-button').click();
