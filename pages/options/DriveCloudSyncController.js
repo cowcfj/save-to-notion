@@ -939,13 +939,22 @@ function resolveSnapshotSourceLabel(remoteInstallationId, localInstallationId) {
  * 處理 disconnect（含確認）
  */
 async function handleDisconnect() {
-  const confirmed = await confirmDialog({
-    title: UI_MESSAGES.CLOUD_SYNC.CONFIRM_DISCONNECT_TITLE,
-    message: UI_MESSAGES.CLOUD_SYNC.CONFIRM_DISCONNECT,
-    confirmLabel: UI_MESSAGES.CLOUD_SYNC.CONFIRM_DISCONNECT_OK,
-    cancelLabel: UI_MESSAGES.CLOUD_SYNC.CONFIRM_DISCONNECT_CANCEL,
-    danger: true,
-  });
+  let confirmed = false;
+  try {
+    confirmed = await confirmDialog({
+      title: UI_MESSAGES.CLOUD_SYNC.CONFIRM_DISCONNECT_TITLE,
+      message: UI_MESSAGES.CLOUD_SYNC.CONFIRM_DISCONNECT,
+      confirmLabel: UI_MESSAGES.CLOUD_SYNC.CONFIRM_DISCONNECT_OK,
+      cancelLabel: UI_MESSAGES.CLOUD_SYNC.CONFIRM_DISCONNECT_CANCEL,
+      danger: true,
+    });
+  } catch (error) {
+    Logger.error('[CloudSync] Disconnect confirmation failed', {
+      error: getSafeError(error, 'drive_disconnect_confirm'),
+    });
+    showSyncStatus(UI_MESSAGES.CLOUD_SYNC.DISCONNECT_FAILED, 'error');
+    return;
+  }
   if (!confirmed) {
     return;
   }
@@ -1049,13 +1058,25 @@ function bindCloudSyncButtons() {
   el(DOM.BTN_CONFLICT_FORCE_UPLOAD)?.addEventListener(
     'click',
     async () => {
-      const confirmed = await confirmDialog({
-        title: UI_MESSAGES.CLOUD_SYNC.CONFIRM_FORCE_UPLOAD_TITLE,
-        message: UI_MESSAGES.CLOUD_SYNC.CONFIRM_FORCE_UPLOAD,
-        confirmLabel: UI_MESSAGES.CLOUD_SYNC.CONFIRM_FORCE_UPLOAD_OK,
-        cancelLabel: UI_MESSAGES.CLOUD_SYNC.CONFIRM_FORCE_UPLOAD_CANCEL,
-        danger: true,
-      });
+      let confirmed = false;
+      try {
+        confirmed = await confirmDialog({
+          title: UI_MESSAGES.CLOUD_SYNC.CONFIRM_FORCE_UPLOAD_TITLE,
+          message: UI_MESSAGES.CLOUD_SYNC.CONFIRM_FORCE_UPLOAD,
+          confirmLabel: UI_MESSAGES.CLOUD_SYNC.CONFIRM_FORCE_UPLOAD_OK,
+          cancelLabel: UI_MESSAGES.CLOUD_SYNC.CONFIRM_FORCE_UPLOAD_CANCEL,
+          danger: true,
+        });
+      } catch (error) {
+        Logger.error('[CloudSync] Force upload confirmation failed', {
+          error: getSafeError(error, 'drive_force_upload_confirm'),
+        });
+        showSyncStatus(
+          `${UI_MESSAGES.CLOUD_SYNC.UPLOAD_FAILED_PREFIX}${getUserFriendlyErrorMessage(error, 'drive_force_upload_confirm')}`,
+          'error'
+        );
+        return;
+      }
       if (confirmed) {
         handleUpload(true).catch(() => {});
       }

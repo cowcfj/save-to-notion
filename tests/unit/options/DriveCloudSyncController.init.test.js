@@ -14,7 +14,6 @@ import * as driveClient from '../../../scripts/auth/driveClient.js';
 import { RUNTIME_ACTIONS } from '../../../scripts/config/shared/runtimeActions.js';
 import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 import Logger from '../../../scripts/utils/Logger.js';
-import { ErrorHandler } from '../../../scripts/utils/ErrorHandler.js';
 import { sanitizeApiError } from '../../../scripts/utils/ApiErrorSanitizer.js';
 import { DRIVE_SYNC_ERROR_CODES } from '../../../scripts/config/extension/driveSyncErrorCodes.js';
 
@@ -30,6 +29,9 @@ import {
   spyOnDriveClientDefaults,
   getConfirmDialogMock,
 } from './DriveCloudSyncController.shared.js';
+
+const UNKNOWN_USER_FACING_ERROR_MESSAGE = '發生未知錯誤，請稍後再試';
+const BACKGROUND_NO_RESPONSE_USER_FACING_MESSAGE = '背景無回應';
 
 describe('DriveCloudSyncController', () => {
   let mockSendMessage;
@@ -236,7 +238,10 @@ describe('DriveCloudSyncController', () => {
 
       const safeMessage = sanitizeApiError(new Error('popup blocked'), 'drive_connect_start');
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
-        `${UI_MESSAGES.CLOUD_SYNC.CONNECT_FAILED_PREFIX}${ErrorHandler.formatUserMessage(safeMessage)}`
+        `${UI_MESSAGES.CLOUD_SYNC.CONNECT_FAILED_PREFIX}${UNKNOWN_USER_FACING_ERROR_MESSAGE}`
+      );
+      expect(document.querySelector('#drive-sync-status').textContent).not.toContain(
+        'popup blocked'
       );
       expect(document.querySelector('#drive-sync-status').className).toContain('error');
       expect(loggerErrorSpy).toHaveBeenCalledWith('[CloudSync] Drive connect start failed', {
@@ -321,12 +326,8 @@ describe('DriveCloudSyncController', () => {
       document.querySelector('#drive-upload-button').click();
       await flushAsyncWork();
 
-      const safeMessage = sanitizeApiError(
-        new Error(UI_MESSAGES.CLOUD_SYNC.BG_NO_RESPONSE),
-        'drive_sync_upload'
-      );
       expect(document.querySelector('#drive-sync-status').textContent).toContain(
-        `${UI_MESSAGES.CLOUD_SYNC.UPLOAD_FAILED_PREFIX}${ErrorHandler.formatUserMessage(safeMessage)}`
+        `${UI_MESSAGES.CLOUD_SYNC.UPLOAD_FAILED_PREFIX}${BACKGROUND_NO_RESPONSE_USER_FACING_MESSAGE}`
       );
       expect(document.querySelector('#drive-sync-status').className).toContain('error');
       expect(document.querySelector('#drive-loading-overlay').classList.contains('hidden')).toBe(
@@ -471,6 +472,21 @@ describe('DriveCloudSyncController', () => {
       expect(document.querySelector('#drive-loading-overlay').classList.contains('hidden')).toBe(
         true
       );
+    });
+
+    it('shows an error when disconnect confirmation cannot open', async () => {
+      getConfirmDialogMock().mockRejectedValueOnce(new Error('dialog crashed'));
+
+      await initCloudSyncController(true);
+
+      document.querySelector('#drive-disconnect-button').click();
+      await flushAsyncWork();
+
+      expect(driveClient.disconnectDrive).not.toHaveBeenCalled();
+      expect(document.querySelector('#drive-sync-status').textContent).toContain(
+        UI_MESSAGES.CLOUD_SYNC.DISCONNECT_FAILED
+      );
+      expect(document.querySelector('#drive-sync-status').className).toContain('error');
     });
 
     it('skips disconnect when user cancels confirmation', async () => {
@@ -896,6 +912,24 @@ describe('DriveCloudSyncController', () => {
         action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD,
         force: true,
       });
+    });
+
+    it('shows an error when force upload confirmation cannot open', async () => {
+      getConfirmDialogMock().mockRejectedValueOnce(new Error('dialog crashed'));
+
+      await initCloudSyncController(true);
+
+      document.querySelector('#drive-conflict-force-upload-button').click();
+      await flushAsyncWork();
+
+      expect(mockSendMessage).not.toHaveBeenCalledWith({
+        action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD,
+        force: true,
+      });
+      expect(document.querySelector('#drive-sync-status').textContent).toContain(
+        `${UI_MESSAGES.CLOUD_SYNC.UPLOAD_FAILED_PREFIX}${UNKNOWN_USER_FACING_ERROR_MESSAGE}`
+      );
+      expect(document.querySelector('#drive-sync-status').className).toContain('error');
     });
   });
 });

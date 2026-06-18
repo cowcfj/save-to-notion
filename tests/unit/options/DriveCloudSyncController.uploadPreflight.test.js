@@ -151,7 +151,9 @@ describe('DriveCloudSyncController', () => {
 
       expect(loggerWarnSpy).toHaveBeenCalledWith(
         '[CloudSync] Upload preflight check failed, continuing upload',
-        expect.any(Object)
+        expect.objectContaining({
+          error: sanitizeApiError(new Error('NETWORK_ERROR'), 'drive_upload_preflight'),
+        })
       );
       expect(mockSendMessage).toHaveBeenCalledWith(
         expect.objectContaining({
