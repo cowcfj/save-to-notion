@@ -30,55 +30,73 @@ jest.mock('../../../pages/options/MigrationScanner.js', () => {
   };
 });
 
+const renderMigrationToolDom = () => {
+  document.body.innerHTML = `
+    <button id="migration-scan-button"></button>
+    <div id="scan-status"></div>
+    <div id="migration-list" style="display: none">
+      <div class="list-header">
+        <label><input type="checkbox" id="migration-select-all" /> 全選</label>
+        <span id="migration-selected-count">0 項</span>
+      </div>
+      <div id="migration-items" class="list-body"></div>
+      <div class="list-actions">
+        <button id="migration-execute-button" class="btn-primary" disabled>遷移</button>
+        <button id="migration-delete-button" class="btn-danger" disabled>刪除</button>
+      </div>
+    </div>
+    <div id="migration-progress" style="display: none">
+      <div class="progress-bar">
+        <div id="migration-progress-bar" class="progress-fill"></div>
+      </div>
+      <span id="migration-progress-text">0%</span>
+    </div>
+    <div id="migration-result"></div>
+    <section id="pending-migration-section" style="display: none">
+      <div id="pending-migration-list"></div>
+    </section>
+    <section id="failed-migration-section" style="display: none">
+      <div id="failed-migration-list"></div>
+    </section>
+  `;
+};
+
+const setupMigrationTool = () => {
+  getConfirmDialogMock().mockReset();
+  getConfirmDialogMock().mockResolvedValue(true);
+  renderMigrationToolDom();
+
+  const mockUiManager = new UIManager();
+  mockUiManager.showStatus = jest.fn();
+
+  const { mockScannerInstance } = require('../../../pages/options/MigrationScanner.js');
+  MigrationScanner.requestBatchMigration = jest.fn();
+
+  const migrationTool = new MigrationTool(mockUiManager);
+  migrationTool.init();
+
+  return {
+    migrationTool,
+    mockScanner: mockScannerInstance,
+  };
+};
+
+const expectDeleteConfirmation = count => {
+  expect(getConfirmDialogMock()).toHaveBeenCalledWith({
+    title: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_TITLE(count),
+    message: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_MESSAGE,
+    confirmLabel: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_OK,
+    cancelLabel: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_CANCEL,
+    danger: true,
+  });
+};
+
 describe('MigrationTool', () => {
   let migrationTool = null;
-  let mockUiManager = null;
   let mockScanner = null;
 
   beforeEach(() => {
-    getConfirmDialogMock().mockReset();
-    getConfirmDialogMock().mockResolvedValue(true);
-    // DOM Setup - 匹配 options.html 中的結構
-    document.body.innerHTML = `
-      <button id="migration-scan-button"></button>
-      <div id="scan-status"></div>
-      <div id="migration-list" style="display: none">
-        <div class="list-header">
-          <label><input type="checkbox" id="migration-select-all" /> 全選</label>
-          <span id="migration-selected-count">0 項</span>
-        </div>
-        <div id="migration-items" class="list-body"></div>
-        <div class="list-actions">
-          <button id="migration-execute-button" class="btn-primary" disabled>遷移</button>
-          <button id="migration-delete-button" class="btn-danger" disabled>刪除</button>
-        </div>
-      </div>
-      <div id="migration-progress" style="display: none">
-        <div class="progress-bar">
-          <div id="migration-progress-bar" class="progress-fill"></div>
-        </div>
-        <span id="migration-progress-text">0%</span>
-      </div>
-      <div id="migration-result"></div>
-      <section id="pending-migration-section" style="display: none">
-        <div id="pending-migration-list"></div>
-      </section>
-      <section id="failed-migration-section" style="display: none">
-        <div id="failed-migration-list"></div>
-      </section>
-    `;
-
-    mockUiManager = new UIManager();
-    mockUiManager.showStatus = jest.fn();
-
-    // 從 mock 中取得我們剛剛建立的實例
-    const { mockScannerInstance } = require('../../../pages/options/MigrationScanner.js');
-    mockScanner = mockScannerInstance;
-
-    MigrationScanner.requestBatchMigration = jest.fn();
-
-    migrationTool = new MigrationTool(mockUiManager);
-    migrationTool.init();
+    ({ migrationTool, mockScanner } = setupMigrationTool());
   });
 
   afterEach(() => {
@@ -184,50 +202,10 @@ describe('MigrationTool', () => {
 
 describe('MigrationTool Extended', () => {
   let migrationTool = null;
-  let mockUiManager = null;
   let mockScanner = null;
 
   beforeEach(() => {
-    getConfirmDialogMock().mockReset();
-    getConfirmDialogMock().mockResolvedValue(true);
-    document.body.innerHTML = `
-      <button id="migration-scan-button"></button>
-      <div id="scan-status"></div>
-      <div id="migration-list" style="display: none">
-        <div class="list-header">
-          <label><input type="checkbox" id="migration-select-all" /> 全選</label>
-          <span id="migration-selected-count">0 項</span>
-        </div>
-        <div id="migration-items" class="list-body"></div>
-        <div class="list-actions">
-          <button id="migration-execute-button" class="btn-primary" disabled>遷移</button>
-          <button id="migration-delete-button" class="btn-danger" disabled>刪除</button>
-        </div>
-      </div>
-      <div id="migration-progress" style="display: none">
-        <div class="progress-bar">
-          <div id="migration-progress-bar" class="progress-fill"></div>
-        </div>
-        <span id="migration-progress-text">0%</span>
-      </div>
-      <div id="migration-result"></div>
-      <section id="pending-migration-section" style="display: none">
-        <div id="pending-migration-list"></div>
-      </section>
-      <section id="failed-migration-section" style="display: none">
-        <div id="failed-migration-list"></div>
-      </section>
-    `;
-
-    mockUiManager = new UIManager();
-    mockUiManager.showStatus = jest.fn();
-
-    const { mockScannerInstance } = require('../../../pages/options/MigrationScanner.js');
-    mockScanner = mockScannerInstance;
-    MigrationScanner.requestBatchMigration = jest.fn();
-
-    migrationTool = new MigrationTool(mockUiManager);
-    migrationTool.init();
+    ({ migrationTool, mockScanner } = setupMigrationTool());
   });
 
   afterEach(() => {
@@ -295,134 +273,77 @@ describe('MigrationTool Extended', () => {
       jest.restoreAllMocks();
     });
 
-    test('full success response 應顯示 success box 與刪除數量', async () => {
+    test.each([
+      {
+        name: 'full success response 應顯示 success box 與刪除數量',
+        urls: ['https://example.com/one', 'https://example.com/two'],
+        results: { success: 2, failed: 0, total: 2, details: [] },
+        verifyResult: migrationResult => {
+          expect(migrationResult.querySelector('.success-box')).toBeTruthy();
+          expect(migrationResult.querySelector('.warning-box')).toBeNull();
+          expect(migrationResult.textContent).toContain('刪除成功');
+          expect(migrationResult.textContent).toContain('已刪除 2 個頁面的舊版標註數據');
+        },
+      },
+      {
+        name: 'partial response 應顯示 warning 文案與成功失敗計數',
+        urls: ['https://example.com/one', 'https://example.com/two', 'https://example.com/three'],
+        results: { success: 2, failed: 1, total: 3, details: [] },
+        verifyResult: migrationResult => {
+          expect(migrationResult.querySelector('.warning-box')).toBeTruthy();
+          expect(migrationResult.textContent).toContain(
+            UI_MESSAGES.STORAGE.MIGRATION_DELETE_PARTIAL_COMPLETE
+          );
+          expect(migrationResult.textContent).toContain(
+            ERROR_MESSAGES.PATTERNS.MIGRATION_BATCH_DELETE_PARTIAL_FAILURE
+          );
+          expect(migrationResult.textContent).toContain(
+            UI_MESSAGES.STORAGE.MIGRATION_DELETE_RESULT_SUMMARY(2, 1, 3)
+          );
+        },
+      },
+      {
+        name: 'full failure response 應顯示刪除失敗標題與失敗計數',
+        urls: ['https://example.com/one', 'https://example.com/two'],
+        results: { success: 0, failed: 2, total: 2, details: [] },
+        verifyResult: migrationResult => {
+          expect(migrationResult.querySelector('.warning-box')).toBeTruthy();
+          expect(migrationResult.textContent).toContain(
+            UI_MESSAGES.STORAGE.MIGRATION_DELETE_FAILED
+          );
+          expect(migrationResult.textContent).toContain(
+            ERROR_MESSAGES.PATTERNS.MIGRATION_BATCH_DELETE_PARTIAL_FAILURE
+          );
+          expect(migrationResult.textContent).toContain(
+            UI_MESSAGES.STORAGE.MIGRATION_DELETE_RESULT_SUMMARY(0, 2, 2)
+          );
+        },
+      },
+    ])('$name', async ({ urls, results, verifyResult }) => {
+      expect.hasAssertions();
       jest.useFakeTimers();
       getConfirmDialogMock().mockResolvedValueOnce(true);
       jest.spyOn(migrationTool, 'scanForLegacyHighlights').mockResolvedValue();
 
       chrome.runtime.sendMessage.mockResolvedValue({
         success: true,
-        results: {
-          success: 2,
-          failed: 0,
-          total: 2,
-          details: [],
-        },
+        results,
       });
 
-      migrationTool.selectedUrls = new Set(['https://example.com/one', 'https://example.com/two']);
+      migrationTool.selectedUrls = new Set(urls);
 
       await migrationTool.performSelectedDeletion();
 
-      expect(getConfirmDialogMock()).toHaveBeenCalledWith({
-        title: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_TITLE(2),
-        message: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_MESSAGE,
-        confirmLabel: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_OK,
-        cancelLabel: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_CANCEL,
-        danger: true,
-      });
-
-      const migrationResult = document.querySelector('#migration-result');
-      expect(migrationResult.querySelector('.success-box')).toBeTruthy();
-      expect(migrationResult.querySelector('.warning-box')).toBeNull();
-      expect(migrationResult.textContent).toContain('刪除成功');
-      expect(migrationResult.textContent).toContain('已刪除 2 個頁面的舊版標註數據');
-      expect(migrationTool.selectedUrls.size).toBe(0);
-
-      jest.runOnlyPendingTimers();
-      expect(migrationTool.scanForLegacyHighlights).toHaveBeenCalled();
-    });
-
-    test('partial response 應顯示 warning 文案與成功失敗計數', async () => {
-      jest.useFakeTimers();
-      getConfirmDialogMock().mockResolvedValueOnce(true);
-      jest.spyOn(migrationTool, 'scanForLegacyHighlights').mockResolvedValue();
-
-      chrome.runtime.sendMessage.mockResolvedValue({
-        success: true,
-        results: {
-          success: 2,
-          failed: 1,
-          total: 3,
-          details: [],
-        },
-      });
-
-      migrationTool.selectedUrls = new Set([
-        'https://example.com/one',
-        'https://example.com/two',
-        'https://example.com/three',
-      ]);
-
-      await migrationTool.performSelectedDeletion();
-
-      expect(getConfirmDialogMock()).toHaveBeenCalledWith({
-        title: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_TITLE(3),
-        message: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_MESSAGE,
-        confirmLabel: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_OK,
-        cancelLabel: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_CANCEL,
-        danger: true,
-      });
+      expectDeleteConfirmation(urls.length);
 
       expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
         action: RUNTIME_ACTIONS.MIGRATION_BATCH_DELETE,
-        urls: ['https://example.com/one', 'https://example.com/two', 'https://example.com/three'],
+        urls,
       });
       expect(migrationTool.selectedUrls.size).toBe(0);
 
       const migrationResult = document.querySelector('#migration-result');
-      expect(migrationResult.querySelector('.warning-box')).toBeTruthy();
-      expect(migrationResult.textContent).toContain(
-        UI_MESSAGES.STORAGE.MIGRATION_DELETE_PARTIAL_COMPLETE
-      );
-      expect(migrationResult.textContent).toContain(
-        ERROR_MESSAGES.PATTERNS.MIGRATION_BATCH_DELETE_PARTIAL_FAILURE
-      );
-      expect(migrationResult.textContent).toContain(
-        UI_MESSAGES.STORAGE.MIGRATION_DELETE_RESULT_SUMMARY(2, 1, 3)
-      );
-
-      jest.runOnlyPendingTimers();
-      expect(migrationTool.scanForLegacyHighlights).toHaveBeenCalled();
-    });
-
-    test('full failure response 應顯示刪除失敗標題與失敗計數', async () => {
-      jest.useFakeTimers();
-      getConfirmDialogMock().mockResolvedValueOnce(true);
-      jest.spyOn(migrationTool, 'scanForLegacyHighlights').mockResolvedValue();
-
-      chrome.runtime.sendMessage.mockResolvedValue({
-        success: true,
-        results: {
-          success: 0,
-          failed: 2,
-          total: 2,
-          details: [],
-        },
-      });
-
-      migrationTool.selectedUrls = new Set(['https://example.com/one', 'https://example.com/two']);
-
-      await migrationTool.performSelectedDeletion();
-
-      expect(getConfirmDialogMock()).toHaveBeenCalledWith({
-        title: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_TITLE(2),
-        message: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_MESSAGE,
-        confirmLabel: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_OK,
-        cancelLabel: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_CANCEL,
-        danger: true,
-      });
-
-      const migrationResult = document.querySelector('#migration-result');
-      expect(migrationResult.querySelector('.warning-box')).toBeTruthy();
-      expect(migrationResult.textContent).toContain(UI_MESSAGES.STORAGE.MIGRATION_DELETE_FAILED);
-      expect(migrationResult.textContent).toContain(
-        ERROR_MESSAGES.PATTERNS.MIGRATION_BATCH_DELETE_PARTIAL_FAILURE
-      );
-      expect(migrationResult.textContent).toContain(
-        UI_MESSAGES.STORAGE.MIGRATION_DELETE_RESULT_SUMMARY(0, 2, 2)
-      );
-      expect(migrationTool.selectedUrls.size).toBe(0);
+      verifyResult(migrationResult);
 
       jest.runOnlyPendingTimers();
       expect(migrationTool.scanForLegacyHighlights).toHaveBeenCalled();
@@ -434,13 +355,7 @@ describe('MigrationTool Extended', () => {
 
       await migrationTool.performSelectedDeletion();
 
-      expect(getConfirmDialogMock()).toHaveBeenCalledWith({
-        title: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_TITLE(1),
-        message: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_MESSAGE,
-        confirmLabel: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_OK,
-        cancelLabel: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_CANCEL,
-        danger: true,
-      });
+      expectDeleteConfirmation(1);
 
       expect(chrome.runtime.sendMessage).not.toHaveBeenCalledWith(
         expect.objectContaining({ action: RUNTIME_ACTIONS.MIGRATION_BATCH_DELETE })
@@ -543,64 +458,60 @@ describe('MigrationTool Extended', () => {
   });
 
   describe('truncateUrl rendering coverage', () => {
-    test('showBatchMigrationResult 應透過 MigrationScanner.truncateUrl 渲染成功項目 URL', () => {
+    test.each([
+      {
+        name: 'showBatchMigrationResult 應透過 MigrationScanner.truncateUrl 渲染成功項目 URL',
+        url: 'https://example.com/success',
+        render: () =>
+          migrationTool.showBatchMigrationResult({
+            success: 1,
+            details: [
+              {
+                status: 'success',
+                url: 'https://example.com/success',
+                count: 2,
+                pending: 1,
+              },
+            ],
+          }),
+        getRenderedText: () => document.querySelector('#migration-result').textContent,
+      },
+      {
+        name: 'renderPendingList 應透過 MigrationScanner.truncateUrl 渲染待完成 URL',
+        url: 'https://example.com/pending',
+        render: () =>
+          migrationTool.renderPendingList([
+            {
+              url: 'https://example.com/pending',
+              totalCount: 3,
+              pendingCount: 1,
+            },
+          ]),
+        getRenderedText: () => document.querySelector('#pending-migration-list').textContent,
+      },
+      {
+        name: 'renderFailedList 應透過 MigrationScanner.truncateUrl 渲染失敗 URL',
+        url: 'https://example.com/failed',
+        render: () =>
+          migrationTool.renderFailedList([
+            {
+              url: 'https://example.com/failed',
+              totalCount: 3,
+              failedCount: 2,
+            },
+          ]),
+        getRenderedText: () => document.querySelector('#failed-migration-list').textContent,
+      },
+    ])('$name', ({ url, render, getRenderedText }) => {
+      expect.hasAssertions();
       const truncateSpy = jest
         .spyOn(MigrationScanner, 'truncateUrl')
         .mockImplementation((url, maxLength) => `cut(${url},${maxLength})`);
 
-      migrationTool.showBatchMigrationResult({
-        success: 1,
-        details: [
-          {
-            status: 'success',
-            url: 'https://example.com/success',
-            count: 2,
-            pending: 1,
-          },
-        ],
-      });
+      render();
 
-      expect(truncateSpy).toHaveBeenCalledWith('https://example.com/success', 60);
-      const migrationResult = document.querySelector('#migration-result');
-      expect(migrationResult.textContent).toContain('cut(https://example.com/success,60)');
-      truncateSpy.mockRestore();
-    });
-
-    test('renderPendingList 應透過 MigrationScanner.truncateUrl 渲染待完成 URL', () => {
-      const truncateSpy = jest
-        .spyOn(MigrationScanner, 'truncateUrl')
-        .mockImplementation((url, maxLength) => `cut(${url},${maxLength})`);
-
-      migrationTool.renderPendingList([
-        {
-          url: 'https://example.com/pending',
-          totalCount: 3,
-          pendingCount: 1,
-        },
-      ]);
-
-      expect(truncateSpy).toHaveBeenCalledWith('https://example.com/pending', 60);
-      const pendingList = document.querySelector('#pending-migration-list');
-      expect(pendingList.textContent).toContain('cut(https://example.com/pending,60)');
-      truncateSpy.mockRestore();
-    });
-
-    test('renderFailedList 應透過 MigrationScanner.truncateUrl 渲染失敗 URL', () => {
-      const truncateSpy = jest
-        .spyOn(MigrationScanner, 'truncateUrl')
-        .mockImplementation((url, maxLength) => `cut(${url},${maxLength})`);
-
-      migrationTool.renderFailedList([
-        {
-          url: 'https://example.com/failed',
-          totalCount: 3,
-          failedCount: 2,
-        },
-      ]);
-
-      expect(truncateSpy).toHaveBeenCalledWith('https://example.com/failed', 60);
-      const failedList = document.querySelector('#failed-migration-list');
-      expect(failedList.textContent).toContain('cut(https://example.com/failed,60)');
+      expect(truncateSpy).toHaveBeenCalledWith(url, 60);
+      expect(getRenderedText()).toContain(`cut(${url},60)`);
       truncateSpy.mockRestore();
     });
   });
