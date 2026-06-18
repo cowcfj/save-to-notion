@@ -44,6 +44,18 @@ function createTextRange(text, start = 0, end = text.length) {
   return range;
 }
 
+function createRangesFromText(text, ...boundaries) {
+  const baseRange = createTextRange(text);
+  const textNode = baseRange.startContainer;
+
+  return boundaries.map(([start, end]) => {
+    const range = document.createRange();
+    range.setStart(textNode, start);
+    range.setEnd(textNode, end);
+    return range;
+  });
+}
+
 function withChromeApi(chromeApi, assertion) {
   const originalChrome = globalThis.chrome;
   globalThis.chrome = chromeApi;
@@ -194,26 +206,14 @@ describe('core/HighlightManager', () => {
     });
 
     test('should return null for collapsed range', () => {
-      const div = document.createElement('div');
-      div.textContent = 'Test';
-      document.body.append(div);
-
-      const range = document.createRange();
-      range.setStart(div.firstChild, 0);
-      range.setEnd(div.firstChild, 0);
+      const range = createTextRange('Test', 0, 0);
 
       const id = manager.addHighlight(range);
       expect(id).toBe(null);
     });
 
     test('should return null for empty or whitespace-only range', () => {
-      const div = document.createElement('div');
-      div.textContent = '   ';
-      document.body.append(div);
-
-      const range = document.createRange();
-      range.setStart(div.firstChild, 0);
-      range.setEnd(div.firstChild, 3);
+      const range = createTextRange('   ');
 
       const id = manager.addHighlight(range);
       expect(id).toBe(null);
@@ -247,13 +247,7 @@ describe('core/HighlightManager', () => {
     test('should not advance nextId or keep stale entry when highlight addition returns false', () => {
       jest.spyOn(manager, 'applyHighlightAPI').mockReturnValue(false);
 
-      const div = document.createElement('div');
-      div.textContent = 'Retry Test';
-      document.body.append(div);
-
-      const range = document.createRange();
-      range.setStart(div.firstChild, 0);
-      range.setEnd(div.firstChild, 5);
+      const range = createTextRange('Retry Test', 0, 5);
 
       const initialId = manager.nextId;
 
@@ -563,13 +557,7 @@ describe('core/HighlightManager', () => {
 
   describe('removeHighlight', () => {
     test('should remove existing highlight', () => {
-      const div = document.createElement('div');
-      div.textContent = 'Test';
-      document.body.append(div);
-
-      const range = document.createRange();
-      range.setStart(div.firstChild, 0);
-      range.setEnd(div.firstChild, 4);
+      const range = createTextRange('Test', 0, 4);
 
       const id = manager.addHighlight(range);
       expect(manager.highlights.size).toBe(1);
@@ -591,12 +579,7 @@ describe('core/HighlightManager', () => {
 
   describe('clearAll', () => {
     test('should clear all highlights', () => {
-      const div = document.createElement('div');
-      div.textContent = 'Test';
-      document.body.append(div);
-      const range = document.createRange();
-      range.setStart(div.firstChild, 0);
-      range.setEnd(div.firstChild, 3);
+      const range = createTextRange('Test', 0, 3);
 
       manager.addHighlight(range);
       expect(manager.highlights.size).toBe(1);
@@ -662,63 +645,23 @@ describe('core/HighlightManager', () => {
     });
 
     test('should detect overlapping ranges correctly', () => {
-      // 建立真實 DOM 結構
-      const div = document.createElement('div');
-      div.textContent = 'Hello World Test';
-      document.body.append(div);
-
-      const textNode = div.firstChild;
-
-      // Range 1: "Hello"（0-5）
-      const range1 = document.createRange();
-      range1.setStart(textNode, 0);
-      range1.setEnd(textNode, 5);
-
-      // Range 2: "lo Wo"（3-8）— 與 Range 1 重疊
-      const range2 = document.createRange();
-      range2.setStart(textNode, 3);
-      range2.setEnd(textNode, 8);
+      const [range1, range2] = createRangesFromText('Hello World Test', [0, 5], [3, 8]);
 
       expect(HighlightManager.rangesOverlap(range1, range2)).toBe(true);
-
-      // 清理
-      div.remove();
     });
 
     test('should treat touching boundaries as non-overlapping', () => {
-      const div = document.createElement('div');
-      div.textContent = 'Boundary Touch Test';
-      document.body.append(div);
-
-      const textNode = div.firstChild;
-
-      const range1 = document.createRange();
-      range1.setStart(textNode, 0);
-      range1.setEnd(textNode, 5);
-
-      const range2 = document.createRange();
-      range2.setStart(textNode, 5);
-      range2.setEnd(textNode, 10);
+      const [range1, range2] = createRangesFromText('Boundary Touch Test', [0, 5], [5, 10]);
 
       expect(HighlightManager.rangesOverlap(range1, range2)).toBe(false);
-
-      div.remove();
     });
 
     test('should return symmetric result when range order is swapped', () => {
-      const div = document.createElement('div');
-      div.textContent = 'Symmetric Overlap Test';
-      document.body.append(div);
-
-      const textNode = div.firstChild;
-
-      const firstRange = document.createRange();
-      firstRange.setStart(textNode, 2);
-      firstRange.setEnd(textNode, 9);
-
-      const secondRange = document.createRange();
-      secondRange.setStart(textNode, 6);
-      secondRange.setEnd(textNode, 12);
+      const [firstRange, secondRange] = createRangesFromText(
+        'Symmetric Overlap Test',
+        [2, 9],
+        [6, 12]
+      );
 
       const forward = HighlightManager.rangesOverlap(firstRange, secondRange);
       const reverse = HighlightManager.rangesOverlap(secondRange, firstRange);
@@ -726,31 +669,12 @@ describe('core/HighlightManager', () => {
       expect(forward).toBe(true);
       expect(reverse).toBe(true);
       expect(forward).toBe(reverse);
-
-      div.remove();
     });
 
     test('should detect non-overlapping ranges correctly', () => {
-      const div = document.createElement('div');
-      div.textContent = 'Hello World Test';
-      document.body.append(div);
-
-      const textNode = div.firstChild;
-
-      // Range 1: "Hello"（0-5）
-      const range1 = document.createRange();
-      range1.setStart(textNode, 0);
-      range1.setEnd(textNode, 5);
-
-      // Range 2: "Test"（12-16）— 與 Range 1 不重疊
-      const range2 = document.createRange();
-      range2.setStart(textNode, 12);
-      range2.setEnd(textNode, 16);
+      const [range1, range2] = createRangesFromText('Hello World Test', [0, 5], [12, 16]);
 
       expect(HighlightManager.rangesOverlap(range1, range2)).toBe(false);
-
-      // 清理
-      div.remove();
     });
 
     test('getSafeExtensionStorage should return null outside extension runtime', () => {
@@ -1076,12 +1000,7 @@ describe('core/HighlightManager', () => {
     test('addHighlight 視覺回滾時應觸發 error toast', () => {
       jest.spyOn(manager, 'applyHighlightAPI').mockReturnValue(false);
 
-      const div = document.createElement('div');
-      div.textContent = 'Rollback test';
-      document.body.append(div);
-      const range = document.createRange();
-      range.setStart(div.firstChild, 0);
-      range.setEnd(div.firstChild, 8);
+      const range = createTextRange('Rollback test', 0, 8);
 
       const id = manager.addHighlight(range);
 
@@ -1092,12 +1011,7 @@ describe('core/HighlightManager', () => {
     });
 
     test('addHighlight 成功時不應觸發 toast', () => {
-      const div = document.createElement('div');
-      div.textContent = 'Success path';
-      document.body.append(div);
-      const range = document.createRange();
-      range.setStart(div.firstChild, 0);
-      range.setEnd(div.firstChild, 7);
+      const range = createTextRange('Success path', 0, 7);
 
       manager.addHighlight(range);
       expect(mockToast.show).not.toHaveBeenCalled();

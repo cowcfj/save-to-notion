@@ -83,6 +83,14 @@ function isContentGood(article) {
   return true;
 }
 
+function buildContentFixture({ textChars, linkChars = 0, liCount = 0 }) {
+  const text = `<p>${'a'.repeat(textChars)}</p>`;
+  const links = linkChars > 0 ? `<a href="#">${'a'.repeat(linkChars)}</a>` : '';
+  const listItems = liCount > 0 ? `<ul>${'<li>item</li>'.repeat(liCount)}</ul>` : '';
+
+  return text + links + listItems;
+}
+
 describe('isContentGood', () => {
   beforeEach(() => {
     // 清除所有 mock 調用記錄
@@ -163,10 +171,7 @@ describe('isContentGood', () => {
 
     test('應該拒絕高鏈接密度的內容（列表項少於 8 個）', () => {
       // 創建真實的 DOM 結構：35% 鏈接密度，5 個列表項
-      const links = `<a href="#">${'a'.repeat(350)}</a>`;
-      const listItems = `<ul>${'<li>item</li>'.repeat(5)}</ul>`;
-      const text = `<p>${'a'.repeat(650)}</p>`;
-      const content = text + links + listItems;
+      const content = buildContentFixture({ textChars: 650, linkChars: 350, liCount: 5 });
 
       const result = isContentGood({ content });
       // 鏈接密度 = 350 / 1000+ = 0.35 > 0.3，且 liCount = 5 < 8
@@ -190,10 +195,7 @@ describe('isContentGood', () => {
   describe('列表項例外處理', () => {
     test('應該接受低鏈接密度的內容（即使列表項少於 8 個）', () => {
       // 創建真實的 DOM 結構：10% 鏈接密度，5 個列表項
-      const links = `<a href="#">${'a'.repeat(100)}</a>`;
-      const listItems = `<ul>${'<li>item</li>'.repeat(5)}</ul>`;
-      const text = `<p>${'a'.repeat(900)}</p>`;
-      const content = text + links + listItems;
+      const content = buildContentFixture({ textChars: 900, linkChars: 100, liCount: 5 });
 
       const result = isContentGood({ content });
       // 鏈接密度 = 100 / 1000+ = 0.1 < 0.3，應該接受
@@ -202,10 +204,7 @@ describe('isContentGood', () => {
 
     test('應該接受 8 個或更多列表項的內容（即使高鏈接密度）', () => {
       // 創建真實的 DOM 結構：40% 鏈接密度，8 個列表項
-      const links = `<a href="#">${'a'.repeat(400)}</a>`;
-      const listItems = `<ul>${'<li>item</li>'.repeat(8)}</ul>`;
-      const text = `<p>${'a'.repeat(600)}</p>`;
-      const content = text + links + listItems;
+      const content = buildContentFixture({ textChars: 600, linkChars: 400, liCount: 8 });
 
       const result = isContentGood({ content });
       // 鏈接密度 = 400 / 1000+ = 0.4 > 0.3，但有 8 個 li >= 8（例外）
@@ -218,10 +217,7 @@ describe('isContentGood', () => {
 
     test('應該接受 10 個列表項的內容', () => {
       // 創建真實的 DOM 結構：60% 鏈接密度，10 個列表項
-      const links = `<a href="#">${'a'.repeat(600)}</a>`;
-      const listItems = `<ul>${'<li>item</li>'.repeat(10)}</ul>`;
-      const text = `<p>${'a'.repeat(400)}</p>`;
-      const content = text + links + listItems;
+      const content = buildContentFixture({ textChars: 400, linkChars: 600, liCount: 10 });
 
       const result = isContentGood({ content });
       // 即使鏈接密度 = 600 / 1000+ = 0.6 > 0.3，但有 10 個 li >= 8
