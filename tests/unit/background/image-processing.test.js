@@ -468,7 +468,7 @@ function cleanImageUrlSimulated(url) {
     // 處理代理 URL
     if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
       const uParam = urlObj.searchParams.get('u');
-      if (uParam?.match(/^https?:\/\//)) {
+      if (uParam && /^https?:\/\//.test(uParam)) {
         return cleanImageUrlSimulated(uParam);
       }
     }

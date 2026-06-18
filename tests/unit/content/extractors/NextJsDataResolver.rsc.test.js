@@ -175,13 +175,13 @@ describe('NextJsDataResolver RSC Payload Parsing Helpers', () => {
     });
 
     it('should parse script with single push call', () => {
-      const script = 'self.__next_f.push([1, "3:{\\\"someNoise\\\":true}\\n"])';
+      const script = String.raw`self.__next_f.push([1, "3:{\"someNoise\":true}\n"])`;
       expect(NextJsDataResolver.parseAppRouterScript(script)).toEqual([{ someNoise: true }]);
     });
 
     it('should parse script with multiple push calls', () => {
       const script =
-        'self.__next_f.push([1, "1:I[\\\"noise\\\"]\\n"])\nself.__next_f.push([1, "3:{\\\"valid\\\":true}\\n"])';
+        'self.__next_f.push([1, "1:I[\\"noise\\"]\\n"])\nself.__next_f.push([1, "3:{\\"valid\\":true}\\n"])';
       expect(NextJsDataResolver.parseAppRouterScript(script)).toEqual([
         '1:I["noise"]\n',
         { valid: true },
@@ -190,12 +190,12 @@ describe('NextJsDataResolver RSC Payload Parsing Helpers', () => {
 
     it('should skip malformed JSON inside push calls', () => {
       const script =
-        'self.__next_f.push([1, "3:{\\\"valid\\\":true}\\n"])\nself.__next_f.push(invalid_json_here)';
+        'self.__next_f.push([1, "3:{\\"valid\\":true}\\n"])\nself.__next_f.push(invalid_json_here)';
       expect(NextJsDataResolver.parseAppRouterScript(script)).toEqual([{ valid: true }]);
     });
 
     it('should skip pushing when closing parenthesis is missing', () => {
-      const script = 'self.__next_f.push([1, "3:{\\\"valid\\\":true}\\n"';
+      const script = String.raw`self.__next_f.push([1, "3:{\"valid\":true}\n"`;
       expect(NextJsDataResolver.parseAppRouterScript(script)).toEqual([]);
     });
   });

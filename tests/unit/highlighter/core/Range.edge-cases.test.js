@@ -25,6 +25,32 @@ jest.mock('../../../../scripts/highlighter/utils/domStability.js', () => ({
   waitForDOMStability: jest.fn(),
 }));
 
+function createElementContainerFallbackFixture() {
+  const article = document.createElement('article');
+  article.innerHTML = [
+    '<p>Outside previous Target.</p>',
+    '<span>before </span>',
+    '<span>Target</span>',
+    '<span> after</span>',
+    '<p>Outside next Target.</p>',
+  ].join('');
+  document.body.append(article);
+
+  const selectedRange = document.createRange();
+  selectedRange.setStart(article, 2);
+  selectedRange.setEnd(article, 3);
+
+  const pathUtilsMock = require('../../../../scripts/highlighter/utils/path.js');
+  pathUtilsMock.getNodePath
+    .mockReturnValueOnce([{ type: 'element', tag: 'article', index: 0 }])
+    .mockReturnValueOnce([{ type: 'element', tag: 'article', index: 0 }]);
+
+  return {
+    article,
+    rangeInfo: serializeRange(selectedRange),
+  };
+}
+
 describe('Range Module Coverage Tests', () => {
   let pathUtils = null;
   let textSearchUtils = null;
@@ -69,12 +95,13 @@ describe('Range Module Coverage Tests', () => {
     });
 
     test('should extract element-node prefix when toReversed is unavailable', () => {
-      const toReversedDescriptor = Object.getOwnPropertyDescriptor(Array.prototype, 'toReversed');
+      const toReversedDescriptor = Object.getOwnPropertyDescriptor(Array.prototype, 'toReversed'); // NOSONAR
       const article = document.createElement('article');
       article.innerHTML = '<span>Lead context </span><span>Target</span><span> tail</span>';
       document.body.append(article);
 
       Object.defineProperty(Array.prototype, 'toReversed', {
+        // NOSONAR
         configurable: true,
         value: undefined,
         writable: true,
@@ -94,7 +121,7 @@ describe('Range Module Coverage Tests', () => {
         expect(serialized.prefix).toBe('Lead context ');
         expect(serialized.suffix).toBe(' tail');
       } finally {
-        Object.defineProperty(Array.prototype, 'toReversed', toReversedDescriptor);
+        Object.defineProperty(Array.prototype, 'toReversed', toReversedDescriptor); // NOSONAR
       }
     });
   });
@@ -175,31 +202,6 @@ describe('Range Module Coverage Tests', () => {
   });
 
   describe('restoreRangeWithRetry', () => {
-    function createElementContainerFallbackFixture() {
-      const article = document.createElement('article');
-      article.innerHTML = [
-        '<p>Outside previous Target.</p>',
-        '<span>before </span>',
-        '<span>Target</span>',
-        '<span> after</span>',
-        '<p>Outside next Target.</p>',
-      ].join('');
-      document.body.append(article);
-
-      const selectedRange = document.createRange();
-      selectedRange.setStart(article, 2);
-      selectedRange.setEnd(article, 3);
-
-      pathUtils.getNodePath
-        .mockReturnValueOnce([{ type: 'element', tag: 'article', index: 0 }])
-        .mockReturnValueOnce([{ type: 'element', tag: 'article', index: 0 }]);
-
-      return {
-        article,
-        rangeInfo: serializeRange(selectedRange),
-      };
-    }
-
     test('should restore range on first try', async () => {
       const div = document.createElement('div');
       div.textContent = 'Test content';

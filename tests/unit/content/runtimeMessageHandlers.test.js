@@ -264,7 +264,7 @@ describe('content runtime message router', () => {
       [CONTENT_BRIDGE_ACTIONS.SHOW_TOAST, 'fire-and-forget'],
     ]);
 
-    expect([...handledContracts.keys()].toSorted()).toEqual(
+    expect([...handledContracts.keys()].toSorted((a, b) => a.localeCompare(b))).toEqual(
       [
         CONTENT_BRIDGE_ACTIONS.PING,
         CONTENT_BRIDGE_ACTIONS.SET_STABLE_URL,
@@ -272,7 +272,7 @@ describe('content runtime message router', () => {
         CONTENT_BRIDGE_ACTIONS.INIT_BUNDLE,
         CONTENT_BRIDGE_ACTIONS.SHOW_FLOATING_RAIL,
         CONTENT_BRIDGE_ACTIONS.SHOW_TOAST,
-      ].toSorted()
+      ].toSorted((a, b) => a.localeCompare(b))
     );
     expect(handledContracts.get(CONTENT_BRIDGE_ACTIONS.SHOW_TOAST)).toBe('fire-and-forget');
   });

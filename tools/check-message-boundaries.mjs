@@ -1,6 +1,6 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -112,10 +112,10 @@ if (process.argv[1] === __filename) {
   const positionalRoot = args.find((arg) => !arg.startsWith('--'));
   const customRoot = positionalRoot ? path.resolve(process.cwd(), positionalRoot) : projectRoot;
   const success = checkBoundaries(customRoot, { requireAll });
-  if (!success) {
+  if (success) {
+    console.log('✅ Bundle 訊息邊界檢查成功！');
+  } else {
     console.error('❌ Bundle 訊息邊界檢查失敗！');
     process.exit(1);
-  } else {
-    console.log('✅ Bundle 訊息邊界檢查成功！');
   }
 }

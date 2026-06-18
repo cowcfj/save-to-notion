@@ -52,10 +52,12 @@ describe('配置模組 - messages.js 動態函式', () => {
   const TIMEZONE_LABEL = 'Asia/Hong_Kong';
 
   describe('deepFreeze helper', () => {
+    function testFormatter() {
+      return 'ok';
+    }
+
     test('應遞迴凍結 object 與 function object，primitive 則原樣回傳', () => {
-      function formatter() {
-        return 'ok';
-      }
+      const formatter = testFormatter;
       formatter.meta = { label: 'format' };
 
       const target = {

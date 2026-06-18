@@ -3,6 +3,96 @@
  * 測試 DOM 穩定性檢測功能
  */
 
+/**
+ * 模擬的 waitForDOMStability 實作
+ */
+function standardWaitForDOMStability(options = {}) {
+  const { containerSelector = null, stabilityThresholdMs = 150, maxWaitMs = 5000 } = options;
+
+  return new Promise(resolve => {
+    if (typeof document === 'undefined' || !document.body) {
+      resolve(false);
+      return;
+    }
+
+    let targetContainer = document.body;
+    if (containerSelector) {
+      const container = document.querySelector(containerSelector);
+      if (!container) {
+        resolve(false);
+        return;
+      }
+      targetContainer = container;
+    }
+
+    let observer = null;
+    let stabilityTimerId = null;
+    let maxWaitTimerId = null;
+    let lastMutationTime = Date.now();
+
+    const cleanup = () => {
+      if (observer) {
+        observer.disconnect();
+        observer = null;
+      }
+      if (stabilityTimerId !== null) {
+        clearTimeout(stabilityTimerId);
+        stabilityTimerId = null;
+      }
+      if (maxWaitTimerId !== null) {
+        clearTimeout(maxWaitTimerId);
+        maxWaitTimerId = null;
+      }
+    };
+
+    const checkStability = () => {
+      const timeSinceLastMutation = Date.now() - lastMutationTime;
+      if (timeSinceLastMutation >= stabilityThresholdMs) {
+        cleanup();
+        resolve(true);
+        return true;
+      }
+      return false;
+    };
+
+    const scheduleStabilityCheck = () => {
+      if (stabilityTimerId !== null) {
+        clearTimeout(stabilityTimerId);
+        stabilityTimerId = null;
+      }
+      stabilityTimerId = setTimeout(() => {
+        if (!checkStability()) {
+          scheduleStabilityCheck();
+        }
+      }, stabilityThresholdMs);
+    };
+
+    const mutationCallback = () => {
+      lastMutationTime = Date.now();
+      scheduleStabilityCheck();
+    };
+
+    try {
+      observer = new globalThis.MutationObserver(mutationCallback);
+      observer.observe(targetContainer, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
+      });
+    } catch {
+      // NOSONAR
+    }
+
+    scheduleStabilityCheck();
+
+    maxWaitTimerId = setTimeout(() => {
+      cleanup();
+      resolve(false);
+    }, maxWaitMs);
+  });
+}
+
 describe('HighlightManager.waitForDOMStability', () => {
   let originalRequestIdleCallback = null;
   let originalCancelIdleCallback = null;
@@ -55,93 +145,7 @@ describe('HighlightManager.waitForDOMStability', () => {
       // 創建測試用的 HighlightManager 類
       const TestHighlightManager = {
         waitForDOMStability(options = {}) {
-          const {
-            containerSelector = null,
-            stabilityThresholdMs = 150,
-            maxWaitMs = 5000,
-          } = options;
-
-          return new Promise(resolve => {
-            if (typeof document === 'undefined' || !document.body) {
-              resolve(false);
-              return;
-            }
-
-            let targetContainer = document.body;
-            if (containerSelector) {
-              const container = document.querySelector(containerSelector);
-              if (!container) {
-                resolve(false);
-                return;
-              }
-              targetContainer = container;
-            }
-
-            let observer = null;
-            let stabilityTimerId = null;
-            let maxWaitTimerId = null;
-            let lastMutationTime = Date.now();
-
-            const cleanup = () => {
-              if (observer) {
-                observer.disconnect();
-                observer = null;
-              }
-              if (stabilityTimerId !== null) {
-                clearTimeout(stabilityTimerId);
-                stabilityTimerId = null;
-              }
-              if (maxWaitTimerId !== null) {
-                clearTimeout(maxWaitTimerId);
-                maxWaitTimerId = null;
-              }
-            };
-
-            const checkStability = () => {
-              const timeSinceLastMutation = Date.now() - lastMutationTime;
-              if (timeSinceLastMutation >= stabilityThresholdMs) {
-                cleanup();
-                resolve(true);
-                return true;
-              }
-              return false;
-            };
-
-            const scheduleStabilityCheck = () => {
-              if (stabilityTimerId !== null) {
-                clearTimeout(stabilityTimerId);
-                stabilityTimerId = null;
-              }
-              stabilityTimerId = setTimeout(() => {
-                if (!checkStability()) {
-                  scheduleStabilityCheck();
-                }
-              }, stabilityThresholdMs);
-            };
-
-            const handleTimeout = () => {
-              cleanup();
-              resolve(false);
-            };
-
-            maxWaitTimerId = setTimeout(handleTimeout, maxWaitMs);
-
-            observer = new MutationObserver(() => {
-              lastMutationTime = Date.now();
-              scheduleStabilityCheck();
-            });
-
-            try {
-              observer.observe(targetContainer, {
-                childList: true,
-                subtree: true,
-              });
-              scheduleStabilityCheck();
-            } catch {
-              cleanup();
-              resolve(false);
-            }
-          });
+          return standardWaitForDOMStability(options);
         },
       };
 
@@ -196,82 +200,7 @@ describe('HighlightManager.waitForDOMStability', () => {
 
       const TestHighlightManager = {
         waitForDOMStability(options = {}) {
-          const {
-            containerSelector = null,
-            stabilityThresholdMs = 150,
-            maxWaitMs = 5000,
-          } = options;
-
-          return new Promise(resolve => {
-            if (typeof document === 'undefined' || !document.body) {
-              resolve(false);
-              return;
-            }
-
-            let targetContainer = document.body;
-            if (containerSelector) {
-              const container = document.querySelector(containerSelector);
-              if (!container) {
-                resolve(false);
-                return;
-              }
-              targetContainer = container;
-            }
-
-            let observer = null;
-            let stabilityTimerId = null;
-            let maxWaitTimerId = null;
-            let lastMutationTime = Date.now();
-
-            const cleanup = () => {
-              if (observer) {
-                observer.disconnect();
-              }
-              if (stabilityTimerId !== null) {
-                clearTimeout(stabilityTimerId);
-              }
-              if (maxWaitTimerId !== null) {
-                clearTimeout(maxWaitTimerId);
-              }
-            };
-
-            const checkStability = () => {
-              const timeSinceLastMutation = Date.now() - lastMutationTime;
-              if (timeSinceLastMutation >= stabilityThresholdMs) {
-                cleanup();
-                resolve(true);
-                return true;
-              }
-              return false;
-            };
-
-            const scheduleStabilityCheck = () => {
-              if (stabilityTimerId !== null) {
-                clearTimeout(stabilityTimerId);
-              }
-              stabilityTimerId = setTimeout(() => {
-                if (!checkStability()) {
-                  scheduleStabilityCheck();
-                }
-              }, stabilityThresholdMs);
-            };
-
-            maxWaitTimerId = setTimeout(() => {
-              cleanup();
-              resolve(false);
-            }, maxWaitMs);
-
-            observer = new MutationObserver(() => {
-              lastMutationTime = Date.now();
-              scheduleStabilityCheck();
-            });
-
-            observer.observe(targetContainer, {
-              childList: true,
-              subtree: true,
-            });
-            scheduleStabilityCheck();
-          });
+          return standardWaitForDOMStability(options);
         },
       };
 
@@ -316,65 +245,7 @@ describe('HighlightManager.waitForDOMStability', () => {
 
       const TestHighlightManager = {
         waitForDOMStability(options = {}) {
-          const { stabilityThresholdMs = 150, maxWaitMs = 5000 } = options;
-
-          return new Promise(resolve => {
-            if (typeof document === 'undefined' || !document.body) {
-              resolve(false);
-              return;
-            }
-
-            let observer = null;
-            let stabilityTimerId = null;
-            let maxWaitTimerId = null;
-            let lastMutationTime = Date.now();
-
-            const cleanup = () => {
-              if (observer) {
-                observer.disconnect();
-              }
-              if (stabilityTimerId !== null) {
-                clearTimeout(stabilityTimerId);
-              }
-              if (maxWaitTimerId !== null) {
-                clearTimeout(maxWaitTimerId);
-              }
-            };
-
-            const handleTimeout = () => {
-              cleanup();
-              resolve(false);
-            };
-
-            maxWaitTimerId = setTimeout(handleTimeout, maxWaitMs);
-
-            observer = new MutationObserver(() => {
-              lastMutationTime = Date.now();
-              if (stabilityTimerId !== null) {
-                clearTimeout(stabilityTimerId);
-              }
-              stabilityTimerId = setTimeout(() => {
-                const timeSinceLastMutation = Date.now() - lastMutationTime;
-                if (timeSinceLastMutation >= stabilityThresholdMs) {
-                  cleanup();
-                  resolve(true);
-                }
-              }, stabilityThresholdMs);
-            });
-
-            observer.observe(document.body, {
-              childList: true,
-              subtree: true,
-            });
-
-            stabilityTimerId = setTimeout(() => {
-              const timeSinceLastMutation = Date.now() - lastMutationTime;
-              if (timeSinceLastMutation >= stabilityThresholdMs) {
-                cleanup();
-                resolve(true);
-              }
-            }, stabilityThresholdMs);
-          });
+          return standardWaitForDOMStability(options);
         },
       };
 
@@ -462,8 +333,17 @@ describe('HighlightManager.waitForDOMStability', () => {
       expect(result).toBe(false);
 
       // 恢復 document.body
+      try {
+        delete globalThis.document.body;
+      } catch {
+        // NOSONAR
+      }
       if (originalDescriptor) {
-        Object.defineProperty(globalThis.document, 'body', originalDescriptor);
+        try {
+          Object.defineProperty(globalThis.document, 'body', originalDescriptor);
+        } catch {
+          // NOSONAR
+        }
       }
     });
   });
@@ -491,69 +371,11 @@ describe('HighlightManager.waitForDOMStability', () => {
 
       const TestHighlightManager = {
         waitForDOMStability(options = {}) {
-          const { stabilityThresholdMs = 150, maxWaitMs = 200 } = options;
-
-          return new Promise(resolve => {
-            let observer = null;
-            let stabilityTimerId = null;
-            let maxWaitTimerId = null;
-            let lastMutationTime = Date.now();
-
-            const cleanup = () => {
-              if (observer) {
-                observer.disconnect();
-              }
-              if (stabilityTimerId !== null) {
-                clearTimeout(stabilityTimerId);
-                stabilityTimerId = null;
-              }
-              if (maxWaitTimerId !== null) {
-                clearTimeout(maxWaitTimerId);
-                maxWaitTimerId = null;
-              }
-            };
-
-            const checkStability = () => {
-              const timeSinceLastMutation = Date.now() - lastMutationTime;
-              if (timeSinceLastMutation >= stabilityThresholdMs) {
-                cleanup();
-                resolve(true);
-                return true;
-              }
-              return false;
-            };
-
-            const scheduleStabilityCheck = () => {
-              if (stabilityTimerId !== null) {
-                clearTimeout(stabilityTimerId);
-              }
-              stabilityTimerId = setTimeout(() => {
-                if (!checkStability()) {
-                  scheduleStabilityCheck();
-                }
-              }, stabilityThresholdMs);
-            };
-
-            maxWaitTimerId = setTimeout(() => {
-              cleanup();
-              resolve(false);
-            }, maxWaitMs);
-
-            observer = new MutationObserver(() => {
-              lastMutationTime = Date.now();
-              scheduleStabilityCheck();
-            });
-
-            observer.observe(document.body, {
-              childList: true,
-              subtree: true,
-            });
-            scheduleStabilityCheck();
-          });
+          return standardWaitForDOMStability(options);
         },
       };
 
-      const promise = TestHighlightManager.waitForDOMStability();
+      const promise = TestHighlightManager.waitForDOMStability({ maxWaitMs: 200 });
 
       // 推進時間觸發超時
       jest.advanceTimersByTime(200);

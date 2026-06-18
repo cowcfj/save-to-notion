@@ -23,7 +23,7 @@ function isContentGood(article) {
   const LIST_EXCEPTION_THRESHOLD = 8;
 
   // 驗證輸入
-  if (!article || !article.content) {
+  if (!article?.content) {
     Logger.warn('文章對象或內容為空', { action: 'isContentGood' });
     return false;
   }

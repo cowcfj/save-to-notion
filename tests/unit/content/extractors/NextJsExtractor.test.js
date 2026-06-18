@@ -529,8 +529,7 @@ describe('NextJsExtractor', () => {
     });
 
     it('should ignore malformed RSC chunks but extract from valid ones in same script', () => {
-      const scriptWithMixed =
-        'self.__next_f.push([1, "1:I[\\\"noise\\\"]\\n2:{\\\"malformed\\\"\\n3:{\\\"someNoise\\\":true}\\n4:[\\\"$\\\", \\\"$L2a\\\", null, {\\\"storyAtoms\\\":[{\\\"type\\\":\\\"text\\\",\\\"content\\\":\\\"<p>Recovered paragraph 1.</p>\\\",\\\"tagName\\\":\\\"p\\\"},{\\\"type\\\":\\\"text\\\",\\\"content\\\":\\\"<p>Recovered paragraph 2.</p>\\\",\\\"tagName\\\":\\\"p\\\"},{\\\"type\\\":\\\"text\\\",\\\"content\\\":\\\"<p>Recovered paragraph 3.</p>\\\",\\\"tagName\\\":\\\"p\\\"}]}]\\n"])';
+      const scriptWithMixed = String.raw`self.__next_f.push([1, "1:I[\"noise\"]\n2:{\"malformed\"\n3:{\"someNoise\":true}\n4:[\"$\", \"$L2a\", null, {\"storyAtoms\":[{\"type\":\"text\",\"content\":\"<p>Recovered paragraph 1.</p>\",\"tagName\":\"p\"},{\"type\":\"text\",\"content\":\"<p>Recovered paragraph 2.</p>\",\"tagName\":\"p\"},{\"type\":\"text\",\"content\":\"<p>Recovered paragraph 3.</p>\",\"tagName\":\"p\"}]}]\n"])`;
       mockDoc.querySelector.mockReturnValue(null);
       mockDoc.querySelectorAll.mockReturnValue([{ textContent: scriptWithMixed }]);
 

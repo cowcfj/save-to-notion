@@ -66,6 +66,13 @@ describe('floatingRailAvailability', () => {
     });
   });
 
+  function setHighlighterManager() {
+    globalThis.HighlighterV2 = {
+      manager: { some: 'manager_state' },
+      rail: undefined,
+    };
+  }
+
   describe('withAvailableFloatingRail', () => {
     let originalHighlighterV2;
     let originalNotionRailReady;
@@ -84,15 +91,8 @@ describe('floatingRailAvailability', () => {
       globalThis.__NOTION_RAIL_READY__ = originalNotionRailReady;
     });
 
-    function setHighlighterManager() {
-      globalThis.HighlighterV2 = {
-        manager: { some: 'manager_state' },
-        rail: undefined,
-      };
-    }
-
     async function expectDynamicRailCallback(params = {}) {
-      const hasInitializeResult = Object.prototype.hasOwnProperty.call(params, 'initializeResult');
+      const hasInitializeResult = Object.hasOwn(params, 'initializeResult');
       const initializeResult = hasInitializeResult ? params.initializeResult : { success: true };
       const sendResponse = jest.fn();
       const onRailReady = params.activate

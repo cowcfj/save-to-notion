@@ -33,62 +33,62 @@ jest.mock('../../../../scripts/highlighter/core/Range.js', () => ({
   restoreRangeWithRetry: jest.fn(),
 }));
 
+function createTextRange(text, start = 0, end = text.length) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  document.body.append(div);
+
+  const range = document.createRange();
+  range.setStart(div.firstChild, start);
+  range.setEnd(div.firstChild, end);
+  return range;
+}
+
+function withChromeApi(chromeApi, assertion) {
+  const originalChrome = globalThis.chrome;
+  globalThis.chrome = chromeApi;
+
+  try {
+    return assertion();
+  } finally {
+    globalThis.chrome = originalChrome;
+  }
+}
+
+function createRestoreItem(overrides = {}) {
+  return {
+    id: 'h1',
+    text: 'test',
+    color: 'yellow',
+    rangeInfo: { startContainer: [], endContainer: [] },
+    ...overrides,
+  };
+}
+
+function mockRestoredRange() {
+  const range = document.createRange();
+  jest.mocked(restoreRangeWithRetry).mockResolvedValue(range);
+  return range;
+}
+
+function createOwnedExtensionHost(id, ownerDatasetKey) {
+  const host = document.createElement('div');
+  host.id = id;
+  host.dataset[ownerDatasetKey] = 'true';
+  document.body.append(host);
+  return host;
+}
+
+function createComposedPathEvent(...elements) {
+  return { composedPath: () => elements };
+}
+
 describe('core/HighlightManager', () => {
   let manager = null;
   let mockStyleManager = null;
   let mockStorage = null;
   let mockInteraction = null;
   let mockMigration = null;
-
-  function createTextRange(text, start = 0, end = text.length) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    document.body.append(div);
-
-    const range = document.createRange();
-    range.setStart(div.firstChild, start);
-    range.setEnd(div.firstChild, end);
-    return range;
-  }
-
-  function withChromeApi(chromeApi, assertion) {
-    const originalChrome = globalThis.chrome;
-    globalThis.chrome = chromeApi;
-
-    try {
-      return assertion();
-    } finally {
-      globalThis.chrome = originalChrome;
-    }
-  }
-
-  function createRestoreItem(overrides = {}) {
-    return {
-      id: 'h1',
-      text: 'test',
-      color: 'yellow',
-      rangeInfo: { startContainer: [], endContainer: [] },
-      ...overrides,
-    };
-  }
-
-  function mockRestoredRange() {
-    const range = document.createRange();
-    jest.mocked(restoreRangeWithRetry).mockResolvedValue(range);
-    return range;
-  }
-
-  function createOwnedExtensionHost(id, ownerDatasetKey) {
-    const host = document.createElement('div');
-    host.id = id;
-    host.dataset[ownerDatasetKey] = 'true';
-    document.body.append(host);
-    return host;
-  }
-
-  function createComposedPathEvent(...elements) {
-    return { composedPath: () => elements };
-  }
 
   beforeEach(() => {
     document.body.innerHTML = '';

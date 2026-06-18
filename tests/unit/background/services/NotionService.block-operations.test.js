@@ -327,12 +327,12 @@ describe('NotionService - Block Operations', () => {
         service.config.DELETE_CONCURRENCY = 3;
         service._deleteBlockById = jest.fn(blockId => {
           if (blockId === 'b1') {
-            return Promise.reject('string reason token');
+            return Promise.reject('string reason token'); // NOSONAR - test raw rejection robustness
           }
           if (blockId === 'b2') {
-            return Promise.reject({ message: 'plain object reason' });
+            return Promise.reject({ message: 'plain object reason' }); // NOSONAR - test object rejection robustness
           }
-          return Promise.reject(null);
+          return Promise.reject(null); // NOSONAR - test null rejection robustness
         });
 
         const result = await service._deleteBlocksByIds(['b1', 'b2', 'b3']);
