@@ -158,13 +158,22 @@ function getDirectorySizeBytes(dirPath) {
   return total;
 }
 
-// Restrict PATH to fixed, non-user-writable system directories so the `unzip`
-// binary cannot be resolved from a writable directory an attacker controls.
+// Use fixed system executables instead of resolving `unzip` through PATH.
+const SYSTEM_UNZIP_CANDIDATES = Object.freeze(['/usr/bin/unzip', '/bin/unzip']);
+function resolveSystemUnzipPath() {
+  const unzipPath = SYSTEM_UNZIP_CANDIDATES.find(candidate => fs.existsSync(candidate));
+  if (!unzipPath) {
+    throw new Error(`找不到固定系統 unzip executable：${SYSTEM_UNZIP_CANDIDATES.join(', ')}`);
+  }
+  return unzipPath;
+}
+
+const SYSTEM_UNZIP_PATH = resolveSystemUnzipPath();
 const SAFE_PATH = '/usr/bin:/bin:/usr/sbin:/sbin';
 
 function extractZipToTemp(zipPath) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'size-gate-unpacked-'));
-  execFileSync('unzip', ['-q', zipPath, '-d', tempDir], {
+  execFileSync(SYSTEM_UNZIP_PATH, ['-q', zipPath, '-d', tempDir], {
     env: { ...process.env, PATH: SAFE_PATH },
   });
   return tempDir;
