@@ -48,6 +48,7 @@ const NOTION_UUID_SEGMENT_LENGTH = 36;
 const NOTION_ID_SEGMENT_LENGTHS = new Set([NOTION_ID_LENGTH, NOTION_UUID_SEGMENT_LENGTH]);
 const NOTION_ID_HEX_DIGITS = new Set('0123456789abcdefABCDEF'.split(''));
 const ARIA_HIDDEN_ATTRIBUTE = 'aria-hidden';
+const TEMPLATE_STATUS_ID = 'template-status';
 let destinationProfilesUIController = null;
 
 function normalizeDestinationProfileName(value) {
@@ -249,22 +250,29 @@ function bindOptionsRuntimeMessages({ auth, ui }) {
   });
 }
 
-function getSyncStorage(keys) {
-  return new Promise(resolve => {
-    chrome.storage.sync.get(keys, result => {
-      resolve(result || {});
-    });
-  });
-}
-
 function setSwitchChecked(input, checked) {
   input.checked = Boolean(checked);
   input.setAttribute('aria-checked', input.checked ? 'true' : 'false');
 }
 
 async function restorePreferenceControl({ element, storageKey, defaultValue, applyValue }) {
-  const result = await getSyncStorage([storageKey]);
-  const storedValue = Object.hasOwn(result, storageKey) ? result[storageKey] : defaultValue;
+  let storedValue = defaultValue;
+
+  try {
+    const result = (await chrome.storage.sync.get([storageKey])) || {};
+    if (Object.hasOwn(result, storageKey)) {
+      storedValue = result[storageKey];
+    }
+  } catch (error) {
+    const safeError = sanitizeApiError(error, 'restorePreferenceControl');
+    Logger.warn('讀取偏好設定失敗，套用預設值', {
+      action: 'restorePreferenceControl',
+      result: 'fallback',
+      storageKey,
+      error: safeError,
+    });
+  }
+
   applyValue(element, storedValue);
 }
 
@@ -395,7 +403,7 @@ function initializeAutosavePreferences(ui) {
     selector: '#add-source',
     storageKey: 'addSource',
     defaultValue: true,
-    statusId: 'template-status',
+    statusId: TEMPLATE_STATUS_ID,
   });
 
   // 6. Add Timestamp
@@ -404,7 +412,7 @@ function initializeAutosavePreferences(ui) {
     selector: '#add-timestamp',
     storageKey: 'addTimestamp',
     defaultValue: true,
-    statusId: 'template-status',
+    statusId: TEMPLATE_STATUS_ID,
   });
 
   // 7. Highlight Style
@@ -413,7 +421,7 @@ function initializeAutosavePreferences(ui) {
     selector: '#highlight-style',
     storageKey: 'highlightStyle',
     defaultValue: 'background',
-    statusId: 'template-status',
+    statusId: TEMPLATE_STATUS_ID,
     successMessage: UI_MESSAGES.OPTIONS.TEMPLATES.HIGHLIGHT_STYLE_SAVE_SUCCESS,
   });
 
@@ -423,7 +431,7 @@ function initializeAutosavePreferences(ui) {
     selector: '#highlight-content-style',
     storageKey: 'highlightContentStyle',
     defaultValue: 'COLOR_SYNC',
-    statusId: 'template-status',
+    statusId: TEMPLATE_STATUS_ID,
     successMessage: UI_MESSAGES.OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_SAVE_SUCCESS,
   });
 }
@@ -439,10 +447,10 @@ function bindTitleTemplateSaveButton(ui) {
         ui.showStatus(
           UI_MESSAGES.OPTIONS.TEMPLATES.TITLE_TEMPLATE_SAVE_SUCCESS,
           'success',
-          'template-status'
+          TEMPLATE_STATUS_ID
         );
       } catch {
-        ui.showStatus(UI_MESSAGES.SETTINGS.PREFERENCE_SAVE_FAILED, 'error', 'template-status');
+        ui.showStatus(UI_MESSAGES.SETTINGS.PREFERENCE_SAVE_FAILED, 'error', TEMPLATE_STATUS_ID);
       }
     });
   }
