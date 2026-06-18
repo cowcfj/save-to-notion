@@ -1047,12 +1047,16 @@ export class AuthManager {
       Logger.start('開始測試 API Key', { action: 'testApiKey' });
       // 使用 loadDataSources 進行測試
       await this.dependencies.loadDataSources?.(apiKey);
+      await chrome.storage.sync.set({ notionApiKey: apiKey });
       Logger.success('API Key 測試成功', { action: 'testApiKey' });
+      this.ui.showStatus(UI_MESSAGES.SETTINGS.API_KEY_SAVE_SUCCESS, 'success');
+      await this.checkAuthStatus();
     } catch (error) {
       Logger.error('[Auth] API 測試失敗', {
         action: 'testApiKey',
         error: sanitizeApiError(error, 'test_api_key'),
       });
+      this.ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_FAILED, 'error');
     } finally {
       const btn = this.elements.testApiButton;
       if (btn) {

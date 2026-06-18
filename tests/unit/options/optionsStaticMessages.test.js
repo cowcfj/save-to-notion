@@ -43,7 +43,8 @@ describe('optionsStaticMessages', () => {
         <span id="data-source-count" data-ui-message="DATA_SOURCE.LABEL_DATA_SOURCE"></span>
         <button id="refresh-databases" data-ui-title="OPTIONS.DESTINATION.REFRESH_TITLE" data-ui-aria-label="OPTIONS.DESTINATION.REFRESH_TITLE"></button>
         <label for="database-id" data-ui-message="OPTIONS.DESTINATION.MANUAL_ID_LABEL"></label>
-        <button id="save-button" data-ui-message="OPTIONS.SETTINGS.SAVE_BUTTON"></button>
+        <button id="test-api-button" data-ui-message="OPTIONS.SETTINGS.VALIDATE_AND_SAVE_API_KEY"></button>
+        <button id="save-title-template-button" data-ui-message="OPTIONS.TEMPLATES.SAVE_TITLE_TEMPLATE_BUTTON"></button>
         <p class="help-text destination-target-help" data-ui-composite="destination-target-help">
           <a href="https://example.test" target="_blank" rel="noopener noreferrer"></a>
         </p>
@@ -69,8 +70,11 @@ describe('optionsStaticMessages', () => {
       expect(document.querySelector('label[for="database-id"]').textContent).toBe(
         UI_MESSAGES.OPTIONS.DESTINATION.MANUAL_ID_LABEL
       );
-      expect(document.querySelector('#save-button').textContent).toBe(
-        UI_MESSAGES.OPTIONS.SETTINGS.SAVE_BUTTON
+      expect(document.querySelector('#test-api-button').textContent).toBe(
+        UI_MESSAGES.OPTIONS.SETTINGS.VALIDATE_AND_SAVE_API_KEY
+      );
+      expect(document.querySelector('#save-title-template-button').textContent).toBe(
+        UI_MESSAGES.OPTIONS.TEMPLATES.SAVE_TITLE_TEMPLATE_BUTTON
       );
 
       const helpText = document.querySelector('.destination-target-help');

@@ -412,49 +412,50 @@ describe('AuthManager Extended', () => {
       );
     });
 
-    test('有效 API Key 應調用 loadDatabases', async () => {
+    test('有效 API Key 驗證成功後應保存 notionApiKey 並顯示成功', async () => {
       document.querySelector('#api-key').value = 'secret_valid_key_1234567890';
-
       mockLoadDatabases.mockResolvedValueOnce([]);
 
       await authManager.testApiKey();
 
       expect(mockLoadDatabases).toHaveBeenCalledWith('secret_valid_key_1234567890');
-    });
-
-    test('API 請求失敗應顯示錯誤', async () => {
-      document.querySelector('#api-key').value = 'secret_invalid';
-
-      globalThis.fetch.mockResolvedValueOnce({
-        ok: false,
-        status: 401,
+      expect(chrome.storage.sync.set).toHaveBeenCalledWith({
+        notionApiKey: 'secret_valid_key_1234567890',
       });
-
-      await authManager.testApiKey();
-
-      expect(mockUiManager.showStatus).toHaveBeenCalledWith(expect.any(String), 'error');
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        UI_MESSAGES.SETTINGS.API_KEY_SAVE_SUCCESS,
+        'success'
+      );
     });
 
-    test('網絡錯誤應顯示錯誤訊息', async () => {
-      document.querySelector('#api-key').value = 'secret_test';
-
-      globalThis.fetch.mockRejectedValueOnce(new Error('Network error'));
+    test('API Key 驗證失敗時不應保存 notionApiKey', async () => {
+      document.querySelector('#api-key').value = 'secret_invalid_key_1234567890';
+      mockLoadDatabases.mockRejectedValueOnce(new Error('Unauthorized'));
 
       await authManager.testApiKey();
 
-      expect(mockUiManager.showStatus).toHaveBeenCalledWith(expect.any(String), 'error');
+      expect(chrome.storage.sync.set).not.toHaveBeenCalledWith(
+        expect.objectContaining({ notionApiKey: expect.any(String) })
+      );
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        UI_MESSAGES.SETTINGS.SAVE_FAILED,
+        'error'
+      );
     });
 
-    test('當 loadDatabases 不返回 Promise 時應處理按鈕狀態', async () => {
-      document.querySelector('#api-key').value = 'secret_test_long_enough_12345';
-      // Mock return non-promise
-      mockLoadDatabases.mockReturnValueOnce();
+    test('API Key 格式錯誤時不應保存 notionApiKey', async () => {
+      document.querySelector('#api-key').value = 'short';
 
       await authManager.testApiKey();
 
-      const btn = document.querySelector('#test-api-button');
-      expect(btn.disabled).toBe(false);
-      expect(btn.textContent).toBe('測試 API Key');
+      expect(mockLoadDatabases).not.toHaveBeenCalled();
+      expect(chrome.storage.sync.set).not.toHaveBeenCalledWith(
+        expect.objectContaining({ notionApiKey: expect.any(String) })
+      );
+      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
+        UI_MESSAGES.SETTINGS.API_KEY_FORMAT_ERROR,
+        'error'
+      );
     });
   });
 

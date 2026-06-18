@@ -9,7 +9,6 @@ import { AuthManager } from './AuthManager.js';
 import { DataSourceManager } from './DataSourceManager.js';
 import { StorageManager } from './StorageManager.js';
 import { MigrationTool } from './MigrationTool.js';
-import { AuthMode } from '../../scripts/config/extension/authMode.js';
 import { BUILD_ENV } from '../../scripts/config/env/index.js';
 import { UI_MESSAGES, ERROR_MESSAGES } from '../../scripts/config/shared/messages.js';
 import { UI_ICONS } from '../../scripts/config/shared/ui.js';
@@ -18,8 +17,6 @@ import { injectIcons } from '../../scripts/utils/uiUtils.js';
 import Logger from '../../scripts/utils/Logger.js';
 
 import { sanitizeApiError } from '../../scripts/utils/ApiErrorSanitizer.js';
-import { ErrorHandler, ErrorTypes } from '../../scripts/utils/ErrorHandler.js';
-import { DATA_SOURCE_KEYS } from '../../scripts/config/shared/storage.js';
 import { refreshCloudSyncCard } from './DriveCloudSyncController.js';
 import {
   AccountGatedDestinationEntitlementProvider,
@@ -68,13 +65,6 @@ function resolveDestinationTargetInputId() {
 function resolveDestinationTargetInputType() {
   const rawType = document.querySelector(DESTINATION_TARGET_FIELD_SELECTORS.TYPE)?.value;
   return rawType === 'page' ? 'page' : 'database';
-}
-
-function resolveNewDestinationProfileName(nameInput) {
-  const explicitName = normalizeDestinationProfileName(nameInput?.value || '');
-  return (
-    explicitName || UI_MESSAGES.OPTIONS.DESTINATION.DEFAULT_NAME(Date.now().toString().slice(-4))
-  );
 }
 
 function clearDestinationProfileNameInput(nameInput) {
@@ -259,21 +249,202 @@ function bindOptionsRuntimeMessages({ auth, ui }) {
   });
 }
 
-/**
- * 綁定保存按鈕事件
- *
- * @param {UIManager} ui
- * @param {AuthManager} auth
- */
-function bindOptionsSaveButtons(ui, auth) {
-  const saveButton = document.querySelector('#save-button');
-  if (saveButton) {
-    saveButton.addEventListener('click', () => saveSettings(ui, auth, 'status'));
+function getSyncStorage(keys) {
+  return new Promise(resolve => {
+    chrome.storage.sync.get(keys, result => {
+      resolve(result || {});
+    });
+  });
+}
+
+function setSwitchChecked(input, checked) {
+  input.checked = Boolean(checked);
+  input.setAttribute('aria-checked', input.checked ? 'true' : 'false');
+}
+
+async function restorePreferenceControl({ element, storageKey, defaultValue, applyValue }) {
+  const result = await getSyncStorage([storageKey]);
+  const storedValue = Object.hasOwn(result, storageKey) ? result[storageKey] : defaultValue;
+  applyValue(element, storedValue);
+}
+
+async function savePreferenceValue({ ui, storageKey, value, statusId, successMessage }) {
+  await chrome.storage.sync.set({ [storageKey]: value });
+  if (successMessage) {
+    ui.showStatus(successMessage, 'success', statusId);
+  }
+}
+
+function bindSelectAutosave({
+  ui,
+  selector,
+  storageKey,
+  defaultValue,
+  statusId,
+  successMessage,
+  onApply,
+}) {
+  const element = document.querySelector(selector);
+  if (!element) {
+    return;
   }
 
-  const saveTemplatesButton = document.querySelector('#save-templates-button');
-  if (saveTemplatesButton) {
-    saveTemplatesButton.addEventListener('click', () => saveSettings(ui, auth, 'template-status'));
+  element.addEventListener('change', async () => {
+    const nextValue = element.value;
+    try {
+      await savePreferenceValue({
+        ui,
+        storageKey,
+        value: nextValue,
+        statusId,
+        successMessage,
+      });
+      onApply?.(nextValue);
+    } catch {
+      await restorePreferenceControl({
+        element,
+        storageKey,
+        defaultValue,
+        applyValue: (select, value) => {
+          select.value = value;
+          onApply?.(value);
+        },
+      });
+      ui.showStatus(UI_MESSAGES.SETTINGS.PREFERENCE_SAVE_FAILED, 'error', statusId);
+    }
+  });
+}
+
+function bindSwitchAutosave({ ui, selector, storageKey, defaultValue, statusId }) {
+  const element = document.querySelector(selector);
+  if (!element) {
+    return;
+  }
+
+  element.addEventListener('change', async () => {
+    const nextValue = element.checked;
+    setSwitchChecked(element, nextValue);
+    try {
+      await savePreferenceValue({
+        ui,
+        storageKey,
+        value: nextValue,
+        statusId,
+        successMessage: null,
+      });
+    } catch {
+      await restorePreferenceControl({
+        element,
+        storageKey,
+        defaultValue,
+        applyValue: (input, value) => {
+          setSwitchChecked(input, value);
+        },
+      });
+      ui.showStatus(UI_MESSAGES.SETTINGS.PREFERENCE_SAVE_FAILED, 'error', statusId);
+    }
+  });
+}
+
+function initializeAutosavePreferences(ui) {
+  // 1. Zoom Level
+  bindSelectAutosave({
+    ui,
+    selector: '#ui-zoom-level',
+    storageKey: 'uiZoomLevel',
+    defaultValue: '1',
+    statusId: 'status',
+    successMessage: UI_MESSAGES.OPTIONS.INTERFACE.ZOOM_SAVE_SUCCESS,
+    onApply: value => {
+      document.body.style.zoom = value;
+    },
+  });
+
+  // 2. Floating Rail Enabled
+  bindSwitchAutosave({
+    ui,
+    selector: '#floating-rail-enabled',
+    storageKey: 'floatingRailEnabled',
+    defaultValue: true,
+    statusId: 'status',
+  });
+
+  // 3. Floating Rail Position
+  bindSelectAutosave({
+    ui,
+    selector: '#floating-rail-position',
+    storageKey: 'floatingRailPosition',
+    defaultValue: 'middle',
+    statusId: 'status',
+    successMessage: UI_MESSAGES.OPTIONS.INTERFACE.FLOATING_RAIL_POSITION_SAVE_SUCCESS,
+  });
+
+  // 4. Floating Rail Size
+  bindSelectAutosave({
+    ui,
+    selector: '#floating-rail-size',
+    storageKey: 'floatingRailSize',
+    defaultValue: 'large',
+    statusId: 'status',
+    successMessage: UI_MESSAGES.OPTIONS.INTERFACE.FLOATING_RAIL_SIZE_SAVE_SUCCESS,
+  });
+
+  // 5. Add Source
+  bindSwitchAutosave({
+    ui,
+    selector: '#add-source',
+    storageKey: 'addSource',
+    defaultValue: true,
+    statusId: 'template-status',
+  });
+
+  // 6. Add Timestamp
+  bindSwitchAutosave({
+    ui,
+    selector: '#add-timestamp',
+    storageKey: 'addTimestamp',
+    defaultValue: true,
+    statusId: 'template-status',
+  });
+
+  // 7. Highlight Style
+  bindSelectAutosave({
+    ui,
+    selector: '#highlight-style',
+    storageKey: 'highlightStyle',
+    defaultValue: 'background',
+    statusId: 'template-status',
+    successMessage: UI_MESSAGES.OPTIONS.TEMPLATES.HIGHLIGHT_STYLE_SAVE_SUCCESS,
+  });
+
+  // 8. Highlight Content Style
+  bindSelectAutosave({
+    ui,
+    selector: '#highlight-content-style',
+    storageKey: 'highlightContentStyle',
+    defaultValue: 'COLOR_SYNC',
+    statusId: 'template-status',
+    successMessage: UI_MESSAGES.OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_SAVE_SUCCESS,
+  });
+}
+
+function bindTitleTemplateSaveButton(ui) {
+  const saveTitleButton = document.querySelector('#save-title-template-button');
+  const titleTemplateInput = document.querySelector('#title-template');
+  if (saveTitleButton && titleTemplateInput) {
+    saveTitleButton.addEventListener('click', async () => {
+      const value = titleTemplateInput.value;
+      try {
+        await chrome.storage.sync.set({ titleTemplate: value });
+        ui.showStatus(
+          UI_MESSAGES.OPTIONS.TEMPLATES.TITLE_TEMPLATE_SAVE_SUCCESS,
+          'success',
+          'template-status'
+        );
+      } catch {
+        ui.showStatus(UI_MESSAGES.SETTINGS.PREFERENCE_SAVE_FAILED, 'error', 'template-status');
+      }
+    });
   }
 }
 
@@ -287,10 +458,6 @@ function initializeZoomPreference() {
       const zoom = String(result.uiZoomLevel || '1');
       document.body.style.zoom = zoom;
       zoomSelect.value = zoom;
-    });
-
-    zoomSelect.addEventListener('change', () => {
-      document.body.style.zoom = zoomSelect.value;
     });
   }
 }
@@ -335,7 +502,6 @@ export function initOptions() {
   });
 
   // 6. 保存設置與其它邏輯
-  bindOptionsSaveButtons(managers.ui, managers.auth);
   setupTemplatePreview();
   setupSidebarNavigation();
   displayAppVersion();
@@ -344,6 +510,8 @@ export function initOptions() {
   // 7. 偏好設定初始化
   initializeZoomPreference();
   initializeHighlightContentStylePreference();
+  initializeAutosavePreferences(managers.ui);
+  bindTitleTemplateSaveButton(managers.ui);
 }
 
 async function initDestinationProfilesUI(ui) {
@@ -623,13 +791,19 @@ async function initDestinationProfilesUI(ui) {
 
   const createDestinationProfileFromForm = async () => {
     try {
+      const profileName = normalizeDestinationProfileName(nameInput?.value || '');
+      if (!profileName) {
+        showNameError();
+        return;
+      }
+
       const databaseId = resolveDestinationTargetInputId();
       if (!databaseId) {
         ui.showStatus(UI_MESSAGES.SETTINGS.INVALID_ID, 'error');
         return;
       }
       await service.createProfile({
-        name: resolveNewDestinationProfileName(nameInput),
+        name: profileName,
         notionDataSourceId: databaseId,
         notionDataSourceType: resolveDestinationTargetInputType(),
       });
@@ -831,276 +1005,6 @@ export function cleanDatabaseId(input) {
   }
 
   return cleaned;
-}
-
-/**
- * 讀取表單所有欄位值
- *
- * @returns {object} 表單欄位值對象
- */
-function readOptionsFormValues() {
-  const apiKey = document.querySelector('#api-key').value.trim();
-  const rawDatabaseId = document.querySelector('#database-id').value;
-  const titleTemplate = document.querySelector('#title-template').value;
-  const addSource = document.querySelector('#add-source').checked;
-  const addTimestamp = document.querySelector('#add-timestamp').checked;
-  const typeInput = document.querySelector('#database-type');
-  const uiZoomLevel = document.querySelector('#ui-zoom-level')?.value;
-
-  // 標註樣式
-  const highlightStyleEl = document.querySelector('#highlight-style');
-  const highlightContentStyleEl = document.querySelector('#highlight-content-style');
-
-  // Floating Rail 設定
-  const floatingRailCheckbox = document.querySelector('#floating-rail-enabled');
-  const floatingRailPositionSelect = document.querySelector('#floating-rail-position');
-  const floatingRailSizeSelect = document.querySelector('#floating-rail-size');
-
-  return {
-    apiKey,
-    rawDatabaseId,
-    titleTemplate,
-    addSource,
-    addTimestamp,
-    rawDataSourceType: typeInput?.value,
-    uiZoomLevel,
-    highlightStyle: highlightStyleEl ? highlightStyleEl.value : undefined,
-    highlightContentStyle: highlightContentStyleEl ? highlightContentStyleEl.value : undefined,
-    floatingRailEnabled: floatingRailCheckbox ? floatingRailCheckbox.checked : undefined,
-    floatingRailPosition: floatingRailPositionSelect ? floatingRailPositionSelect.value : undefined,
-    floatingRailSize: floatingRailSizeSelect ? floatingRailSizeSelect.value : undefined,
-  };
-}
-
-/**
- * 驗證表單輸入值
- *
- * @param {object} formValues
- * @param {string} formValues.apiKey
- * @param {string} formValues.rawDatabaseId
- * @param {AuthManager} auth
- * @param {UIManager} ui
- * @param {string} statusId
- * @returns {object} { success: boolean, databaseId?: string }
- */
-function validateOptionsFormValues({ apiKey, rawDatabaseId }, auth, ui, statusId) {
-  // 驗證 API Key，但如果是在 OAuth 模式下就忽略 API Key 檢查
-  if (!apiKey && auth.currentAuthMode !== AuthMode.OAUTH) {
-    ui.showStatus(UI_MESSAGES.SETTINGS.KEY_INPUT_REQUIRED, 'error', statusId);
-    return { success: false };
-  }
-
-  // 清理並驗證 Database ID
-  const databaseId = cleanDatabaseId(rawDatabaseId);
-  if (!databaseId) {
-    ui.showStatus(UI_MESSAGES.SETTINGS.INVALID_ID, 'error', statusId);
-    return { success: false };
-  }
-
-  return { success: true, databaseId };
-}
-
-/**
- * 解析並正規化資料來源類型
- *
- * @param {string} rawDataSourceType
- * @returns {string} 'database' | 'page'
- */
-function resolveDataSourceType(rawDataSourceType) {
-  const allowedDataSourceTypes = ['database', 'page'];
-  return allowedDataSourceTypes.includes(rawDataSourceType) ? rawDataSourceType : 'database';
-}
-
-/**
- * 構建儲存設置對象
- *
- * @param {object} formValues
- * @param {string} databaseId
- * @returns {object} { localSettings, syncSettings, dataSourceType }
- */
-function buildOptionsStorageSettings(formValues, databaseId) {
-  const [dataSourceIdKey, databaseIdKey, dataSourceTypeKey] = DATA_SOURCE_KEYS;
-  const dataSourceType = resolveDataSourceType(formValues.rawDataSourceType);
-
-  const localSettings = {
-    // 為了兼容性，同時保存兩種 ID 格式
-    [databaseIdKey]: databaseId,
-    [dataSourceIdKey]: databaseId, // 統一存到兩個欄位，確保兼容
-    [dataSourceTypeKey]: dataSourceType,
-  };
-
-  const syncSettings = {
-    notionApiKey: formValues.apiKey,
-    titleTemplate: formValues.titleTemplate,
-    addSource: formValues.addSource,
-    addTimestamp: formValues.addTimestamp,
-    uiZoomLevel: formValues.uiZoomLevel || '1',
-  };
-
-  if (formValues.highlightStyle !== undefined) {
-    syncSettings.highlightStyle = formValues.highlightStyle;
-  }
-  if (formValues.highlightContentStyle !== undefined) {
-    syncSettings.highlightContentStyle = formValues.highlightContentStyle;
-  }
-  if (formValues.floatingRailEnabled !== undefined) {
-    syncSettings.floatingRailEnabled = formValues.floatingRailEnabled;
-  }
-  if (formValues.floatingRailPosition !== undefined) {
-    syncSettings.floatingRailPosition = formValues.floatingRailPosition;
-  }
-  if (formValues.floatingRailSize !== undefined) {
-    syncSettings.floatingRailSize = formValues.floatingRailSize;
-  }
-
-  return { localSettings, syncSettings, dataSourceType };
-}
-
-/**
- * 擷取預設保存目標設定的初始狀態（用於錯誤時還原）
- *
- * @param {DestinationProfileService} destinationProfileService
- * @returns {Promise<object>}
- */
-async function captureDefaultDestinationProfileState(destinationProfileService) {
-  const profiles = await destinationProfileService.ensureMigratedDefaultProfile();
-  const originalProfile = profiles[0] || {};
-  const defaultProfileId = originalProfile.id || 'default';
-  const originalDataSourceId = originalProfile.notionDataSourceId ?? null;
-  const originalDataSourceType = originalProfile.notionDataSourceType ?? 'database';
-  return {
-    defaultProfileId,
-    originalDataSourceId,
-    originalDataSourceType,
-    hasOriginalProfileState: true,
-  };
-}
-
-/**
- * 持久化選項設置
- *
- * @param {object} params
- * @param {DestinationProfileService} params.destinationProfileService
- * @param {string} params.defaultProfileId
- * @param {string} params.databaseId
- * @param {string} params.dataSourceType
- * @param {object} params.localSettings
- * @param {object} params.syncSettings
- * @returns {Promise<void>}
- */
-async function persistOptionsSettings({
-  destinationProfileService,
-  defaultProfileId,
-  databaseId,
-  dataSourceType,
-  localSettings,
-  syncSettings,
-}) {
-  await destinationProfileService.updateProfile(defaultProfileId, {
-    notionDataSourceId: databaseId,
-    notionDataSourceType: dataSourceType,
-  });
-
-  await Promise.all([
-    chrome.storage.local.set(localSettings),
-    chrome.storage.sync.set(syncSettings),
-    chrome.storage.sync.remove(DATA_SOURCE_KEYS),
-  ]);
-}
-
-async function rollbackDefaultDestinationProfile({
-  destinationProfileService,
-  defaultProfileId,
-  originalDataSourceId,
-  originalDataSourceType,
-  hasOriginalProfileState,
-}) {
-  if (!destinationProfileService || !hasOriginalProfileState) {
-    return;
-  }
-
-  try {
-    await destinationProfileService.updateProfile(defaultProfileId, {
-      notionDataSourceId: originalDataSourceId,
-      notionDataSourceType: originalDataSourceType,
-    });
-  } catch (rollbackError) {
-    const safeRollbackError = sanitizeApiError(rollbackError, 'save_settings_profile_rollback');
-    Logger.warn('還原預設保存目標失敗', {
-      action: 'save_settings_profile_rollback',
-      error: safeRollbackError,
-    });
-  }
-}
-
-/**
- * 保存設置
- *
- * @param {UIManager} ui
- * @param {AuthManager} auth
- * @param {string} [statusId='status']
- */
-export async function saveSettings(ui, auth, statusId = 'status') {
-  const formValues = readOptionsFormValues();
-
-  const validation = validateOptionsFormValues(formValues, auth, ui, statusId);
-  if (!validation.success) {
-    return;
-  }
-  const { databaseId } = validation;
-
-  const { localSettings, syncSettings, dataSourceType } = buildOptionsStorageSettings(
-    formValues,
-    databaseId
-  );
-
-  let destinationProfileService = null;
-  let defaultProfileId = 'default';
-  let originalDataSourceId = null;
-  let originalDataSourceType = 'database';
-  let hasOriginalProfileState = false;
-
-  try {
-    destinationProfileService = createDestinationProfileService();
-    const originalState = await captureDefaultDestinationProfileState(destinationProfileService);
-    defaultProfileId = originalState.defaultProfileId;
-    originalDataSourceId = originalState.originalDataSourceId;
-    originalDataSourceType = originalState.originalDataSourceType;
-    hasOriginalProfileState = originalState.hasOriginalProfileState;
-
-    await persistOptionsSettings({
-      destinationProfileService,
-      defaultProfileId,
-      databaseId,
-      dataSourceType,
-      localSettings,
-      syncSettings,
-    });
-
-    ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_SUCCESS, 'success', statusId);
-
-    // 刷新認證狀態以更新 UI
-    auth.checkAuthStatus();
-  } catch (error) {
-    const safeMessage = sanitizeApiError(error, 'save_settings');
-    const errorMessage =
-      typeof safeMessage === 'string' ? safeMessage : JSON.stringify(safeMessage);
-    const safeError = safeMessage instanceof Error ? safeMessage : new Error(errorMessage);
-    ErrorHandler.logError({
-      type: ErrorTypes.STORAGE,
-      context: 'save_settings',
-      originalError: safeError,
-    });
-    await rollbackDefaultDestinationProfile({
-      destinationProfileService,
-      defaultProfileId,
-      originalDataSourceId,
-      originalDataSourceType,
-      hasOriginalProfileState,
-    });
-
-    ui.showStatus(UI_MESSAGES.SETTINGS.SAVE_FAILED, 'error', statusId);
-  }
 }
 
 /**
