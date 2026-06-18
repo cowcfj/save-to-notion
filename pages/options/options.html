@@ -395,8 +395,17 @@
               <p class="help-text" data-ui-message="OPTIONS.INTERFACE.ZOOM_HELP"></p>
             </div>
             <div class="form-group">
-              <label class="toggle-label" for="floating-rail-enabled">
-                <input type="checkbox" id="floating-rail-enabled" checked />
+              <label class="switch-wrapper" for="floating-rail-enabled">
+                <input
+                  type="checkbox"
+                  id="floating-rail-enabled"
+                  role="switch"
+                  class="switch-input"
+                  checked
+                />
+                <span class="switch-track" aria-hidden="true">
+                  <span class="switch-knob"></span>
+                </span>
                 <span data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_LABEL">顯示快捷工具列</span>
               </label>
               <p class="help-text" data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_HELP"></p>
@@ -840,21 +849,33 @@
             </div>
 
             <div class="form-item-row">
-              <div class="checkbox-wrapper">
-                <input type="checkbox" id="add-source" checked />
-                <label for="add-source" data-ui-message="OPTIONS.TEMPLATES.ADD_SOURCE_LABEL"
-                  >在內容末尾添加來源連結</label
+              <label class="switch-wrapper" for="add-source">
+                <input type="checkbox" id="add-source" role="switch" class="switch-input" checked />
+                <span class="switch-track" aria-hidden="true">
+                  <span class="switch-knob"></span>
+                </span>
+                <span data-ui-message="OPTIONS.TEMPLATES.ADD_SOURCE_LABEL"
+                  >在內容末尾添加來源連結</span
                 >
-              </div>
+              </label>
             </div>
 
             <div class="form-item-row">
-              <div class="checkbox-wrapper">
-                <input type="checkbox" id="add-timestamp" checked />
-                <label for="add-timestamp" data-ui-message="OPTIONS.TEMPLATES.ADD_TIMESTAMP_LABEL"
-                  >在內容開頭添加保存時間</label
+              <label class="switch-wrapper" for="add-timestamp">
+                <input
+                  type="checkbox"
+                  id="add-timestamp"
+                  role="switch"
+                  class="switch-input"
+                  checked
+                />
+                <span class="switch-track" aria-hidden="true">
+                  <span class="switch-knob"></span>
+                </span>
+                <span data-ui-message="OPTIONS.TEMPLATES.ADD_TIMESTAMP_LABEL"
+                  >在內容開頭添加保存時間</span
                 >
-              </div>
+              </label>
             </div>
           </div>
 
@@ -1199,10 +1220,13 @@
 
           <div class="card">
             <div class="form-item-row">
-              <div class="checkbox-wrapper">
-                <input type="checkbox" id="enable-debug-logs" />
-                <label for="enable-debug-logs">啟用除錯日誌 (Debug Logs)</label>
-              </div>
+              <label class="switch-wrapper" for="enable-debug-logs">
+                <input type="checkbox" id="enable-debug-logs" role="switch" class="switch-input" />
+                <span class="switch-track" aria-hidden="true">
+                  <span class="switch-knob"></span>
+                </span>
+                <span>啟用除錯日誌 (Debug Logs)</span>
+              </label>
               <p class="help-text">將前端操作日誌轉發到背景頁面 console，僅供開發排查使用。</p>
             </div>
 

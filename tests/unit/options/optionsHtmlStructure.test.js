@@ -38,6 +38,22 @@ const expectMissingElementAttribute = (doc, { selector, attribute }) => {
   expect(element.getAttribute(attribute)).toBeNull();
 };
 
+const expectSwitchControl = (doc, selector) => {
+  const input = queryRequiredElement(doc, selector);
+  const wrapper = input.closest('.switch-wrapper');
+  const track = input.nextElementSibling;
+
+  expect(input.tagName).toBe('INPUT');
+  expect(input.getAttribute('type')).toBe('checkbox');
+  expect(input.getAttribute('role')).toBe('switch');
+  expect(input.classList.contains('switch-input')).toBe(true);
+  expect(wrapper).not.toBeNull();
+  expect(track).not.toBeNull();
+  expect(track.classList.contains('switch-track')).toBe(true);
+  expect(track.getAttribute('aria-hidden')).toBe('true');
+  expect(track.querySelector('.switch-knob')).not.toBeNull();
+};
+
 describe('options.html 結構', () => {
   test('health-status 應為 polite live region 的 output 標籤', () => {
     const htmlPath = path.resolve(__dirname, '../../../pages/options/options.html');
@@ -211,5 +227,21 @@ describe('options.html 結構', () => {
     expect(css).toMatch(
       /\.destination-profile-row\s*>\s*div:first-of-type\s*\{[^}]*min-width:\s*0;/
     );
+  });
+
+  test('二元偏好設定應使用既有 switch primitive，並保留 migration checkbox 語意', () => {
+    const html = readOptionsHtml();
+    const doc = parseOptionsHtml(html);
+
+    ['#floating-rail-enabled', '#add-source', '#add-timestamp', '#enable-debug-logs'].forEach(
+      selector => {
+        expectSwitchControl(doc, selector);
+      }
+    );
+
+    const migrationSelectAll = queryRequiredElement(doc, '#migration-select-all');
+    expect(migrationSelectAll.getAttribute('type')).toBe('checkbox');
+    expect(migrationSelectAll.getAttribute('role')).toBeNull();
+    expect(migrationSelectAll.classList.contains('switch-input')).toBe(false);
   });
 });
