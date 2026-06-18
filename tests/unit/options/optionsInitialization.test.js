@@ -126,6 +126,25 @@ describe('optionsInitialization', () => {
       globalThis.history.replaceState({}, '', originalHref);
     });
 
+    const buildSidebarWarningDOM = navItemMarkup => {
+      document.body.innerHTML = `
+        <button id="save-button"></button>
+        <button id="save-templates-button"></button>
+        <div id="app-version"></div>
+        ${navItemMarkup}
+        <div id="section-general" class="settings-section"></div>
+      `;
+    };
+
+    const buildFailingAutosaveStorage = getPreferenceValue => ({
+      local: { get: jest.fn().mockResolvedValue({}), remove: jest.fn().mockResolvedValue() },
+      sync: {
+        get: jest.fn(getPreferenceValue),
+        set: jest.fn().mockRejectedValue(new Error('storage failed')),
+        remove: jest.fn().mockResolvedValue(),
+      },
+    });
+
     it('should initialize all managers and check auth status', () => {
       initOptions();
 
@@ -345,46 +364,36 @@ describe('optionsInitialization', () => {
       expect(section.classList.contains('active')).toBe(true);
     });
 
-    it('導航項目缺少 data-section 時應記錄警告', () => {
-      document.body.innerHTML = `
-        <button id="save-button"></button>
-        <button id="save-templates-button"></button>
-        <div id="app-version"></div>
-        <div class="nav-item"></div>
-        <div id="section-general" class="settings-section"></div>
-      `;
+    it.each([
+      {
+        name: '導航項目缺少 data-section 時應記錄警告',
+        navItemMarkup: '<div class="nav-item"></div>',
+        expectedMessage: '缺少 data-section',
+        expectedContext: {
+          action: 'setupSidebarNavigation',
+          tagName: 'DIV',
+          targetId: null,
+          sectionName: null,
+        },
+      },
+      {
+        name: '導航目標區塊不存在時應記錄警告',
+        navItemMarkup: '<div class="nav-item" data-section="advanced"></div>',
+        expectedMessage: '找不到目標區塊',
+        expectedContext: expect.objectContaining({
+          action: 'setupSidebarNavigation',
+          targetId: 'section-advanced',
+        }),
+      },
+    ])('$name', ({ navItemMarkup, expectedMessage, expectedContext }) => {
+      buildSidebarWarningDOM(navItemMarkup);
 
       initOptions();
-
-      document.querySelector('.nav-item').click();
-
-      expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining('缺少 data-section'), {
-        action: 'setupSidebarNavigation',
-        tagName: 'DIV',
-        targetId: null,
-        sectionName: null,
-      });
-    });
-
-    it('導航目標區塊不存在時應記錄警告', () => {
-      document.body.innerHTML = `
-        <button id="save-button"></button>
-        <button id="save-templates-button"></button>
-        <div id="app-version"></div>
-        <div class="nav-item" data-section="advanced"></div>
-        <div id="section-general" class="settings-section"></div>
-      `;
-
-      initOptions();
-
       document.querySelector('.nav-item').click();
 
       expect(Logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('找不到目標區塊'),
-        expect.objectContaining({
-          action: 'setupSidebarNavigation',
-          targetId: 'section-advanced',
-        })
+        expect.stringContaining(expectedMessage),
+        expectedContext
       );
     });
 
@@ -509,56 +518,29 @@ describe('optionsInitialization', () => {
       );
     });
 
-    it('autosave 失敗時應顯示錯誤並回復 control 到 storage 值', async () => {
+    it.each([
+      {
+        name: 'autosave 失敗時應顯示錯誤並回復 control 到 storage 值',
+        getPreferenceValue: (_keys, cb) => {
+          const result = { addTimestamp: true };
+          cb?.(result);
+          return Promise.resolve(result);
+        },
+      },
+      {
+        name: 'autosave 回復讀取失敗時應套用 defaultValue 並顯示錯誤',
+        getPreferenceValue: (_keys, cb) => {
+          if (typeof cb === 'function') {
+            cb({});
+            return Promise.resolve({});
+          }
+          return Promise.reject(new Error('storage restore unavailable'));
+        },
+      },
+    ])('$name', async ({ getPreferenceValue }) => {
       buildOptionsPreferenceDOM();
       globalThis.chrome = buildChromeMock({
-        storage: {
-          local: { get: jest.fn().mockResolvedValue({}), remove: jest.fn().mockResolvedValue() },
-          sync: {
-            get: jest.fn((_keys, cb) => {
-              const result = { addTimestamp: true };
-              cb?.(result);
-              return Promise.resolve(result);
-            }),
-            set: jest.fn().mockRejectedValue(new Error('storage failed')),
-            remove: jest.fn().mockResolvedValue(),
-          },
-        },
-      });
-
-      initOptions();
-
-      const addTimestamp = document.querySelector('#add-timestamp');
-      addTimestamp.checked = false;
-      addTimestamp.dispatchEvent(new Event('change'));
-      await flushAsyncClick();
-
-      expect(addTimestamp.checked).toBe(true);
-      expect(addTimestamp.getAttribute('aria-checked')).toBe('true');
-      expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
-        UI_MESSAGES.SETTINGS.PREFERENCE_SAVE_FAILED,
-        'error',
-        'template-status'
-      );
-    });
-
-    it('autosave 回復讀取失敗時應套用 defaultValue 並顯示錯誤', async () => {
-      buildOptionsPreferenceDOM();
-      globalThis.chrome = buildChromeMock({
-        storage: {
-          local: { get: jest.fn().mockResolvedValue({}), remove: jest.fn().mockResolvedValue() },
-          sync: {
-            get: jest.fn((_keys, cb) => {
-              if (typeof cb === 'function') {
-                cb({});
-                return Promise.resolve({});
-              }
-              return Promise.reject(new Error('storage restore unavailable'));
-            }),
-            set: jest.fn().mockRejectedValue(new Error('storage failed')),
-            remove: jest.fn().mockResolvedValue(),
-          },
-        },
+        storage: buildFailingAutosaveStorage(getPreferenceValue),
       });
 
       initOptions();
