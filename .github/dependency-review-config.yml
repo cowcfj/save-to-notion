@@ -1,0 +1,13 @@
+# License metadata comes from upstream packages and must not be rewritten in package-lock.json.
+# These dev-only transitive packages use valid SPDX license IDs that the scanner can report as
+# unidentified; keep the exception scoped to exact package versions currently present in the lockfile.
+allow-dependencies-licenses:
+  - 'pkg:npm/@csstools/color-helpers@5.1.0'
+  - 'pkg:npm/@csstools/color-helpers@6.0.2'
+  - 'pkg:npm/@csstools/css-syntax-patches-for-csstree@1.0.28'
+  - 'pkg:npm/eslint-plugin-sonarjs@4.0.3'
+  - 'pkg:npm/jackspeak@3.4.3'
+  - 'pkg:npm/lru-cache@5.1.1'
+  - 'pkg:npm/minimatch@9.0.9'
+  - 'pkg:npm/package-json-from-dist@1.0.1'
+  - 'pkg:npm/path-scurry@1.11.1'
