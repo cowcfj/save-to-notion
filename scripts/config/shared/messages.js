@@ -55,8 +55,11 @@ const SETTINGS = {
   DISCONNECT_SUCCESS: '已成功斷開與 Notion 的連接。',
   DISCONNECT_FAILED: error => `斷開連接失敗: ${error}`,
   API_KEY_FORMAT_ERROR: 'API Key 格式不正確，長度太短',
-  TEST_API_LABEL: '測試 API Key',
-  TESTING_LABEL: '測試中...',
+  TEST_API_LABEL: '驗證並保存',
+  VALIDATE_AND_SAVE_API_KEY: '驗證並保存',
+  TESTING_LABEL: '驗證中...',
+  API_KEY_SAVE_SUCCESS: 'API Key 已驗證並保存。',
+  PREFERENCE_SAVE_FAILED: '保存失敗，請稍後再試。',
 };
 
 const DATA_SOURCE = DATA_SOURCE_MESSAGES;
@@ -64,7 +67,7 @@ const DATA_SOURCE = DATA_SOURCE_MESSAGES;
 const OPTIONS = {
   DESTINATION: {
     SECTION_TITLE: '保存目標',
-    PROFILE_NAME_LABEL: '保存目標名稱（選填）',
+    PROFILE_NAME_LABEL: '保存目標名稱',
     PROFILE_NAME_PLACEHOLDER: '例如：Inbox、Research、讀書筆記',
     SELECT_FROM_NOTION_LABEL: '從 Notion 選擇',
     SEARCH_PLACEHOLDER: DATA_SOURCE.SEARCH_PLACEHOLDER,
@@ -111,9 +114,14 @@ const OPTIONS = {
     FLOATING_RAIL_SIZE_LABEL: '懸浮按鈕大小',
     FLOATING_RAIL_SIZE_LARGE_OPTION: '大',
     FLOATING_RAIL_SIZE_SMALL_OPTION: '小',
+    ZOOM_SAVE_SUCCESS: '介面縮放已保存。',
+    FLOATING_RAIL_ENABLED_SAVE_SUCCESS: '快捷工具列設定已保存。',
+    FLOATING_RAIL_POSITION_SAVE_SUCCESS: '懸浮按鈕位置已保存。',
+    FLOATING_RAIL_SIZE_SAVE_SUCCESS: '懸浮按鈕大小已保存。',
   },
   SETTINGS: {
     SAVE_BUTTON: '儲存設定',
+    VALIDATE_AND_SAVE_API_KEY: '驗證並保存',
   },
   DIAGNOSTICS: {
     ENABLE_DEBUG_LOGS_LABEL: '啟用除錯日誌 (Debug Logs)',
@@ -152,6 +160,12 @@ const OPTIONS = {
     HIGHLIGHT_CONTENT_STYLE_NONE: '關閉',
     HIGHLIGHT_CONTENT_STYLE_HELP: '選擇標註文字在 Notion 頁面原文中的標示方式（首次保存時生效）。',
     SAVE_BUTTON: '儲存外觀樣式',
+    SAVE_TITLE_TEMPLATE_BUTTON: '保存標題格式',
+    TITLE_TEMPLATE_SAVE_SUCCESS: '標題格式已保存。',
+    ADD_SOURCE_SAVE_SUCCESS: '來源連結設定已保存。',
+    ADD_TIMESTAMP_SAVE_SUCCESS: '保存時間設定已保存。',
+    HIGHLIGHT_STYLE_SAVE_SUCCESS: '標註樣式已保存。',
+    HIGHLIGHT_CONTENT_STYLE_SAVE_SUCCESS: 'Notion 同步樣式已保存。',
   },
   GUIDE: {
     SECTION_TITLE: '使用指南',

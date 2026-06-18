@@ -216,7 +216,14 @@
               <label for="api-key">Notion API Key</label>
               <div class="input-wrapper">
                 <input type="password" id="api-key" placeholder="輸入您的 Integration Token" />
-                <button type="button" id="test-api-button" class="btn-secondary">驗證</button>
+                <button
+                  type="button"
+                  id="test-api-button"
+                  class="btn-secondary"
+                  data-ui-message="OPTIONS.SETTINGS.VALIDATE_AND_SAVE_API_KEY"
+                >
+                  驗證並保存
+                </button>
               </div>
             </div>
           </div>
@@ -229,13 +236,14 @@
                 <label
                   for="destination-profile-name"
                   data-ui-message="OPTIONS.DESTINATION.PROFILE_NAME_LABEL"
-                  >保存目標名稱（選填）</label
+                  >保存目標名稱</label
                 >
                 <div class="input-wrapper">
                   <input
                     type="text"
                     id="destination-profile-name"
                     maxlength="40"
+                    required
                     data-ui-placeholder="OPTIONS.DESTINATION.PROFILE_NAME_PLACEHOLDER"
                   />
                 </div>
@@ -455,13 +463,7 @@
             </div>
           </div>
 
-          <!-- 全局儲存按鈕 -->
-          <button
-            id="save-button"
-            type="button"
-            class="btn-primary full-width"
-            data-ui-message="OPTIONS.SETTINGS.SAVE_BUTTON"
-          ></button>
+          <!-- 狀態回報區 -->
           <p id="status" class="status-message"></p>
         </section>
 
@@ -846,6 +848,12 @@
                 class="btn-secondary"
                 data-ui-message="OPTIONS.TEMPLATES.PREVIEW_BUTTON"
               ></button>
+              <button
+                type="button"
+                id="save-title-template-button"
+                class="btn-primary"
+                data-ui-message="OPTIONS.TEMPLATES.SAVE_TITLE_TEMPLATE_BUTTON"
+              ></button>
               <div id="template-preview" class="preview-box hidden"></div>
             </div>
 
@@ -946,12 +954,6 @@
             </div>
           </div>
 
-          <button
-            id="save-templates-button"
-            type="button"
-            class="btn-primary full-width"
-            data-ui-message="OPTIONS.TEMPLATES.SAVE_BUTTON"
-          ></button>
           <p id="template-status" class="status-message"></p>
         </section>
 

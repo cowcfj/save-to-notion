@@ -422,6 +422,7 @@ describe('Destination profile options UI', () => {
     initOptions();
     await flushAsyncClick();
 
+    document.querySelector('#destination-profile-name').value = 'Work';
     document.querySelector('#database-id').value = 'invalid';
     document.querySelector('#add-destination-profile').click();
     await flushAsyncClick();
@@ -453,6 +454,51 @@ describe('Destination profile options UI', () => {
     });
     expect(nameInput.value).toBe('');
     expect(service.listProfiles).toHaveBeenCalledTimes(2);
+  });
+
+  it('新增保存目標名稱為空白時應顯示錯誤且不呼叫 createProfile', async () => {
+    const service = buildProfileManagerMock({
+      createProfile: jest.fn(),
+    });
+    ProfileManager.mockImplementationOnce(() => service);
+
+    initOptions();
+    await flushAsyncClick();
+
+    document.querySelector('#destination-profile-name').value = '   ';
+    document.querySelector('#database-id').value = 'a1b2c3d4e5f67890abcdef1234567890';
+    document.querySelector('#add-destination-profile').click();
+    await flushAsyncClick();
+
+    expect(service.createProfile).not.toHaveBeenCalled();
+    expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
+      UI_MESSAGES.OPTIONS.DESTINATION.PROFILE_NAME_REQUIRED,
+      'error'
+    );
+  });
+
+  it('新增保存目標成功後不應自動啟用該保存目標', async () => {
+    const service = buildProfileManagerMock({
+      createProfile: jest.fn().mockResolvedValue({ id: 'profile-2' }),
+      setActiveProfile: jest.fn(),
+    });
+    ProfileManager.mockImplementationOnce(() => service);
+
+    initOptions();
+    await flushAsyncClick();
+
+    document.querySelector('#destination-profile-name').value = 'Research';
+    document.querySelector('#database-id').value = 'a1b2c3d4e5f67890abcdef1234567890';
+    document.querySelector('#database-type').value = 'database';
+    document.querySelector('#add-destination-profile').click();
+    await flushAsyncClick();
+
+    expect(service.createProfile).toHaveBeenCalledWith({
+      name: 'Research',
+      notionDataSourceId: 'a1b2c3d4e5f67890abcdef1234567890',
+      notionDataSourceType: 'database',
+    });
+    expect(service.setActiveProfile).not.toHaveBeenCalled();
   });
 
   it('保存目標啟用開關與刪除按鈕應呼叫對應 service flow', async () => {

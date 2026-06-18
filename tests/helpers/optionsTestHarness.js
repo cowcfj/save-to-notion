@@ -35,8 +35,6 @@ export async function waitForLoggerWarn(Logger, message) {
 
 export function buildOptionsShellDOM(extraMarkup = '') {
   document.body.innerHTML = `
-    <button id="save-button"></button>
-    <button id="save-templates-button"></button>
     <div id="app-version"></div>
     ${extraMarkup}
   `;
@@ -44,8 +42,6 @@ export function buildOptionsShellDOM(extraMarkup = '') {
 
 export function buildNavigationDOM({ activeSection = 'general', includeAdvanced = true } = {}) {
   let markup = `
-    <button id="save-button"></button>
-    <button id="save-templates-button"></button>
     <div id="app-version"></div>
     <div class="nav-links">
       <button class="nav-item ${activeSection === 'general' ? 'active' : ''}" data-section="general" id="tab-general" aria-selected="${activeSection === 'general' ? 'true' : 'false'}"></button>
@@ -69,8 +65,6 @@ export function buildNavigationDOM({ activeSection = 'general', includeAdvanced 
 
 export function buildAccountCardDOM() {
   document.body.innerHTML = `
-    <button id="save-button"></button>
-    <button id="save-templates-button"></button>
     <div id="app-version"></div>
     <div class="nav-links">
       <button class="nav-item" data-section="general" id="tab-general"></button>
@@ -151,8 +145,6 @@ export function buildChromeMock(overrides = {}) {
 
 export function buildDestinationProfileDOM() {
   document.body.innerHTML = `
-    <button id="save-button"></button>
-    <button id="save-templates-button"></button>
     <div id="app-version"></div>
     <button class="nav-item" data-section="general"></button>
     <div id="section-general" class="settings-section"></div>
@@ -219,4 +211,45 @@ export function mockSignedInAccountProfile(
     avatarUrl: 'https://avatar.test',
     ...overrides,
   });
+}
+
+export function buildOptionsPreferenceDOM() {
+  document.body.innerHTML = `
+    <div id="app-version"></div>
+    <button class="nav-item" data-section="general"></button>
+    <section id="section-general" class="settings-section"></section>
+    <p id="status" class="status-message"></p>
+    <button id="preview-template"></button>
+    <input id="title-template" value="{title}" />
+    <button id="save-title-template-button"></button>
+    <div id="template-preview"></div>
+    <p id="template-status" class="status-message"></p>
+    <select id="ui-zoom-level">
+      <option value="1">1</option>
+      <option value="1.1">1.1</option>
+    </select>
+    <input id="floating-rail-enabled" type="checkbox" role="switch" aria-checked="true" checked />
+    <select id="floating-rail-position">
+      <option value="top">top</option>
+      <option value="middle">middle</option>
+      <option value="bottom">bottom</option>
+    </select>
+    <select id="floating-rail-size">
+      <option value="large">large</option>
+      <option value="small">small</option>
+    </select>
+    <input id="add-source" type="checkbox" role="switch" aria-checked="true" checked />
+    <input id="add-timestamp" type="checkbox" role="switch" aria-checked="true" checked />
+    <select id="highlight-style">
+      <option value="background">background</option>
+      <option value="text">text</option>
+      <option value="underline">underline</option>
+    </select>
+    <select id="highlight-content-style">
+      <option value="COLOR_SYNC">COLOR_SYNC</option>
+      <option value="COLOR_TEXT">COLOR_TEXT</option>
+      <option value="BOLD">BOLD</option>
+      <option value="NONE">NONE</option>
+    </select>
+  `;
 }

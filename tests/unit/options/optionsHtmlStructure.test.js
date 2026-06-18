@@ -180,12 +180,11 @@ describe('options.html 結構', () => {
       ['#data-source-count', 'uiMessage', 'DATA_SOURCE.LABEL_DATA_SOURCE'],
       ['#refresh-databases', 'uiTitle', 'OPTIONS.DESTINATION.REFRESH_TITLE'],
       ['#add-destination-profile', 'uiMessage', 'OPTIONS.DESTINATION.ADD_BUTTON'],
-      ['#save-button', 'uiMessage', 'OPTIONS.SETTINGS.SAVE_BUTTON'],
     ].forEach(([selector, datasetKey, expectedValue]) => {
       expectElementDatasetValue(doc, { selector, datasetKey, expectedValue });
     });
 
-    ['#data-source-count', '#add-destination-profile', '#save-button'].forEach(selector => {
+    ['#data-source-count', '#add-destination-profile'].forEach(selector => {
       expectEmptyElementText(doc, selector);
     });
 
@@ -272,5 +271,44 @@ describe('options.html 結構', () => {
     expect(optionsCss).toMatch(
       /\.form-group\s+\.switch-wrapper\s*\{[^}]*display:\s*inline-flex;[^}]*align-items:\s*center;/
     );
+  });
+
+  test('一般設定不應保留全域儲存設定按鈕，API Key 應使用驗證並保存文案', () => {
+    const html = readOptionsHtml();
+    const doc = parseOptionsHtml(html);
+
+    expect(doc.querySelector('#save-button')).toBeNull();
+
+    const apiButton = queryRequiredElement(doc, '#test-api-button');
+    expect(apiButton.dataset.uiMessage).toBe('OPTIONS.SETTINGS.VALIDATE_AND_SAVE_API_KEY');
+  });
+
+  test('保存目標新增表單名稱應是必填語意，新增按鈕仍是保存新 profile 的 action', () => {
+    const html = readOptionsHtml();
+    const doc = parseOptionsHtml(html);
+
+    const label = queryRequiredElement(doc, 'label[for="destination-profile-name"]');
+    const nameInput = queryRequiredElement(doc, '#destination-profile-name');
+    const addButton = queryRequiredElement(doc, '#add-destination-profile');
+
+    expect(label.dataset.uiMessage).toBe('OPTIONS.DESTINATION.PROFILE_NAME_LABEL');
+    expect(label.textContent).not.toContain('選填');
+    expect(nameInput.getAttribute('required')).toBe('');
+    expect(addButton.dataset.uiMessage).toBe('OPTIONS.DESTINATION.ADD_BUTTON');
+  });
+
+  test('外觀樣式應只保留標題格式 scoped save button，不應保留全域儲存外觀樣式按鈕', () => {
+    const html = readOptionsHtml();
+    const doc = parseOptionsHtml(html);
+
+    expect(doc.querySelector('#save-templates-button')).toBeNull();
+
+    const titleTemplateInput = queryRequiredElement(doc, '#title-template');
+    const saveTitleButton = queryRequiredElement(doc, '#save-title-template-button');
+
+    expect(
+      titleTemplateInput.compareDocumentPosition(saveTitleButton) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(saveTitleButton.dataset.uiMessage).toBe('OPTIONS.TEMPLATES.SAVE_TITLE_TEMPLATE_BUTTON');
   });
 });

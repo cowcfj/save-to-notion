@@ -13,13 +13,14 @@ import { MigrationTool } from '../../../pages/options/MigrationTool.js';
 import { BUILD_ENV } from '../../../scripts/config/env/index.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { sanitizeApiError } from '../../../scripts/utils/ApiErrorSanitizer.js';
+import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 import {
-  appendSaveFormFields,
   flushAsyncClick,
   waitForLoggerWarn,
   buildNavigationDOM,
   buildChromeMock,
   buildProfileManagerMock,
+  buildOptionsPreferenceDOM,
 } from '../../helpers/optionsTestHarness.js';
 
 // Mocks for dependencies
@@ -443,44 +444,6 @@ describe('optionsInitialization', () => {
       );
     });
 
-    it('點擊保存按鈕時應以 status 狀態區儲存設定', async () => {
-      appendSaveFormFields();
-      globalThis.chrome.storage.local = { set: jest.fn().mockResolvedValue() };
-      globalThis.chrome.storage.sync.set = jest.fn().mockResolvedValue();
-
-      initOptions();
-      document.querySelector('#save-button').click();
-      await new Promise(resolve => setTimeout(resolve, 0));
-
-      expect(globalThis.chrome.storage.sync.set).toHaveBeenCalledWith(
-        expect.objectContaining({
-          notionApiKey: 'key_123',
-        })
-      );
-      expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('成功'),
-        'success',
-        'status'
-      );
-    });
-
-    it('點擊保存模板按鈕時應以 template-status 狀態區儲存設定', async () => {
-      appendSaveFormFields();
-      document.body.innerHTML += '<div id="template-status"></div>';
-      globalThis.chrome.storage.local = { set: jest.fn().mockResolvedValue() };
-      globalThis.chrome.storage.sync.set = jest.fn().mockResolvedValue();
-
-      initOptions();
-      document.querySelector('#save-templates-button').click();
-      await new Promise(resolve => setTimeout(resolve, 0));
-
-      expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('成功'),
-        'success',
-        'template-status'
-      );
-    });
-
     it('should initialize zoom level', () => {
       globalThis.chrome.storage.sync.get = jest.fn((keys, cb) => {
         cb({ uiZoomLevel: '1.1' });
@@ -497,9 +460,17 @@ describe('optionsInitialization', () => {
       expect(zoomSelect.value).toBe('1.1');
     });
 
-    it('should handle zoom level change', () => {
-      globalThis.chrome.storage.sync.get = jest.fn((keys, cb) => {
-        cb({});
+    it('選單偏好變更時應即時保存並顯示成功提示', async () => {
+      buildOptionsPreferenceDOM();
+      globalThis.chrome = buildChromeMock({
+        storage: {
+          local: { get: jest.fn().mockResolvedValue({}), remove: jest.fn().mockResolvedValue() },
+          sync: {
+            get: jest.fn((keys, cb) => cb({ uiZoomLevel: '1' })),
+            set: jest.fn().mockResolvedValue(),
+            remove: jest.fn().mockResolvedValue(),
+          },
+        },
       });
 
       initOptions();
@@ -507,8 +478,90 @@ describe('optionsInitialization', () => {
       const zoomSelect = document.querySelector('#ui-zoom-level');
       zoomSelect.value = '1.1';
       zoomSelect.dispatchEvent(new Event('change'));
+      await flushAsyncClick();
 
+      expect(globalThis.chrome.storage.sync.set).toHaveBeenCalledWith({ uiZoomLevel: '1.1' });
       expect(document.body.style.zoom).toBe('1.1');
+      expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
+        expect.stringContaining('介面縮放'),
+        'success',
+        'status'
+      );
+    });
+
+    it('switch 偏好變更時應即時保存但成功時不顯示提示', async () => {
+      buildOptionsPreferenceDOM();
+      globalThis.chrome = buildChromeMock();
+
+      initOptions();
+
+      const addSource = document.querySelector('#add-source');
+      addSource.checked = false;
+      addSource.dispatchEvent(new Event('change'));
+      await flushAsyncClick();
+
+      expect(globalThis.chrome.storage.sync.set).toHaveBeenCalledWith({ addSource: false });
+      expect(addSource.getAttribute('aria-checked')).toBe('false');
+      expect(mockUiInstance.showStatus).not.toHaveBeenCalledWith(
+        expect.stringContaining('來源'),
+        'success',
+        expect.any(String)
+      );
+    });
+
+    it('autosave 失敗時應顯示錯誤並回復 control 到 storage 值', async () => {
+      buildOptionsPreferenceDOM();
+      globalThis.chrome = buildChromeMock({
+        storage: {
+          local: { get: jest.fn().mockResolvedValue({}), remove: jest.fn().mockResolvedValue() },
+          sync: {
+            get: jest.fn((keys, cb) => cb({ addTimestamp: true })),
+            set: jest.fn().mockRejectedValue(new Error('storage failed')),
+            remove: jest.fn().mockResolvedValue(),
+          },
+        },
+      });
+
+      initOptions();
+
+      const addTimestamp = document.querySelector('#add-timestamp');
+      addTimestamp.checked = false;
+      addTimestamp.dispatchEvent(new Event('change'));
+      await flushAsyncClick();
+
+      expect(addTimestamp.checked).toBe(true);
+      expect(addTimestamp.getAttribute('aria-checked')).toBe('true');
+      expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
+        UI_MESSAGES.SETTINGS.PREFERENCE_SAVE_FAILED,
+        'error',
+        'template-status'
+      );
+    });
+
+    it('保存標題格式按鈕只應保存 titleTemplate', async () => {
+      buildOptionsPreferenceDOM();
+      globalThis.chrome = buildChromeMock();
+
+      initOptions();
+
+      document.querySelector('#title-template').value = '{title} - {date}';
+      document.querySelector('#save-title-template-button').click();
+      await flushAsyncClick();
+
+      expect(globalThis.chrome.storage.sync.set).toHaveBeenCalledWith({
+        titleTemplate: '{title} - {date}',
+      });
+      expect(globalThis.chrome.storage.sync.set).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          addSource: expect.any(Boolean),
+          addTimestamp: expect.any(Boolean),
+        })
+      );
+      expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
+        UI_MESSAGES.OPTIONS.TEMPLATES.TITLE_TEMPLATE_SAVE_SUCCESS,
+        'success',
+        'template-status'
+      );
     });
   });
 });
