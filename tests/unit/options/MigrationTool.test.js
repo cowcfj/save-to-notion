@@ -6,6 +6,12 @@ import { MigrationScanner } from '../../../pages/options/MigrationScanner.js';
 import { RUNTIME_ACTIONS } from '../../../scripts/config/shared/runtimeActions.js';
 import { ERROR_MESSAGES, UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 
+jest.mock('../../../pages/options/confirmDialog.js', () => ({
+  confirmDialog: jest.fn().mockResolvedValue(true),
+}));
+
+const getConfirmDialogMock = () => require('../../../pages/options/confirmDialog.js').confirmDialog;
+
 jest.mock('../../../pages/options/MigrationScanner.js', () => {
   const actualObj = jest.requireActual('../../../pages/options/MigrationScanner.js');
 
@@ -30,6 +36,8 @@ describe('MigrationTool', () => {
   let mockScanner = null;
 
   beforeEach(() => {
+    getConfirmDialogMock().mockReset();
+    getConfirmDialogMock().mockResolvedValue(true);
     // DOM Setup - 匹配 options.html 中的結構
     document.body.innerHTML = `
       <button id="migration-scan-button"></button>
@@ -180,6 +188,8 @@ describe('MigrationTool Extended', () => {
   let mockScanner = null;
 
   beforeEach(() => {
+    getConfirmDialogMock().mockReset();
+    getConfirmDialogMock().mockResolvedValue(true);
     document.body.innerHTML = `
       <button id="migration-scan-button"></button>
       <div id="scan-status"></div>
@@ -287,7 +297,7 @@ describe('MigrationTool Extended', () => {
 
     test('full success response 應顯示 success box 與刪除數量', async () => {
       jest.useFakeTimers();
-      jest.spyOn(globalThis, 'confirm').mockReturnValue(true);
+      getConfirmDialogMock().mockResolvedValueOnce(true);
       jest.spyOn(migrationTool, 'scanForLegacyHighlights').mockResolvedValue();
 
       chrome.runtime.sendMessage.mockResolvedValue({
@@ -304,6 +314,14 @@ describe('MigrationTool Extended', () => {
 
       await migrationTool.performSelectedDeletion();
 
+      expect(getConfirmDialogMock()).toHaveBeenCalledWith({
+        title: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_TITLE(2),
+        message: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_MESSAGE,
+        confirmLabel: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_OK,
+        cancelLabel: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_CANCEL,
+        danger: true,
+      });
+
       const migrationResult = document.querySelector('#migration-result');
       expect(migrationResult.querySelector('.success-box')).toBeTruthy();
       expect(migrationResult.querySelector('.warning-box')).toBeNull();
@@ -317,7 +335,7 @@ describe('MigrationTool Extended', () => {
 
     test('partial response 應顯示 warning 文案與成功失敗計數', async () => {
       jest.useFakeTimers();
-      jest.spyOn(globalThis, 'confirm').mockReturnValue(true);
+      getConfirmDialogMock().mockResolvedValueOnce(true);
       jest.spyOn(migrationTool, 'scanForLegacyHighlights').mockResolvedValue();
 
       chrome.runtime.sendMessage.mockResolvedValue({
@@ -337,6 +355,14 @@ describe('MigrationTool Extended', () => {
       ]);
 
       await migrationTool.performSelectedDeletion();
+
+      expect(getConfirmDialogMock()).toHaveBeenCalledWith({
+        title: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_TITLE(3),
+        message: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_MESSAGE,
+        confirmLabel: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_OK,
+        cancelLabel: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_CANCEL,
+        danger: true,
+      });
 
       expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
         action: RUNTIME_ACTIONS.MIGRATION_BATCH_DELETE,
@@ -362,7 +388,7 @@ describe('MigrationTool Extended', () => {
 
     test('full failure response 應顯示刪除失敗標題與失敗計數', async () => {
       jest.useFakeTimers();
-      jest.spyOn(globalThis, 'confirm').mockReturnValue(true);
+      getConfirmDialogMock().mockResolvedValueOnce(true);
       jest.spyOn(migrationTool, 'scanForLegacyHighlights').mockResolvedValue();
 
       chrome.runtime.sendMessage.mockResolvedValue({
@@ -379,6 +405,14 @@ describe('MigrationTool Extended', () => {
 
       await migrationTool.performSelectedDeletion();
 
+      expect(getConfirmDialogMock()).toHaveBeenCalledWith({
+        title: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_TITLE(2),
+        message: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_MESSAGE,
+        confirmLabel: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_OK,
+        cancelLabel: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_CANCEL,
+        danger: true,
+      });
+
       const migrationResult = document.querySelector('#migration-result');
       expect(migrationResult.querySelector('.warning-box')).toBeTruthy();
       expect(migrationResult.textContent).toContain(UI_MESSAGES.STORAGE.MIGRATION_DELETE_FAILED);
@@ -392,6 +426,25 @@ describe('MigrationTool Extended', () => {
 
       jest.runOnlyPendingTimers();
       expect(migrationTool.scanForLegacyHighlights).toHaveBeenCalled();
+    });
+
+    test('使用者取消刪除確認時不應送出批次刪除 request', async () => {
+      getConfirmDialogMock().mockResolvedValueOnce(false);
+      migrationTool.selectedUrls = new Set(['https://example.com/one']);
+
+      await migrationTool.performSelectedDeletion();
+
+      expect(getConfirmDialogMock()).toHaveBeenCalledWith({
+        title: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_TITLE(1),
+        message: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_MESSAGE,
+        confirmLabel: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_OK,
+        cancelLabel: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_CANCEL,
+        danger: true,
+      });
+
+      expect(chrome.runtime.sendMessage).not.toHaveBeenCalledWith(
+        expect.objectContaining({ action: RUNTIME_ACTIONS.MIGRATION_BATCH_DELETE })
+      );
     });
   });
 

@@ -11,6 +11,7 @@ import { ErrorHandler } from '../../scripts/utils/ErrorHandler.js';
 import { createSafeIcon } from '../../scripts/utils/securityUtils.js';
 import { sanitizeApiError } from '../../scripts/utils/ApiErrorSanitizer.js';
 import { MigrationScanner } from './MigrationScanner.js';
+import { confirmDialog } from './confirmDialog.js';
 
 const BATCH_OPERATION_TYPES = Object.freeze({
   MIGRATION: 'migration',
@@ -421,9 +422,9 @@ export class MigrationTool {
    *
    * @returns {Promise<void>}
    */
-  performSelectedDeletion() {
-    if (!this.confirmSelectedDeletion()) {
-      return Promise.resolve();
+  async performSelectedDeletion() {
+    if (!(await this.confirmSelectedDeletion())) {
+      return;
     }
     return this.runSelectedBatchOperation(BATCH_OPERATION_CONFIGS.deletion);
   }
@@ -431,15 +432,19 @@ export class MigrationTool {
   /**
    * 確認使用者是否要刪除目前選中的舊版標註資料
    *
-   * @returns {boolean}
+   * @returns {Promise<boolean>}
    */
-  confirmSelectedDeletion() {
+  async confirmSelectedDeletion() {
     if (this.selectedUrls.size === 0) {
       return false;
     }
-    return globalThis.confirm(
-      `確定要刪除 ${this.selectedUrls.size} 個頁面的舊版標註數據嗎？\n此操作無法還原！`
-    );
+    return confirmDialog({
+      title: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_TITLE(this.selectedUrls.size),
+      message: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_MESSAGE,
+      confirmLabel: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_OK,
+      cancelLabel: UI_MESSAGES.STORAGE.MIGRATION_DELETE_CONFIRM_CANCEL,
+      danger: true,
+    });
   }
 
   /**

@@ -16,6 +16,12 @@ import { ErrorHandler } from '../../../scripts/utils/ErrorHandler.js';
 import { sanitizeApiError } from '../../../scripts/utils/ApiErrorSanitizer.js';
 import { DRIVE_SYNC_ERROR_CODES } from '../../../scripts/config/extension/driveSyncErrorCodes.js';
 
+jest.mock('../../../pages/options/confirmDialog.js', () => ({
+  confirmDialog: jest.fn().mockResolvedValue(true),
+}));
+
+const getConfirmDialogMock = () => require('../../../pages/options/confirmDialog.js').confirmDialog;
+
 async function flushAsyncWork() {
   await Promise.resolve();
   await Promise.resolve();
@@ -132,7 +138,8 @@ describe('DriveCloudSyncController', () => {
     };
     loggerErrorSpy = jest.spyOn(Logger, 'error').mockImplementation(() => {});
     loggerWarnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => {});
-    globalThis.confirm = jest.fn().mockReturnValue(true);
+    getConfirmDialogMock().mockReset();
+    getConfirmDialogMock().mockResolvedValue(true);
 
     jest.spyOn(driveClient, 'getDriveSyncMetadata');
     jest.spyOn(driveClient, 'ensureDriveSyncIdentity').mockResolvedValue('local-install');
@@ -159,7 +166,6 @@ describe('DriveCloudSyncController', () => {
     jest.useRealTimers();
     jest.restoreAllMocks();
     delete globalThis.chrome;
-    delete globalThis.confirm;
   });
 
   describe('setCloudSyncCardVisibility', () => {
@@ -479,7 +485,7 @@ describe('DriveCloudSyncController', () => {
       expect(mockSendMessage).toHaveBeenCalledWith({
         action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD,
       });
-      expect(globalThis.confirm).toHaveBeenCalled();
+      expect(getConfirmDialogMock()).toHaveBeenCalled();
     });
 
     it('download confirmation includes cloud snapshot time and source device summary', async () => {
@@ -500,9 +506,19 @@ describe('DriveCloudSyncController', () => {
       document.querySelector('#drive-download-button').click();
       await flushAsyncWork();
 
-      expect(globalThis.confirm).toHaveBeenCalledWith(expect.stringContaining('雲端備份時間：'));
-      expect(globalThis.confirm).toHaveBeenCalledWith(
-        expect.stringContaining('來源裝置：其他裝置')
+      expect(getConfirmDialogMock()).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: UI_MESSAGES.CLOUD_SYNC.CONFIRM_DOWNLOAD_TITLE,
+          message: expect.stringContaining('雲端備份時間：'),
+          confirmLabel: UI_MESSAGES.CLOUD_SYNC.CONFIRM_DOWNLOAD_OK,
+          cancelLabel: UI_MESSAGES.CLOUD_SYNC.CONFIRM_DOWNLOAD_CANCEL,
+          danger: true,
+        })
+      );
+      expect(getConfirmDialogMock()).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringContaining('來源裝置：其他裝置'),
+        })
       );
     });
 
@@ -525,7 +541,11 @@ describe('DriveCloudSyncController', () => {
       await flushAsyncWork();
 
       expect(driveClient.ensureDriveSyncIdentity).toHaveBeenCalled();
-      expect(globalThis.confirm).toHaveBeenCalledWith(expect.stringContaining('來源裝置：此裝置'));
+      expect(getConfirmDialogMock()).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringContaining('來源裝置：此裝置'),
+        })
+      );
     });
 
     it('download confirmation falls back to unknown summary when status preflight fails', async () => {
@@ -536,11 +556,15 @@ describe('DriveCloudSyncController', () => {
       document.querySelector('#drive-download-button').click();
       await flushAsyncWork();
 
-      expect(globalThis.confirm).toHaveBeenCalledWith(
-        expect.stringContaining('雲端備份時間：未知')
+      expect(getConfirmDialogMock()).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringContaining('雲端備份時間：未知'),
+        })
       );
-      expect(globalThis.confirm).toHaveBeenCalledWith(
-        expect.stringContaining('來源裝置：未知來源')
+      expect(getConfirmDialogMock()).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringContaining('來源裝置：未知來源'),
+        })
       );
       expect(mockSendMessage).toHaveBeenCalledWith({
         action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD,
@@ -569,8 +593,10 @@ describe('DriveCloudSyncController', () => {
           error: sanitizeApiError(identityError, 'drive_download_identity_init'),
         })
       );
-      expect(globalThis.confirm).toHaveBeenCalledWith(
-        expect.stringContaining('來源裝置：未知來源')
+      expect(getConfirmDialogMock()).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringContaining('來源裝置：未知來源'),
+        })
       );
       expect(mockSendMessage).toHaveBeenCalledWith({
         action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD,
@@ -782,7 +808,7 @@ describe('DriveCloudSyncController', () => {
     });
 
     it('skips download when user cancels confirmation', async () => {
-      globalThis.confirm.mockReturnValue(false);
+      getConfirmDialogMock().mockResolvedValue(false);
 
       await initCloudSyncController(true);
 
@@ -866,7 +892,7 @@ describe('DriveCloudSyncController', () => {
     });
 
     it('skips disconnect when user cancels confirmation', async () => {
-      globalThis.confirm.mockReturnValue(false);
+      getConfirmDialogMock().mockResolvedValue(false);
 
       await initCloudSyncController(true);
 
@@ -1294,7 +1320,7 @@ describe('DriveCloudSyncController', () => {
       });
 
       mockSendMessage.mockClear();
-      globalThis.confirm.mockReturnValueOnce(false);
+      getConfirmDialogMock().mockResolvedValueOnce(false);
       document.querySelector('#drive-conflict-force-upload-button').click();
       await flushAsyncWork();
       expect(mockSendMessage).not.toHaveBeenCalledWith({
@@ -1302,7 +1328,7 @@ describe('DriveCloudSyncController', () => {
         force: true,
       });
 
-      globalThis.confirm.mockReturnValueOnce(true);
+      getConfirmDialogMock().mockResolvedValueOnce(true);
       document.querySelector('#drive-conflict-force-upload-button').click();
       await flushAsyncWork();
       expect(mockSendMessage).toHaveBeenCalledWith({
@@ -1536,7 +1562,7 @@ describe('DriveCloudSyncController', () => {
         sourceInstallationId: 'remote-id-999',
         sourceProfileId: null,
       });
-      globalThis.confirm.mockReturnValueOnce(false);
+      getConfirmDialogMock().mockResolvedValueOnce(false);
 
       document.querySelector('#drive-upload-button').click();
       await flushAsyncWork();
@@ -1559,15 +1585,19 @@ describe('DriveCloudSyncController', () => {
         sourceInstallationId: 'remote-id-999',
         sourceProfileId: null,
       });
-      globalThis.confirm.mockReturnValueOnce(false);
+      getConfirmDialogMock().mockResolvedValueOnce(false);
 
       document.querySelector('#drive-upload-button').click();
       await flushAsyncWork();
 
       expect(driveClient.ensureDriveSyncIdentity).toHaveBeenCalled();
-      expect(globalThis.confirm).toHaveBeenCalledWith(
-        UI_MESSAGES.CLOUD_SYNC.CONFIRM_CROSS_INSTALL_UPLOAD
-      );
+      expect(getConfirmDialogMock()).toHaveBeenCalledWith({
+        title: UI_MESSAGES.CLOUD_SYNC.CONFIRM_CROSS_INSTALL_UPLOAD_TITLE,
+        message: UI_MESSAGES.CLOUD_SYNC.CONFIRM_CROSS_INSTALL_UPLOAD,
+        confirmLabel: UI_MESSAGES.CLOUD_SYNC.CONFIRM_CROSS_INSTALL_UPLOAD_OK,
+        cancelLabel: UI_MESSAGES.CLOUD_SYNC.CONFIRM_CROSS_INSTALL_UPLOAD_CANCEL,
+        danger: true,
+      });
       expect(mockSendMessage).not.toHaveBeenCalledWith(
         expect.objectContaining({ action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD })
       );
@@ -1586,10 +1616,10 @@ describe('DriveCloudSyncController', () => {
       const overlay = document.querySelector('#drive-loading-overlay');
       let isDisabledDuringConfirm = null;
       let isOverlayVisibleDuringConfirm = null;
-      globalThis.confirm.mockImplementationOnce(() => {
+      getConfirmDialogMock().mockImplementationOnce(() => {
         isDisabledDuringConfirm = uploadBtn.disabled;
         isOverlayVisibleDuringConfirm = !overlay.classList.contains('hidden');
-        return false;
+        return Promise.resolve(false);
       });
 
       document.querySelector('#drive-upload-button').click();
@@ -1612,7 +1642,7 @@ describe('DriveCloudSyncController', () => {
         sourceInstallationId: 'remote-id-999',
         sourceProfileId: null,
       });
-      globalThis.confirm.mockReturnValueOnce(true);
+      getConfirmDialogMock().mockResolvedValueOnce(true);
       mockSendMessage.mockResolvedValueOnce({ success: true });
 
       document.querySelector('#drive-upload-button').click();
@@ -1688,8 +1718,8 @@ describe('DriveCloudSyncController', () => {
       await flushAsyncWork();
 
       // confirm 只會被 download 的初始 setup 呼叫，不應有 CROSS_INSTALL 訊息
-      expect(globalThis.confirm).not.toHaveBeenCalledWith(
-        UI_MESSAGES.CLOUD_SYNC.CONFIRM_CROSS_INSTALL_UPLOAD
+      expect(getConfirmDialogMock()).not.toHaveBeenCalledWith(
+        expect.objectContaining({ message: UI_MESSAGES.CLOUD_SYNC.CONFIRM_CROSS_INSTALL_UPLOAD })
       );
       expect(mockSendMessage).toHaveBeenCalledWith(
         expect.objectContaining({ action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD })

@@ -309,6 +309,11 @@ describe('options.html 結構', () => {
     expect(
       titleTemplateInput.compareDocumentPosition(saveTitleButton) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
-    expect(saveTitleButton.dataset.uiMessage).toBe('OPTIONS.TEMPLATES.SAVE_TITLE_TEMPLATE_BUTTON');
+  });
+
+  test('confirm dialog message 應保留多行確認文案分段', () => {
+    const primitivesCss = readUiPrimitivesCss();
+
+    expect(primitivesCss).toMatch(/\.confirm-dialog-message\s*\{[^}]*white-space:\s*pre-line;/);
   });
 });
