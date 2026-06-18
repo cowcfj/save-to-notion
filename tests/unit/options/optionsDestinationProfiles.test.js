@@ -21,11 +21,25 @@ import {
   buildProfileManagerMock,
 } from '../../helpers/optionsTestHarness.js';
 
+function expectDestinationProfileRenderWarning(message, error, context) {
+  expect(Logger.warn).toHaveBeenCalledWith(message, {
+    action: 'renderDestinationProfiles',
+    error: sanitizeApiError(error, context),
+  });
+}
+
+async function changeProfileSwitch(profileId, checked) {
+  const input = document.querySelector(`input[data-profile-id="${profileId}"]`);
+  input.checked = checked;
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  await flushAsyncClick();
+  return input;
+}
+
 // Mocks for dependencies
 jest.mock('../../../scripts/config/env/index.js', () => ({
   BUILD_ENV: {
     ENABLE_OAUTH: true,
-    ENABLE_ACCOUNT: true,
     OAUTH_SERVER_URL: 'https://worker.test',
     OAUTH_CLIENT_ID: '',
     EXTENSION_API_KEY: '',
@@ -118,13 +132,6 @@ describe('Destination profile options UI', () => {
       [methodName]: jest.fn().mockRejectedValue(error),
     });
     await renderDestinationProfilesWithService(service);
-  }
-
-  function expectDestinationProfileRenderWarning(message, error, context) {
-    expect(Logger.warn).toHaveBeenCalledWith(message, {
-      action: 'renderDestinationProfiles',
-      error: sanitizeApiError(error, context),
-    });
   }
 
   it('未登入且已達上限時，新增保存目標按鈕應 disabled 並顯示原因', async () => {
@@ -583,14 +590,6 @@ describe('Destination profile options UI', () => {
       service.getActiveProfile.mockResolvedValue(twoProfiles[1]); // p2 active
       await renderDestinationProfilesWithService(service);
       return service;
-    }
-
-    async function changeProfileSwitch(profileId, checked) {
-      const input = document.querySelector(`input[data-profile-id="${profileId}"]`);
-      input.checked = checked;
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-      await flushAsyncClick();
-      return input;
     }
 
     it('renders one radio input per profile inside role=radio rows', async () => {

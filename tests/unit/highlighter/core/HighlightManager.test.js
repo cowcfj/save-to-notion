@@ -33,62 +33,91 @@ jest.mock('../../../../scripts/highlighter/core/Range.js', () => ({
   restoreRangeWithRetry: jest.fn(),
 }));
 
+function createTextRange(text, start = 0, end = text.length) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  document.body.append(div);
+
+  const range = document.createRange();
+  range.setStart(div.firstChild, start);
+  range.setEnd(div.firstChild, end);
+  return range;
+}
+
+function createRangesFromText(text, ...boundaries) {
+  const baseRange = createTextRange(text);
+  const textNode = baseRange.startContainer;
+
+  return boundaries.map(([start, end]) => {
+    const range = document.createRange();
+    range.setStart(textNode, start);
+    range.setEnd(textNode, end);
+    return range;
+  });
+}
+
+function withChromeApi(chromeApi, assertion) {
+  const originalChrome = globalThis.chrome;
+  globalThis.chrome = chromeApi;
+
+  try {
+    return assertion();
+  } finally {
+    globalThis.chrome = originalChrome;
+  }
+}
+
+function createRestoreItem(overrides = {}) {
+  return {
+    id: 'h1',
+    text: 'test',
+    color: 'yellow',
+    rangeInfo: { startContainer: [], endContainer: [] },
+    ...overrides,
+  };
+}
+
+function prepareRestoreItem(overrides = {}) {
+  mockRestoredRange();
+  return createRestoreItem(overrides);
+}
+
+async function runRestoreScenario(manager, itemOverrides, configureApplyHighlightAPI = () => {}) {
+  const item = prepareRestoreItem(itemOverrides);
+  const applyHighlightApiSpy = jest.spyOn(manager, 'applyHighlightAPI');
+
+  configureApplyHighlightAPI(applyHighlightApiSpy);
+
+  const result = await manager.restoreLocalHighlight(item);
+  applyHighlightApiSpy.mockRestore();
+
+  return { item, result };
+}
+
+function mockRestoredRange() {
+  const range = document.createRange();
+  jest.mocked(restoreRangeWithRetry).mockResolvedValue(range);
+  return range;
+}
+
+function createOwnedExtensionHost(id, ownerDatasetKey) {
+  const host = document.createElement('div');
+  host.id = id;
+  host.dataset[ownerDatasetKey] = 'true';
+  document.body.append(host);
+  return host;
+}
+
+function createComposedPathEvent(...elements) {
+  return { composedPath: () => elements };
+}
+
 describe('core/HighlightManager', () => {
   let manager = null;
   let mockStyleManager = null;
   let mockStorage = null;
   let mockInteraction = null;
   let mockMigration = null;
-
-  function createTextRange(text, start = 0, end = text.length) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    document.body.append(div);
-
-    const range = document.createRange();
-    range.setStart(div.firstChild, start);
-    range.setEnd(div.firstChild, end);
-    return range;
-  }
-
-  function withChromeApi(chromeApi, assertion) {
-    const originalChrome = globalThis.chrome;
-    globalThis.chrome = chromeApi;
-
-    try {
-      return assertion();
-    } finally {
-      globalThis.chrome = originalChrome;
-    }
-  }
-
-  function createRestoreItem(overrides = {}) {
-    return {
-      id: 'h1',
-      text: 'test',
-      color: 'yellow',
-      rangeInfo: { startContainer: [], endContainer: [] },
-      ...overrides,
-    };
-  }
-
-  function mockRestoredRange() {
-    const range = document.createRange();
-    jest.mocked(restoreRangeWithRetry).mockResolvedValue(range);
-    return range;
-  }
-
-  function createOwnedExtensionHost(id, ownerDatasetKey) {
-    const host = document.createElement('div');
-    host.id = id;
-    host.dataset[ownerDatasetKey] = 'true';
-    document.body.append(host);
-    return host;
-  }
-
-  function createComposedPathEvent(...elements) {
-    return { composedPath: () => elements };
-  }
 
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -194,26 +223,14 @@ describe('core/HighlightManager', () => {
     });
 
     test('should return null for collapsed range', () => {
-      const div = document.createElement('div');
-      div.textContent = 'Test';
-      document.body.append(div);
-
-      const range = document.createRange();
-      range.setStart(div.firstChild, 0);
-      range.setEnd(div.firstChild, 0);
+      const range = createTextRange('Test', 0, 0);
 
       const id = manager.addHighlight(range);
       expect(id).toBe(null);
     });
 
     test('should return null for empty or whitespace-only range', () => {
-      const div = document.createElement('div');
-      div.textContent = '   ';
-      document.body.append(div);
-
-      const range = document.createRange();
-      range.setStart(div.firstChild, 0);
-      range.setEnd(div.firstChild, 3);
+      const range = createTextRange('   ');
 
       const id = manager.addHighlight(range);
       expect(id).toBe(null);
@@ -247,13 +264,7 @@ describe('core/HighlightManager', () => {
     test('should not advance nextId or keep stale entry when highlight addition returns false', () => {
       jest.spyOn(manager, 'applyHighlightAPI').mockReturnValue(false);
 
-      const div = document.createElement('div');
-      div.textContent = 'Retry Test';
-      document.body.append(div);
-
-      const range = document.createRange();
-      range.setStart(div.firstChild, 0);
-      range.setEnd(div.firstChild, 5);
+      const range = createTextRange('Retry Test', 0, 5);
 
       const initialId = manager.nextId;
 
@@ -563,13 +574,7 @@ describe('core/HighlightManager', () => {
 
   describe('removeHighlight', () => {
     test('should remove existing highlight', () => {
-      const div = document.createElement('div');
-      div.textContent = 'Test';
-      document.body.append(div);
-
-      const range = document.createRange();
-      range.setStart(div.firstChild, 0);
-      range.setEnd(div.firstChild, 4);
+      const range = createTextRange('Test', 0, 4);
 
       const id = manager.addHighlight(range);
       expect(manager.highlights.size).toBe(1);
@@ -591,12 +596,7 @@ describe('core/HighlightManager', () => {
 
   describe('clearAll', () => {
     test('should clear all highlights', () => {
-      const div = document.createElement('div');
-      div.textContent = 'Test';
-      document.body.append(div);
-      const range = document.createRange();
-      range.setStart(div.firstChild, 0);
-      range.setEnd(div.firstChild, 3);
+      const range = createTextRange('Test', 0, 3);
 
       manager.addHighlight(range);
       expect(manager.highlights.size).toBe(1);
@@ -662,63 +662,23 @@ describe('core/HighlightManager', () => {
     });
 
     test('should detect overlapping ranges correctly', () => {
-      // 建立真實 DOM 結構
-      const div = document.createElement('div');
-      div.textContent = 'Hello World Test';
-      document.body.append(div);
-
-      const textNode = div.firstChild;
-
-      // Range 1: "Hello"（0-5）
-      const range1 = document.createRange();
-      range1.setStart(textNode, 0);
-      range1.setEnd(textNode, 5);
-
-      // Range 2: "lo Wo"（3-8）— 與 Range 1 重疊
-      const range2 = document.createRange();
-      range2.setStart(textNode, 3);
-      range2.setEnd(textNode, 8);
+      const [range1, range2] = createRangesFromText('Hello World Test', [0, 5], [3, 8]);
 
       expect(HighlightManager.rangesOverlap(range1, range2)).toBe(true);
-
-      // 清理
-      div.remove();
     });
 
     test('should treat touching boundaries as non-overlapping', () => {
-      const div = document.createElement('div');
-      div.textContent = 'Boundary Touch Test';
-      document.body.append(div);
-
-      const textNode = div.firstChild;
-
-      const range1 = document.createRange();
-      range1.setStart(textNode, 0);
-      range1.setEnd(textNode, 5);
-
-      const range2 = document.createRange();
-      range2.setStart(textNode, 5);
-      range2.setEnd(textNode, 10);
+      const [range1, range2] = createRangesFromText('Boundary Touch Test', [0, 5], [5, 10]);
 
       expect(HighlightManager.rangesOverlap(range1, range2)).toBe(false);
-
-      div.remove();
     });
 
     test('should return symmetric result when range order is swapped', () => {
-      const div = document.createElement('div');
-      div.textContent = 'Symmetric Overlap Test';
-      document.body.append(div);
-
-      const textNode = div.firstChild;
-
-      const firstRange = document.createRange();
-      firstRange.setStart(textNode, 2);
-      firstRange.setEnd(textNode, 9);
-
-      const secondRange = document.createRange();
-      secondRange.setStart(textNode, 6);
-      secondRange.setEnd(textNode, 12);
+      const [firstRange, secondRange] = createRangesFromText(
+        'Symmetric Overlap Test',
+        [2, 9],
+        [6, 12]
+      );
 
       const forward = HighlightManager.rangesOverlap(firstRange, secondRange);
       const reverse = HighlightManager.rangesOverlap(secondRange, firstRange);
@@ -726,31 +686,12 @@ describe('core/HighlightManager', () => {
       expect(forward).toBe(true);
       expect(reverse).toBe(true);
       expect(forward).toBe(reverse);
-
-      div.remove();
     });
 
     test('should detect non-overlapping ranges correctly', () => {
-      const div = document.createElement('div');
-      div.textContent = 'Hello World Test';
-      document.body.append(div);
-
-      const textNode = div.firstChild;
-
-      // Range 1: "Hello"（0-5）
-      const range1 = document.createRange();
-      range1.setStart(textNode, 0);
-      range1.setEnd(textNode, 5);
-
-      // Range 2: "Test"（12-16）— 與 Range 1 不重疊
-      const range2 = document.createRange();
-      range2.setStart(textNode, 12);
-      range2.setEnd(textNode, 16);
+      const [range1, range2] = createRangesFromText('Hello World Test', [0, 5], [12, 16]);
 
       expect(HighlightManager.rangesOverlap(range1, range2)).toBe(false);
-
-      // 清理
-      div.remove();
     });
 
     test('getSafeExtensionStorage should return null outside extension runtime', () => {
@@ -913,100 +854,88 @@ describe('core/HighlightManager', () => {
     });
 
     test('should rollback highlight when applyHighlightAPI returns false', async () => {
-      const item = createRestoreItem({
-        id: 'h5',
-        text: 'rollback test',
-        color: 'invalid-color',
-      });
-      mockRestoredRange();
-      jest.spyOn(manager, 'applyHighlightAPI').mockReturnValue(false);
-
-      const result = await manager.restoreLocalHighlight(item);
+      const { result } = await runRestoreScenario(
+        manager,
+        {
+          id: 'h5',
+          text: 'rollback test',
+          color: 'invalid-color',
+        },
+        applyHighlightApiSpy => applyHighlightApiSpy.mockReturnValue(false)
+      );
 
       expect(result).toBe(false);
       expect(manager.highlights.size).toBe(0);
-
-      manager.applyHighlightAPI.mockRestore();
     });
 
     test('should retry with fallback color when original color cannot be applied', async () => {
-      const item = createRestoreItem({
-        id: 'h8',
-        text: 'fallback test',
-        color: 'blue',
-      });
-      mockRestoredRange();
-
-      jest
-        .spyOn(manager, 'applyHighlightAPI')
-        .mockImplementationOnce(() => false)
-        .mockImplementationOnce(() => true);
-
-      const result = await manager.restoreLocalHighlight(item);
+      const { result } = await runRestoreScenario(
+        manager,
+        {
+          id: 'h8',
+          text: 'fallback test',
+          color: 'blue',
+        },
+        applyHighlightApiSpy =>
+          applyHighlightApiSpy
+            .mockImplementationOnce(() => false)
+            .mockImplementationOnce(() => true)
+      );
 
       expect(result).toBe(true);
       expect(manager.highlights.get('h8')?.color).toBe('yellow');
-
-      manager.applyHighlightAPI.mockRestore();
     });
 
     test('should rebuild style objects and retry when initial attempts fail', async () => {
-      const item = createRestoreItem({
-        id: 'h9',
-        text: 'rebuild style test',
-        color: 'blue',
-      });
-      mockRestoredRange();
-
-      jest
-        .spyOn(manager, 'applyHighlightAPI')
-        .mockImplementationOnce(() => false)
-        .mockImplementationOnce(() => false)
-        .mockImplementationOnce(() => true);
-
-      const result = await manager.restoreLocalHighlight(item);
+      const { result } = await runRestoreScenario(
+        manager,
+        {
+          id: 'h9',
+          text: 'rebuild style test',
+          color: 'blue',
+        },
+        applyHighlightApiSpy =>
+          applyHighlightApiSpy
+            .mockImplementationOnce(() => false)
+            .mockImplementationOnce(() => false)
+            .mockImplementationOnce(() => true)
+      );
 
       expect(result).toBe(true);
       expect(mockStyleManager.initialize).toHaveBeenCalled();
-
-      manager.applyHighlightAPI.mockRestore();
     });
 
     test('should cleanup stale entry when applyHighlightAPI throws', async () => {
-      const item = createRestoreItem({
-        id: 'h7',
-        text: 'throw test',
-        color: 'yellow',
-      });
-      mockRestoredRange();
-      jest.spyOn(manager, 'applyHighlightAPI').mockImplementation(() => {
-        throw new Error('styleManager failure');
-      });
-
-      const result = await manager.restoreLocalHighlight(item);
+      const { result } = await runRestoreScenario(
+        manager,
+        {
+          id: 'h7',
+          text: 'throw test',
+          color: 'yellow',
+        },
+        applyHighlightApiSpy =>
+          applyHighlightApiSpy.mockImplementation(() => {
+            throw new Error('styleManager failure');
+          })
+      );
 
       expect(result).toBe(false);
       expect(manager.highlights.size).toBe(0);
-
-      manager.applyHighlightAPI.mockRestore();
     });
 
     test('should cancel restore when styles cannot be reinitialized', async () => {
-      const item = createRestoreItem({
+      const itemOverrides = {
         id: 'h10',
         text: 'no reinitialize test',
         color: 'blue',
-      });
-      mockRestoredRange();
+      };
       mockStyleManager.initialize = undefined;
-      jest.spyOn(manager, 'applyHighlightAPI').mockReturnValue(false);
-
-      const result = await manager.restoreLocalHighlight(item);
+      const { result } = await runRestoreScenario(manager, itemOverrides, applyHighlightApiSpy =>
+        applyHighlightApiSpy.mockReturnValue(false)
+      );
 
       expect(result).toBe(false);
       expect(manager.highlights.has('h10')).toBe(false);
-
-      manager.applyHighlightAPI.mockRestore();
     });
 
     test('should cleanup restored entry when restore flow throws after ID resolution', async () => {
@@ -1076,12 +1005,7 @@ describe('core/HighlightManager', () => {
     test('addHighlight 視覺回滾時應觸發 error toast', () => {
       jest.spyOn(manager, 'applyHighlightAPI').mockReturnValue(false);
 
-      const div = document.createElement('div');
-      div.textContent = 'Rollback test';
-      document.body.append(div);
-      const range = document.createRange();
-      range.setStart(div.firstChild, 0);
-      range.setEnd(div.firstChild, 8);
+      const range = createTextRange('Rollback test', 0, 8);
 
       const id = manager.addHighlight(range);
 
@@ -1092,12 +1016,7 @@ describe('core/HighlightManager', () => {
     });
 
     test('addHighlight 成功時不應觸發 toast', () => {
-      const div = document.createElement('div');
-      div.textContent = 'Success path';
-      document.body.append(div);
-      const range = document.createRange();
-      range.setStart(div.firstChild, 0);
-      range.setEnd(div.firstChild, 7);
+      const range = createTextRange('Success path', 0, 7);
 
       manager.addHighlight(range);
       expect(mockToast.show).not.toHaveBeenCalled();

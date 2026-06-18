@@ -608,7 +608,7 @@ describe('ImageCollector collection strategies', () => {
           return [mockImg1, mockImg2];
         }
         if (selector === '.ad img') {
-          return options.all ? [mockImg2] : mockImg2;
+          return options.all ? [mockImg2] : [];
         }
         return [];
       });

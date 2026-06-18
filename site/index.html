@@ -75,6 +75,13 @@
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
       }
 
+      .image-card:focus-visible {
+        outline: 3px solid #2563eb;
+        outline-offset: 2px;
+        transform: translateY(-5px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+      }
+
       .image-card img {
         width: 100%;
         height: 180px;
@@ -82,14 +89,15 @@
         transition: transform 0.3s ease;
       }
 
-      .image-card:hover img {
+      .image-card:hover img,
+      .image-card:focus-visible img {
         transform: scale(1.05);
       }
 
       .image-card .card-title {
         padding: 12px 15px;
         font-weight: 600;
-        color: #2980b9;
+        color: #1d4ed8;
         background: linear-gradient(135deg, #f8f9fa, #e9ecef);
         margin: 0;
         font-size: 0.95em;
@@ -98,7 +106,7 @@
       .image-card .card-hint {
         padding: 8px 15px;
         font-size: 0.8em;
-        color: #6c757d;
+        color: #475569; /* Improved contrast ratio >= 4.5:1 to meet WCAG AA */
         background: #f8f9fa;
       }
 
@@ -110,6 +118,11 @@
         left: 0;
         width: 100%;
         height: 100%;
+        max-width: none;
+        max-height: none;
+        margin: 0;
+        padding: 0;
+        border: 0;
         background: rgba(0, 0, 0, 0.9);
         z-index: 9999;
         opacity: 0;
@@ -175,9 +188,12 @@
         z-index: 10001;
       }
 
-      .lightbox-close:hover {
+      .lightbox-close:hover,
+      .lightbox-close:focus-visible {
         transform: scale(1.1);
         background: rgba(255, 255, 255, 0.2);
+        outline: 3px solid #2563eb;
+        outline-offset: 2px;
       }
 
       .lightbox-nav {
@@ -194,8 +210,11 @@
         user-select: none;
       }
 
-      .lightbox-nav:hover {
+      .lightbox-nav:hover,
+      .lightbox-nav:focus-visible {
         background: rgba(255, 255, 255, 0.2);
+        outline: 3px solid #2563eb;
+        outline-offset: 2px;
       }
 
       .lightbox-prev {
@@ -221,8 +240,8 @@
       .button {
         display: inline-block;
         padding: 12px 24px;
-        background: #3498db;
-        color: white;
+        background: #2563eb;
+        color: #ffffff;
         text-decoration: none;
         border-radius: 5px;
         margin: 10px 5px;
@@ -230,7 +249,7 @@
       }
 
       .button:hover {
-        background: #2980b9;
+        background: #1d4ed8;
       }
 
       ul {
@@ -338,18 +357,20 @@
       <a
         href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md"
         class="button"
-        style="background: #27ae60"
+        style="background: #047857"
       >
         📖 完整使用指南
       </a>
     </div>
 
     <h2>🎬 功能展示</h2>
-    <p style="text-align: center; color: #6c757d; margin-bottom: 10px">💡 點擊圖片可查看大圖</p>
+    <p style="text-align: center; color: #475569; margin-bottom: 10px">
+      💡 點擊圖片（或聚焦後按 Enter／空白鍵）可查看大圖
+    </p>
 
     <div class="feature-showcase">
       <div class="image-grid">
-        <div class="image-card" onclick="openLightbox(0)">
+        <div class="image-card">
           <img
             src="https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image1-main-feature1280.jpg"
             alt="核心功能展示"
@@ -357,7 +378,7 @@
           />
           <p class="card-title">🚀 一鍵保存網頁到 Notion</p>
         </div>
-        <div class="image-card" onclick="openLightbox(1)">
+        <div class="image-card">
           <img
             src="https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image2-highlight-feature1280.jpg"
             alt="文本標註功能"
@@ -365,7 +386,7 @@
           />
           <p class="card-title">🖊️ 隨時標記重要內容</p>
         </div>
-        <div class="image-card" onclick="openLightbox(2)">
+        <div class="image-card">
           <img
             src="https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image3-notion-integration1280.jpg"
             alt="Notion 整合展示"
@@ -373,7 +394,7 @@
           />
           <p class="card-title">✨ 完美整合 Notion</p>
         </div>
-        <div class="image-card" onclick="openLightbox(3)">
+        <div class="image-card">
           <img
             src="https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image4-easy-setup1280.jpg"
             alt="設置界面"
@@ -381,7 +402,7 @@
           />
           <p class="card-title">⚙️ 簡單設置，立即使用</p>
         </div>
-        <div class="image-card" onclick="openLightbox(4)">
+        <div class="image-card">
           <img
             src="https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image5-smart-icon1280.jpg"
             alt="智能圖標"
@@ -393,16 +414,20 @@
     </div>
 
     <!-- Lightbox 彈出層 -->
-    <div id="lightbox" class="lightbox" onclick="closeLightbox(event)">
-      <span class="lightbox-close" onclick="closeLightbox(event)">&times;</span>
-      <span class="lightbox-nav lightbox-prev" onclick="navigateLightbox(event, -1)">&#10094;</span>
+    <dialog id="lightbox" class="lightbox" aria-labelledby="lightbox-caption">
+      <span class="lightbox-close" aria-label="關閉大圖">&times;</span>
+      <span class="lightbox-nav lightbox-prev" aria-label="上一張">&#10094;</span>
       <div class="lightbox-content">
-        <img id="lightbox-img" src="" alt="" />
+        <img
+          id="lightbox-img"
+          src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="
+          alt=""
+        />
         <div id="lightbox-caption" class="lightbox-caption"></div>
       </div>
-      <span class="lightbox-nav lightbox-next" onclick="navigateLightbox(event, 1)">&#10095;</span>
+      <span class="lightbox-nav lightbox-next" aria-label="下一張">&#10095;</span>
       <div id="lightbox-counter" class="lightbox-counter"></div>
-    </div>
+    </dialog>
 
     <h2>✨ 核心功能</h2>
 
@@ -538,120 +563,245 @@
     >
 
     <hr style="margin: 40px 0; border: none; border-top: 1px solid #eee" />
-    <p style="text-align: center; color: #999; font-size: 0.9em">
-      Made with ❤️ for Notion users |
+    <p style="text-align: center; color: #64748b; font-size: 0.9em">
+      用 ❤️ 為 Notion 使用者打造 |
       <a href="https://github.com/cowcfj/save-to-notion">GitHub</a> |
       <a
         href="https://chromewebstore.google.com/detail/save-to-notion-smart-clip/gmelegphcncnddlaeogfhododhbcbmhp"
-        >Chrome Store</a
+        >Chrome 商店</a
       >
     </p>
 
     <!-- Lightbox JavaScript -->
     <script>
-      // 圖片數據
-      const images = [
-        {
-          src: 'https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image1-main-feature1280.jpg',
-          title: '🚀 一鍵保存網頁到 Notion',
-        },
-        {
-          src: 'https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image2-highlight-feature1280.jpg',
-          title: '🖊️ 隨時標記重要內容',
-        },
-        {
-          src: 'https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image3-notion-integration1280.jpg',
-          title: '✨ 完美整合 Notion',
-        },
-        {
-          src: 'https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image4-easy-setup1280.jpg',
-          title: '⚙️ 簡單設置，立即使用',
-        },
-        {
-          src: 'https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image5-smart-icon1280.jpg',
-          title: '🌐 智能網站圖標選擇',
-        },
-      ];
+      document.addEventListener('DOMContentLoaded', () => {
+        // 圖片數據
+        const images = [
+          {
+            src: 'https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image1-main-feature1280.jpg',
+            title: '🚀 一鍵保存網頁到 Notion',
+          },
+          {
+            src: 'https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image2-highlight-feature1280.jpg',
+            title: '🖊️ 隨時標記重要內容',
+          },
+          {
+            src: 'https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image3-notion-integration1280.jpg',
+            title: '✨ 完美整合 Notion',
+          },
+          {
+            src: 'https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image4-easy-setup1280.jpg',
+            title: '⚙️ 簡單設置，立即使用',
+          },
+          {
+            src: 'https://raw.githubusercontent.com/cowcfj/save-to-notion/main/promo-images/image5-smart-icon1280.jpg',
+            title: '🌐 智能網站圖標選擇',
+          },
+        ];
 
-      let currentIndex = 0;
+        let currentIndex = 0;
+        let lastActiveElement = null;
 
-      function openLightbox(index) {
-        currentIndex = index;
-        updateLightbox();
-        document.getElementById('lightbox').classList.add('active');
-        document.body.style.overflow = 'hidden';
-      }
-
-      function closeLightbox(event) {
-        if (
-          event.target.classList.contains('lightbox') ||
-          event.target.classList.contains('lightbox-close')
-        ) {
-          document.getElementById('lightbox').classList.remove('active');
-          document.body.style.overflow = '';
-        }
-      }
-
-      function navigateLightbox(event, direction) {
-        event.stopPropagation();
-        currentIndex = (currentIndex + direction + images.length) % images.length;
-        updateLightbox();
-      }
-
-      function updateLightbox() {
+        const lightbox = document.getElementById('lightbox');
         const img = document.getElementById('lightbox-img');
         const caption = document.getElementById('lightbox-caption');
         const counter = document.getElementById('lightbox-counter');
 
-        img.src = images[currentIndex].src;
-        img.alt = images[currentIndex].title;
-        caption.textContent = images[currentIndex].title;
-        counter.textContent = `${currentIndex + 1} / ${images.length}`;
-      }
+        const closeBtn = lightbox.querySelector('.lightbox-close');
+        const prevBtn = lightbox.querySelector('.lightbox-prev');
+        const nextBtn = lightbox.querySelector('.lightbox-next');
 
-      // 鍵盤導航
-      document.addEventListener('keydown', function (e) {
-        const lightbox = document.getElementById('lightbox');
-        if (!lightbox.classList.contains('active')) return;
+        // 為 Lightbox 控制項裝飾無障礙屬性
+        const focusableElements = [closeBtn, prevBtn, nextBtn];
+        focusableElements.forEach(btn => {
+          if (btn) {
+            btn.setAttribute('role', 'button');
+            btn.setAttribute('tabindex', '0');
+          }
+        });
 
-        if (e.key === 'Escape') {
-          lightbox.classList.remove('active');
-          document.body.style.overflow = '';
-        } else if (e.key === 'ArrowLeft') {
-          currentIndex = (currentIndex - 1 + images.length) % images.length;
+        // 設置卡片無障礙屬性並綁定事件
+        const cards = document.querySelectorAll('.image-card');
+        cards.forEach((card, index) => {
+          card.setAttribute('role', 'button');
+          card.setAttribute('tabindex', '0');
+
+          const openHandler = () => {
+            lastActiveElement = card;
+            openLightbox(index);
+          };
+
+          card.addEventListener('click', openHandler);
+          card.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              openHandler();
+            }
+          });
+        });
+
+        function openLightbox(index) {
+          currentIndex = index;
           updateLightbox();
-        } else if (e.key === 'ArrowRight') {
-          currentIndex = (currentIndex + 1) % images.length;
+          lightbox.classList.add('active');
+          if (typeof lightbox.showModal === 'function' && !lightbox.open) {
+            lightbox.showModal();
+          } else {
+            lightbox.setAttribute('open', '');
+          }
+          document.body.style.overflow = 'hidden';
+
+          // 自動將焦點移至關閉按鈕
+          if (closeBtn) {
+            closeBtn.focus();
+          }
+        }
+
+        function closeLightbox() {
+          lightbox.classList.remove('active');
+          if (typeof lightbox.close === 'function' && lightbox.open) {
+            lightbox.close();
+          } else {
+            lightbox.removeAttribute('open');
+          }
+          document.body.style.overflow = '';
+
+          // 還原焦點至點擊卡片
+          if (lastActiveElement) {
+            lastActiveElement.focus();
+          }
+        }
+
+        function navigateLightbox(direction) {
+          currentIndex = (currentIndex + direction + images.length) % images.length;
           updateLightbox();
         }
-      });
 
-      // 觸控滑動支援
-      let touchStartX = 0;
-      document.getElementById('lightbox').addEventListener(
-        'touchstart',
-        function (e) {
-          touchStartX = e.changedTouches[0].screenX;
-        },
-        { passive: true }
-      );
-
-      document.getElementById('lightbox').addEventListener(
-        'touchend',
-        function (e) {
-          const touchEndX = e.changedTouches[0].screenX;
-          const diff = touchStartX - touchEndX;
-          if (Math.abs(diff) > 50) {
-            if (diff > 0) {
-              currentIndex = (currentIndex + 1) % images.length;
-            } else {
-              currentIndex = (currentIndex - 1 + images.length) % images.length;
-            }
-            updateLightbox();
+        function updateLightbox() {
+          if (img && caption && counter) {
+            img.src = images[currentIndex].src;
+            img.alt = images[currentIndex].title;
+            caption.textContent = images[currentIndex].title;
+            counter.textContent = `${currentIndex + 1} / ${images.length}`;
           }
-        },
-        { passive: true }
-      );
+        }
+
+        // 綁定關閉與導航點擊/按鍵事件
+        if (closeBtn) {
+          closeBtn.addEventListener('click', closeLightbox);
+          closeBtn.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              closeLightbox();
+            }
+          });
+        }
+
+        const setupNavButton = (btn, direction) => {
+          if (btn) {
+            btn.addEventListener('click', e => {
+              e.stopPropagation();
+              navigateLightbox(direction);
+            });
+            btn.addEventListener('keydown', e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                navigateLightbox(direction);
+              }
+            });
+          }
+        };
+
+        setupNavButton(prevBtn, -1);
+        setupNavButton(nextBtn, 1);
+
+        // 點擊背景關閉 Lightbox
+        lightbox.addEventListener('click', e => {
+          if (e.target === lightbox) {
+            closeLightbox();
+          }
+        });
+
+        function getActiveLightboxControls() {
+          return focusableElements.filter(el => el && el.style.display !== 'none');
+        }
+
+        function trapLightboxFocus(e) {
+          const activeElements = getActiveLightboxControls();
+          if (activeElements.length === 0) return;
+
+          const firstEl = activeElements[0];
+          const lastEl = activeElements[activeElements.length - 1];
+          const shouldWrapBackward = e.shiftKey && document.activeElement === firstEl;
+          const shouldWrapForward = !e.shiftKey && document.activeElement === lastEl;
+
+          if (shouldWrapBackward) {
+            lastEl.focus();
+            e.preventDefault();
+            return;
+          }
+
+          if (shouldWrapForward) {
+            firstEl.focus();
+            e.preventDefault();
+          }
+        }
+
+        function handleLightboxShortcut(e) {
+          if (e.key === 'Escape') {
+            closeLightbox();
+            return;
+          }
+
+          if (e.key === 'ArrowLeft') {
+            navigateLightbox(-1);
+            return;
+          }
+
+          if (e.key === 'ArrowRight') {
+            navigateLightbox(1);
+            return;
+          }
+
+          if (e.key === 'Tab') {
+            trapLightboxFocus(e);
+          }
+        }
+
+        // 全域鍵盤事件管理與焦點鎖定 (Focus Trap)
+        document.addEventListener('keydown', e => {
+          if (!lightbox.classList.contains('active')) return;
+
+          handleLightboxShortcut(e);
+        });
+
+        // 觸控滑動支援
+        let touchStartX = 0;
+        lightbox.addEventListener(
+          'touchstart',
+          e => {
+            touchStartX = e.changedTouches[0].screenX;
+          },
+          { passive: true }
+        );
+
+        lightbox.addEventListener(
+          'touchend',
+          e => {
+            const touchEndX = e.changedTouches[0].screenX;
+            const diff = touchStartX - touchEndX;
+            if (Math.abs(diff) > 50) {
+              if (diff > 0) {
+                navigateLightbox(1);
+              } else {
+                navigateLightbox(-1);
+              }
+            }
+          },
+          { passive: true }
+        );
+      });
     </script>
   </body>
 </html>

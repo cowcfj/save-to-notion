@@ -109,13 +109,11 @@ describe('DOM Stability Utils Coverage Tests', () => {
       // Mock MutationObserver to throw on observe
       const originalMutationObserver = globalThis.MutationObserver;
       globalThis.MutationObserver = class {
-        constructor() {
-          this.observe = () => {
-            throw new Error('Observer error');
-          };
-          this.disconnect = () => {
-            // 空操作 - mock MutationObserver 不需要清理邏輯
-          };
+        observe() {
+          throw new Error('Observer error');
+        }
+        disconnect() {
+          // 空操作 - mock MutationObserver 不需要清理邏輯
         }
       };
 

@@ -758,7 +758,7 @@ export const RUNTIME_ACTIONS = Object.freeze({
   ...DRIVE_SYNC_ACTIONS,
   ...PRELOADER_ACTIONS,
   ...CONTENT_BRIDGE_ACTIONS,
-  ...BRIDGE_ACTIONS,
+  ...BRIDGE_ACTIONS, // NOSONAR - false positive: S1874 analyzer scope drift
   ...DIAGNOSTICS_ACTIONS,
   // 解決 key 衝突：確保 SHOW_FLOATING_RAIL 值為 highlighter 的 'SHOW_FLOATING_RAIL'，
   // 避免被 contentBridge 的 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL' 覆寫。

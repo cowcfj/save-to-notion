@@ -8,6 +8,24 @@ import {
   findTextFuzzy,
 } from '../../../../scripts/highlighter/utils/textSearch.js';
 
+function createSelectionWithoutRange() {
+  return {
+    removeAllRanges: jest.fn(),
+    rangeCount: 0,
+  };
+}
+
+function expectTreeWalkerFallback(configureFallback) {
+  document.body.innerHTML = '<p>Test content</p>';
+
+  const state = configureFallback();
+  const range = findTextInPage('Test');
+
+  expect(range).not.toBeNull();
+  expect(range.toString()).toBe('Test');
+  return state;
+}
+
 describe('TextSearch Utils Coverage Tests', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -30,24 +48,6 @@ describe('TextSearch Utils Coverage Tests', () => {
   });
 
   describe('findTextInPage', () => {
-    function createSelectionWithoutRange() {
-      return {
-        removeAllRanges: jest.fn(),
-        rangeCount: 0,
-      };
-    }
-
-    function expectTreeWalkerFallback(configureFallback) {
-      document.body.innerHTML = '<p>Test content</p>';
-
-      const state = configureFallback();
-      const range = findTextInPage('Test');
-
-      expect(range).not.toBeNull();
-      expect(range.toString()).toBe('Test');
-      return state;
-    }
-
     test('should find simple text using window.find', () => {
       document.body.innerHTML = '<p>Hello World</p>';
 
