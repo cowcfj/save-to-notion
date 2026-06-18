@@ -3,8 +3,14 @@ import path from 'node:path';
 import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 
 const OPTIONS_HTML_PATH = path.resolve(__dirname, '../../../pages/options/options.html');
+const OPTIONS_CSS_PATH = path.resolve(__dirname, '../../../pages/options/options.css');
+const UI_PRIMITIVES_CSS_PATH = path.resolve(__dirname, '../../../styles/ui-primitives.css');
 
 const readOptionsHtml = () => fs.readFileSync(OPTIONS_HTML_PATH, 'utf8');
+
+const readOptionsCss = () => fs.readFileSync(OPTIONS_CSS_PATH, 'utf8');
+
+const readUiPrimitivesCss = () => fs.readFileSync(UI_PRIMITIVES_CSS_PATH, 'utf8');
 
 const parseOptionsHtml = html => new DOMParser().parseFromString(html, 'text/html');
 
@@ -244,5 +250,27 @@ describe('options.html 結構', () => {
     expect(migrationSelectAll.getAttribute('type')).toBe('checkbox');
     expect(migrationSelectAll.getAttribute('role')).toBeNull();
     expect(migrationSelectAll.classList.contains('switch-input')).toBe(false);
+  });
+
+  test('Options layout 應限制 root overscroll，避免內容到底後拉出空白', () => {
+    const css = readOptionsCss();
+
+    expect(css).toMatch(/html,\s*body\s*\{[^}]*height:\s*100%;[^}]*overflow:\s*hidden;/);
+    expect(css).toMatch(/\.app-container\s*\{[^}]*height:\s*100%;[^}]*overflow:\s*hidden;/);
+    expect(css).toMatch(
+      /\.content-area\s*\{[^}]*overflow-y:\s*auto;[^}]*min-height:\s*0;[^}]*overscroll-behavior:\s*contain;/
+    );
+  });
+
+  test('Options switch row 應保留 primitive 間距並抵消 form label display 覆寫', () => {
+    const primitivesCss = readUiPrimitivesCss();
+    const optionsCss = readOptionsCss();
+
+    expect(primitivesCss).toMatch(
+      /\.switch-wrapper\s*\{[^}]*display:\s*inline-flex;[^}]*align-items:\s*center;[^}]*gap:\s*var\(--spacing-sm\);/
+    );
+    expect(optionsCss).toMatch(
+      /\.form-group\s+\.switch-wrapper\s*\{[^}]*display:\s*inline-flex;[^}]*align-items:\s*center;/
+    );
   });
 });

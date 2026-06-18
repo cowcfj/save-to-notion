@@ -173,6 +173,7 @@ button.btn-icon:focus-visible {
 .switch-wrapper {
   display: inline-flex;
   align-items: center;
+  gap: var(--spacing-sm);
   cursor: pointer;
 }
 
