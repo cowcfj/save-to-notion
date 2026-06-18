@@ -542,6 +542,41 @@ describe('optionsInitialization', () => {
       );
     });
 
+    it('autosave 回復讀取失敗時應套用 defaultValue 並顯示錯誤', async () => {
+      buildOptionsPreferenceDOM();
+      globalThis.chrome = buildChromeMock({
+        storage: {
+          local: { get: jest.fn().mockResolvedValue({}), remove: jest.fn().mockResolvedValue() },
+          sync: {
+            get: jest.fn((_keys, cb) => {
+              if (typeof cb === 'function') {
+                cb({});
+                return Promise.resolve({});
+              }
+              return Promise.reject(new Error('storage restore unavailable'));
+            }),
+            set: jest.fn().mockRejectedValue(new Error('storage failed')),
+            remove: jest.fn().mockResolvedValue(),
+          },
+        },
+      });
+
+      initOptions();
+
+      const addTimestamp = document.querySelector('#add-timestamp');
+      addTimestamp.checked = false;
+      addTimestamp.dispatchEvent(new Event('change'));
+      await flushAsyncClick();
+
+      expect(addTimestamp.checked).toBe(true);
+      expect(addTimestamp.getAttribute('aria-checked')).toBe('true');
+      expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
+        UI_MESSAGES.SETTINGS.PREFERENCE_SAVE_FAILED,
+        'error',
+        'template-status'
+      );
+    });
+
     it('保存標題格式按鈕只應保存 titleTemplate', async () => {
       buildOptionsPreferenceDOM();
       globalThis.chrome = buildChromeMock();

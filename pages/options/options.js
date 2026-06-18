@@ -256,8 +256,22 @@ function setSwitchChecked(input, checked) {
 }
 
 async function restorePreferenceControl({ element, storageKey, defaultValue, applyValue }) {
-  const result = (await chrome.storage.sync.get([storageKey])) || {};
-  const storedValue = Object.hasOwn(result, storageKey) ? result[storageKey] : defaultValue;
+  let storedValue = defaultValue;
+
+  try {
+    const result = (await chrome.storage.sync.get([storageKey])) || {};
+    if (Object.hasOwn(result, storageKey)) {
+      storedValue = result[storageKey];
+    }
+  } catch (error) {
+    Logger.warn('讀取偏好設定失敗，套用預設值', {
+      action: 'restorePreferenceControl',
+      result: 'fallback',
+      storageKey,
+      error,
+    });
+  }
+
   applyValue(element, storedValue);
 }
 
