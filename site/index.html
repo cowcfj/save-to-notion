@@ -118,6 +118,11 @@
         left: 0;
         width: 100%;
         height: 100%;
+        max-width: none;
+        max-height: none;
+        margin: 0;
+        padding: 0;
+        border: 0;
         background: rgba(0, 0, 0, 0.9);
         z-index: 9999;
         opacity: 0;
@@ -235,8 +240,8 @@
       .button {
         display: inline-block;
         padding: 12px 24px;
-        background: #3498db;
-        color: white;
+        background: #2563eb;
+        color: #ffffff;
         text-decoration: none;
         border-radius: 5px;
         margin: 10px 5px;
@@ -244,7 +249,7 @@
       }
 
       .button:hover {
-        background: #2980b9;
+        background: #1d4ed8;
       }
 
       ul {
@@ -352,7 +357,7 @@
       <a
         href="https://github.com/cowcfj/save-to-notion/blob/main/USER_GUIDE.md"
         class="button"
-        style="background: #27ae60"
+        style="background: #047857"
       >
         📖 完整使用指南
       </a>
@@ -407,7 +412,7 @@
     </div>
 
     <!-- Lightbox 彈出層 -->
-    <div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-hidden="true">
+    <dialog id="lightbox" class="lightbox" aria-labelledby="lightbox-caption">
       <span class="lightbox-close" aria-label="關閉大圖">&times;</span>
       <span class="lightbox-nav lightbox-prev" aria-label="上一張">&#10094;</span>
       <div class="lightbox-content">
@@ -416,7 +421,7 @@
       </div>
       <span class="lightbox-nav lightbox-next" aria-label="下一張">&#10095;</span>
       <div id="lightbox-counter" class="lightbox-counter"></div>
-    </div>
+    </dialog>
 
     <h2>✨ 核心功能</h2>
 
@@ -633,7 +638,11 @@
           currentIndex = index;
           updateLightbox();
           lightbox.classList.add('active');
-          lightbox.setAttribute('aria-hidden', 'false');
+          if (typeof lightbox.showModal === 'function' && !lightbox.open) {
+            lightbox.showModal();
+          } else {
+            lightbox.setAttribute('open', '');
+          }
           document.body.style.overflow = 'hidden';
 
           // 自動將焦點移至關閉按鈕
@@ -644,7 +653,11 @@
 
         function closeLightbox() {
           lightbox.classList.remove('active');
-          lightbox.setAttribute('aria-hidden', 'true');
+          if (typeof lightbox.close === 'function' && lightbox.open) {
+            lightbox.close();
+          } else {
+            lightbox.removeAttribute('open');
+          }
           document.body.style.overflow = '';
 
           // 還原焦點至點擊卡片
@@ -704,38 +717,57 @@
           }
         });
 
+        function getActiveLightboxControls() {
+          return focusableElements.filter(el => el && el.style.display !== 'none');
+        }
+
+        function trapLightboxFocus(e) {
+          const activeElements = getActiveLightboxControls();
+          if (activeElements.length === 0) return;
+
+          const firstEl = activeElements[0];
+          const lastEl = activeElements[activeElements.length - 1];
+          const shouldWrapBackward = e.shiftKey && document.activeElement === firstEl;
+          const shouldWrapForward = !e.shiftKey && document.activeElement === lastEl;
+
+          if (shouldWrapBackward) {
+            lastEl.focus();
+            e.preventDefault();
+            return;
+          }
+
+          if (shouldWrapForward) {
+            firstEl.focus();
+            e.preventDefault();
+          }
+        }
+
+        function handleLightboxShortcut(e) {
+          if (e.key === 'Escape') {
+            closeLightbox();
+            return;
+          }
+
+          if (e.key === 'ArrowLeft') {
+            navigateLightbox(-1);
+            return;
+          }
+
+          if (e.key === 'ArrowRight') {
+            navigateLightbox(1);
+            return;
+          }
+
+          if (e.key === 'Tab') {
+            trapLightboxFocus(e);
+          }
+        }
+
         // 全域鍵盤事件管理與焦點鎖定 (Focus Trap)
         document.addEventListener('keydown', (e) => {
           if (!lightbox.classList.contains('active')) return;
 
-          if (e.key === 'Escape') {
-            closeLightbox();
-          } else if (e.key === 'ArrowLeft') {
-            navigateLightbox(-1);
-          } else if (e.key === 'ArrowRight') {
-            navigateLightbox(1);
-          } else if (e.key === 'Tab') {
-            // 取得目前 active 的控制元素
-            const activeElements = focusableElements.filter(el => el && el.style.display !== 'none');
-            if (activeElements.length === 0) return;
-
-            const firstEl = activeElements[0];
-            const lastEl = activeElements[activeElements.length - 1];
-
-            if (e.shiftKey) {
-              // Shift + Tab: 往前循環
-              if (document.activeElement === firstEl) {
-                lastEl.focus();
-                e.preventDefault();
-              }
-            } else {
-              // Tab: 往後循環
-              if (document.activeElement === lastEl) {
-                firstEl.focus();
-                e.preventDefault();
-              }
-            }
-          }
+          handleLightboxShortcut(e);
         });
 
         // 觸控滑動支援
