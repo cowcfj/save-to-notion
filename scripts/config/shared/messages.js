@@ -115,6 +115,9 @@ const OPTIONS = {
   SETTINGS: {
     SAVE_BUTTON: '儲存設定',
   },
+  DIAGNOSTICS: {
+    ENABLE_DEBUG_LOGS_LABEL: '啟用除錯日誌 (Debug Logs)',
+  },
   ABOUT: {
     SECTION_TITLE: '關於作者',
     PROFILE_TITLE: '個人介紹',

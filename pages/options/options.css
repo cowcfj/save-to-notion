@@ -50,6 +50,12 @@
   --text-muted: var(--color-text-muted);
 }
 
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif,
@@ -58,7 +64,6 @@ body {
   color: var(--text-primary);
   margin: 0;
   padding: 0;
-  height: 100vh;
   display: flex;
 }
 
@@ -67,6 +72,7 @@ body {
   display: flex;
   width: 100%;
   height: 100%;
+  overflow: hidden;
 }
 
 /* Sidebar */
@@ -174,6 +180,8 @@ body {
 .content-area {
   flex: 1;
   overflow-y: auto;
+  min-height: 0;
+  overscroll-behavior: contain;
   padding: var(--spacing-lg) 40px;
 }
 
@@ -247,6 +255,11 @@ body {
   font-weight: 500;
   margin-bottom: var(--spacing-xs);
   color: var(--text-primary);
+}
+
+.form-group .switch-wrapper {
+  display: inline-flex;
+  align-items: center;
 }
 
 .input-wrapper {

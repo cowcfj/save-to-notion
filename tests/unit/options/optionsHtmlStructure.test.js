@@ -3,8 +3,14 @@ import path from 'node:path';
 import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 
 const OPTIONS_HTML_PATH = path.resolve(__dirname, '../../../pages/options/options.html');
+const OPTIONS_CSS_PATH = path.resolve(__dirname, '../../../pages/options/options.css');
+const UI_PRIMITIVES_CSS_PATH = path.resolve(__dirname, '../../../styles/ui-primitives.css');
 
 const readOptionsHtml = () => fs.readFileSync(OPTIONS_HTML_PATH, 'utf8');
+
+const readOptionsCss = () => fs.readFileSync(OPTIONS_CSS_PATH, 'utf8');
+
+const readUiPrimitivesCss = () => fs.readFileSync(UI_PRIMITIVES_CSS_PATH, 'utf8');
 
 const parseOptionsHtml = html => new DOMParser().parseFromString(html, 'text/html');
 
@@ -36,6 +42,23 @@ const expectMissingElementAttribute = (doc, { selector, attribute }) => {
   const element = queryRequiredElement(doc, selector);
 
   expect(element.getAttribute(attribute)).toBeNull();
+};
+
+const expectSwitchControl = (doc, selector) => {
+  const input = queryRequiredElement(doc, selector);
+  const wrapper = input.closest('.switch-wrapper');
+  const track = input.nextElementSibling;
+
+  expect(input.tagName).toBe('INPUT');
+  expect(input.getAttribute('type')).toBe('checkbox');
+  expect(input.getAttribute('role')).toBe('switch');
+  expect(input.getAttribute('aria-checked')).toBe(input.checked ? 'true' : 'false');
+  expect(input.classList.contains('switch-input')).toBe(true);
+  expect(wrapper).not.toBeNull();
+  expect(track).not.toBeNull();
+  expect(track.classList.contains('switch-track')).toBe(true);
+  expect(track.getAttribute('aria-hidden')).toBe('true');
+  expect(track.querySelector('.switch-knob')).not.toBeNull();
 };
 
 describe('options.html 結構', () => {
@@ -210,6 +233,44 @@ describe('options.html 結構', () => {
     );
     expect(css).toMatch(
       /\.destination-profile-row\s*>\s*div:first-of-type\s*\{[^}]*min-width:\s*0;/
+    );
+  });
+
+  test('二元偏好設定應使用既有 switch primitive，並保留 migration checkbox 語意', () => {
+    const html = readOptionsHtml();
+    const doc = parseOptionsHtml(html);
+
+    ['#floating-rail-enabled', '#add-source', '#add-timestamp', '#enable-debug-logs'].forEach(
+      selector => {
+        expectSwitchControl(doc, selector);
+      }
+    );
+
+    const migrationSelectAll = queryRequiredElement(doc, '#migration-select-all');
+    expect(migrationSelectAll.getAttribute('type')).toBe('checkbox');
+    expect(migrationSelectAll.getAttribute('role')).toBeNull();
+    expect(migrationSelectAll.classList.contains('switch-input')).toBe(false);
+  });
+
+  test('Options layout 應限制 root overscroll，避免內容到底後拉出空白', () => {
+    const css = readOptionsCss();
+
+    expect(css).toMatch(/html,\s*body\s*\{[^}]*height:\s*100%;[^}]*overflow:\s*hidden;/);
+    expect(css).toMatch(/\.app-container\s*\{[^}]*height:\s*100%;[^}]*overflow:\s*hidden;/);
+    expect(css).toMatch(
+      /\.content-area\s*\{[^}]*overflow-y:\s*auto;[^}]*min-height:\s*0;[^}]*overscroll-behavior:\s*contain;/
+    );
+  });
+
+  test('Options switch row 應保留 primitive 間距並抵消 form label display 覆寫', () => {
+    const primitivesCss = readUiPrimitivesCss();
+    const optionsCss = readOptionsCss();
+
+    expect(primitivesCss).toMatch(
+      /\.switch-wrapper\s*\{[^}]*display:\s*inline-flex;[^}]*align-items:\s*center;[^}]*gap:\s*var\(--spacing-sm\);/
+    );
+    expect(optionsCss).toMatch(
+      /\.form-group\s+\.switch-wrapper\s*\{[^}]*display:\s*inline-flex;[^}]*align-items:\s*center;/
     );
   });
 });

@@ -122,6 +122,7 @@ export class AuthManager {
     this._bindAuthActionButtons();
     this._bindApiKeyDataSourceLoader();
     this._bindDebugToggle();
+    this._bindPreferenceSwitchAriaSync();
   }
 
   /**
@@ -256,6 +257,45 @@ export class AuthManager {
     }
 
     debugToggle.addEventListener('change', () => this._handleDebugToggleChange(debugToggle));
+  }
+
+  /**
+   * 綁定偏好設定 switch 的 ARIA state 同步。
+   *
+   * @private
+   */
+  _bindPreferenceSwitchAriaSync() {
+    [
+      this.elements.addSourceCheckbox,
+      this.elements.addTimestampCheckbox,
+      this.elements.floatingRailCheckbox,
+      this.elements.debugToggle,
+    ].forEach(input => this._bindSwitchAriaSync(input));
+  }
+
+  /**
+   * @private
+   * @param {HTMLInputElement|null} input
+   */
+  _bindSwitchAriaSync(input) {
+    if (!input) {
+      return;
+    }
+
+    this._syncSwitchAriaChecked(input);
+    input.addEventListener('change', () => this._syncSwitchAriaChecked(input));
+  }
+
+  /**
+   * @private
+   * @param {HTMLInputElement|null} input
+   */
+  _syncSwitchAriaChecked(input) {
+    if (!input) {
+      return;
+    }
+
+    input.setAttribute(AuthManager.ATTR_ARIA_CHECKED, input.checked ? 'true' : 'false');
   }
 
   /**
@@ -613,11 +653,15 @@ export class AuthManager {
       const rawVal = data[setting.prop];
       if (setting.type === 'value') {
         el.value = rawVal || setting.def;
-      } else if (setting.type === 'bool-true') {
+        continue;
+      }
+
+      if (setting.type === 'bool-true') {
         el.checked = rawVal !== false;
       } else {
         el.checked = Boolean(rawVal);
       }
+      this._syncSwitchAriaChecked(el);
     }
   }
 
