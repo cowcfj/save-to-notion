@@ -48,6 +48,7 @@ const NOTION_UUID_SEGMENT_LENGTH = 36;
 const NOTION_ID_SEGMENT_LENGTHS = new Set([NOTION_ID_LENGTH, NOTION_UUID_SEGMENT_LENGTH]);
 const NOTION_ID_HEX_DIGITS = new Set('0123456789abcdefABCDEF'.split(''));
 const ARIA_HIDDEN_ATTRIBUTE = 'aria-hidden';
+const TEMPLATE_STATUS_ID = 'template-status';
 let destinationProfilesUIController = null;
 
 function normalizeDestinationProfileName(value) {
@@ -395,7 +396,7 @@ function initializeAutosavePreferences(ui) {
     selector: '#add-source',
     storageKey: 'addSource',
     defaultValue: true,
-    statusId: 'template-status',
+    statusId: TEMPLATE_STATUS_ID,
   });
 
   // 6. Add Timestamp
@@ -404,7 +405,7 @@ function initializeAutosavePreferences(ui) {
     selector: '#add-timestamp',
     storageKey: 'addTimestamp',
     defaultValue: true,
-    statusId: 'template-status',
+    statusId: TEMPLATE_STATUS_ID,
   });
 
   // 7. Highlight Style
@@ -413,7 +414,7 @@ function initializeAutosavePreferences(ui) {
     selector: '#highlight-style',
     storageKey: 'highlightStyle',
     defaultValue: 'background',
-    statusId: 'template-status',
+    statusId: TEMPLATE_STATUS_ID,
     successMessage: UI_MESSAGES.OPTIONS.TEMPLATES.HIGHLIGHT_STYLE_SAVE_SUCCESS,
   });
 
@@ -423,7 +424,7 @@ function initializeAutosavePreferences(ui) {
     selector: '#highlight-content-style',
     storageKey: 'highlightContentStyle',
     defaultValue: 'COLOR_SYNC',
-    statusId: 'template-status',
+    statusId: TEMPLATE_STATUS_ID,
     successMessage: UI_MESSAGES.OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_SAVE_SUCCESS,
   });
 }
@@ -439,10 +440,10 @@ function bindTitleTemplateSaveButton(ui) {
         ui.showStatus(
           UI_MESSAGES.OPTIONS.TEMPLATES.TITLE_TEMPLATE_SAVE_SUCCESS,
           'success',
-          'template-status'
+          TEMPLATE_STATUS_ID
         );
       } catch {
-        ui.showStatus(UI_MESSAGES.SETTINGS.PREFERENCE_SAVE_FAILED, 'error', 'template-status');
+        ui.showStatus(UI_MESSAGES.SETTINGS.PREFERENCE_SAVE_FAILED, 'error', TEMPLATE_STATUS_ID);
       }
     });
   }
