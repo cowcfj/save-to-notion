@@ -413,20 +413,21 @@ describe('LogSanitizer', () => {
     });
 
     describe('Advanced Pattern Redaction', () => {
+      const syntheticJwt = ['eyJsyntheticHeader', 'syntheticPayload', 'syntheticSignature'].join(
+        '.'
+      );
+
       test('should redact embedded Bearer tokens in strings', () => {
-        const msg =
-          'Request failed with token: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
+        const msg = `Request failed with token: Bearer ${syntheticJwt}`;
         const sanitized = LogSanitizer.sanitize([{ message: msg }]);
-        expect(sanitized[0].message).not.toContain('eyJhbGci');
+        expect(sanitized[0].message).not.toContain(syntheticJwt);
         expect(sanitized[0].message).toContain('[REDACTED_AUTH_HEADER]');
       });
 
       test('should redact raw JWT tokens without Bearer prefix', () => {
-        const jwt =
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
-        const msg = `Token is ${jwt}`;
+        const msg = `Token is ${syntheticJwt}`;
         const sanitized = LogSanitizer.sanitize([{ message: msg }]);
-        expect(sanitized[0].message).not.toContain(jwt);
+        expect(sanitized[0].message).not.toContain(syntheticJwt);
         expect(sanitized[0].message).toContain('[REDACTED_JWT]');
       });
 
