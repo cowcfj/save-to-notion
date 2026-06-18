@@ -16,6 +16,7 @@ module.exports = {
   projects: [
     {
       displayName: 'unit',
+      cacheDirectory: '<rootDir>/.jest-cache',
       testEnvironment: 'jsdom',
       testMatch: [
         '<rootDir>/tests/unit/**/*.test.js',
@@ -34,6 +35,7 @@ module.exports = {
     },
     {
       displayName: 'integration',
+      cacheDirectory: '<rootDir>/.jest-cache',
       testEnvironment: 'jsdom',
       testMatch: [
         '<rootDir>/tests/integration/**/*.test.js',
