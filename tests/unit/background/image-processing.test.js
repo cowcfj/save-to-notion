@@ -148,6 +148,16 @@ describe('Background Image Processing', () => {
   });
 
   describe('isValidImageUrl', () => {
+    it('應該將空、非 HTTP(S) 與過長 URL 視為無效清理結果', () => {
+      // Act & Assert
+      expect(isInvalidCleanedImageUrlSimulated(null)).toBe(true);
+      expect(isInvalidCleanedImageUrlSimulated('ftp://example.com/image.jpg')).toBe(true);
+      expect(isInvalidCleanedImageUrlSimulated(`https://example.com/${'x'.repeat(2000)}.jpg`)).toBe(
+        true
+      );
+      expect(isInvalidCleanedImageUrlSimulated('https://example.com/image.jpg')).toBe(false);
+    });
+
     it('應該接受標準圖片 URL', () => {
       // Arrange
       const urls = [
@@ -573,6 +583,10 @@ function hasImagePathPatternSimulated(url) {
   return IMAGE_PATH_PATTERNS_SIMULATED.some(pattern => pattern.test(url));
 }
 
+function isInvalidCleanedImageUrlSimulated(url) {
+  return !url || !isHttpImageUrlSimulated(url) || url.length > 2000;
+}
+
 function isValidImageUrlSimulated(url) {
   if (!isNonEmptyStringSimulated(url)) {
     return false;
@@ -584,7 +598,7 @@ function isValidImageUrlSimulated(url) {
   }
 
   const cleanedUrl = cleanImageUrlSimulated(url);
-  if (!cleanedUrl || !isHttpImageUrlSimulated(cleanedUrl) || cleanedUrl.length > 2000) {
+  if (isInvalidCleanedImageUrlSimulated(cleanedUrl)) {
     return cacheImageValidationResultSimulated(cache, url, false);
   }
 
