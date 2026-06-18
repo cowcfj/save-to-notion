@@ -4,7 +4,23 @@
  */
 
 // Mock Chrome APIs
-const mockChrome = require('../../mocks/chrome');
+import mockChrome from '../../mocks/chrome';
+
+const DEFAULT_TAB_ID = 123;
+const ARTICLE_URL = 'https://example.com/article';
+const ARTICLE_STORAGE_KEY = `highlights_${ARTICLE_URL}`;
+const DEFAULT_CHANGE_INFO = { status: 'complete' };
+const DEFAULT_HIGHLIGHT = { text: 'test highlight', color: 'yellow' };
+const TRACKING_PARAMS = [
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_content',
+  'utm_term',
+  'fbclid',
+  'gclid',
+];
+
 globalThis.chrome = mockChrome;
 
 // Mock console methods
@@ -24,6 +40,176 @@ const mockInjectionService = {
 globalThis.injectionService = mockInjectionService;
 globalThis.migrateLegacyHighlights = jest.fn();
 
+function buildTab(overrides = {}) {
+  return {
+    id: DEFAULT_TAB_ID,
+    url: ARTICLE_URL,
+    ...overrides,
+  };
+}
+
+function buildTabWithoutUrl(overrides = {}) {
+  return {
+    id: DEFAULT_TAB_ID,
+    ...overrides,
+  };
+}
+
+function buildHighlightStorageRecord({
+  storageKey = ARTICLE_STORAGE_KEY,
+  highlights = [DEFAULT_HIGHLIGHT],
+} = {}) {
+  return {
+    [storageKey]: {
+      highlights,
+    },
+  };
+}
+
+function mockStorageLookup(result = {}) {
+  mockChrome.storage.local.get.mockImplementation((_keys, mockCb) => {
+    mockCb(result);
+  });
+}
+
+function mockStoredHighlights(options) {
+  mockStorageLookup(buildHighlightStorageRecord(options));
+}
+
+function resetChromeMocks() {
+  mockChrome._clearStorage();
+  mockChrome.tabs.onUpdated.addListener.mockClear();
+  mockStorageLookup();
+  mockChrome.storage.local.set.mockImplementation((_items, mockCb) => {
+    if (mockCb) {
+      mockCb();
+    }
+    return Promise.resolve();
+  });
+}
+
+function createNormalizeUrlMock() {
+  return jest.fn(rawUrl => {
+    try {
+      const url = new URL(rawUrl);
+      url.hash = '';
+      TRACKING_PARAMS.forEach(param => url.searchParams.delete(param));
+      if (url.pathname !== '/' && url.pathname.endsWith('/')) {
+        url.pathname = url.pathname.slice(0, -1);
+      }
+      return url.href;
+    } catch (error) {
+      console.error('URL 標準化失敗:', error);
+      return rawUrl;
+    }
+  });
+}
+
+function shouldProcessCompletedTab(changeInfo, tab) {
+  return changeInfo?.status === 'complete' && tab?.url;
+}
+
+function getStoredHighlights(storageKey) {
+  return new Promise(resolve => {
+    chrome.storage.local.get([storageKey], resolve);
+  });
+}
+
+async function restoreHighlightsForTab(tabId, tab, dependencies) {
+  const normUrl = dependencies.normalizeUrl(tab.url);
+  const storageKey = `highlights_${normUrl}`;
+  const result = await getStoredHighlights(storageKey);
+
+  if (!result[storageKey]) {
+    return;
+  }
+
+  await dependencies.migrateLegacyHighlights(tabId, normUrl, storageKey);
+  await globalThis.injectionService.injectHighlightRestore(tabId);
+}
+
+function createSetupTabListenersMock(dependencies) {
+  return jest.fn(() => {
+    chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+      try {
+        if (shouldProcessCompletedTab(changeInfo, tab)) {
+          await restoreHighlightsForTab(tabId, tab, dependencies);
+        }
+      } catch (error) {
+        console.error('標籤頁監聽器錯誤:', error);
+      }
+    });
+  });
+}
+
+function readLegacyHighlightsFromPage() {
+  const legacyKey = `highlights_${globalThis.location.href}`;
+  const legacyData = localStorage.getItem(legacyKey);
+
+  if (!legacyData) {
+    return { found: false };
+  }
+
+  try {
+    const highlights = JSON.parse(legacyData);
+    if (Array.isArray(highlights) && highlights.length > 0) {
+      localStorage.removeItem(legacyKey);
+
+      return {
+        found: true,
+        count: highlights.length,
+        data: highlights,
+      };
+    }
+  } catch (parseError) {
+    console.error('解析舊版標註數據失敗:', parseError);
+  }
+
+  return { found: false };
+}
+
+function buildMigratedHighlightRecord(result) {
+  return {
+    highlights: result.data,
+    migratedAt: Date.now(),
+    version: '2.8.0',
+  };
+}
+
+function createMigrateLegacyHighlightsMock() {
+  return jest.fn(async (tabId, normUrl, storageKey) => {
+    try {
+      const result = await globalThis.injectionService.injectWithResponse(
+        tabId,
+        readLegacyHighlightsFromPage
+      );
+
+      if (result?.found) {
+        await chrome.storage.local.set({
+          [storageKey]: buildMigratedHighlightRecord(result),
+        });
+      }
+    } catch (error) {
+      console.error('遷移舊版標註失敗:', error);
+    }
+  });
+}
+
+function getRegisteredTabUpdateListener(setupTabListeners) {
+  setupTabListeners();
+  return mockChrome.tabs.onUpdated.addListener.mock.calls[0][0];
+}
+
+async function dispatchTabUpdate({
+  setupTabListeners,
+  tabId = DEFAULT_TAB_ID,
+  changeInfo = DEFAULT_CHANGE_INFO,
+  tab = buildTab(),
+} = {}) {
+  const listener = getRegisteredTabUpdateListener(setupTabListeners);
+  return listener(tabId, changeInfo, tab);
+}
+
 describe('Background Tab Listeners', () => {
   /** @type {Function|null} 設置標籤頁監聽器的函數 */
   let setupTabListeners = null;
@@ -34,113 +220,13 @@ describe('Background Tab Listeners', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    resetChromeMocks();
 
-    // Reset Chrome API mocks
-    mockChrome.tabs.onUpdated.addListener.mockClear();
-    mockChrome.storage.local.get.mockImplementation((keys, mockCb) => {
-      mockCb({});
-    });
-
-    // 模擬 normalizeUrl 函數
-    normalizeUrl = jest.fn(rawUrl => {
-      try {
-        const url = new URL(rawUrl);
-        // 移除 hash
-        url.hash = '';
-        // 移除追蹤參數
-        const trackingParams = [
-          'utm_source',
-          'utm_medium',
-          'utm_campaign',
-          'utm_content',
-          'utm_term',
-          'fbclid',
-          'gclid',
-        ];
-        trackingParams.forEach(param => url.searchParams.delete(param));
-        // 標準化尾部斜杠
-        if (url.pathname !== '/' && url.pathname.endsWith('/')) {
-          url.pathname = url.pathname.slice(0, -1);
-        }
-        return url.href;
-      } catch (error) {
-        console.error('URL 標準化失敗:', error);
-        return rawUrl;
-      }
-    });
-
-    // 模擬 setupTabListeners 函數
-    setupTabListeners = jest.fn(() => {
-      chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-        try {
-          if (changeInfo.status === 'complete' && tab && tab.url) {
-            const normUrl = normalizeUrl(tab.url);
-            const storageKey = `highlights_${normUrl}`;
-
-            // 檢查是否有標註數據
-            // 將回調式 API 轉換為 Promise 以正確使用 await
-            const result = await new Promise(resolve => {
-              chrome.storage.local.get([storageKey], resolve);
-            });
-
-            if (result[storageKey]) {
-              // 檢查是否需要遷移舊版標註
-              await migrateLegacyHighlights(tabId, normUrl, storageKey);
-
-              // 注入標註恢復腳本
-              await globalThis.injectionService.injectHighlightRestore(tabId);
-            }
-          }
-        } catch (error) {
-          console.error('標籤頁監聽器錯誤:', error);
-        }
-      });
-    });
-
-    // 模擬 migrateLegacyHighlights 函數
-    migrateLegacyHighlights = jest.fn(async (tabId, normUrl, storageKey) => {
-      try {
-        const result = await globalThis.injectionService.injectWithResponse(tabId, () => {
-          // 檢查 localStorage 中是否有舊版標註
-          const legacyKey = `highlights_${globalThis.location.href}`;
-          const legacyData = localStorage.getItem(legacyKey);
-
-          if (legacyData) {
-            try {
-              const highlights = JSON.parse(legacyData);
-              if (Array.isArray(highlights) && highlights.length > 0) {
-                // 清理舊版數據
-                localStorage.removeItem(legacyKey);
-
-                return {
-                  found: true,
-                  count: highlights.length,
-                  data: highlights,
-                };
-              }
-            } catch (parseError) {
-              console.error('解析舊版標註數據失敗:', parseError);
-            }
-          }
-
-          return { found: false };
-        });
-
-        if (result?.found) {
-          // 將遷移的數據保存到 chrome.storage.local
-          const migratedData = {
-            highlights: result.data,
-            migratedAt: Date.now(),
-            version: '2.8.0',
-          };
-
-          chrome.storage.local.set({
-            [storageKey]: migratedData,
-          });
-        }
-      } catch (error) {
-        console.error('❌ 遷移舊版標註失敗:', error);
-      }
+    normalizeUrl = createNormalizeUrlMock();
+    migrateLegacyHighlights = createMigrateLegacyHighlightsMock();
+    setupTabListeners = createSetupTabListenersMock({
+      normalizeUrl,
+      migrateLegacyHighlights,
     });
   });
 
@@ -156,46 +242,25 @@ describe('Background Tab Listeners', () => {
 
     test('應該在頁面完成加載時檢查標註', async () => {
       // Arrange
-      const tabId = 123;
-      const tab = {
-        id: tabId,
-        url: 'https://example.com/article',
-      };
-      const changeInfo = { status: 'complete' };
-
-      mockChrome.storage.local.get.mockImplementation((keys, mockCb) => {
-        mockCb({
-          'highlights_https://example.com/article': {
-            highlights: [{ text: 'test highlight', color: 'yellow' }],
-          },
-        });
-      });
-
-      setupTabListeners();
-      const listener = mockChrome.tabs.onUpdated.addListener.mock.calls[0][0];
+      mockStoredHighlights();
 
       // Act
-      await listener(tabId, changeInfo, tab);
+      await dispatchTabUpdate({ setupTabListeners });
 
       // Assert
-      expect(normalizeUrl).toHaveBeenCalledWith('https://example.com/article');
+      expect(normalizeUrl).toHaveBeenCalledWith(ARTICLE_URL);
       expect(mockChrome.storage.local.get).toHaveBeenCalledWith(
-        ['highlights_https://example.com/article'],
+        [ARTICLE_STORAGE_KEY],
         expect.any(Function)
       );
     });
 
     test('應該跳過非完成狀態的頁面', async () => {
       // Arrange
-      const tabId = 123;
-      const tab = { id: tabId, url: 'https://example.com/article' };
       const changeInfo = { status: 'loading' };
 
-      setupTabListeners();
-      const listener = mockChrome.tabs.onUpdated.addListener.mock.calls[0][0];
-
       // Act
-      await listener(tabId, changeInfo, tab);
+      await dispatchTabUpdate({ setupTabListeners, changeInfo });
 
       // Assert
       expect(normalizeUrl).not.toHaveBeenCalled();
@@ -204,15 +269,10 @@ describe('Background Tab Listeners', () => {
 
     test('應該跳過沒有 URL 的標籤頁', async () => {
       // Arrange
-      const tabId = 123;
-      const tab = { id: tabId };
-      const changeInfo = { status: 'complete' };
-
-      setupTabListeners();
-      const listener = mockChrome.tabs.onUpdated.addListener.mock.calls[0][0];
+      const tab = buildTabWithoutUrl();
 
       // Act
-      await listener(tabId, changeInfo, tab);
+      await dispatchTabUpdate({ setupTabListeners, tab });
 
       // Assert
       expect(normalizeUrl).not.toHaveBeenCalled();
@@ -221,34 +281,18 @@ describe('Background Tab Listeners', () => {
 
     test('應該在有標註時注入恢復腳本', async () => {
       // Arrange
-      const tabId = 123;
-      const tab = { id: tabId, url: 'https://example.com/article' };
-      const changeInfo = { status: 'complete' };
-
-      mockChrome.storage.local.get.mockImplementation((keys, mockCb) => {
-        mockCb({
-          'highlights_https://example.com/article': {
-            highlights: [{ text: 'test highlight', color: 'yellow' }],
-          },
-        });
-      });
-
-      setupTabListeners();
-      const listener = mockChrome.tabs.onUpdated.addListener.mock.calls[0][0];
+      mockStoredHighlights();
 
       // Act
-      await listener(tabId, changeInfo, tab);
+      await dispatchTabUpdate({ setupTabListeners });
 
       // Assert
-      // 等待異步操作完成
-      await new Promise(resolve => setTimeout(resolve, 50));
-
-      // 檢查基本的調用
-      expect(normalizeUrl).toHaveBeenCalledWith('https://example.com/article');
+      expect(normalizeUrl).toHaveBeenCalledWith(ARTICLE_URL);
       expect(mockChrome.storage.local.get).toHaveBeenCalledWith(
-        ['highlights_https://example.com/article'],
+        [ARTICLE_STORAGE_KEY],
         expect.any(Function)
       );
+      expect(mockInjectionService.injectHighlightRestore).toHaveBeenCalledWith(DEFAULT_TAB_ID);
     });
   });
 
@@ -320,7 +364,7 @@ describe('Background Tab Listeners', () => {
       await migrateLegacyHighlights(tabId, normUrl, storageKey);
 
       // Assert
-      expect(console.error).toHaveBeenCalledWith('❌ 遷移舊版標註失敗:', expect.any(Error));
+      expect(console.error).toHaveBeenCalledWith('遷移舊版標註失敗:', expect.any(Error));
     });
 
     test('應該處理空的遷移結果', async () => {
@@ -396,18 +440,9 @@ describe('Background Tab Listeners', () => {
   describe('集成測試', () => {
     test('完整的標籤頁監聽流程應該正常工作', async () => {
       // Arrange
-      const tabId = 123;
-      const tab = { id: tabId, url: 'https://example.com/article?utm_source=google#section' };
-      const changeInfo = { status: 'complete' };
-
-      mockChrome.storage.local.get.mockImplementation((keys, mockCb) => {
-        // 立即調用回調
-        mockCb({
-          'highlights_https://example.com/article': {
-            highlights: [{ text: 'test highlight', color: 'yellow' }],
-          },
-        });
-      });
+      const trackedArticleUrl = 'https://example.com/article?utm_source=google#section';
+      const tab = buildTab({ url: trackedArticleUrl });
+      mockStoredHighlights();
 
       mockInjectionService.injectWithResponse.mockResolvedValue({
         found: true,
@@ -415,40 +450,20 @@ describe('Background Tab Listeners', () => {
         data: [{ text: 'legacy highlight', color: 'blue' }],
       });
 
-      setupTabListeners();
-      const listener = mockChrome.tabs.onUpdated.addListener.mock.calls[0][0];
-
       // Act
-      await listener(tabId, changeInfo, tab);
-
-      // 等待異步操作完成
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await dispatchTabUpdate({ setupTabListeners, tab });
 
       // Assert
-      expect(normalizeUrl).toHaveBeenCalledWith(
-        'https://example.com/article?utm_source=google#section'
-      );
+      expect(normalizeUrl).toHaveBeenCalledWith(trackedArticleUrl);
       expect(mockChrome.storage.local.get).toHaveBeenCalledWith(
-        ['highlights_https://example.com/article'],
+        [ARTICLE_STORAGE_KEY],
         expect.any(Function)
       );
     });
 
     test('沒有標註的頁面不應該觸發遷移和恢復', async () => {
-      // Arrange
-      const tabId = 123;
-      const tab = { id: tabId, url: 'https://example.com/article' };
-      const changeInfo = { status: 'complete' };
-
-      mockChrome.storage.local.get.mockImplementation((keys, mockCb) => {
-        mockCb({}); // 沒有標註數據
-      });
-
-      setupTabListeners();
-      const listener = mockChrome.tabs.onUpdated.addListener.mock.calls[0][0];
-
       // Act
-      await listener(tabId, changeInfo, tab);
+      await dispatchTabUpdate({ setupTabListeners });
 
       // Assert
       expect(migrateLegacyHighlights).not.toHaveBeenCalled();
@@ -458,20 +473,12 @@ describe('Background Tab Listeners', () => {
 
   describe('錯誤處理', () => {
     test('標籤頁監聽器應該處理異常', async () => {
-      // Arrange
-      const tabId = 123;
-      const tab = { id: tabId, url: 'https://example.com/article' };
-      const changeInfo = { status: 'complete' };
-
       normalizeUrl.mockImplementation(() => {
         throw new Error('Normalization error');
       });
 
-      setupTabListeners();
-      const listener = mockChrome.tabs.onUpdated.addListener.mock.calls[0][0];
-
       // Act & Assert
-      await expect(listener(tabId, changeInfo, tab)).resolves.toBeUndefined();
+      await expect(dispatchTabUpdate({ setupTabListeners })).resolves.toBeUndefined();
     });
 
     test('遷移函數應該處理存儲錯誤', async () => {

@@ -9,6 +9,9 @@ describe('Background Image Processing', () => {
     if (typeof urlValidationCache !== 'undefined') {
       urlValidationCache.clear();
     }
+    if (isValidImageUrlSimulated._cache) {
+      isValidImageUrlSimulated._cache.clear();
+    }
 
     // 重置 console mocks
     jest.spyOn(console, 'log').mockImplementation(() => {
@@ -27,6 +30,17 @@ describe('Background Image Processing', () => {
   });
 
   describe('cleanImageUrl', () => {
+    it('應該保留第一個重複查詢參數值', () => {
+      // Arrange
+      const searchParams = new URLSearchParams('width=800&height=600&width=1200');
+
+      // Act
+      const result = dedupeSearchParamsSimulated(searchParams);
+
+      // Assert
+      expect(result).toBe('width=800&height=600');
+    });
+
     it('應該返回有效的簡單圖片 URL', () => {
       // Arrange
       const url = 'https://example.com/image.jpg';
@@ -134,6 +148,16 @@ describe('Background Image Processing', () => {
   });
 
   describe('isValidImageUrl', () => {
+    it('應該將空、非 HTTP(S) 與過長 URL 視為無效清理結果', () => {
+      // Act & Assert
+      expect(isInvalidCleanedImageUrlSimulated(null)).toBe(true);
+      expect(isInvalidCleanedImageUrlSimulated('ftp://example.com/image.jpg')).toBe(true);
+      expect(isInvalidCleanedImageUrlSimulated(`https://example.com/${'x'.repeat(2000)}.jpg`)).toBe(
+        true
+      );
+      expect(isInvalidCleanedImageUrlSimulated('https://example.com/image.jpg')).toBe(false);
+    });
+
     it('應該接受標準圖片 URL', () => {
       // Arrange
       const urls = [
@@ -336,6 +360,17 @@ describe('Background Image Processing', () => {
   });
 
   describe('splitTextForHighlight', () => {
+    it('應該優先在段落分隔處切分', () => {
+      // Arrange
+      const text = `Paragraph one.\n\nParagraph two ${'A'.repeat(80)}`;
+
+      // Act
+      const result = findHighlightSplitIndexSimulated(text, 25);
+
+      // Assert
+      expect(result).toBe('Paragraph one.\n\n'.length);
+    });
+
     it('應該返回短文本不變', () => {
       // Arrange
       const shortText = 'This is a short text.';
@@ -457,30 +492,65 @@ describe('Background Image Processing', () => {
 /**
  * 模擬的圖片處理函數（用於測試）
  */
+const IMAGE_EXTENSION_PATTERN_SIMULATED =
+  /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)(?:\?.*)?$/i;
+const IMAGE_PATH_PATTERNS_SIMULATED = [
+  /\/images?\//i,
+  /\/imgs?\//i,
+  /\/photos?\//i,
+  /\/pictures?\//i,
+  /\/media\//i,
+  /\/uploads?\//i,
+  /\/assets?\//i,
+  /\/files?\//i,
+];
+const EXCLUDE_PATTERNS_SIMULATED = [
+  /\.(js|css|html|htm|php|asp|jsp)(\?|$)/i,
+  /\/api\//i,
+  /\/ajax\//i,
+  /\/callback/i,
+];
+const HIGHLIGHT_SPLIT_PUNCTUATION_SIMULATED = ['\n\n', '\n', '。', '.', '？', '?', '！', '!'];
+
+function isNonEmptyStringSimulated(value) {
+  return typeof value === 'string' && value.length > 0;
+}
+
+function isProxyImageUrlPathSimulated(pathname) {
+  return pathname.includes('/photo.php') || pathname.includes('/gw/');
+}
+
+function extractProxyTargetUrlSimulated(urlObj) {
+  if (!isProxyImageUrlPathSimulated(urlObj.pathname)) {
+    return null;
+  }
+
+  const uParam = urlObj.searchParams.get('u');
+  return /^https?:\/\//.test(uParam) ? uParam : null;
+}
+
+function dedupeSearchParamsSimulated(searchParams) {
+  const params = new URLSearchParams();
+  for (const [key, value] of searchParams.entries()) {
+    if (!params.has(key)) {
+      params.set(key, value);
+    }
+  }
+  return params.toString();
+}
+
 function cleanImageUrlSimulated(url) {
-  if (!url || typeof url !== 'string') {
+  if (!isNonEmptyStringSimulated(url)) {
     return null;
   }
 
   try {
     const urlObj = new URL(url);
-
-    // 處理代理 URL
-    if (urlObj.pathname.includes('/photo.php') || urlObj.pathname.includes('/gw/')) {
-      const uParam = urlObj.searchParams.get('u');
-      if (uParam?.match(/^https?:\/\//)) {
-        return cleanImageUrlSimulated(uParam);
-      }
+    const proxyTargetUrl = extractProxyTargetUrlSimulated(urlObj);
+    if (proxyTargetUrl) {
+      return cleanImageUrlSimulated(proxyTargetUrl);
     }
-
-    // 移除重複的查詢參數
-    const params = new URLSearchParams();
-    for (const [key, value] of urlObj.searchParams.entries()) {
-      if (!params.has(key)) {
-        params.set(key, value);
-      }
-    }
-    urlObj.search = params.toString();
+    urlObj.search = dedupeSearchParamsSimulated(urlObj.searchParams);
 
     return urlObj.href;
   } catch {
@@ -488,67 +558,59 @@ function cleanImageUrlSimulated(url) {
   }
 }
 
+function getImageValidationCacheSimulated() {
+  return isValidImageUrlSimulated._cache || (isValidImageUrlSimulated._cache = new Map());
+}
+
+function cacheImageValidationResultSimulated(cache, url, isValid) {
+  cacheValidationResultSimulated(cache, url, isValid);
+  return isValid;
+}
+
+function isHttpImageUrlSimulated(url) {
+  return /^https?:\/\//i.test(url);
+}
+
+function hasSupportedImageExtensionSimulated(url) {
+  return IMAGE_EXTENSION_PATTERN_SIMULATED.test(url);
+}
+
+function isExcludedImageUrlSimulated(url) {
+  return EXCLUDE_PATTERNS_SIMULATED.some(pattern => pattern.test(url));
+}
+
+function hasImagePathPatternSimulated(url) {
+  return IMAGE_PATH_PATTERNS_SIMULATED.some(pattern => pattern.test(url));
+}
+
+function isInvalidCleanedImageUrlSimulated(url) {
+  return !url || !isHttpImageUrlSimulated(url) || url.length > 2000;
+}
+
 function isValidImageUrlSimulated(url) {
-  if (!url || typeof url !== 'string') {
+  if (!isNonEmptyStringSimulated(url)) {
     return false;
   }
 
-  // 簡化的緩存實現
-  const cache = isValidImageUrlSimulated._cache || (isValidImageUrlSimulated._cache = new Map());
-
+  const cache = getImageValidationCacheSimulated();
   if (cache.has(url)) {
     return cache.get(url);
   }
 
   const cleanedUrl = cleanImageUrlSimulated(url);
-  if (!cleanedUrl) {
-    cache.set(url, false);
-    return false;
+  if (isInvalidCleanedImageUrlSimulated(cleanedUrl)) {
+    return cacheImageValidationResultSimulated(cache, url, false);
   }
 
-  if (!/^https?:\/\//i.test(cleanedUrl)) {
-    cache.set(url, false);
-    return false;
+  if (hasSupportedImageExtensionSimulated(cleanedUrl)) {
+    return cacheImageValidationResultSimulated(cache, url, true);
   }
 
-  if (cleanedUrl.length > 2000) {
-    cache.set(url, false);
-    return false;
+  if (isExcludedImageUrlSimulated(cleanedUrl)) {
+    return cacheImageValidationResultSimulated(cache, url, false);
   }
 
-  const imageExtensions =
-    /\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico|tiff|tif|avif|heic|heif)(?:\?.*)?$/i;
-  if (imageExtensions.test(cleanedUrl)) {
-    cache.set(url, true);
-    return true;
-  }
-
-  const imagePathPatterns = [
-    /\/images?\//i,
-    /\/imgs?\//i,
-    /\/photos?\//i,
-    /\/pictures?\//i,
-    /\/media\//i,
-    /\/uploads?\//i,
-    /\/assets?\//i,
-    /\/files?\//i,
-  ];
-
-  const excludePatterns = [
-    /\.(js|css|html|htm|php|asp|jsp)(\?|$)/i,
-    /\/api\//i,
-    /\/ajax\//i,
-    /\/callback/i,
-  ];
-
-  if (excludePatterns.some(pattern => pattern.test(cleanedUrl))) {
-    cache.set(url, false);
-    return false;
-  }
-
-  const result = imagePathPatterns.some(pattern => pattern.test(cleanedUrl));
-  cache.set(url, result);
-  return result;
+  return cacheImageValidationResultSimulated(cache, url, hasImagePathPatternSimulated(cleanedUrl));
 }
 
 function cacheValidationResultSimulated(cache, url, isValid, maxSize = 1000) {
@@ -557,6 +619,31 @@ function cacheValidationResultSimulated(cache, url, isValid, maxSize = 1000) {
     cache.delete(firstKey);
   }
   cache.set(url, isValid);
+}
+
+function findPunctuationSplitIndexSimulated(text, maxLength) {
+  for (const punct of HIGHLIGHT_SPLIT_PUNCTUATION_SIMULATED) {
+    const lastIndex = text.lastIndexOf(punct, maxLength);
+    if (lastIndex > maxLength * 0.5) {
+      return lastIndex + punct.length;
+    }
+  }
+
+  return -1;
+}
+
+function findHighlightSplitIndexSimulated(text, maxLength) {
+  const punctuationSplitIndex = findPunctuationSplitIndexSimulated(text, maxLength);
+  if (punctuationSplitIndex !== -1) {
+    return punctuationSplitIndex;
+  }
+
+  const whitespaceSplitIndex = text.lastIndexOf(' ', maxLength);
+  if (whitespaceSplitIndex > maxLength * 0.5) {
+    return whitespaceSplitIndex;
+  }
+
+  return maxLength;
 }
 
 function splitTextForHighlightSimulated(text, maxLength = 2000) {
@@ -573,24 +660,7 @@ function splitTextForHighlightSimulated(text, maxLength = 2000) {
       break;
     }
 
-    let splitIndex = -1;
-    const punctuation = ['\n\n', '\n', '。', '.', '？', '?', '！', '!'];
-
-    for (const punct of punctuation) {
-      const lastIndex = remaining.lastIndexOf(punct, maxLength);
-      if (lastIndex > maxLength * 0.5) {
-        splitIndex = lastIndex + punct.length;
-        break;
-      }
-    }
-
-    if (splitIndex === -1) {
-      splitIndex = remaining.lastIndexOf(' ', maxLength);
-      if (splitIndex === -1 || splitIndex < maxLength * 0.5) {
-        splitIndex = maxLength;
-      }
-    }
-
+    const splitIndex = findHighlightSplitIndexSimulated(remaining, maxLength);
     chunks.push(remaining.slice(0, Math.max(0, splitIndex)).trim());
     remaining = remaining.slice(Math.max(0, splitIndex)).trim();
   }

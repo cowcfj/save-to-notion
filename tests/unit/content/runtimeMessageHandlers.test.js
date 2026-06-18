@@ -31,6 +31,35 @@ function createRouter(overrides = {}) {
   };
 }
 
+function runSetStableUrlRequest({ stableUrl, routerOverrides = {} }) {
+  const { handler, dependencies } = createRouter(routerOverrides);
+  const sendResponse = jest.fn();
+
+  const result = handler(
+    { action: CONTENT_BRIDGE_ACTIONS.SET_STABLE_URL, stableUrl },
+    {},
+    sendResponse
+  );
+
+  return { result, dependencies, sendResponse };
+}
+
+function expectSetStableUrlRejected({ result, dependencies, sendResponse, expectedLogMessage }) {
+  expect(result).toBe(true);
+  expect(dependencies.setStableUrl).not.toHaveBeenCalled();
+  expect(sendResponse).toHaveBeenCalledWith({
+    success: false,
+    error: 'INVALID_STABLE_URL',
+  });
+  expect(dependencies.logger.debug).toHaveBeenCalledWith(
+    expectedLogMessage,
+    expect.objectContaining({
+      action: 'setStableUrl',
+      result: 'rejected',
+    })
+  );
+}
+
 describe('content runtime message router', () => {
   test.each([null, undefined, 'PING', 42, true, {}])(
     'malformed request %p returns false without response',
@@ -67,55 +96,36 @@ describe('content runtime message router', () => {
   });
 
   test('SET_STABLE_URL invalid input responds with INVALID_STABLE_URL', () => {
-    const { handler, dependencies } = createRouter({
-      getStableUrl: jest.fn(() => 'https://example.com/old'),
-    });
-    const sendResponse = jest.fn();
+    expect.assertions(4);
 
-    const result = handler(
-      { action: CONTENT_BRIDGE_ACTIONS.SET_STABLE_URL, stableUrl: 'https://example.com/' },
-      {},
-      sendResponse
-    );
-
-    expect(result).toBe(true);
-    expect(dependencies.setStableUrl).not.toHaveBeenCalled();
-    expect(sendResponse).toHaveBeenCalledWith({
-      success: false,
-      error: 'INVALID_STABLE_URL',
+    const { result, dependencies, sendResponse } = runSetStableUrlRequest({
+      stableUrl: 'https://example.com/',
+      routerOverrides: {
+        getStableUrl: jest.fn(() => 'https://example.com/old'),
+      },
     });
-    expect(dependencies.logger.debug).toHaveBeenCalledWith(
-      '拒絕設置首頁 URL 為穩定 URL',
-      expect.objectContaining({
-        action: 'setStableUrl',
-        result: 'rejected',
-      })
-    );
+
+    expectSetStableUrlRejected({
+      result,
+      dependencies,
+      sendResponse,
+      expectedLogMessage: '拒絕設置首頁 URL 為穩定 URL',
+    });
   });
 
   test('SET_STABLE_URL malformed URL logs rejected result', () => {
-    const { handler, dependencies } = createRouter();
-    const sendResponse = jest.fn();
+    expect.assertions(4);
 
-    const result = handler(
-      { action: CONTENT_BRIDGE_ACTIONS.SET_STABLE_URL, stableUrl: 'not-a-url' },
-      {},
-      sendResponse
-    );
-
-    expect(result).toBe(true);
-    expect(dependencies.setStableUrl).not.toHaveBeenCalled();
-    expect(sendResponse).toHaveBeenCalledWith({
-      success: false,
-      error: 'INVALID_STABLE_URL',
+    const { result, dependencies, sendResponse } = runSetStableUrlRequest({
+      stableUrl: 'not-a-url',
     });
-    expect(dependencies.logger.debug).toHaveBeenCalledWith(
-      '拒絕設置無效 URL 為穩定 URL',
-      expect.objectContaining({
-        action: 'setStableUrl',
-        result: 'rejected',
-      })
-    );
+
+    expectSetStableUrlRejected({
+      result,
+      dependencies,
+      sendResponse,
+      expectedLogMessage: '拒絕設置無效 URL 為穩定 URL',
+    });
   });
 
   test('SET_STABLE_URL valid input updates stable URL', () => {
@@ -264,7 +274,7 @@ describe('content runtime message router', () => {
       [CONTENT_BRIDGE_ACTIONS.SHOW_TOAST, 'fire-and-forget'],
     ]);
 
-    expect([...handledContracts.keys()].toSorted()).toEqual(
+    expect([...handledContracts.keys()].toSorted((a, b) => a.localeCompare(b))).toEqual(
       [
         CONTENT_BRIDGE_ACTIONS.PING,
         CONTENT_BRIDGE_ACTIONS.SET_STABLE_URL,
@@ -272,7 +282,7 @@ describe('content runtime message router', () => {
         CONTENT_BRIDGE_ACTIONS.INIT_BUNDLE,
         CONTENT_BRIDGE_ACTIONS.SHOW_FLOATING_RAIL,
         CONTENT_BRIDGE_ACTIONS.SHOW_TOAST,
-      ].toSorted()
+      ].toSorted((a, b) => a.localeCompare(b))
     );
     expect(handledContracts.get(CONTENT_BRIDGE_ACTIONS.SHOW_TOAST)).toBe('fire-and-forget');
   });
