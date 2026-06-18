@@ -8,6 +8,59 @@ import { NextJsExtractor } from '../../../../scripts/content/extractors/NextJsEx
 import { NEXTJS_CONFIG } from '../../../../scripts/config/shared/content.js';
 import yahooNewsRscFixture from '../../../fixtures/json/nextjs-rsc-yahoo-news.json';
 
+const DEFAULT_ORIGIN = 'https://example.com';
+const DEFAULT_NEXT_DATA_BUILD_ID = 'build123';
+const HK01_ORIGIN = 'https://www.hk01.com';
+const HK01_ARTICLE_PATH = '/news/60330394/abc';
+const HK01_ARTICLE_URL = `${HK01_ORIGIN}${HK01_ARTICLE_PATH}`;
+const HK01_NEXT_DATA_URL = `${HK01_ORIGIN}/_next/data/${DEFAULT_NEXT_DATA_BUILD_ID}${HK01_ARTICLE_PATH}.json`;
+
+function hasUrlScheme(url) {
+  return /^[a-zA-Z][\w+.-]*:/.test(url);
+}
+
+function isRelativeUrl(url) {
+  return /^(?:[/?#]|\.\.?\/)/.test(url) || (!hasUrlScheme(url) && url.includes('/'));
+}
+
+function getMockBaseOrigin(baseOrigin) {
+  return baseOrigin || 'http://localhost';
+}
+
+function mockSanitizeUrlForLogging(url, baseOrigin = 'http://localhost') {
+  if (url == null || url === '') {
+    return '[empty-url]';
+  }
+
+  if (!hasUrlScheme(url) && !isRelativeUrl(url)) {
+    return '[invalid-url]';
+  }
+
+  return new URL(url, getMockBaseOrigin(baseOrigin)).toString();
+}
+
+const buildParagraphBlock = text => ({ blockType: 'paragraph', text });
+const buildParagraphBlocks = (...texts) => texts.map(text => buildParagraphBlock(text));
+const buildThreeParagraphs = (first = 'Para 1', second = 'Para 2', third = 'Para 3') =>
+  buildParagraphBlocks(first, second, third);
+const buildThreeParagraphArticle = (title, texts) => ({
+  title,
+  blocks: buildThreeParagraphs(...(texts || [])),
+});
+const buildArticlePayload = article => ({
+  pageProps: { article },
+});
+const buildFetchResponse = article => ({
+  ok: true,
+  json: async () => buildArticlePayload(article),
+});
+const getSanitizedPageContext = ({ page, asPath }, origin, currentPath) => ({
+  action: '_validatePagesRouterData',
+  page: sanitizeUrlForLogging(page, origin),
+  asPath: sanitizeUrlForLogging(asPath, origin),
+  currentPath: sanitizeUrlForLogging(currentPath, origin),
+});
+
 // Mock Logger to avoid cluttering test output
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
@@ -24,24 +77,7 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
 }));
 
 jest.mock('../../../../scripts/utils/LogSanitizer.js', () => ({
-  sanitizeUrlForLogging: jest.fn((url, baseOrigin = 'http://localhost') => {
-    if (url == null || url === '') {
-      return '[empty-url]';
-    }
-
-    const hasScheme = /^[a-zA-Z][\w+.-]*:/.test(url);
-    const isRelative = /^(?:[/?#]|\.\.?\/)/.test(url) || (!hasScheme && url.includes('/'));
-
-    if (hasScheme) {
-      return new URL(url).toString();
-    }
-
-    if (isRelative) {
-      return new URL(url, baseOrigin || 'http://localhost').toString();
-    }
-
-    return '[invalid-url]';
-  }),
+  sanitizeUrlForLogging: jest.fn(mockSanitizeUrlForLogging),
 }));
 
 describe('NextJsExtractor', () => {
@@ -57,7 +93,7 @@ describe('NextJsExtractor', () => {
   const buildStaleNextData = (overrides = {}) => ({
     page: '/',
     asPath: '/',
-    buildId: 'build123',
+    buildId: DEFAULT_NEXT_DATA_BUILD_ID,
     props: { initialProps: { pageProps: {} } },
     ...overrides,
   });
@@ -71,6 +107,56 @@ describe('NextJsExtractor', () => {
   const buildRouterComponentValue = pageProps => ({
     props: { initialProps: { pageProps } },
   });
+  const buildRouterArticleComponent = (title, blocks = []) =>
+    buildRouterComponentValue({
+      article: { title, blocks },
+    });
+
+  const setNextDataScript = json => {
+    mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(json) });
+  };
+
+  const setLocation = ({ origin = DEFAULT_ORIGIN, pathname = '/', href } = {}) => {
+    mockDoc.defaultView.location.origin = origin;
+    mockDoc.defaultView.location.pathname = pathname;
+    if (href !== undefined) {
+      mockDoc.defaultView.location.href = href;
+    }
+  };
+
+  const mockFetchArticleResponse = article => {
+    globalThis.fetch = jest.fn().mockResolvedValue(buildFetchResponse(article));
+  };
+  const mockFetchThreeParagraphArticle = (title, texts) => {
+    mockFetchArticleResponse(buildThreeParagraphArticle(title, texts));
+  };
+
+  const expectSanitizedPageLog = (loggerMethod, message, mockJson) => {
+    expect(loggerMethod).toHaveBeenCalledWith(
+      message,
+      getSanitizedPageContext(
+        mockJson,
+        mockDoc.defaultView.location.origin,
+        mockDoc.defaultView.location.pathname
+      )
+    );
+  };
+  const expectExtractedTitle = (result, title) => {
+    expect(result).not.toBeNull();
+    expect(result.metadata.title).toBe(title);
+  };
+  const setHk01ArticleLocation = href => {
+    setLocation({
+      origin: HK01_ORIGIN,
+      pathname: HK01_ARTICLE_PATH,
+      href: href || HK01_ARTICLE_URL,
+    });
+  };
+  const setStaleNextDataScript = overrides => {
+    const staleJson = buildStaleNextData(overrides);
+    setNextDataScript(staleJson);
+    return staleJson;
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -79,7 +165,7 @@ describe('NextJsExtractor', () => {
       getElementById: jest.fn(),
       querySelector: jest.fn(),
       querySelectorAll: jest.fn().mockReturnValue([]),
-      defaultView: { location: { origin: 'https://example.com', pathname: '/' } },
+      defaultView: { location: { origin: DEFAULT_ORIGIN, pathname: '/' } },
     };
   });
 
@@ -137,18 +223,14 @@ describe('NextJsExtractor', () => {
         { asPath: '/old-article', page: '/article' }
       );
 
-      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
+      setNextDataScript(mockJson);
       expect(NextJsExtractor.extract(mockDoc)).toBeNull();
 
-      expect(Logger.warn).toHaveBeenCalledWith('SPA 導航偵測：__NEXT_DATA__.asPath 數據已過時', {
-        action: '_validatePagesRouterData',
-        page: sanitizeUrlForLogging(mockJson.page, mockDoc.defaultView.location.origin),
-        asPath: sanitizeUrlForLogging(mockJson.asPath, mockDoc.defaultView.location.origin),
-        currentPath: sanitizeUrlForLogging(
-          mockDoc.defaultView.location.pathname,
-          mockDoc.defaultView.location.origin
-        ),
-      });
+      expectSanitizedPageLog(
+        Logger.warn,
+        'SPA 導航偵測：__NEXT_DATA__.asPath 數據已過時',
+        mockJson
+      );
     });
 
     it('should sanitize SPA home-page log context keys with the same shape', () => {
@@ -159,20 +241,13 @@ describe('NextJsExtractor', () => {
         { asPath: '/', page: '/' }
       );
 
-      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
+      setNextDataScript(mockJson);
       expect(NextJsExtractor.extract(mockDoc)).toBeNull();
 
-      expect(Logger.info).toHaveBeenCalledWith(
+      expectSanitizedPageLog(
+        Logger.info,
         'SPA 導航偵測：__NEXT_DATA__ 為首頁資料，跳過結構化提取',
-        {
-          action: '_validatePagesRouterData',
-          page: sanitizeUrlForLogging(mockJson.page, mockDoc.defaultView.location.origin),
-          asPath: sanitizeUrlForLogging(mockJson.asPath, mockDoc.defaultView.location.origin),
-          currentPath: sanitizeUrlForLogging(
-            mockDoc.defaultView.location.pathname,
-            mockDoc.defaultView.location.origin
-          ),
-        }
+        mockJson
       );
     });
 
@@ -180,17 +255,10 @@ describe('NextJsExtractor', () => {
       const path = '/%E7%A4%BE%E6%9C%83%E6%96%B0%E8%81%9E/60320801/article-slug';
       mockDoc.defaultView.location.pathname = path;
 
-      const mockJson = buildPagesRouterData(
-        {
-          title: 'Same Article',
-          blocks: [
-            { blockType: 'paragraph', text: 'Para 1' },
-            { blockType: 'paragraph', text: 'Para 2' },
-            { blockType: 'paragraph', text: 'Para 3' },
-          ],
-        },
-        { asPath: path, page: '/article' }
-      );
+      const mockJson = buildPagesRouterData(buildThreeParagraphArticle('Same Article'), {
+        asPath: path,
+        page: '/article',
+      });
 
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
       const result = NextJsExtractor.extract(mockDoc);
@@ -217,17 +285,9 @@ describe('NextJsExtractor', () => {
       mockDoc.defaultView.location.pathname = '/current-article';
       mockDoc.title = 'Current Article Title | HK01';
 
-      const mockJson = buildPagesRouterData(
-        {
-          title: 'Current Article Title',
-          blocks: [
-            { blockType: 'paragraph', text: 'Para 1' },
-            { blockType: 'paragraph', text: 'Para 2' },
-            { blockType: 'paragraph', text: 'Para 3' },
-          ],
-        },
-        { page: '/article' }
-      );
+      const mockJson = buildPagesRouterData(buildThreeParagraphArticle('Current Article Title'), {
+        page: '/article',
+      });
 
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
       const result = NextJsExtractor.extract(mockDoc);
@@ -240,17 +300,9 @@ describe('NextJsExtractor', () => {
       mockDoc.defaultView.location.pathname = '/brief';
       mockDoc.title = 'Different Title'; // 即使不匹配
 
-      const mockJson = buildPagesRouterData(
-        {
-          title: 'HK01',
-          blocks: [
-            { blockType: 'paragraph', text: 'Para 1' },
-            { blockType: 'paragraph', text: 'Para 2' },
-            { blockType: 'paragraph', text: 'Para 3' },
-          ],
-        },
-        { page: '/article' }
-      );
+      const mockJson = buildPagesRouterData(buildThreeParagraphArticle('HK01'), {
+        page: '/article',
+      });
 
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
       expect(NextJsExtractor.extract(mockDoc)).not.toBeNull();
@@ -260,17 +312,9 @@ describe('NextJsExtractor', () => {
       delete mockDoc.defaultView;
       mockDoc.title = 'Same Title';
 
-      const mockJson = buildPagesRouterData(
-        {
-          title: 'Same Title',
-          blocks: [
-            { blockType: 'paragraph', text: 'Para 1' },
-            { blockType: 'paragraph', text: 'Para 2' },
-            { blockType: 'paragraph', text: 'Para 3' },
-          ],
-        },
-        { page: '/article' }
-      );
+      const mockJson = buildPagesRouterData(buildThreeParagraphArticle('Same Title'), {
+        page: '/article',
+      });
 
       mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
       expect(NextJsExtractor.extract(mockDoc)).not.toBeNull();
@@ -549,26 +593,20 @@ describe('NextJsExtractor', () => {
 
     it('stale 時優先從 router 組件提取，不呼叫 fetch', async () => {
       // 模擬：__NEXT_DATA__ 為首頁資料 (stale)，router.components 有最新文章數據
-      mockDoc.defaultView.location.origin = 'https://www.hk01.com';
-      mockDoc.defaultView.location.pathname = '/news/60330394/abc';
-      mockDoc.defaultView.location.href = 'https://www.hk01.com/news/60330394/abc';
+      setHk01ArticleLocation();
       mockDoc.title = 'Router Article | HK01';
 
       // __NEXT_DATA__ 為首頁 (stale)
-      const staleJson = buildStaleNextData();
-      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(staleJson) });
+      setStaleNextDataScript();
 
       // 模擬 window.next.router.components 含有最新文章數據
       mockDoc.defaultView.next = buildRouterComponents({
         '/article': buildRouterComponentValue({
-          article: {
-            title: 'Router Article',
-            blocks: [
-              { blockType: 'paragraph', text: 'Para 1 from router' },
-              { blockType: 'paragraph', text: 'Para 2 from router' },
-              { blockType: 'paragraph', text: 'Para 3 from router' },
-            ],
-          },
+          article: buildThreeParagraphArticle('Router Article', [
+            'Para 1 from router',
+            'Para 2 from router',
+            'Para 3 from router',
+          ]),
         }),
       });
 
@@ -577,16 +615,17 @@ describe('NextJsExtractor', () => {
       const result = await NextJsExtractor.extractAsync(mockDoc);
 
       expect(globalThis.fetch).not.toHaveBeenCalled();
-      expect(result).not.toBeNull();
-      expect(result.metadata.title).toBe('Router Article');
+      expectExtractedTitle(result, 'Router Article');
       expect(result.blocks.length).toBeGreaterThanOrEqual(3);
     });
 
     it('router 數據標題不匹配時回退到 _fetchNextData', async () => {
       // 模擬：router.components 有過時數據，document.title 是新文章
-      mockDoc.defaultView.location.origin = 'https://www.hk01.com';
-      mockDoc.defaultView.location.pathname = '/news/new-article';
-      mockDoc.defaultView.location.href = 'https://www.hk01.com/news/new-article';
+      setLocation({
+        origin: HK01_ORIGIN,
+        pathname: '/news/new-article',
+        href: `${HK01_ORIGIN}/news/new-article`,
+      });
       mockDoc.title = 'Correct New Article | HK01'; // 與 router 數據的標題不符
 
       // __NEXT_DATA__ 為首頁 (stale)
@@ -595,128 +634,57 @@ describe('NextJsExtractor', () => {
         buildId: 'build456',
         props: { initialProps: { pageProps: {} } },
       };
-      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(staleJson) });
+      setNextDataScript(staleJson);
 
       // router 含有舊文章的數據（標題與 document.title 不符）
       mockDoc.defaultView.next = buildRouterComponents({
         '/article': buildRouterComponentValue({
-          article: {
-            title: 'Old Stale Router Article',
-            blocks: [
-              { blockType: 'paragraph', text: 'Old 1' },
-              { blockType: 'paragraph', text: 'Old 2' },
-              { blockType: 'paragraph', text: 'Old 3' },
-            ],
-          },
+          article: buildThreeParagraphArticle('Old Stale Router Article', [
+            'Old 1',
+            'Old 2',
+            'Old 3',
+          ]),
         }),
       });
 
       // fetch 回傳正確的新文章數據
-      globalThis.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          pageProps: {
-            article: {
-              title: 'Correct New Article',
-              blocks: [
-                { blockType: 'paragraph', text: 'New 1' },
-                { blockType: 'paragraph', text: 'New 2' },
-                { blockType: 'paragraph', text: 'New 3' },
-              ],
-            },
-          },
-        }),
-      });
+      mockFetchThreeParagraphArticle('Correct New Article', ['New 1', 'New 2', 'New 3']);
 
       const result = await NextJsExtractor.extractAsync(mockDoc);
 
       // 應回退到 fetch 並取得正確數據
       expect(globalThis.fetch).toHaveBeenCalled();
-      expect(result).not.toBeNull();
-      expect(result.metadata.title).toBe('Correct New Article');
+      expectExtractedTitle(result, 'Correct New Article');
     });
 
     it('stale 時嘗試使用 _next/data 並成功提取', async () => {
-      mockDoc.defaultView.location.origin = 'https://www.hk01.com';
-      mockDoc.defaultView.location.pathname = '/news/60330394/abc';
-      mockDoc.defaultView.location.href = 'https://www.hk01.com/news/60330394/abc';
-
-      const mockJson = buildStaleNextData();
-
-      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
-
-      globalThis.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          pageProps: {
-            article: {
-              title: 'OK',
-              blocks: [
-                { blockType: 'paragraph', text: 'One' },
-                { blockType: 'paragraph', text: 'Two' },
-                { blockType: 'paragraph', text: 'Three' },
-              ],
-            },
-          },
-        }),
-      });
+      setHk01ArticleLocation();
+      setStaleNextDataScript();
+      mockFetchThreeParagraphArticle('OK', ['One', 'Two', 'Three']);
 
       const result = await NextJsExtractor.extractAsync(mockDoc);
 
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        'https://www.hk01.com/_next/data/build123/news/60330394/abc.json',
-        expect.any(Object)
-      );
-      expect(result).not.toBeNull();
-      expect(result.metadata.title).toBe('OK');
+      expect(globalThis.fetch).toHaveBeenCalledWith(HK01_NEXT_DATA_URL, expect.any(Object));
+      expectExtractedTitle(result, 'OK');
       expect(result.blocks.length).toBeGreaterThanOrEqual(3);
     });
 
     it('stale fallback 建立的 _next/data 請求不應包含頁面 query 或 hash', async () => {
-      mockDoc.defaultView.location.origin = 'https://www.hk01.com';
-      mockDoc.defaultView.location.pathname = '/news/60330394/abc';
-      mockDoc.defaultView.location.href =
-        'https://www.hk01.com/news/60330394/abc?token=attacker-controlled#section-1';
-
-      const mockJson = buildStaleNextData();
-
-      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
-
-      globalThis.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          pageProps: {
-            article: {
-              title: 'Query Stripped',
-              blocks: [
-                { blockType: 'paragraph', text: 'One' },
-                { blockType: 'paragraph', text: 'Two' },
-                { blockType: 'paragraph', text: 'Three' },
-              ],
-            },
-          },
-        }),
-      });
+      setHk01ArticleLocation(`${HK01_ARTICLE_URL}?token=attacker-controlled#section-1`);
+      setStaleNextDataScript();
+      mockFetchThreeParagraphArticle('Query Stripped', ['One', 'Two', 'Three']);
 
       await NextJsExtractor.extractAsync(mockDoc);
 
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        'https://www.hk01.com/_next/data/build123/news/60330394/abc.json',
-        expect.any(Object)
-      );
+      expect(globalThis.fetch).toHaveBeenCalledWith(HK01_NEXT_DATA_URL, expect.any(Object));
       expect(globalThis.fetch).toHaveBeenCalledTimes(1);
       expect(globalThis.fetch.mock.calls[0][0]).not.toContain('?');
       expect(globalThis.fetch.mock.calls[0][0]).not.toContain('#');
     });
 
     it('stale 時 _next/data 失敗只記錄 debug 診斷，不記錄 warn', async () => {
-      mockDoc.defaultView.location.origin = 'https://www.hk01.com';
-      mockDoc.defaultView.location.pathname = '/news/60330394/abc';
-      mockDoc.defaultView.location.href = 'https://www.hk01.com/news/60330394/abc';
-
-      const mockJson = buildStaleNextData();
-
-      mockDoc.querySelector.mockReturnValue({ textContent: JSON.stringify(mockJson) });
+      setHk01ArticleLocation();
+      setStaleNextDataScript();
 
       globalThis.fetch = jest.fn().mockResolvedValue({
         ok: false,
@@ -729,7 +697,7 @@ describe('NextJsExtractor', () => {
       expect(Logger.debug).toHaveBeenCalledWith('Next.js data 取得失敗', {
         action: '_fetchNextData',
         status: 404,
-        url: 'https://www.hk01.com/_next/data/build123/news/60330394/abc.json',
+        url: HK01_NEXT_DATA_URL,
       });
       expect(Logger.warn).not.toHaveBeenCalledWith('Next.js data 取得失敗', expect.any(Object));
     });
@@ -743,12 +711,10 @@ describe('NextJsExtractor', () => {
           pathname: '/news/[slug]',
           asPath: '/news/current-article',
           components: {
-            '/': buildRouterComponentValue({
-              article: { title: 'Home Payload', blocks: [{ blockType: 'paragraph' }] },
-            }),
-            '/news/[slug]': buildRouterComponentValue({
-              article: { title: 'Current Article', blocks: [{ blockType: 'paragraph' }] },
-            }),
+            '/': buildRouterArticleComponent('Home Payload', [{ blockType: 'paragraph' }]),
+            '/news/[slug]': buildRouterArticleComponent('Current Article', [
+              { blockType: 'paragraph' },
+            ]),
           },
         },
       };
@@ -762,9 +728,7 @@ describe('NextJsExtractor', () => {
     it('找不到匹配 route key 時回退到第一個非空 component', () => {
       mockDoc.defaultView.location.pathname = '/unknown/path';
       mockDoc.defaultView.next = buildRouterComponents({
-        '/article': buildRouterComponentValue({
-          article: { title: 'Fallback OK', blocks: [] },
-        }),
+        '/article': buildRouterArticleComponent('Fallback OK'),
       });
 
       const result = NextJsExtractor._getRouterComponentData(mockDoc);
@@ -780,9 +744,7 @@ describe('NextJsExtractor', () => {
           route: '/news/[slug]',
           components: {
             '/': buildRouterComponentValue({ home: true }),
-            '/news/[slug]': buildRouterComponentValue({
-              article: { title: 'Route Match', blocks: [] },
-            }),
+            '/news/[slug]': buildRouterArticleComponent('Route Match'),
           },
         },
       };
@@ -796,9 +758,7 @@ describe('NextJsExtractor', () => {
     it('應從 router.components 成功提取 pageProps', () => {
       // 設定 doc.defaultView.next.router.components 含有正確 pageProps
       mockDoc.defaultView.next = buildRouterComponents({
-        '/article': buildRouterComponentValue({
-          article: { title: 'Router Test', blocks: [] },
-        }),
+        '/article': buildRouterArticleComponent('Router Test'),
       });
 
       const result = NextJsExtractor._getRouterComponentData(mockDoc);
