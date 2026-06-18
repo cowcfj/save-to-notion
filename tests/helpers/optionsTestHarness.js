@@ -123,6 +123,12 @@ export function buildAccountCardDOM() {
 }
 
 export function buildChromeMock(overrides = {}) {
+  const getEmptySyncStorage = jest.fn((_keys, cb) => {
+    const result = {};
+    cb?.(result);
+    return Promise.resolve(result);
+  });
+
   return {
     runtime: {
       id: 'ext_id_123',
@@ -133,7 +139,7 @@ export function buildChromeMock(overrides = {}) {
     storage: {
       local: { get: jest.fn().mockResolvedValue({}), remove: jest.fn().mockResolvedValue() },
       sync: {
-        get: jest.fn((keys, cb) => cb({})),
+        get: getEmptySyncStorage,
         set: jest.fn(),
         remove: jest.fn().mockResolvedValue(),
       },

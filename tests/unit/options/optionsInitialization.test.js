@@ -515,7 +515,11 @@ describe('optionsInitialization', () => {
         storage: {
           local: { get: jest.fn().mockResolvedValue({}), remove: jest.fn().mockResolvedValue() },
           sync: {
-            get: jest.fn((keys, cb) => cb({ addTimestamp: true })),
+            get: jest.fn((_keys, cb) => {
+              const result = { addTimestamp: true };
+              cb?.(result);
+              return Promise.resolve(result);
+            }),
             set: jest.fn().mockRejectedValue(new Error('storage failed')),
             remove: jest.fn().mockResolvedValue(),
           },

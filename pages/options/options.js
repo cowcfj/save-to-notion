@@ -250,21 +250,13 @@ function bindOptionsRuntimeMessages({ auth, ui }) {
   });
 }
 
-function getSyncStorage(keys) {
-  return new Promise(resolve => {
-    chrome.storage.sync.get(keys, result => {
-      resolve(result || {});
-    });
-  });
-}
-
 function setSwitchChecked(input, checked) {
   input.checked = Boolean(checked);
   input.setAttribute('aria-checked', input.checked ? 'true' : 'false');
 }
 
 async function restorePreferenceControl({ element, storageKey, defaultValue, applyValue }) {
-  const result = await getSyncStorage([storageKey]);
+  const result = (await chrome.storage.sync.get([storageKey])) || {};
   const storedValue = Object.hasOwn(result, storageKey) ? result[storageKey] : defaultValue;
   applyValue(element, storedValue);
 }
