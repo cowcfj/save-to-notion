@@ -155,6 +155,29 @@ describe('optionsStaticMessages', () => {
       expect(totalBindings).toBeGreaterThan(20);
     });
 
+    it('debug logs 開關標籤應透過 UI_MESSAGES 綁定', () => {
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const html = fs.readFileSync(
+        path.join(__dirname, '../../../pages/options/options.html'),
+        'utf8'
+      );
+      const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+      expect(bodyMatch).not.toBeNull();
+      document.body.innerHTML = bodyMatch[1];
+
+      const expectedKey = 'OPTIONS.DIAGNOSTICS.ENABLE_DEBUG_LOGS_LABEL';
+      const labelText = document.querySelector('label[for="enable-debug-logs"] > span:last-child');
+
+      expect(labelText).not.toBeNull();
+      expect(labelText.dataset.uiMessage).toBe(expectedKey);
+
+      applyStaticOptionMessages();
+
+      expect(labelText.textContent).toBe(resolveUiMessage(expectedKey));
+      expect(labelText.textContent).toBe(UI_MESSAGES.OPTIONS.DIAGNOSTICS.ENABLE_DEBUG_LOGS_LABEL);
+    });
+
     it('destination help link 應提供靜態 accessible name 並保留 runtime i18n 綁定', () => {
       const fs = require('node:fs');
       const path = require('node:path');
