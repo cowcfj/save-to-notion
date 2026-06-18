@@ -559,6 +559,42 @@ describe('optionsInitialization', () => {
       );
     });
 
+    it('autosave 回復讀取失敗時應只記錄脫敏後錯誤', async () => {
+      const restoreError = new Error('Storage unavailable with token secret_12345');
+      buildOptionsPreferenceDOM();
+      globalThis.chrome = buildChromeMock({
+        storage: buildFailingAutosaveStorage((_keys, cb) => {
+          if (typeof cb === 'function') {
+            cb({});
+            return Promise.resolve({});
+          }
+          return Promise.reject(restoreError);
+        }),
+      });
+
+      initOptions();
+
+      const addTimestamp = document.querySelector('#add-timestamp');
+      addTimestamp.checked = false;
+      addTimestamp.dispatchEvent(new Event('change'));
+      await flushAsyncClick();
+
+      const logCall = await waitForLoggerWarn(Logger, '讀取偏好設定失敗，套用預設值');
+      expect(logCall).toEqual([
+        '讀取偏好設定失敗，套用預設值',
+        {
+          action: 'restorePreferenceControl',
+          result: 'fallback',
+          storageKey: 'addTimestamp',
+          error: sanitizeApiError(restoreError, 'restorePreferenceControl'),
+        },
+      ]);
+      expect(Logger.warn).not.toHaveBeenCalledWith(
+        '讀取偏好設定失敗，套用預設值',
+        expect.objectContaining({ error: restoreError })
+      );
+    });
+
     it('保存標題格式按鈕只應保存 titleTemplate', async () => {
       buildOptionsPreferenceDOM();
       globalThis.chrome = buildChromeMock();

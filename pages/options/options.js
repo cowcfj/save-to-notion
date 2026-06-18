@@ -264,11 +264,12 @@ async function restorePreferenceControl({ element, storageKey, defaultValue, app
       storedValue = result[storageKey];
     }
   } catch (error) {
+    const safeError = sanitizeApiError(error, 'restorePreferenceControl');
     Logger.warn('讀取偏好設定失敗，套用預設值', {
       action: 'restorePreferenceControl',
       result: 'fallback',
       storageKey,
-      error,
+      error: safeError,
     });
   }
 
