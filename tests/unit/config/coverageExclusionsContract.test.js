@@ -29,6 +29,11 @@ function readJestCoverageExclusions() {
   );
 }
 
+function readJestProjectCacheDirectories() {
+  const { projects } = require('../../../jest.config.js');
+  return projects.map(project => project.cacheDirectory);
+}
+
 function escapeRegExp(value) {
   return value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 }
@@ -99,5 +104,12 @@ describe('coverage exclusion contract', () => {
 
     expect(jestExclusions.has('scripts/**/*.test.js')).toBe(true);
     expect(jestExclusions.has('scripts/**/*.spec.js')).toBe(true);
+  });
+
+  test('Jest project cache directories align with the GitHub Actions cache path', () => {
+    expect(readJestProjectCacheDirectories()).toEqual([
+      '<rootDir>/.jest-cache',
+      '<rootDir>/.jest-cache',
+    ]);
   });
 });
