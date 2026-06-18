@@ -216,7 +216,6 @@ export function sanitizeHtmlToText(html) {
   });
 
   // 透過 temp 節點解析解碼 HTML entities
-  const temp = document.createElement('div');
-  temp.innerHTML = cleanHtml;
-  return temp.textContent || '';
+  const parsed = new DOMParser().parseFromString(cleanHtml, 'text/html');
+  return parsed.body.textContent || '';
 }

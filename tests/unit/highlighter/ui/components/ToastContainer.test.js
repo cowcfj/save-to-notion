@@ -50,6 +50,26 @@ describe('ToastContainer', () => {
     expect(iconEl.querySelector('svg')).not.toBeNull();
   });
 
+  test('建立 icon 時不應使用 innerHTML sink', () => {
+    const innerHtmlSetter = jest.fn();
+    const innerHtmlDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+    const innerHtmlSpy = jest
+      .spyOn(Element.prototype, 'innerHTML', 'set')
+      .mockImplementation(innerHtmlSetter);
+
+    try {
+      const el = createToastContainer({ level: 'success', message: 'OK' });
+
+      expect(el.querySelector('.toast-icon svg')).not.toBeNull();
+      expect(innerHtmlSetter).not.toHaveBeenCalled();
+    } finally {
+      innerHtmlSpy.mockRestore();
+      if (innerHtmlDescriptor) {
+        Object.defineProperty(Element.prototype, 'innerHTML', innerHtmlDescriptor);
+      }
+    }
+  });
+
   test('不同 level 應使用不同 SVG icon（success / warning / error）', () => {
     const successEl = createToastContainer({ level: 'success', message: 'OK' });
     const warningEl = createToastContainer({ level: 'warning', message: 'OK' });

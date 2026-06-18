@@ -13,6 +13,12 @@ const TOAST_ICONS = Object.freeze({
     '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
 });
 
+function createToastIcon(level) {
+  const iconMarkup = TOAST_ICONS[level] || TOAST_ICONS.success;
+  const parsed = new DOMParser().parseFromString(iconMarkup, 'image/svg+xml');
+  return document.importNode(parsed.documentElement, true);
+}
+
 /**
  * 建立 Toast container DOM 元素。
  *
@@ -42,8 +48,7 @@ export function createToastContainer({ level, message }) {
   const iconEl = document.createElement('span');
   iconEl.classList.add('toast-icon');
   iconEl.setAttribute('aria-hidden', 'true');
-  // SVG 字串為內建常數（非 user input），透過 innerHTML 安全注入
-  iconEl.innerHTML = TOAST_ICONS[level] || TOAST_ICONS.success;
+  iconEl.append(createToastIcon(level));
 
   const messageEl = document.createElement('span');
   messageEl.classList.add('toast-message');
