@@ -158,9 +158,15 @@ function getDirectorySizeBytes(dirPath) {
   return total;
 }
 
+// Restrict PATH to fixed, non-user-writable system directories so the `unzip`
+// binary cannot be resolved from a writable directory an attacker controls.
+const SAFE_PATH = '/usr/bin:/bin:/usr/sbin:/sbin';
+
 function extractZipToTemp(zipPath) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'size-gate-unpacked-'));
-  execFileSync('unzip', ['-q', zipPath, '-d', tempDir]);
+  execFileSync('unzip', ['-q', zipPath, '-d', tempDir], {
+    env: { ...process.env, PATH: SAFE_PATH },
+  });
   return tempDir;
 }
 
