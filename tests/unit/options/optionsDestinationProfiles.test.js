@@ -127,11 +127,41 @@ describe('Destination profile options UI', () => {
     return document.querySelector('input[data-role="destination-profile-name-edit"]');
   }
 
-  async function renderDestinationProfilesWithReadFailure(methodName, error) {
+  async function expectDestinationProfilesReadFailure({
+    methodName,
+    error,
+    renderAssertion,
+    warningMessage,
+    warningContext,
+  }) {
     const service = buildProfileManagerMock({
       [methodName]: jest.fn().mockRejectedValue(error),
     });
     await renderDestinationProfilesWithService(service);
+
+    renderAssertion();
+    expectDestinationProfileRenderWarning(warningMessage, error, warningContext);
+  }
+
+  async function expectCreateProfileValidationFailure({
+    name,
+    notionDataSourceId,
+    expectedStatusMessage,
+    service = buildProfileManagerMock({
+      createProfile: jest.fn(),
+    }),
+  }) {
+    ProfileManager.mockImplementationOnce(() => service);
+    initOptions();
+    await flushAsyncClick();
+
+    document.querySelector('#destination-profile-name').value = name;
+    document.querySelector('#database-id').value = notionDataSourceId;
+    document.querySelector('#add-destination-profile').click();
+    await flushAsyncClick();
+
+    expect(service.createProfile).not.toHaveBeenCalled();
+    expect(mockUiInstance.showStatus).toHaveBeenCalledWith(expectedStatusMessage, 'error');
   }
 
   it('未登入且已達上限時，新增保存目標按鈕應 disabled 並顯示原因', async () => {
@@ -175,28 +205,32 @@ describe('Destination profile options UI', () => {
 
   it('render 應在 entitlement 讀取失敗時仍渲染 profiles 並記錄警告', async () => {
     const entitlementError = new Error('entitlement failed');
+    expect.hasAssertions();
 
-    await renderDestinationProfilesWithReadFailure('getDestinationEntitlement', entitlementError);
-
-    expect(document.querySelector('.destination-profile-title').textContent).toBe('Default');
-    expectDestinationProfileRenderWarning(
-      '讀取保存目標權限失敗',
-      entitlementError,
-      'destinationProfileEntitlement'
-    );
+    await expectDestinationProfilesReadFailure({
+      methodName: 'getDestinationEntitlement',
+      error: entitlementError,
+      renderAssertion: () => {
+        expect(document.querySelector('.destination-profile-title').textContent).toBe('Default');
+      },
+      warningMessage: '讀取保存目標權限失敗',
+      warningContext: 'destinationProfileEntitlement',
+    });
   });
 
   it('render 應在 profile list 讀取失敗時使用空列表並記錄警告', async () => {
     const listError = new Error('list failed');
+    expect.hasAssertions();
 
-    await renderDestinationProfilesWithReadFailure('listProfiles', listError);
-
-    expect(document.querySelector('.destination-profile-row')).toBeNull();
-    expectDestinationProfileRenderWarning(
-      '讀取保存目標列表失敗',
-      listError,
-      'destinationProfileList'
-    );
+    await expectDestinationProfilesReadFailure({
+      methodName: 'listProfiles',
+      error: listError,
+      renderAssertion: () => {
+        expect(document.querySelector('.destination-profile-row')).toBeNull();
+      },
+      warningMessage: '讀取保存目標列表失敗',
+      warningContext: 'destinationProfileList',
+    });
   });
 
   it('已達付費方案上限時應顯示付費方案提示', async () => {
@@ -416,22 +450,13 @@ describe('Destination profile options UI', () => {
   });
 
   it('新增保存目標時若 Notion ID 無效應顯示錯誤且不呼叫 createProfile', async () => {
-    const service = buildProfileManagerMock();
-    ProfileManager.mockImplementationOnce(() => service);
+    expect.hasAssertions();
 
-    initOptions();
-    await flushAsyncClick();
-
-    document.querySelector('#destination-profile-name').value = 'Work';
-    document.querySelector('#database-id').value = 'invalid';
-    document.querySelector('#add-destination-profile').click();
-    await flushAsyncClick();
-
-    expect(service.createProfile).not.toHaveBeenCalled();
-    expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
-      expect.stringContaining('ID 格式無效'),
-      'error'
-    );
+    await expectCreateProfileValidationFailure({
+      name: 'Work',
+      notionDataSourceId: 'invalid',
+      expectedStatusMessage: expect.stringContaining('ID 格式無效'),
+    });
   });
 
   it('新增保存目標成功時應清空名稱輸入並重新渲染列表', async () => {
@@ -457,24 +482,13 @@ describe('Destination profile options UI', () => {
   });
 
   it('新增保存目標名稱為空白時應顯示錯誤且不呼叫 createProfile', async () => {
-    const service = buildProfileManagerMock({
-      createProfile: jest.fn(),
+    expect.hasAssertions();
+
+    await expectCreateProfileValidationFailure({
+      name: '   ',
+      notionDataSourceId: 'a1b2c3d4e5f67890abcdef1234567890',
+      expectedStatusMessage: UI_MESSAGES.OPTIONS.DESTINATION.PROFILE_NAME_REQUIRED,
     });
-    ProfileManager.mockImplementationOnce(() => service);
-
-    initOptions();
-    await flushAsyncClick();
-
-    document.querySelector('#destination-profile-name').value = '   ';
-    document.querySelector('#database-id').value = 'a1b2c3d4e5f67890abcdef1234567890';
-    document.querySelector('#add-destination-profile').click();
-    await flushAsyncClick();
-
-    expect(service.createProfile).not.toHaveBeenCalled();
-    expect(mockUiInstance.showStatus).toHaveBeenCalledWith(
-      UI_MESSAGES.OPTIONS.DESTINATION.PROFILE_NAME_REQUIRED,
-      'error'
-    );
   });
 
   it('新增保存目標成功後不應自動啟用該保存目標', async () => {
