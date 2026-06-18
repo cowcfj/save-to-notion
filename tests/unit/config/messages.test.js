@@ -20,6 +20,21 @@ function readProjectSource(relativePath) {
   return fs.readFileSync(path.resolve(__dirname, '../../..', relativePath), 'utf8');
 }
 
+function collectJsFiles(dir) {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  const results = [];
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...collectJsFiles(fullPath));
+    } else if (entry.name.endsWith('.js')) {
+      results.push(fullPath);
+    }
+  }
+  return results;
+}
+
 describe('配置模組 - messages.js 動態函式', () => {
   const SEARCH_TERM = '測試關鍵字';
   const LOAD_COUNT = 5;
@@ -52,12 +67,8 @@ describe('配置模組 - messages.js 動態函式', () => {
   const TIMEZONE_LABEL = 'Asia/Hong_Kong';
 
   describe('deepFreeze helper', () => {
-    function testFormatter() {
-      return 'ok';
-    }
-
     test('應遞迴凍結 object 與 function object，primitive 則原樣回傳', () => {
-      const formatter = testFormatter;
+      const formatter = () => 'ok';
       formatter.meta = { label: 'format' };
 
       const target = {
@@ -429,39 +440,17 @@ describe('配置模組 - messages.js 動態函式', () => {
     });
 
     test('生產程式碼不應引用舊的訊息葉路徑', () => {
-      const fs = require('node:fs');
       const projectRoot = path.resolve(__dirname, '../../..');
       const scriptsDir = path.join(projectRoot, 'scripts');
 
-      function scanDir(dir) {
-        // eslint-disable-next-line security/detect-non-literal-fs-filename
-        const files = fs.readdirSync(dir);
-        let results = [];
-        for (const file of files) {
-          const fullPath = path.join(dir, file);
-          // eslint-disable-next-line security/detect-non-literal-fs-filename
-          const stat = fs.statSync(fullPath);
-          if (stat.isDirectory()) {
-            results = results.concat(scanDir(fullPath));
-          } else if (file.endsWith('.js')) {
-            results.push(fullPath);
-          }
-        }
-        return results;
-      }
-
-      const jsFiles = scanDir(scriptsDir);
+      const jsFiles = collectJsFiles(scriptsDir);
       const oldPathsRegex =
         /config\/(?:shared\/(?:errorMessages|backgroundMessages|dataSourceMessages)|runtimeActions\/errorMessages|contentSafe\/(?:contentExtractionMessages|highlighterMessages|toolbarMessages))\.js/;
 
-      const violations = [];
-      for (const file of jsFiles) {
+      const violations = jsFiles
         // eslint-disable-next-line security/detect-non-literal-fs-filename
-        const content = fs.readFileSync(file, 'utf8');
-        if (oldPathsRegex.test(content)) {
-          violations.push(path.relative(projectRoot, file));
-        }
-      }
+        .filter(file => oldPathsRegex.test(fs.readFileSync(file, 'utf8')))
+        .map(file => path.relative(projectRoot, file));
 
       expect(violations).toEqual([]);
     });
