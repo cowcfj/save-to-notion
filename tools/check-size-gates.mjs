@@ -158,8 +158,17 @@ function getDirectorySizeBytes(dirPath) {
   return total;
 }
 
-// Use a fixed system executable instead of resolving `unzip` through PATH.
-const SYSTEM_UNZIP_PATH = '/usr/bin/unzip';
+// Use fixed system executables instead of resolving `unzip` through PATH.
+const SYSTEM_UNZIP_CANDIDATES = Object.freeze(['/usr/bin/unzip', '/bin/unzip']);
+function resolveSystemUnzipPath() {
+  const unzipPath = SYSTEM_UNZIP_CANDIDATES.find(candidate => fs.existsSync(candidate));
+  if (!unzipPath) {
+    throw new Error(`找不到固定系統 unzip executable：${SYSTEM_UNZIP_CANDIDATES.join(', ')}`);
+  }
+  return unzipPath;
+}
+
+const SYSTEM_UNZIP_PATH = resolveSystemUnzipPath();
 const SAFE_PATH = '/usr/bin:/bin:/usr/sbin:/sbin';
 
 function extractZipToTemp(zipPath) {

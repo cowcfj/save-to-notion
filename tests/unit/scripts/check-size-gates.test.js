@@ -117,6 +117,16 @@ describe('tools/check-size-gates.mjs', () => {
     expect(scriptSource).not.toMatch(/execFileSync\(\s*['"]unzip['"]/);
   });
 
+  test('[SECURITY] unzip executable 應限制在固定 absolute allowlist', () => {
+    const scriptSource = readSizeGateScript();
+
+    expect(scriptSource).toContain(
+      "const SYSTEM_UNZIP_CANDIDATES = Object.freeze(['/usr/bin/unzip', '/bin/unzip']);"
+    );
+    expect(scriptSource).toMatch(/const SYSTEM_UNZIP_PATH = resolveSystemUnzipPath\(\);/);
+    expect(scriptSource).not.toMatch(/process\.env\.[A-Z_]*UNZIP|which|command -v/);
+  });
+
   test('hard mode 應在所有目標低於門檻時通過並輸出報告', () => {
     const rootDir = path.join(tempRoot, 'current');
     const { unpackedDir, reportPath } = createBundleRoot({
