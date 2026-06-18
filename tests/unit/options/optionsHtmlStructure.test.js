@@ -46,6 +46,7 @@ const expectSwitchControl = (doc, selector) => {
   expect(input.tagName).toBe('INPUT');
   expect(input.getAttribute('type')).toBe('checkbox');
   expect(input.getAttribute('role')).toBe('switch');
+  expect(input.getAttribute('aria-checked')).toBe(input.checked ? 'true' : 'false');
   expect(input.classList.contains('switch-input')).toBe(true);
   expect(wrapper).not.toBeNull();
   expect(track).not.toBeNull();

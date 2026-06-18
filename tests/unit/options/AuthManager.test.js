@@ -498,6 +498,28 @@ describe('AuthManager Extended', () => {
       expect(document.querySelector('#add-timestamp').checked).toBe(false);
       expect(document.querySelector('#highlight-style').value).toBe('underline');
       expect(document.querySelector('#enable-debug-logs').checked).toBe(true);
+      expect(document.querySelector('#add-source').getAttribute('aria-checked')).toBe('true');
+      expect(document.querySelector('#add-timestamp').getAttribute('aria-checked')).toBe('false');
+      expect(document.querySelector('#floating-rail-enabled').getAttribute('aria-checked')).toBe(
+        'true'
+      );
+      expect(document.querySelector('#enable-debug-logs').getAttribute('aria-checked')).toBe(
+        'true'
+      );
+    });
+
+    test('偏好設定 switch 變更時應同步 aria-checked', async () => {
+      renderExtendedAuthDom();
+      authManager = await createInitializedAuthManager(mockUiManager, mockLoadDatabases);
+
+      const addSource = document.querySelector('#add-source');
+      addSource.checked = true;
+      addSource.dispatchEvent(new Event('change'));
+      expect(addSource.getAttribute('aria-checked')).toBe('true');
+
+      addSource.checked = false;
+      addSource.dispatchEvent(new Event('change'));
+      expect(addSource.getAttribute('aria-checked')).toBe('false');
     });
 
     test('OAuth 模式缺 local 儲存時應備援至 sync 讀取保存目標', async () => {
