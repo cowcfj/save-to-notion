@@ -268,6 +268,12 @@
           "type": "string",
           "description": "Highlight content sync style"
         },
+        "highlightContentStyleLastEnabled": {
+          "type": "string",
+          "enum": ["COLOR_SYNC", "COLOR_TEXT", "BOLD"],
+          "description": "Last enabled Notion highlight content sync style used to restore the split Options UI when highlightContentStyle is NONE",
+          "default": "COLOR_SYNC"
+        },
         "enableDebugLogs": {
           "type": "boolean",
           "description": "Enable debug logging"

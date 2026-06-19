@@ -13,6 +13,7 @@ export const SYNC_CONFIG_KEYS = [
   'addTimestamp',
   'highlightStyle',
   'highlightContentStyle',
+  'highlightContentStyleLastEnabled',
   'enableDebugLogs',
   'uiZoomLevel',
   'floatingRailEnabled',
