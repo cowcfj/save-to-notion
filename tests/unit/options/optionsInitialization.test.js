@@ -469,6 +469,91 @@ describe('optionsInitialization', () => {
       );
     });
 
+    it('Notion 同步標示關閉時應寫入 NONE 並保留 last enabled style', async () => {
+      buildOptionsPreferenceDOM();
+      globalThis.chrome = buildChromeMock({
+        storage: {
+          local: { get: jest.fn().mockResolvedValue({}), remove: jest.fn().mockResolvedValue() },
+          sync: {
+            get: jest.fn().mockResolvedValue({
+              highlightContentStyle: 'COLOR_TEXT',
+              highlightContentStyleLastEnabled: 'COLOR_TEXT',
+            }),
+            set: jest.fn().mockResolvedValue(),
+            remove: jest.fn().mockResolvedValue(),
+          },
+        },
+      });
+
+      initOptions();
+      await flushAsyncClick();
+
+      const enabled = document.querySelector('#highlight-content-style-enabled');
+      enabled.checked = false;
+      enabled.dispatchEvent(new Event('change'));
+      await flushAsyncClick();
+
+      expect(globalThis.chrome.storage.sync.set).toHaveBeenCalledWith({
+        highlightContentStyle: 'NONE',
+      });
+      expect(globalThis.chrome.storage.sync.set).not.toHaveBeenCalledWith(
+        expect.objectContaining({ highlightContentStyleLastEnabled: 'NONE' })
+      );
+      expect(enabled.getAttribute('aria-checked')).toBe('false');
+      expect(
+        document.querySelector('input[name="highlightContentStyle"][value="COLOR_TEXT"]').checked
+      ).toBe(true);
+    });
+
+    it('Notion 同步標示重新開啟時應回復 last enabled style', async () => {
+      buildOptionsPreferenceDOM();
+      globalThis.chrome = buildChromeMock({
+        storage: {
+          local: { get: jest.fn().mockResolvedValue({}), remove: jest.fn().mockResolvedValue() },
+          sync: {
+            get: jest.fn().mockResolvedValue({
+              highlightContentStyle: 'NONE',
+              highlightContentStyleLastEnabled: 'BOLD',
+            }),
+            set: jest.fn().mockResolvedValue(),
+            remove: jest.fn().mockResolvedValue(),
+          },
+        },
+      });
+
+      initOptions();
+      await flushAsyncClick();
+
+      const enabled = document.querySelector('#highlight-content-style-enabled');
+      enabled.checked = true;
+      enabled.dispatchEvent(new Event('change'));
+      await flushAsyncClick();
+
+      expect(globalThis.chrome.storage.sync.set).toHaveBeenCalledWith({
+        highlightContentStyle: 'BOLD',
+      });
+      expect(
+        document.querySelector('input[name="highlightContentStyle"][value="BOLD"]').checked
+      ).toBe(true);
+    });
+
+    it('Notion 同步樣式選擇時應同步更新 current 與 last enabled storage', async () => {
+      buildOptionsPreferenceDOM();
+      globalThis.chrome = buildChromeMock();
+
+      initOptions();
+
+      const bold = document.querySelector('input[name="highlightContentStyle"][value="BOLD"]');
+      bold.checked = true;
+      bold.dispatchEvent(new Event('change'));
+      await flushAsyncClick();
+
+      expect(globalThis.chrome.storage.sync.set).toHaveBeenCalledWith({
+        highlightContentStyle: 'BOLD',
+        highlightContentStyleLastEnabled: 'BOLD',
+      });
+    });
+
     it('switch 偏好變更時應即時保存但成功時不顯示提示', async () => {
       buildOptionsPreferenceDOM();
       globalThis.chrome = buildChromeMock();
