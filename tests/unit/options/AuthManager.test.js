@@ -92,21 +92,20 @@ function renderExtendedAuthDom() {
       <input id="title-template" />
       <input id="add-source" type="checkbox" />
       <input id="add-timestamp" type="checkbox" />
-      <select id="highlight-style">
-        <option value="background">background</option>
-        <option value="underline">underline</option>
-      </select>
+      <fieldset id="highlight-style-group">
+        <input type="radio" name="highlightStyle" value="background" checked />
+        <input type="radio" name="highlightStyle" value="underline" />
+      </fieldset>
       <input id="floating-rail-enabled" type="checkbox" />
-      <select id="floating-rail-position">
-        <option value="top">top</option>
-        <option value="middle">middle</option>
-        <option value="bottom">bottom</option>
-      </select>
-      <select id="floating-rail-size">
-        <option value="small">small</option>
-        <option value="medium">medium</option>
-        <option value="large">large</option>
-      </select>
+      <fieldset id="floating-rail-position-group">
+        <input type="radio" name="floatingRailPosition" value="top" />
+        <input type="radio" name="floatingRailPosition" value="middle" checked />
+        <input type="radio" name="floatingRailPosition" value="bottom" />
+      </fieldset>
+      <fieldset id="floating-rail-size-group">
+        <input type="radio" name="floatingRailSize" value="small" />
+        <input type="radio" name="floatingRailSize" value="large" checked />
+      </fieldset>
       <input id="enable-debug-logs" type="checkbox" />
       <button id="test-api-button"></button>
       <div id="connect-status"></div>
@@ -497,7 +496,9 @@ describe('AuthManager Extended', () => {
       expect(document.querySelector('#title-template').value).toBe('{title} - custom');
       expect(document.querySelector('#add-source').checked).toBe(true);
       expect(document.querySelector('#add-timestamp').checked).toBe(false);
-      expect(document.querySelector('#highlight-style').value).toBe('underline');
+      expect(
+        document.querySelector('input[name="highlightStyle"][value="underline"]').checked
+      ).toBe(true);
       expect(document.querySelector('#enable-debug-logs').checked).toBe(true);
       expect(document.querySelector('#add-source').getAttribute('aria-checked')).toBe('true');
       expect(document.querySelector('#add-timestamp').getAttribute('aria-checked')).toBe('false');
@@ -708,8 +709,12 @@ describe('AuthManager Extended', () => {
 
       await authManager.checkAuthStatus();
 
-      expect(document.querySelector('#floating-rail-position').value).toBe('top');
-      expect(document.querySelector('#floating-rail-size').value).toBe('small');
+      expect(
+        document.querySelector('input[name="floatingRailPosition"][value="top"]').checked
+      ).toBe(true);
+      expect(document.querySelector('input[name="floatingRailSize"][value="small"]').checked).toBe(
+        true
+      );
     });
 
     test('floatingRailPosition 與 floatingRailSize 缺值時應使用 middle/large 預設', async () => {
@@ -717,8 +722,32 @@ describe('AuthManager Extended', () => {
 
       await authManager.checkAuthStatus();
 
-      expect(document.querySelector('#floating-rail-position').value).toBe('middle');
-      expect(document.querySelector('#floating-rail-size').value).toBe('large');
+      expect(
+        document.querySelector('input[name="floatingRailPosition"][value="middle"]').checked
+      ).toBe(true);
+      expect(document.querySelector('input[name="floatingRailSize"][value="large"]').checked).toBe(
+        true
+      );
+    });
+
+    test('radio 類型設定為無效值時應回退至預設值', async () => {
+      setManualAuthStatusStorage({
+        floatingRailPosition: 'invalid',
+        floatingRailSize: 'unknown',
+        highlightStyle: 'foo',
+      });
+
+      await authManager.checkAuthStatus();
+
+      expect(
+        document.querySelector('input[name="floatingRailPosition"][value="middle"]').checked
+      ).toBe(true);
+      expect(document.querySelector('input[name="floatingRailSize"][value="large"]').checked).toBe(
+        true
+      );
+      expect(
+        document.querySelector('input[name="highlightStyle"][value="background"]').checked
+      ).toBe(true);
     });
   });
 

@@ -24,6 +24,7 @@ import {
   exchangeNotionOAuthCode,
   saveNotionOAuthToken,
 } from '../../scripts/auth/notionOAuthCompleter.js';
+import { setRadioGroupValue } from './preferenceControls.js';
 
 /**
  * AuthManager.js
@@ -71,11 +72,13 @@ export class AuthManager {
     this.elements.titleTemplateInput = document.querySelector('#title-template');
     this.elements.addSourceCheckbox = document.querySelector('#add-source');
     this.elements.addTimestampCheckbox = document.querySelector('#add-timestamp');
-    this.elements.highlightStyleSelect = document.querySelector('#highlight-style');
+    this.elements.highlightStyleGroup = document.querySelector('#highlight-style-group');
     this.elements.debugToggle = document.querySelector('#enable-debug-logs');
     this.elements.floatingRailCheckbox = document.querySelector('#floating-rail-enabled');
-    this.elements.floatingRailPositionSelect = document.querySelector('#floating-rail-position');
-    this.elements.floatingRailSizeSelect = document.querySelector('#floating-rail-size');
+    this.elements.floatingRailPositionGroup = document.querySelector(
+      '#floating-rail-position-group'
+    );
+    this.elements.floatingRailSizeGroup = document.querySelector('#floating-rail-size-group');
 
     // 綁定事件
     this.setupEventListeners();
@@ -632,15 +635,28 @@ export class AuthManager {
       { key: 'titleTemplateInput', prop: 'titleTemplate', type: 'value', def: '{title}' },
       { key: 'addSourceCheckbox', prop: 'addSource', type: 'bool-true' },
       { key: 'addTimestampCheckbox', prop: 'addTimestamp', type: 'bool-true' },
-      { key: 'highlightStyleSelect', prop: 'highlightStyle', type: 'value', def: 'background' },
+      {
+        key: 'highlightStyleGroup',
+        prop: 'highlightStyle',
+        type: 'radio',
+        name: 'highlightStyle',
+        def: 'background',
+      },
       { key: 'floatingRailCheckbox', prop: 'floatingRailEnabled', type: 'bool-true' },
       {
-        key: 'floatingRailPositionSelect',
+        key: 'floatingRailPositionGroup',
         prop: 'floatingRailPosition',
-        type: 'value',
+        type: 'radio',
+        name: 'floatingRailPosition',
         def: 'middle',
       },
-      { key: 'floatingRailSizeSelect', prop: 'floatingRailSize', type: 'value', def: 'large' },
+      {
+        key: 'floatingRailSizeGroup',
+        prop: 'floatingRailSize',
+        type: 'radio',
+        name: 'floatingRailSize',
+        def: 'large',
+      },
       { key: 'debugToggle', prop: 'enableDebugLogs', type: 'bool-false' },
     ];
 
@@ -651,6 +667,11 @@ export class AuthManager {
       }
 
       const rawVal = data[setting.prop];
+      if (setting.type === 'radio') {
+        setRadioGroupValue(setting.name, rawVal, setting.def);
+        continue;
+      }
+
       if (setting.type === 'value') {
         el.value = rawVal || setting.def;
         continue;

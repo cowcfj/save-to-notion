@@ -61,6 +61,33 @@ const expectSwitchControl = (doc, selector) => {
   expect(track.querySelector('.switch-knob')).not.toBeNull();
 };
 
+/**
+ * 驗證單選按鈕組（Radio Group）結構與無障礙語意
+ *
+ * @param {Document} doc - DOM Document 物件
+ * @param {object} options - 配置選項物件
+ * @param {string} options.groupSelector - 包含單選按鈕組的容器選擇器
+ * @param {string} options.inputName - 單選按鈕的 name 屬性
+ * @param {string[]} options.values - 預期的所有 radio value 清單
+ */
+const expectRadioGroupControl = (doc, { groupSelector, inputName, values }) => {
+  const container = queryRequiredElement(doc, groupSelector);
+  expect(container.tagName).toBe('FIELDSET');
+  expect(container.getAttribute('role')).toBeNull();
+  expect(container.querySelector('legend')).not.toBeNull();
+
+  const radios = container.querySelectorAll(`input[type="radio"][name="${inputName}"]`);
+  expect(radios).toHaveLength(values.length);
+
+  radios.forEach((radio, index) => {
+    expect(radio.getAttribute('value')).toBe(values[index]);
+    const label = radio.closest('label');
+
+    expect(label).not.toBeNull();
+    expect(label.textContent.trim().length).toBeGreaterThan(0);
+  });
+};
+
 describe('options.html 結構', () => {
   test('health-status 應為 polite live region 的 output 標籤', () => {
     const htmlPath = path.resolve(__dirname, '../../../pages/options/options.html');
@@ -157,7 +184,6 @@ describe('options.html 結構', () => {
       ['destination-profile-name', 'OPTIONS.DESTINATION.PROFILE_NAME_LABEL'],
       ['database-search', 'OPTIONS.DESTINATION.SELECT_FROM_NOTION_LABEL'],
       ['database-id', 'OPTIONS.DESTINATION.MANUAL_ID_LABEL'],
-      ['ui-zoom-level', 'OPTIONS.INTERFACE.ZOOM_LABEL'],
     ].forEach(([controlId, messageKey]) => {
       const control = doc.querySelector(`#${controlId}`);
       const label = doc.querySelector(`label[for="${controlId}"]`);
@@ -205,7 +231,7 @@ describe('options.html 結構', () => {
 
     const oauthRow = doc.querySelector('.connection-row #oauth-status')?.closest('.connection-row');
     const manualRow = doc.querySelector('.connection-row #auth-status')?.closest('.connection-row');
-    const zoomLabel = doc.querySelector('label[for="ui-zoom-level"]');
+    const zoomLabel = doc.querySelector('#ui-zoom-level-group legend');
 
     expect(html).not.toContain(
       '預設保存目標會沿用下方 Notion 儲存目標。登入帳號後可新增第二個本地保存目標。'
@@ -315,5 +341,56 @@ describe('options.html 結構', () => {
     const primitivesCss = readUiPrimitivesCss();
 
     expect(primitivesCss).toMatch(/\.confirm-dialog-message\s*\{[^}]*white-space:\s*pre-line;/);
+  });
+
+  test('低基數偏好設定應使用 radio controls 直接暴露所有選項', () => {
+    const html = readOptionsHtml();
+    const doc = parseOptionsHtml(html);
+
+    // 預期原來的 select 選擇器皆為 null，已被 radio 控制項取代
+    expect(doc.querySelector('#ui-zoom-level')).toBeNull();
+    expect(doc.querySelector('#floating-rail-position')).toBeNull();
+    expect(doc.querySelector('#floating-rail-size')).toBeNull();
+    expect(doc.querySelector('#highlight-style')).toBeNull();
+
+    // 驗證新的單選按鈕組（Radio Group）
+    expectRadioGroupControl(doc, {
+      groupSelector: '#ui-zoom-level-group',
+      inputName: 'uiZoomLevel',
+      values: ['1', '1.1'],
+    });
+    expectRadioGroupControl(doc, {
+      groupSelector: '#floating-rail-position-group',
+      inputName: 'floatingRailPosition',
+      values: ['top', 'middle', 'bottom'],
+    });
+    expectRadioGroupControl(doc, {
+      groupSelector: '#floating-rail-size-group',
+      inputName: 'floatingRailSize',
+      values: ['large', 'small'],
+    });
+    expectRadioGroupControl(doc, {
+      groupSelector: '#highlight-style-group',
+      inputName: 'highlightStyle',
+      values: ['background', 'text', 'underline'],
+    });
+  });
+
+  test('Notion 同步樣式應拆成啟用開關與三段樣式選項', () => {
+    const html = readOptionsHtml();
+    const doc = parseOptionsHtml(html);
+
+    // 預期原來的 select 選擇器為 null，已被 switch 與 radio controls 取代
+    expect(doc.querySelector('#highlight-content-style')).toBeNull();
+
+    // 驗證 Notion 同步啟用開關（應為 switch primitive）
+    expectSwitchControl(doc, '#highlight-content-style-enabled');
+
+    // 驗證 Notion 同步樣式單選按鈕組
+    expectRadioGroupControl(doc, {
+      groupSelector: '#highlight-content-style-group',
+      inputName: 'highlightContentStyle',
+      values: ['COLOR_SYNC', 'COLOR_TEXT', 'BOLD'],
+    });
   });
 });

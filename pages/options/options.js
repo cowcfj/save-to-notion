@@ -4,6 +4,14 @@ import { setupDebugLogExport } from './debugLogExportUI.js';
 import { initAccountUI, renderAccountUI } from './accountUI.js';
 export { applyStaticOptionMessages } from './staticOptionMessages.js';
 
+import {
+  HIGHLIGHT_CONTENT_STYLE_LAST_ENABLED_KEY,
+  getRadioGroupValue,
+  resolveEnabledHighlightContentStyle,
+  setRadioGroupDisabled,
+  setRadioGroupValue,
+} from './preferenceControls.js';
+
 import { UIManager } from './UIManager.js';
 import { AuthManager } from './AuthManager.js';
 import { DataSourceManager } from './DataSourceManager.js';
@@ -283,44 +291,58 @@ async function savePreferenceValue({ ui, storageKey, value, statusId, successMes
   }
 }
 
-function bindSelectAutosave({
+async function restoreRadioGroupPreference({ name, storageKey, defaultValue, onApply }) {
+  const result = await chrome.storage.sync.get({ [storageKey]: defaultValue });
+  const value = setRadioGroupValue(name, result?.[storageKey], defaultValue) ?? defaultValue;
+  onApply?.(value);
+  return value;
+}
+
+function bindRadioGroupAutosave({
   ui,
-  selector,
+  name,
   storageKey,
   defaultValue,
   statusId,
   successMessage,
   onApply,
 }) {
-  const element = document.querySelector(selector);
-  if (!element) {
+  const inputs = Array.from(document.querySelectorAll(`input[type="radio"][name="${name}"]`));
+  if (inputs.length === 0) {
     return;
   }
 
-  element.addEventListener('change', async () => {
-    const nextValue = element.value;
-    try {
-      await savePreferenceValue({
-        ui,
-        storageKey,
-        value: nextValue,
-        statusId,
-        successMessage,
-      });
-      onApply?.(nextValue);
-    } catch {
-      await restorePreferenceControl({
-        element,
-        storageKey,
-        defaultValue,
-        applyValue: (select, value) => {
-          select.value = value;
-          onApply?.(value);
-        },
-      });
-      ui.showStatus(UI_MESSAGES.SETTINGS.PREFERENCE_SAVE_FAILED, 'error', statusId);
-    }
+  restoreRadioGroupPreference({ name, storageKey, defaultValue, onApply }).catch(() => {
+    const value = setRadioGroupValue(name, defaultValue, defaultValue) ?? defaultValue;
+    onApply?.(value);
   });
+
+  for (const input of inputs) {
+    input.addEventListener('change', async () => {
+      if (!input.checked) {
+        return;
+      }
+      const nextValue = getRadioGroupValue(name) ?? defaultValue;
+      try {
+        await savePreferenceValue({
+          ui,
+          storageKey,
+          value: nextValue,
+          statusId,
+          successMessage,
+        });
+        onApply?.(nextValue);
+      } catch {
+        await restoreRadioGroupPreference({
+          name,
+          storageKey,
+          defaultValue,
+          onApply,
+        });
+        ui.showStatus(UI_MESSAGES.SETTINGS.PREFERENCE_SAVE_FAILED, 'error', statusId);
+      }
+    });
+  }
 }
 
 function bindSwitchAutosave({ ui, selector, storageKey, defaultValue, statusId }) {
@@ -354,11 +376,121 @@ function bindSwitchAutosave({ ui, selector, storageKey, defaultValue, statusId }
   });
 }
 
+/**
+ * 套用並渲染 Notion 原文標示控制項的狀態與值。
+ *
+ * @param {object} params
+ * @param {boolean} params.enabled - 是否啟用
+ * @param {string} params.style - 啟用的高亮樣式
+ * @returns {string|null} 套用後的樣式值
+ */
+function applyHighlightContentStyleControls({ enabled, style }) {
+  const enabledInput = document.querySelector('#highlight-content-style-enabled');
+  if (!enabledInput) {
+    return null;
+  }
+
+  setSwitchChecked(enabledInput, enabled);
+  const selectedStyle = setRadioGroupValue(
+    'highlightContentStyle',
+    resolveEnabledHighlightContentStyle(style),
+    'COLOR_SYNC'
+  );
+  setRadioGroupDisabled('highlightContentStyle', !enabled);
+  return selectedStyle;
+}
+
+/**
+ * 從同步儲存區讀取並還原 Notion 原文標示與樣式。
+ *
+ * @returns {Promise<{enabled: boolean, style: string}>}
+ */
+async function restoreHighlightContentStyleControls() {
+  const result = await chrome.storage.sync.get({
+    highlightContentStyle: 'COLOR_SYNC',
+    [HIGHLIGHT_CONTENT_STYLE_LAST_ENABLED_KEY]: 'COLOR_SYNC',
+  });
+  const currentStyle = result?.highlightContentStyle;
+  const lastEnabled = resolveEnabledHighlightContentStyle(
+    result?.[HIGHLIGHT_CONTENT_STYLE_LAST_ENABLED_KEY]
+  );
+  const enabled = currentStyle !== 'NONE';
+  const style = enabled ? resolveEnabledHighlightContentStyle(currentStyle) : lastEnabled;
+  applyHighlightContentStyleControls({ enabled, style });
+  return { enabled, style };
+}
+
+/**
+ * 綁定 Notion 原文標示開關與同步樣式的自動儲存事件。
+ *
+ * @param {object} ui - UIManager 實例
+ */
+function bindHighlightContentStyleAutosave(ui) {
+  const enabledInput = document.querySelector('#highlight-content-style-enabled');
+  const styleInputs = Array.from(
+    document.querySelectorAll('input[type="radio"][name="highlightContentStyle"]')
+  );
+  if (!enabledInput || styleInputs.length === 0) {
+    return;
+  }
+
+  restoreHighlightContentStyleControls().catch(() => {
+    applyHighlightContentStyleControls({ enabled: true, style: 'COLOR_SYNC' });
+  });
+
+  enabledInput.addEventListener('change', async () => {
+    const enabled = enabledInput.checked;
+    setSwitchChecked(enabledInput, enabled);
+    try {
+      const result = await chrome.storage.sync.get([HIGHLIGHT_CONTENT_STYLE_LAST_ENABLED_KEY]);
+      const style = resolveEnabledHighlightContentStyle(
+        result?.[HIGHLIGHT_CONTENT_STYLE_LAST_ENABLED_KEY] ??
+          getRadioGroupValue('highlightContentStyle')
+      );
+      const value = enabled ? style : 'NONE';
+      await chrome.storage.sync.set({ highlightContentStyle: value });
+      applyHighlightContentStyleControls({ enabled, style });
+      ui.showStatus(
+        UI_MESSAGES.OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_SAVE_SUCCESS,
+        'success',
+        TEMPLATE_STATUS_ID
+      );
+    } catch {
+      await restoreHighlightContentStyleControls();
+      ui.showStatus(UI_MESSAGES.SETTINGS.PREFERENCE_SAVE_FAILED, 'error', TEMPLATE_STATUS_ID);
+    }
+  });
+
+  for (const input of styleInputs) {
+    input.addEventListener('change', async () => {
+      if (!input.checked) {
+        return;
+      }
+      const style = resolveEnabledHighlightContentStyle(input.value);
+      try {
+        await chrome.storage.sync.set({
+          highlightContentStyle: style,
+          [HIGHLIGHT_CONTENT_STYLE_LAST_ENABLED_KEY]: style,
+        });
+        applyHighlightContentStyleControls({ enabled: true, style });
+        ui.showStatus(
+          UI_MESSAGES.OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_SAVE_SUCCESS,
+          'success',
+          TEMPLATE_STATUS_ID
+        );
+      } catch {
+        await restoreHighlightContentStyleControls();
+        ui.showStatus(UI_MESSAGES.SETTINGS.PREFERENCE_SAVE_FAILED, 'error', TEMPLATE_STATUS_ID);
+      }
+    });
+  }
+}
+
 function initializeAutosavePreferences(ui) {
   // 1. Zoom Level
-  bindSelectAutosave({
+  bindRadioGroupAutosave({
     ui,
-    selector: '#ui-zoom-level',
+    name: 'uiZoomLevel',
     storageKey: 'uiZoomLevel',
     defaultValue: '1',
     statusId: 'status',
@@ -378,9 +510,9 @@ function initializeAutosavePreferences(ui) {
   });
 
   // 3. Floating Rail Position
-  bindSelectAutosave({
+  bindRadioGroupAutosave({
     ui,
-    selector: '#floating-rail-position',
+    name: 'floatingRailPosition',
     storageKey: 'floatingRailPosition',
     defaultValue: 'middle',
     statusId: 'status',
@@ -388,9 +520,9 @@ function initializeAutosavePreferences(ui) {
   });
 
   // 4. Floating Rail Size
-  bindSelectAutosave({
+  bindRadioGroupAutosave({
     ui,
-    selector: '#floating-rail-size',
+    name: 'floatingRailSize',
     storageKey: 'floatingRailSize',
     defaultValue: 'large',
     statusId: 'status',
@@ -416,24 +548,17 @@ function initializeAutosavePreferences(ui) {
   });
 
   // 7. Highlight Style
-  bindSelectAutosave({
+  bindRadioGroupAutosave({
     ui,
-    selector: '#highlight-style',
+    name: 'highlightStyle',
     storageKey: 'highlightStyle',
     defaultValue: 'background',
     statusId: TEMPLATE_STATUS_ID,
     successMessage: UI_MESSAGES.OPTIONS.TEMPLATES.HIGHLIGHT_STYLE_SAVE_SUCCESS,
   });
 
-  // 8. Highlight Content Style
-  bindSelectAutosave({
-    ui,
-    selector: '#highlight-content-style',
-    storageKey: 'highlightContentStyle',
-    defaultValue: 'COLOR_SYNC',
-    statusId: TEMPLATE_STATUS_ID,
-    successMessage: UI_MESSAGES.OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_SAVE_SUCCESS,
-  });
+  // 8. Notion 同步原文標示樣式
+  bindHighlightContentStyleAutosave(ui);
 }
 
 function bindTitleTemplateSaveButton(ui) {
@@ -452,32 +577,6 @@ function bindTitleTemplateSaveButton(ui) {
       } catch {
         ui.showStatus(UI_MESSAGES.SETTINGS.PREFERENCE_SAVE_FAILED, 'error', TEMPLATE_STATUS_ID);
       }
-    });
-  }
-}
-
-/**
- * 初始化介面縮放偏好設定
- */
-function initializeZoomPreference() {
-  const zoomSelect = document.querySelector('#ui-zoom-level');
-  if (zoomSelect) {
-    chrome.storage.sync.get(['uiZoomLevel'], result => {
-      const zoom = String(result.uiZoomLevel || '1');
-      document.body.style.zoom = zoom;
-      zoomSelect.value = zoom;
-    });
-  }
-}
-
-/**
- * 初始化高亮與 Notion 同步樣式偏好設定
- */
-function initializeHighlightContentStylePreference() {
-  const highlightContentStyleSelect = document.querySelector('#highlight-content-style');
-  if (highlightContentStyleSelect) {
-    chrome.storage.sync.get({ highlightContentStyle: 'COLOR_SYNC' }, result => {
-      highlightContentStyleSelect.value = result.highlightContentStyle;
     });
   }
 }
@@ -516,8 +615,6 @@ export function initOptions() {
   setupDebugLogExport();
 
   // 7. 偏好設定初始化
-  initializeZoomPreference();
-  initializeHighlightContentStylePreference();
   initializeAutosavePreferences(managers.ui);
   bindTitleTemplateSaveButton(managers.ui);
 }
