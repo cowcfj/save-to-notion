@@ -21,6 +21,12 @@
       "rule": "Rely on `LogSanitizer` to strip sensitive properties (like `sender`, `tab`, PII) before emitting logs in production."
     }
   },
+  "secret_handling": {
+    "test_fixtures": {
+      "threat": "Secret scanners can flag complete JWT/API-key/credential-looking literals in tests, fixtures, docs, or examples, and such literals may be mistaken for real secrets.",
+      "rule": "Do not commit complete JWTs, API keys, OAuth tokens, passwords, or credential-looking literals, even in tests or docs. When sanitizer tests need representative values, use clearly synthetic placeholders or split non-sensitive segments that do not form a scanner-matching secret pattern."
+    }
+  },
   "supply_chain_security": {
     "minimatch": {
       "threat": "ReDoS",
