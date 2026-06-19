@@ -505,6 +505,51 @@ describe('optionsInitialization', () => {
       ).toBe(true);
     });
 
+    it('Notion 同步標示關閉且 last enabled 缺失時應保留目前樣式選項', async () => {
+      buildOptionsPreferenceDOM();
+      const storedSyncValues = { highlightContentStyle: 'BOLD' };
+      globalThis.chrome = buildChromeMock({
+        storage: {
+          local: { get: jest.fn().mockResolvedValue({}), remove: jest.fn().mockResolvedValue() },
+          sync: {
+            get: jest.fn(async request => {
+              if (Array.isArray(request)) {
+                return Object.fromEntries(
+                  request
+                    .filter(key => Object.hasOwn(storedSyncValues, key))
+                    .map(key => [key, storedSyncValues[key]])
+                );
+              }
+
+              return Object.fromEntries(
+                Object.entries(request).map(([key, defaultValue]) => [
+                  key,
+                  Object.hasOwn(storedSyncValues, key) ? storedSyncValues[key] : defaultValue,
+                ])
+              );
+            }),
+            set: jest.fn().mockResolvedValue(),
+            remove: jest.fn().mockResolvedValue(),
+          },
+        },
+      });
+
+      initOptions();
+      await flushAsyncClick();
+
+      const enabled = document.querySelector('#highlight-content-style-enabled');
+      enabled.checked = false;
+      enabled.dispatchEvent(new Event('change'));
+      await flushAsyncClick();
+
+      expect(globalThis.chrome.storage.sync.set).toHaveBeenCalledWith({
+        highlightContentStyle: 'NONE',
+      });
+      expect(
+        document.querySelector('input[name="highlightContentStyle"][value="BOLD"]').checked
+      ).toBe(true);
+    });
+
     it('Notion 同步標示重新開啟時應回復 last enabled style', async () => {
       buildOptionsPreferenceDOM();
       globalThis.chrome = buildChromeMock({

@@ -66,12 +66,14 @@ export function setRadioGroupValue(name, value, defaultValue) {
     return input.value;
   }
 
-  const fallback = document.querySelector(
-    `input[type="radio"][name="${name}"][value="${defaultValue}"]`
-  );
-  if (fallback) {
-    fallback.checked = true;
-    return fallback.value;
+  if (defaultValue !== undefined) {
+    const fallback = document.querySelector(
+      `input[type="radio"][name="${name}"][value="${defaultValue}"]`
+    );
+    if (fallback) {
+      fallback.checked = true;
+      return fallback.value;
+    }
   }
 
   return null;

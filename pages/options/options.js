@@ -442,9 +442,7 @@ function bindHighlightContentStyleAutosave(ui) {
     const enabled = enabledInput.checked;
     setSwitchChecked(enabledInput, enabled);
     try {
-      const result = await chrome.storage.sync.get({
-        [HIGHLIGHT_CONTENT_STYLE_LAST_ENABLED_KEY]: 'COLOR_SYNC',
-      });
+      const result = await chrome.storage.sync.get([HIGHLIGHT_CONTENT_STYLE_LAST_ENABLED_KEY]);
       const style = resolveEnabledHighlightContentStyle(
         result?.[HIGHLIGHT_CONTENT_STYLE_LAST_ENABLED_KEY] ??
           getRadioGroupValue('highlightContentStyle')

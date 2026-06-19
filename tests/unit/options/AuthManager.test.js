@@ -104,7 +104,6 @@ function renderExtendedAuthDom() {
       </fieldset>
       <fieldset id="floating-rail-size-group">
         <input type="radio" name="floatingRailSize" value="small" />
-        <input type="radio" name="floatingRailSize" value="medium" />
         <input type="radio" name="floatingRailSize" value="large" checked />
       </fieldset>
       <input id="enable-debug-logs" type="checkbox" />
@@ -729,6 +728,26 @@ describe('AuthManager Extended', () => {
       expect(document.querySelector('input[name="floatingRailSize"][value="large"]').checked).toBe(
         true
       );
+    });
+
+    test('radio 類型設定為無效值時應回退至預設值', async () => {
+      setManualAuthStatusStorage({
+        floatingRailPosition: 'invalid',
+        floatingRailSize: 'unknown',
+        highlightStyle: 'foo',
+      });
+
+      await authManager.checkAuthStatus();
+
+      expect(
+        document.querySelector('input[name="floatingRailPosition"][value="middle"]').checked
+      ).toBe(true);
+      expect(document.querySelector('input[name="floatingRailSize"][value="large"]').checked).toBe(
+        true
+      );
+      expect(
+        document.querySelector('input[name="highlightStyle"][value="background"]').checked
+      ).toBe(true);
     });
   });
 
