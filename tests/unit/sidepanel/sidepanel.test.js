@@ -78,6 +78,30 @@ function getLastArrayStorageLookupKeys() {
   return keyedGetCalls.at(-1)?.[0] || [];
 }
 
+async function activateTabAndFlush(tabId) {
+  const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
+  await onActivated({ tabId });
+  await flushMicrotasks();
+}
+
+function mockStorageGetFromStore(store) {
+  chrome.storage.local.get.mockImplementation(async key => {
+    if (typeof key === 'string') {
+      return { [key]: store[key] };
+    }
+    if (Array.isArray(key)) {
+      const result = {};
+      for (const item of key) {
+        if (Object.hasOwn(store, item)) {
+          result[item] = store[item];
+        }
+      }
+      return result;
+    }
+    return store;
+  });
+}
+
 describe('Sidepanel current view', () => {
   beforeEach(async () => {
     await loadSidepanelForCurrentView();
@@ -194,19 +218,35 @@ describe('Sidepanel current view', () => {
       expect(emptyP.textContent).toBe('不支援此頁面');
     });
 
-    it('[REGRESSION] 切換到不支援的分頁時應隱藏未保存 banner 並停用 sync 按鈕', async () => {
+    it.each([
+      {
+        name: '[REGRESSION] 切換到不支援的分頁時應隱藏未保存 banner 並停用 sync 按鈕',
+        setupTabLoad() {
+          chrome.tabs.get.mockResolvedValue({ id: 301, url: 'chrome://extensions' });
+        },
+        tabId: 301,
+        expectedNoticeText: '',
+      },
+      {
+        name: '[REGRESSION] loadCurrentTab 失敗時應隱藏 banner 而非殘留先前狀態',
+        setupTabLoad() {
+          chrome.tabs.get.mockRejectedValueOnce(new Error('boom'));
+        },
+        tabId: 302,
+      },
+    ])('$name', async ({ setupTabLoad, tabId, expectedNoticeText }) => {
       // 預設初始狀態 banner 為可見（未保存）
       expect(document.querySelector('#unsaved-page-notice').hidden).toBe(false);
 
-      chrome.tabs.get.mockResolvedValue({ id: 301, url: 'chrome://extensions' });
-      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
-      await onActivated({ tabId: 301 });
-      await flushMicrotasks();
+      setupTabLoad();
+      await activateTabAndFlush(tabId);
 
       const notice = document.querySelector('#unsaved-page-notice');
       const syncButton = document.querySelector('#sync-button');
       expect(notice.hidden).toBe(true);
-      expect(notice.textContent).toBe('');
+      if (expectedNoticeText !== undefined) {
+        expect(notice.textContent).toBe(expectedNoticeText);
+      }
       expect(syncButton.disabled).toBe(true);
     });
 
@@ -246,20 +286,6 @@ describe('Sidepanel current view', () => {
       expect(openNotionButton.dataset.targetUrl).toBeUndefined();
       expect(openNotionButton.title).toBe('');
       expect(openNotionButton.getAttribute('aria-label')).toBeNull();
-    });
-
-    it('[REGRESSION] loadCurrentTab 失敗時應隱藏 banner 而非殘留先前狀態', async () => {
-      expect(document.querySelector('#unsaved-page-notice').hidden).toBe(false);
-
-      chrome.tabs.get.mockRejectedValueOnce(new Error('boom'));
-      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
-      await onActivated({ tabId: 302 });
-      await flushMicrotasks();
-
-      const notice = document.querySelector('#unsaved-page-notice');
-      const syncButton = document.querySelector('#sync-button');
-      expect(notice.hidden).toBe(true);
-      expect(syncButton.disabled).toBe(true);
     });
 
     it('[REGRESSION] malformed tab URLs should be treated as unsupported pages', async () => {
@@ -355,93 +381,44 @@ describe('Sidepanel current view', () => {
       );
     });
 
-    it('若 direct keys 找不到，應透過 alias 解析 page_* 前綴', async () => {
-      const fakeStore = {
-        'page_https://example.com/alias': {
-          highlights: [{ id: '1', text: 'alias text', color: 'blue' }],
-          notion: { pageId: 'resolved' },
+    it.each([
+      {
+        name: '若 direct keys 找不到，應透過 alias 解析 page_* 前綴',
+        store: {
+          'page_https://example.com/alias': {
+            highlights: [{ id: '1', text: 'alias text', color: 'blue' }],
+            notion: { pageId: 'resolved' },
+          },
+          'url_alias:https://example.js/stable': 'https://example.com/alias',
         },
-        'url_alias:https://example.js/stable': 'https://example.com/alias',
-      };
-      chrome.storage.local.get.mockImplementation(async k => {
-        if (typeof k === 'string') {
-          return { [k]: fakeStore[k] };
-        }
-        if (Array.isArray(k)) {
-          const result = {};
-          for (const key of k) {
-            if (fakeStore[key]) {
-              result[key] = fakeStore[key];
-            }
-          }
-          return result;
-        }
-        return fakeStore;
-      });
+        isSyncDisabled: false,
+      },
+      {
+        name: '若 page_* 找不到，應透過 alias 解析 highlights_* 前綴',
+        store: {
+          'highlights_https://example.com/alias': {
+            highlights: [{ id: '1', text: 'alias old text', color: 'red' }],
+          },
+          'url_alias:https://example.js/stable': 'https://example.com/alias',
+        },
+        isSyncDisabled: true,
+      },
+    ])('$name', async ({ store, isSyncDisabled }) => {
+      mockStorageGetFromStore(store);
 
-      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
-      await onActivated({ tabId: 500 });
-      await flushMicrotasks();
+      await activateTabAndFlush(500);
 
       expect(document.querySelector('#highlights-list').children).toHaveLength(1);
-      expect(document.querySelector('#sync-button').disabled).toBe(false); // as notion pageId exists
-    });
-
-    it('若 page_* 找不到，應透過 alias 解析 highlights_* 前綴', async () => {
-      const fakeStore = {
-        'highlights_https://example.com/alias': {
-          highlights: [{ id: '1', text: 'alias old text', color: 'red' }],
-        },
-        'url_alias:https://example.js/stable': 'https://example.com/alias',
-      };
-      chrome.storage.local.get.mockImplementation(async k => {
-        if (typeof k === 'string') {
-          return { [k]: fakeStore[k] };
-        }
-        if (Array.isArray(k)) {
-          const result = {};
-          for (const key of k) {
-            if (fakeStore[key]) {
-              result[key] = fakeStore[key];
-            }
-          }
-          return result;
-        }
-        return fakeStore;
-      });
-
-      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
-      await onActivated({ tabId: 500 });
-      await flushMicrotasks();
-
-      expect(document.querySelector('#highlights-list').children).toHaveLength(1);
-      // Phase 1: 未保存頁面 sync 按鈕禁用
-      expect(document.querySelector('#sync-button').disabled).toBe(true);
+      expect(document.querySelector('#sync-button').disabled).toBe(isSyncDisabled);
     });
 
     it('若 alias 解析未命中任何資料，應顯示 empty state', async () => {
       const fakeStore = {
         'url_alias:https://example.js/stable': 'https://example.com/empty-alias',
       };
-      chrome.storage.local.get.mockImplementation(async k => {
-        if (typeof k === 'string') {
-          return { [k]: fakeStore[k] };
-        }
-        if (Array.isArray(k)) {
-          const result = {};
-          for (const key of k) {
-            if (fakeStore[key]) {
-              result[key] = fakeStore[key];
-            }
-          }
-          return result;
-        }
-        return fakeStore;
-      });
+      mockStorageGetFromStore(fakeStore);
 
-      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
-      await onActivated({ tabId: 500 });
-      await flushMicrotasks();
+      await activateTabAndFlush(500);
 
       expect(document.querySelector('#empty-state').style.display).toBe('flex');
     });
@@ -468,25 +445,9 @@ describe('Sidepanel current view', () => {
       };
 
       chrome.storage.local.get.mockClear();
-      chrome.storage.local.get.mockImplementation(async k => {
-        if (typeof k === 'string') {
-          return { [k]: fakeStore[k] };
-        }
-        if (Array.isArray(k)) {
-          const result = {};
-          for (const key of k) {
-            if (fakeStore[key]) {
-              result[key] = fakeStore[key];
-            }
-          }
-          return result;
-        }
-        return fakeStore;
-      });
+      mockStorageGetFromStore(fakeStore);
 
-      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
-      await onActivated({ tabId: 500 });
-      await flushMicrotasks();
+      await activateTabAndFlush(500);
 
       const highlightsList = document.querySelector('#highlights-list');
       const emptyState = document.querySelector('#empty-state');
@@ -524,25 +485,9 @@ describe('Sidepanel current view', () => {
       };
 
       chrome.storage.local.get.mockClear();
-      chrome.storage.local.get.mockImplementation(async k => {
-        if (typeof k === 'string') {
-          return { [k]: fakeStore[k] };
-        }
-        if (Array.isArray(k)) {
-          const result = {};
-          for (const key of k) {
-            if (key in fakeStore) {
-              result[key] = fakeStore[key];
-            }
-          }
-          return result;
-        }
-        return fakeStore;
-      });
+      mockStorageGetFromStore(fakeStore);
 
-      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
-      await onActivated({ tabId: 500 });
-      await flushMicrotasks();
+      await activateTabAndFlush(500);
 
       const renderedTexts = Array.from(document.querySelectorAll('.highlight-text')).map(el =>
         el.textContent?.trim()
@@ -569,25 +514,9 @@ describe('Sidepanel current view', () => {
       };
 
       chrome.storage.local.get.mockClear();
-      chrome.storage.local.get.mockImplementation(async k => {
-        if (typeof k === 'string') {
-          return { [k]: fakeStore[k] };
-        }
-        if (Array.isArray(k)) {
-          const result = {};
-          for (const key of k) {
-            if (key in fakeStore) {
-              result[key] = fakeStore[key];
-            }
-          }
-          return result;
-        }
-        return fakeStore;
-      });
+      mockStorageGetFromStore(fakeStore);
 
-      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
-      await onActivated({ tabId: 500 });
-      await flushMicrotasks();
+      await activateTabAndFlush(500);
 
       const emptyState = document.querySelector('#empty-state');
       const openNotionButton = document.querySelector('#open-notion-button');
@@ -616,25 +545,9 @@ describe('Sidepanel current view', () => {
       };
 
       chrome.storage.local.get.mockClear();
-      chrome.storage.local.get.mockImplementation(async k => {
-        if (typeof k === 'string') {
-          return { [k]: fakeStore[k] };
-        }
-        if (Array.isArray(k)) {
-          const result = {};
-          for (const key of k) {
-            if (key in fakeStore) {
-              result[key] = fakeStore[key];
-            }
-          }
-          return result;
-        }
-        return fakeStore;
-      });
+      mockStorageGetFromStore(fakeStore);
 
-      const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
-      await onActivated({ tabId: 501 });
-      await flushMicrotasks();
+      await activateTabAndFlush(501);
 
       const openNotionButton = document.querySelector('#open-notion-button');
 
