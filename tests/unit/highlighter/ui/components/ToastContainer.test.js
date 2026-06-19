@@ -50,6 +50,44 @@ describe('ToastContainer', () => {
     expect(iconEl.querySelector('svg')).not.toBeNull();
   });
 
+  test('建立 icon 時不應使用 innerHTML sink', () => {
+    const innerHtmlSetter = jest.fn();
+    const innerHtmlSpy = jest
+      .spyOn(Element.prototype, 'innerHTML', 'set')
+      .mockImplementation(innerHtmlSetter);
+
+    try {
+      const el = createToastContainer({ level: 'success', message: 'OK' });
+
+      expect(el.querySelector('.toast-icon svg')).not.toBeNull();
+      expect(innerHtmlSetter).not.toHaveBeenCalled();
+    } finally {
+      innerHtmlSpy.mockRestore();
+    }
+  });
+
+  test('SVG parsererror 不應被插入 toast icon', () => {
+    const parserErrorDoc = document.implementation.createDocument(
+      'https://www.mozilla.org/newlayout/xml/parsererror.xml',
+      'parsererror'
+    );
+    const parseSpy = jest
+      .spyOn(DOMParser.prototype, 'parseFromString')
+      .mockReturnValue(parserErrorDoc);
+
+    try {
+      const el = createToastContainer({ level: 'success', message: '完成' });
+      const iconEl = el.querySelector('.toast-icon');
+
+      expect(iconEl).not.toBeNull();
+      expect(iconEl.querySelector('parsererror')).toBeNull();
+      expect(iconEl.childElementCount).toBe(0);
+      expect(el.querySelector('.toast-message').textContent).toBe('完成');
+    } finally {
+      parseSpy.mockRestore();
+    }
+  });
+
   test('不同 level 應使用不同 SVG icon（success / warning / error）', () => {
     const successEl = createToastContainer({ level: 'success', message: 'OK' });
     const warningEl = createToastContainer({ level: 'warning', message: 'OK' });

@@ -176,5 +176,31 @@ describe('MarkdownExtractor', () => {
         'data:application/pdf;base64,JVBERi0='
       );
     });
+
+    it('should transfer many sanitized top-level nodes without using a variadic append call', () => {
+      const originalAppend = HTMLDivElement.prototype.append;
+      HTMLDivElement.prototype.append = function appendWithArgumentLimit(...nodes) {
+        if (nodes.length > 1000) {
+          throw new RangeError('Maximum call stack size exceeded');
+        }
+        return originalAppend.apply(this, nodes);
+      };
+
+      try {
+        const container = doc.createElement('div');
+        container.innerHTML = Array.from({ length: 1001 }, (_, index) => `<p>${index}</p>`).join(
+          ''
+        );
+        doc.body.append(container);
+
+        const cleaned = MarkdownExtractor.cleanDOM(container);
+
+        expect(cleaned.children).toHaveLength(1001);
+        expect(cleaned.firstElementChild.textContent).toBe('0');
+        expect(cleaned.lastElementChild.textContent).toBe('1000');
+      } finally {
+        HTMLDivElement.prototype.append = originalAppend;
+      }
+    });
   });
 });

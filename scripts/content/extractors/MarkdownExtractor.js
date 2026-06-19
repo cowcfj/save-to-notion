@@ -13,6 +13,13 @@ import Logger from '../../utils/Logger.js';
 import { TECHNICAL_CONTENT_SELECTORS } from '../../config/shared/content.js';
 import { sanitizeArticleHtml } from '../sanitizers/htmlSanitizer.js';
 
+let markdownHtmlParser;
+
+function getMarkdownHtmlParser() {
+  markdownHtmlParser ??= new DOMParser();
+  return markdownHtmlParser;
+}
+
 export const MarkdownExtractor = {
   /**
    * 嘗試提取 Markdown 內容
@@ -140,8 +147,11 @@ export const MarkdownExtractor = {
     // 透過 centralized DOMPurify HTML sanitizer 進行安全收口
     // 這會完整清除 XSS 屬性、不安全協定（如 javascript: / data: 等）、以及危險標籤
     const sanitizedHtml = sanitizeArticleHtml(clone.innerHTML);
+    const parsed = getMarkdownHtmlParser().parseFromString(sanitizedHtml, 'text/html');
     const sanitizedDiv = document.createElement('div');
-    sanitizedDiv.innerHTML = sanitizedHtml;
+    while (parsed.body.firstChild) {
+      sanitizedDiv.append(parsed.body.firstChild);
+    }
     return sanitizedDiv;
   },
 };
