@@ -388,18 +388,17 @@
           <div class="card">
             <h3>介面設定</h3>
             <div class="form-group">
-              <label for="ui-zoom-level" data-ui-message="OPTIONS.INTERFACE.ZOOM_LABEL"
-                >介面縮放</label
-              >
-              <div class="input-wrapper">
-                <select id="ui-zoom-level" class="form-select-enhanced">
-                  <option value="1" data-ui-message="OPTIONS.INTERFACE.ZOOM_MEDIUM_OPTION"></option>
-                  <option
-                    value="1.1"
-                    data-ui-message="OPTIONS.INTERFACE.ZOOM_LARGE_OPTION"
-                  ></option>
-                </select>
-              </div>
+              <fieldset id="ui-zoom-level-group" class="segmented-radio-group" role="radiogroup">
+                <legend data-ui-message="OPTIONS.INTERFACE.ZOOM_LABEL">介面縮放</legend>
+                <input type="radio" name="ui-zoom-level" id="ui-zoom-level-1" value="1" checked />
+                <label for="ui-zoom-level-1" class="segmented-radio-option">
+                  <span>100%</span>
+                </label>
+                <input type="radio" name="ui-zoom-level" id="ui-zoom-level-1.1" value="1.1" />
+                <label for="ui-zoom-level-1.1" class="segmented-radio-option">
+                  <span>110%</span>
+                </label>
+              </fieldset>
               <p class="help-text" data-ui-message="OPTIONS.INTERFACE.ZOOM_HELP"></p>
             </div>
             <div class="form-group">
@@ -419,47 +418,35 @@
               </label>
               <p class="help-text" data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_HELP"></p>
             </div>
-            <div class="form-group">
-              <label
-                for="floating-rail-position"
-                data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_POSITION_LABEL"
-                >懸浮按鈕位置</label
-              >
-              <div class="input-wrapper">
-                <select id="floating-rail-position" class="form-select-enhanced">
-                  <option
-                    value="top"
-                    data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_POSITION_TOP_OPTION"
-                  ></option>
-                  <option
-                    value="middle"
-                    data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_POSITION_MIDDLE_OPTION"
-                  ></option>
-                  <option
-                    value="bottom"
-                    data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_POSITION_BOTTOM_OPTION"
-                  ></option>
-                </select>
-              </div>
+             <div class="form-group">
+              <fieldset id="floating-rail-position-group" class="dot-rail-radio-group" role="radiogroup">
+                <legend data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_POSITION_LABEL">懸浮按鈕位置</legend>
+                <input type="radio" name="floating-rail-position" id="floating-rail-position-top" value="top" />
+                <label for="floating-rail-position-top" class="dot-rail-option">
+                  <span data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_POSITION_TOP_OPTION">右偏上</span>
+                </label>
+                <input type="radio" name="floating-rail-position" id="floating-rail-position-middle" value="middle" checked />
+                <label for="floating-rail-position-middle" class="dot-rail-option">
+                  <span data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_POSITION_MIDDLE_OPTION">右中</span>
+                </label>
+                <input type="radio" name="floating-rail-position" id="floating-rail-position-bottom" value="bottom" />
+                <label for="floating-rail-position-bottom" class="dot-rail-option">
+                  <span data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_POSITION_BOTTOM_OPTION">右偏下</span>
+                </label>
+              </fieldset>
             </div>
             <div class="form-group">
-              <label
-                for="floating-rail-size"
-                data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_SIZE_LABEL"
-                >懸浮按鈕大小</label
-              >
-              <div class="input-wrapper">
-                <select id="floating-rail-size" class="form-select-enhanced">
-                  <option
-                    value="large"
-                    data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_SIZE_LARGE_OPTION"
-                  ></option>
-                  <option
-                    value="small"
-                    data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_SIZE_SMALL_OPTION"
-                  ></option>
-                </select>
-              </div>
+              <fieldset id="floating-rail-size-group" class="segmented-radio-group" role="radiogroup">
+                <legend data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_SIZE_LABEL">懸浮按鈕大小</legend>
+                <input type="radio" name="floating-rail-size" id="floating-rail-size-large" value="large" checked />
+                <label for="floating-rail-size-large" class="segmented-radio-option">
+                  <span data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_SIZE_LARGE_OPTION">大</span>
+                </label>
+                <input type="radio" name="floating-rail-size" id="floating-rail-size-small" value="small" />
+                <label for="floating-rail-size-small" class="segmented-radio-option">
+                  <span data-ui-message="OPTIONS.INTERFACE.FLOATING_RAIL_SIZE_SMALL_OPTION">小</span>
+                </label>
+              </fieldset>
             </div>
           </div>
 
@@ -900,57 +887,66 @@
           <div class="card">
             <h3 data-ui-message="OPTIONS.TEMPLATES.APPEARANCE_TITLE">外觀設定</h3>
             <div class="form-group">
-              <label for="highlight-style" data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_STYLE_LABEL"
-                >標註樣式</label
-              >
-              <div class="input-wrapper">
-                <select id="highlight-style" class="form-select form-select-enhanced">
-                  <option
-                    value="background"
-                    data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_STYLE_BACKGROUND"
-                  ></option>
-                  <option
-                    value="text"
-                    data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_STYLE_TEXT"
-                  ></option>
-                  <option
-                    value="underline"
-                    data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_STYLE_UNDERLINE"
-                  ></option>
-                </select>
-              </div>
+              <fieldset id="highlight-style-group" class="segmented-radio-group" role="radiogroup">
+                <legend data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_STYLE_LABEL">標註樣式</legend>
+                <input type="radio" name="highlight-style" id="highlight-style-background" value="background" checked />
+                <label for="highlight-style-background" class="segmented-radio-option">
+                  <span data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_STYLE_BACKGROUND">背景顏色</span>
+                </label>
+                <input type="radio" name="highlight-style" id="highlight-style-text" value="text" />
+                <label for="highlight-style-text" class="segmented-radio-option">
+                  <span data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_STYLE_TEXT">文字顏色</span>
+                </label>
+                <input type="radio" name="highlight-style" id="highlight-style-underline" value="underline" />
+                <label for="highlight-style-underline" class="segmented-radio-option">
+                  <span data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_STYLE_UNDERLINE">底線</span>
+                </label>
+              </fieldset>
               <p class="help-text" data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_STYLE_HELP"></p>
             </div>
             <div class="form-group">
-              <label
-                for="highlight-content-style"
-                data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_LABEL"
-                >Notion 同步樣式</label
-              >
-              <div class="input-wrapper">
-                <select id="highlight-content-style" class="form-select form-select-enhanced">
-                  <option
-                    value="COLOR_SYNC"
-                    data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_COLOR_SYNC"
-                  ></option>
-                  <option
-                    value="COLOR_TEXT"
-                    data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_COLOR_TEXT"
-                  ></option>
-                  <option
-                    value="BOLD"
-                    data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_BOLD"
-                  ></option>
-                  <option
-                    value="NONE"
-                    data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_NONE"
-                  ></option>
-                </select>
-              </div>
-              <p
-                class="help-text"
-                data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_HELP"
-              ></p>
+              <label class="switch-wrapper" for="highlight-content-style-enabled">
+                <input
+                  type="checkbox"
+                  id="highlight-content-style-enabled"
+                  role="switch"
+                  class="switch-input"
+                  checked
+                  aria-checked="true"
+                />
+                <span class="switch-track" aria-hidden="true">
+                  <span class="switch-knob"></span>
+                </span>
+                <span data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_ENABLED_LABEL">
+                  啟用 Notion 原文標示
+                </span>
+              </label>
+            </div>
+            <div class="form-group">
+              <fieldset id="highlight-content-style-group" class="segmented-radio-group" role="radiogroup">
+                <legend data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_MODE_LABEL">
+                  同步樣式
+                </legend>
+                <input type="radio" name="highlight-content-style" id="highlight-content-style-color-sync" value="color-sync" checked />
+                <label for="highlight-content-style-color-sync" class="segmented-radio-option">
+                  <span data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_COLOR_SYNC">
+                    對應顏色背景（預設）
+                  </span>
+                </label>
+                <input type="radio" name="highlight-content-style" id="highlight-content-style-color-text" value="color-text" />
+                <label for="highlight-content-style-color-text" class="segmented-radio-option">
+                  <span data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_COLOR_TEXT">
+                    對應顏色文字
+                  </span>
+                </label>
+                <input type="radio" name="highlight-content-style" id="highlight-content-style-bold" value="bold" />
+                <label for="highlight-content-style-bold" class="segmented-radio-option">
+                  <span data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_BOLD">
+                    粗體
+                  </span>
+                </label>
+              </fieldset>
+              <p class="help-text" data-ui-message="OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_HELP"></p>
             </div>
           </div>
 

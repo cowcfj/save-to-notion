@@ -180,7 +180,6 @@ describe('options.html 結構', () => {
       ['destination-profile-name', 'OPTIONS.DESTINATION.PROFILE_NAME_LABEL'],
       ['database-search', 'OPTIONS.DESTINATION.SELECT_FROM_NOTION_LABEL'],
       ['database-id', 'OPTIONS.DESTINATION.MANUAL_ID_LABEL'],
-      ['ui-zoom-level', 'OPTIONS.INTERFACE.ZOOM_LABEL'],
     ].forEach(([controlId, messageKey]) => {
       const control = doc.querySelector(`#${controlId}`);
       const label = doc.querySelector(`label[for="${controlId}"]`);
@@ -228,7 +227,7 @@ describe('options.html 結構', () => {
 
     const oauthRow = doc.querySelector('.connection-row #oauth-status')?.closest('.connection-row');
     const manualRow = doc.querySelector('.connection-row #auth-status')?.closest('.connection-row');
-    const zoomLabel = doc.querySelector('label[for="ui-zoom-level"]');
+    const zoomLabel = doc.querySelector('#ui-zoom-level-group legend');
 
     expect(html).not.toContain(
       '預設保存目標會沿用下方 Notion 儲存目標。登入帳號後可新增第二個本地保存目標。'
