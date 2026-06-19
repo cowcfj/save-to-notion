@@ -18,7 +18,17 @@ describe('updateNotificationVersion', () => {
       [undefined, '2.0.0', false],
       ['1.0.0', undefined, false],
       [null, null, false],
-    ])('returns %s for %s -> %s', (previousVersion, currentVersion, expected) => {
+      ['1.x.0', '2.0.0', false],
+      ['1.0.0', '2.x.0', false],
+      ['abc.def', '2.0.0', false],
+      ['1.0.0', 'abc.def', false],
+      ['1', '2.0.0', false],
+      ['1.0.0', '2', false],
+      ['', '2.0.0', false],
+      [' ', '2.0.0', false],
+      ['1.0.0', '', false],
+      ['1.0.0', ' ', false],
+    ])('upgrading from %s to %s should return %s', (previousVersion, currentVersion, expected) => {
       expect(shouldShowUpdateNotification(previousVersion, currentVersion)).toBe(expected);
     });
   });

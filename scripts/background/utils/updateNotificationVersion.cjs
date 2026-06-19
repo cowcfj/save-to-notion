@@ -1,10 +1,31 @@
-function shouldShowUpdateNotification(previousVersion, currentVersion) {
-  if (!previousVersion || !currentVersion) {
-    return false;
+function parseVersionParts(version) {
+  if (typeof version !== 'string') {
+    return null;
   }
 
-  const prevParts = previousVersion.split('.').map(Number);
-  const currParts = currentVersion.split('.').map(Number);
+  const parts = version.split('.');
+  const hasMajorAndMinor = parts.length >= 2;
+  const numericParts = parts.map(part => {
+    if (!/^\d+$/.test(part)) {
+      return NaN;
+    }
+    return Number(part);
+  });
+
+  if (!hasMajorAndMinor || numericParts.some(Number.isNaN)) {
+    return null;
+  }
+
+  return numericParts;
+}
+
+function shouldShowUpdateNotification(previousVersion, currentVersion) {
+  const prevParts = parseVersionParts(previousVersion);
+  const currParts = parseVersionParts(currentVersion);
+
+  if (!prevParts || !currParts) {
+    return false;
+  }
 
   if (currParts[0] > prevParts[0]) {
     return true;
