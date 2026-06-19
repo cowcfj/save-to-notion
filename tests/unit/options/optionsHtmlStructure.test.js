@@ -72,7 +72,9 @@ const expectSwitchControl = (doc, selector) => {
  */
 const expectRadioGroupControl = (doc, { groupSelector, inputName, values }) => {
   const container = queryRequiredElement(doc, groupSelector);
-  expect(container.getAttribute('role')).toBe('radiogroup');
+  expect(container.tagName).toBe('FIELDSET');
+  expect(container.getAttribute('role')).toBeNull();
+  expect(container.querySelector('legend')).not.toBeNull();
 
   const radios = container.querySelectorAll(`input[type="radio"][name="${inputName}"]`);
   expect(radios).toHaveLength(values.length);
