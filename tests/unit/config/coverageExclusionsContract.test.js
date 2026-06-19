@@ -47,7 +47,7 @@ function readSonarPropertyValue(lines, propertyName) {
   const propertyPattern = new RegExp(
     String.raw`^${escapeRegExp(propertyName)}\s*=\s*([^#]*)(?:#.*)?$`
   );
-  const matchingLine = lines.find(line => propertyPattern.test(line.trim()));
+  const matchingLine = lines.findLast(line => propertyPattern.test(line.trim()));
   return matchingLine?.replace(propertyPattern, '$1').trim() ?? '';
 }
 
@@ -91,6 +91,15 @@ describe('coverage exclusion contract', () => {
       'scripts',
       'pages',
     ]);
+  });
+
+  test('Sonar property parser uses the last declaration for duplicate keys', () => {
+    const sonarProperties = [
+      'sonar.sources=scripts,pages',
+      'sonar.sources=site # override earlier declaration',
+    ];
+
+    expect(readCommaSeparatedSonarProperty(sonarProperties, 'sonar.sources')).toEqual(['site']);
   });
 
   test('Jest keeps production coverage exclusions explicit', () => {
