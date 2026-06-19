@@ -81,7 +81,8 @@ const expectRadioGroupControl = (doc, { groupSelector, inputName, values }) => {
 
   radios.forEach((radio, index) => {
     expect(radio.getAttribute('value')).toBe(values[index]);
-    const label = doc.querySelector(`label[for="${radio.id}"]`);
+    const label = radio.closest('label');
+
     expect(label).not.toBeNull();
     expect(label.textContent.trim().length).toBeGreaterThan(0);
   });
