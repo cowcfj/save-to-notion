@@ -7,7 +7,7 @@ function parseVersionParts(version) {
   const hasMajorAndMinor = parts.length >= 2;
   const numericParts = parts.map(part => {
     if (!/^\d+$/.test(part)) {
-      return NaN;
+      return Number.NaN;
     }
     return Number(part);
   });
