@@ -50,9 +50,11 @@ import {
   DRIVE_SYNC_STORAGE_KEYS,
   markDriveDirty,
 } from './auth/driveClient.js';
+import updateNotificationVersion from './background/utils/updateNotificationVersion.cjs';
 
 const UPDATE_NOTIFICATION_WINDOW_WIDTH = 480;
 const UPDATE_NOTIFICATION_WINDOW_HEIGHT = 560;
+const { shouldShowUpdateNotification } = updateNotificationVersion;
 
 // ==========================================
 // SERVICE INITIALIZATION
@@ -305,40 +307,6 @@ function handleExtensionInstall() {
       error: error?.message ?? String(error),
     });
   });
-}
-
-/**
- * 判斷是否需要顯示更新通知
- *
- * @param {string} previousVersion - 舊版本號
- * @param {string} currentVersion - 當前版本號
- * @returns {boolean} 是否顯示通知
- */
-function shouldShowUpdateNotification(previousVersion, currentVersion) {
-  // 跳過開發版本或測試版本
-  if (!previousVersion || !currentVersion) {
-    return false;
-  }
-
-  // 解析版本號
-  const prevParts = previousVersion.split('.').map(Number);
-  const currParts = currentVersion.split('.').map(Number);
-
-  // 1. 主版本 (Major)
-  if (currParts[0] > prevParts[0]) {
-    return true;
-  }
-  if (currParts[0] < prevParts[0]) {
-    return false; // 降級不通知
-  }
-
-  // 2. 次版本 (Minor) - 僅 Major 相同時才比較
-  if (currParts[1] > prevParts[1]) {
-    return true;
-  }
-
-  // Patch 版本升級不顯示通知（內容由 CHANGELOG.md 自動記錄）
-  return false;
 }
 
 /**
