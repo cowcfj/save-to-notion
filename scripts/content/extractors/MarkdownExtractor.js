@@ -149,7 +149,9 @@ export const MarkdownExtractor = {
     const sanitizedHtml = sanitizeArticleHtml(clone.innerHTML);
     const parsed = getMarkdownHtmlParser().parseFromString(sanitizedHtml, 'text/html');
     const sanitizedDiv = document.createElement('div');
-    sanitizedDiv.append(...parsed.body.childNodes);
+    while (parsed.body.firstChild) {
+      sanitizedDiv.append(parsed.body.firstChild);
+    }
     return sanitizedDiv;
   },
 };
