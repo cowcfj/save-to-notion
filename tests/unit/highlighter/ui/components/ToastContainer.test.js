@@ -76,13 +76,13 @@ describe('ToastContainer', () => {
       .mockReturnValue(parserErrorDoc);
 
     try {
-      const el = createToastContainer({ level: 'success', message: 'OK' });
+      const el = createToastContainer({ level: 'success', message: '完成' });
       const iconEl = el.querySelector('.toast-icon');
 
       expect(iconEl).not.toBeNull();
       expect(iconEl.querySelector('parsererror')).toBeNull();
       expect(iconEl.childElementCount).toBe(0);
-      expect(el.querySelector('.toast-message').textContent).toBe('OK');
+      expect(el.querySelector('.toast-message').textContent).toBe('完成');
     } finally {
       parseSpy.mockRestore();
     }
