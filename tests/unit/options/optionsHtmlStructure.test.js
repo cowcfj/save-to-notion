@@ -65,19 +65,20 @@ const expectSwitchControl = (doc, selector) => {
  * 驗證單選按鈕組（Radio Group）結構與無障礙語意
  *
  * @param {Document} doc - DOM Document 物件
- * @param {string} containerSelector - 包含單選按鈕組的容器選擇器
- * @param {string} name - 單選按鈕的 name 屬性
- * @param {string[]} expectedValues - 預期的所有 radio value 清單
+ * @param {object} options - 配置選項物件
+ * @param {string} options.groupSelector - 包含單選按鈕組的容器選擇器
+ * @param {string} options.inputName - 單選按鈕的 name 屬性
+ * @param {string[]} options.values - 預期的所有 radio value 清單
  */
-const expectRadioGroupControl = (doc, containerSelector, name, expectedValues) => {
-  const container = queryRequiredElement(doc, containerSelector);
+const expectRadioGroupControl = (doc, { groupSelector, inputName, values }) => {
+  const container = queryRequiredElement(doc, groupSelector);
   expect(container.getAttribute('role')).toBe('radiogroup');
 
-  const radios = container.querySelectorAll(`input[type="radio"][name="${name}"]`);
-  expect(radios).toHaveLength(expectedValues.length);
+  const radios = container.querySelectorAll(`input[type="radio"][name="${inputName}"]`);
+  expect(radios).toHaveLength(values.length);
 
   radios.forEach((radio, index) => {
-    expect(radio.getAttribute('value')).toBe(expectedValues[index]);
+    expect(radio.getAttribute('value')).toBe(values[index]);
     const label = doc.querySelector(`label[for="${radio.id}"]`);
     expect(label).not.toBeNull();
     expect(label.textContent.trim().length).toBeGreaterThan(0);
@@ -350,21 +351,26 @@ describe('options.html 結構', () => {
     expect(doc.querySelector('#highlight-style')).toBeNull();
 
     // 驗證新的單選按鈕組（Radio Group）
-    expectRadioGroupControl(doc, '#ui-zoom-level-group', 'ui-zoom-level', ['1', '1.1']);
-    expectRadioGroupControl(doc, '#floating-rail-position-group', 'floating-rail-position', [
-      'top',
-      'middle',
-      'bottom',
-    ]);
-    expectRadioGroupControl(doc, '#floating-rail-size-group', 'floating-rail-size', [
-      'large',
-      'small',
-    ]);
-    expectRadioGroupControl(doc, '#highlight-style-group', 'highlight-style', [
-      'background',
-      'text',
-      'underline',
-    ]);
+    expectRadioGroupControl(doc, {
+      groupSelector: '#ui-zoom-level-group',
+      inputName: 'uiZoomLevel',
+      values: ['1', '1.1'],
+    });
+    expectRadioGroupControl(doc, {
+      groupSelector: '#floating-rail-position-group',
+      inputName: 'floatingRailPosition',
+      values: ['top', 'middle', 'bottom'],
+    });
+    expectRadioGroupControl(doc, {
+      groupSelector: '#floating-rail-size-group',
+      inputName: 'floatingRailSize',
+      values: ['large', 'small'],
+    });
+    expectRadioGroupControl(doc, {
+      groupSelector: '#highlight-style-group',
+      inputName: 'highlightStyle',
+      values: ['background', 'text', 'underline'],
+    });
   });
 
   test('Notion 同步樣式應拆成啟用開關與三段樣式選項', () => {
@@ -378,10 +384,10 @@ describe('options.html 結構', () => {
     expectSwitchControl(doc, '#highlight-content-style-enabled');
 
     // 驗證 Notion 同步樣式單選按鈕組
-    expectRadioGroupControl(doc, '#highlight-content-style-group', 'highlight-content-style', [
-      'color-sync',
-      'color-text',
-      'bold',
-    ]);
+    expectRadioGroupControl(doc, {
+      groupSelector: '#highlight-content-style-group',
+      inputName: 'highlightContentStyle',
+      values: ['COLOR_SYNC', 'COLOR_TEXT', 'BOLD'],
+    });
   });
 });
