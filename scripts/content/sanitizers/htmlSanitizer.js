@@ -92,6 +92,13 @@ const SAFE_URI_REGEXP =
 
 const EMPTY_HTML_INPUTS = new Set([null, undefined, '']);
 
+let htmlTextParser;
+
+function getHtmlTextParser() {
+  htmlTextParser ??= new DOMParser();
+  return htmlTextParser;
+}
+
 function isEmptyHtmlInput(html) {
   return EMPTY_HTML_INPUTS.has(html);
 }
@@ -216,6 +223,6 @@ export function sanitizeHtmlToText(html) {
   });
 
   // 透過 temp 節點解析解碼 HTML entities
-  const parsed = new DOMParser().parseFromString(cleanHtml, 'text/html');
+  const parsed = getHtmlTextParser().parseFromString(cleanHtml, 'text/html');
   return parsed.body.textContent || '';
 }
