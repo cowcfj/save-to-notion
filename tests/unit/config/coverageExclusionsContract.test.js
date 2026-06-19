@@ -43,6 +43,19 @@ function hasSonarProperty(lines, propertyName) {
   return lines.some(line => propertyPattern.test(line.trim()));
 }
 
+function readSonarPropertyValue(lines, propertyName) {
+  const propertyPattern = new RegExp(String.raw`^${escapeRegExp(propertyName)}\s*=\s*(.*)$`);
+  const matchingLine = lines.find(line => propertyPattern.test(line.trim()));
+  return matchingLine?.replace(propertyPattern, '$1').trim() ?? '';
+}
+
+function readCommaSeparatedSonarProperty(lines, propertyName) {
+  return readSonarPropertyValue(lines, propertyName)
+    .split(',')
+    .map(value => value.trim())
+    .filter(Boolean);
+}
+
 describe('coverage exclusion contract', () => {
   test('Sonar property parser normalizes whitespace and ignores comments', () => {
     const readFileSync = jest.spyOn(fs, 'readFileSync').mockReturnValue(`
@@ -110,6 +123,42 @@ describe('coverage exclusion contract', () => {
     expect(readJestProjectCacheDirectories()).toEqual([
       '<rootDir>/.jest-cache',
       '<rootDir>/.jest-cache',
+    ]);
+  });
+
+  test('Sonar source scope includes production pages and site debt', () => {
+    const sonarProperties = readSonarProperties();
+
+    expect(readCommaSeparatedSonarProperty(sonarProperties, 'sonar.sources')).toEqual([
+      'scripts',
+      'pages',
+      'site',
+    ]);
+  });
+
+  test('Sonar source exclusions do not suppress test debt governance', () => {
+    const sonarProperties = readSonarProperties();
+    const sourceExclusions = readCommaSeparatedSonarProperty(sonarProperties, 'sonar.exclusions');
+
+    expect(sourceExclusions).toEqual([
+      'node_modules/**',
+      'dist/**',
+      'coverage/**',
+      'playwright-report/**',
+      'lib/Readability.js',
+    ]);
+    expect(sourceExclusions).not.toContain('tests/**');
+    expect(sourceExclusions).not.toContain('**/*.test.js');
+    expect(sourceExclusions).not.toContain('**/*.spec.js');
+  });
+
+  test('Sonar test scope remains explicit for test debt analysis', () => {
+    const sonarProperties = readSonarProperties();
+
+    expect(readCommaSeparatedSonarProperty(sonarProperties, 'sonar.tests')).toEqual(['tests']);
+    expect(readCommaSeparatedSonarProperty(sonarProperties, 'sonar.test.inclusions')).toEqual([
+      '**/*.test.js',
+      '**/*.spec.js',
     ]);
   });
 });
