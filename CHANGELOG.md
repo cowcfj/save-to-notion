@@ -1,5 +1,29 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.81.0](https://github.com/cowcfj/save-to-notion/compare/v2.80.0...v2.81.0) (2026-06-19)
+
+
+### ✨ 新功能
+
+* add active profile management and session storage support ([#726](https://github.com/cowcfj/save-to-notion/issues/726)) ([8b0e0d9](https://github.com/cowcfj/save-to-notion/commit/8b0e0d994ced1e42e27d8a319c085596516ea1d6))
+* add OAuth toggle switch and confirm dialog ([#724](https://github.com/cowcfj/save-to-notion/issues/724)) ([d203490](https://github.com/cowcfj/save-to-notion/commit/d203490981b9e06094b8c3b0bd35d358821a95e1))
+* convert options preference checkboxes to switch components ([#731](https://github.com/cowcfj/save-to-notion/issues/731)) ([027a32d](https://github.com/cowcfj/save-to-notion/commit/027a32df15c66cac5fd9d749b93bffbe724db682))
+* enhance options with visible preference controls ([#738](https://github.com/cowcfj/save-to-notion/issues/738)) ([07031ec](https://github.com/cowcfj/save-to-notion/commit/07031ec61747f5416eb78a31c38c3c45763801db))
+* transition options page to scoped save and preference autosaves ([#732](https://github.com/cowcfj/save-to-notion/issues/732)) ([c990dff](https://github.com/cowcfj/save-to-notion/commit/c990dffaa47142f5b877ae0fa076448922ab0260))
+
+
+### 🐛 Bug 修復
+
+* **ci:** align jest cache directory ([#729](https://github.com/cowcfj/save-to-notion/issues/729)) ([9fd978c](https://github.com/cowcfj/save-to-notion/commit/9fd978c141742da518eb041a9ad7911faa5e7a76))
+* **deps:** update dompurify to 3.4.11 ([#736](https://github.com/cowcfj/save-to-notion/issues/736)) ([69edadc](https://github.com/cowcfj/save-to-notion/commit/69edadc157ee874e378e91dcd28435ca3c1ed2be))
+* remove hardcoded jwt fixture and improve HTML sanitization ([#735](https://github.com/cowcfj/save-to-notion/issues/735)) ([49d0cb8](https://github.com/cowcfj/save-to-notion/commit/49d0cb86c2306b61aba35a65f0c549a2a81039dc))
+
+
+### ♻️ 代碼重構
+
+* deduplicate template status id and use native storage promise ([#733](https://github.com/cowcfj/save-to-notion/issues/733)) ([e61c400](https://github.com/cowcfj/save-to-notion/commit/e61c400d69bb060c9b07e19bd0cd2439d343e50a))
+* remediate SonarCloud issues and improve accessibility ([#728](https://github.com/cowcfj/save-to-notion/issues/728)) ([891db3d](https://github.com/cowcfj/save-to-notion/commit/891db3d984cf4c5200d006221041419de84391bf))
+
 ## [2.80.0](https://github.com/cowcfj/save-to-notion/compare/v2.79.0...v2.80.0) (2026-06-17)
 
 ### ✨ 新功能
