@@ -1,25 +1,9 @@
 // 測試更新通知完整流程
 console.log('🧪 開始測試更新通知功能');
 
-// 保持與 background.js 的版本比較邏輯一致，並維持此腳本可直接用 Node 獨立執行。
-function shouldShowUpdateNotification(previousVersion, currentVersion) {
-  if (!previousVersion || !currentVersion) {
-    return false;
-  }
-  const prevParts = previousVersion.split('.').map(Number);
-  const currParts = currentVersion.split('.').map(Number);
-
-  if (currParts[0] > prevParts[0]) {
-    return true;
-  }
-  if (currParts[0] < prevParts[0]) {
-    return false;
-  }
-  if (currParts[1] > prevParts[1]) {
-    return true;
-  }
-  return false; // Patch 版本不通知
-}
+const {
+  shouldShowUpdateNotification,
+} = require('../../scripts/background/utils/updateNotificationVersion.cjs');
 
 // 測試 1: 版本比較邏輯（只有 Major/Minor 才通知）
 function testVersionComparison() {
