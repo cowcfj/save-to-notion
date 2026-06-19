@@ -83,8 +83,11 @@ globalThis.chrome = {
   },
 };
 
-export function buildCurrentViewDOM() {
-  document.body.innerHTML = `
+function buildCurrentViewMarkup({
+  includeStartHighlightButton = true,
+  includeViewTabs = false,
+} = {}) {
+  return `
       <div id="loading-state" style="display:none">Loading...</div>
       <div id="empty-state" style="display:none">
         <p>Empty</p>
@@ -92,7 +95,7 @@ export function buildCurrentViewDOM() {
       </div>
       <div id="highlights-list" style="display:none"></div>
       <aside id="unsaved-page-notice" class="unsaved-page-notice" role="status" hidden></aside>
-      <button id="start-highlight-button"></button>
+      ${includeStartHighlightButton ? '<button id="start-highlight-button"></button>' : ''}
       <button id="sync-button"></button>
       <button id="open-notion-button"></button>
       <div id="status-message"></div>
@@ -103,6 +106,12 @@ export function buildCurrentViewDOM() {
       </div>
       <button id="load-more-btn" style="display:none"></button>
       <span id="unsynced-badge"></span>
+      ${
+        includeViewTabs
+          ? `<button class="view-tab active" data-view="current">Current</button>
+      <button class="view-tab" data-view="unsynced">Pending</button>`
+          : ''
+      }
       <template id="highlight-card-template">
         <div class="highlight-card">
           <div class="highlight-color-indicator"></div>
@@ -121,6 +130,10 @@ export function buildCurrentViewDOM() {
         </div>
       </template>
     `;
+}
+
+export function buildCurrentViewDOM() {
+  document.body.innerHTML = buildCurrentViewMarkup();
 }
 
 export function setupDefaultChromeMocks({ stableUrl = 'https://example.js/stable' } = {}) {
@@ -219,43 +232,10 @@ export async function clickUnsyncedTab() {
 }
 
 function buildRequiredDomContractDOM() {
-  document.body.innerHTML = `
-      <div id="loading-state" style="display:none">Loading...</div>
-      <div id="empty-state" style="display:none">
-        <p>Empty</p>
-        <div class="subtitle">Subtitle</div>
-      </div>
-      <div id="highlights-list" style="display:none"></div>
-      <button id="sync-button"></button>
-      <button id="open-notion-button"></button>
-      <div id="status-message"></div>
-      <div id="unsynced-view" style="display:none"></div>
-      <div id="unsynced-toolbar" style="display:none">
-        <span id="unsynced-count-label"></span>
-        <button id="clear-all-btn"></button>
-      </div>
-      <button id="load-more-btn" style="display:none"></button>
-      <span id="unsynced-badge"></span>
-      <button class="view-tab active" data-view="current">Current</button>
-      <button class="view-tab" data-view="unsynced">Pending</button>
-      <template id="highlight-card-template">
-        <div class="highlight-card">
-          <div class="highlight-color-indicator"></div>
-          <p class="highlight-text"></p>
-          <button class="delete-button"></button>
-        </div>
-      </template>
-      <template id="page-card-template">
-        <div class="page-card">
-          <div class="page-title"></div>
-          <div class="page-meta"></div>
-          <div class="page-card-previews"></div>
-          <div class="page-card-remaining"></div>
-          <button class="page-open-button"></button>
-          <button class="page-delete-button"></button>
-        </div>
-      </template>
-    `;
+  document.body.innerHTML = buildCurrentViewMarkup({
+    includeStartHighlightButton: false,
+    includeViewTabs: true,
+  });
 }
 
 export function setupRequiredDomContractTest() {
