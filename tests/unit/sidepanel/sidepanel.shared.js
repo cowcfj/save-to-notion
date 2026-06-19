@@ -83,35 +83,20 @@ globalThis.chrome = {
   },
 };
 
-function buildCurrentViewMarkup({
-  includeStartHighlightButton = true,
-  includeViewTabs = false,
-} = {}) {
+const REQUIRED_DOM_CONTRACT_TABS_MARKUP = `
+      <button class="view-tab active" data-view="current">Current</button>
+      <button class="view-tab" data-view="unsynced">Pending</button>
+    `;
+
+const UNSYNCED_VIEW_TABS_MARKUP = `
+      <div class="view-tabs">
+        <button class="view-tab active" data-view="current">Current Page</button>
+        <button class="view-tab" data-view="unsynced">Pending<span id="unsynced-badge"></span></button>
+      </div>
+    `;
+
+function buildHighlightCardTemplateMarkup() {
   return `
-      <div id="loading-state" style="display:none">Loading...</div>
-      <div id="empty-state" style="display:none">
-        <p>Empty</p>
-        <div class="subtitle">Subtitle</div>
-      </div>
-      <div id="highlights-list" style="display:none"></div>
-      <aside id="unsaved-page-notice" class="unsaved-page-notice" role="status" hidden></aside>
-      ${includeStartHighlightButton ? '<button id="start-highlight-button"></button>' : ''}
-      <button id="sync-button"></button>
-      <button id="open-notion-button"></button>
-      <div id="status-message"></div>
-      <div id="unsynced-view" style="display:none"></div>
-      <div id="unsynced-toolbar" style="display:none">
-        <span id="unsynced-count-label"></span>
-        <button id="clear-all-btn"></button>
-      </div>
-      <button id="load-more-btn" style="display:none"></button>
-      <span id="unsynced-badge"></span>
-      ${
-        includeViewTabs
-          ? `<button class="view-tab active" data-view="current">Current</button>
-      <button class="view-tab" data-view="unsynced">Pending</button>`
-          : ''
-      }
       <template id="highlight-card-template">
         <div class="highlight-card">
           <div class="highlight-color-indicator"></div>
@@ -119,6 +104,31 @@ function buildCurrentViewMarkup({
           <button class="delete-button"></button>
         </div>
       </template>
+    `;
+}
+
+function buildPageCardTemplateMarkup({ variant = 'current' } = {}) {
+  if (variant === 'unsynced') {
+    return `
+      <template id="page-card-template">
+        <div class="page-card">
+          <div class="page-card-header">
+            <div class="page-title-row">
+              <span class="status-dot"></span>
+              <p class="page-title"></p>
+            </div>
+            <div class="page-info"><span class="page-meta"></span></div>
+            <button class="page-open-button"></button>
+            <button class="page-delete-button"></button>
+          </div>
+          <div class="page-card-previews"></div>
+          <span class="page-card-remaining"></span>
+        </div>
+      </template>
+    `;
+  }
+
+  return `
       <template id="page-card-template">
         <div class="page-card">
           <div class="page-title"></div>
@@ -132,8 +142,48 @@ function buildCurrentViewMarkup({
     `;
 }
 
+function buildSidepanelViewMarkup({
+  emptySubtitle = 'Subtitle',
+  includeLoadingSpinner = false,
+  includeStartHighlightButton = true,
+  includeUnsavedPageNotice = true,
+  loadMoreText = '',
+  openNotionButtonStyle = '',
+  pageCardVariant = 'current',
+  standaloneUnsyncedBadge = true,
+  viewTabsMarkup = '',
+} = {}) {
+  return `
+      <div id="loading-state" style="display:none">${includeLoadingSpinner ? '<div class="spinner"></div><p></p>' : 'Loading...'}</div>
+      <div id="empty-state" style="display:none">
+        <p>Empty</p>
+        <div class="subtitle">${emptySubtitle}</div>
+      </div>
+      <div id="highlights-list" style="display:none"></div>
+      ${
+        includeUnsavedPageNotice
+          ? '<aside id="unsaved-page-notice" class="unsaved-page-notice" role="status" hidden></aside>'
+          : ''
+      }
+      ${includeStartHighlightButton ? '<button id="start-highlight-button"></button>' : ''}
+      <div id="unsynced-view" style="display:none"></div>
+      <div id="unsynced-toolbar" style="display:none">
+        <span id="unsynced-count-label"></span>
+        <button id="clear-all-btn"></button>
+      </div>
+      <button id="load-more-btn" style="display:none">${loadMoreText}</button>
+      <button id="sync-button"></button>
+      <button id="open-notion-button"${openNotionButtonStyle}></button>
+      <div id="status-message"></div>
+      ${standaloneUnsyncedBadge ? '<span id="unsynced-badge"></span>' : ''}
+      ${viewTabsMarkup}
+      ${buildHighlightCardTemplateMarkup()}
+      ${buildPageCardTemplateMarkup({ variant: pageCardVariant })}
+    `;
+}
+
 export function buildCurrentViewDOM() {
-  document.body.innerHTML = buildCurrentViewMarkup();
+  document.body.innerHTML = buildSidepanelViewMarkup();
 }
 
 export function setupDefaultChromeMocks({ stableUrl = 'https://example.js/stable' } = {}) {
@@ -147,62 +197,34 @@ export function setupDefaultChromeMocks({ stableUrl = 'https://example.js/stable
   chrome.runtime.sendMessage.mockResolvedValue({ success: true });
 }
 
+async function loadSidepanelModule({ flushCount = 6 } = {}) {
+  jest.isolateModules(() => {
+    require('../../../pages/sidepanel/sidepanel.js');
+  });
+  document.dispatchEvent(new Event('DOMContentLoaded'));
+  await flushMicrotasks(flushCount);
+}
+
 export async function loadSidepanelForCurrentView() {
   jest.clearAllMocks();
   jest.useFakeTimers();
   buildCurrentViewDOM();
   setupDefaultChromeMocks();
 
-  jest.isolateModules(() => {
-    require('../../../pages/sidepanel/sidepanel.js');
-  });
-
-  document.dispatchEvent(new Event('DOMContentLoaded'));
-  await flushMicrotasks();
+  await loadSidepanelModule();
 }
 
 export function buildUnsyncedDOM() {
-  document.body.innerHTML = `
-    <div id="loading-state" style="display:none"><div class="spinner"></div><p></p></div>
-    <div id="empty-state" style="display:none"><p>Empty</p><div class="subtitle"></div></div>
-    <div id="highlights-list" style="display:none"></div>
-    <button id="start-highlight-button"></button>
-    <div id="unsynced-view" style="display:none"></div>
-    <div id="unsynced-toolbar" style="display:none">
-      <span id="unsynced-count-label"></span>
-      <button id="clear-all-btn"></button>
-    </div>
-    <button id="load-more-btn" style="display:none">Load more</button>
-    <button id="sync-button"></button>
-    <button id="open-notion-button" style="display:none"></button>
-    <div id="status-message"></div>
-    <div class="view-tabs">
-      <button class="view-tab active" data-view="current">Current Page</button>
-      <button class="view-tab" data-view="unsynced">Pending<span id="unsynced-badge"></span></button>
-    </div>
-    <template id="highlight-card-template">
-      <div class="highlight-card">
-        <div class="highlight-color-indicator"></div>
-        <p class="highlight-text"></p>
-        <button class="delete-button"></button>
-      </div>
-    </template>
-    <template id="page-card-template">
-      <div class="page-card">
-        <div class="page-card-header">
-          <div class="page-title-row">
-            <span class="status-dot"></span>
-            <p class="page-title"></p>
-          </div>
-          <div class="page-info"><span class="page-meta"></span></div>
-          <button class="page-open-button"></button>
-          <button class="page-delete-button"></button>
-        </div>
-        <div class="page-card-previews"></div>
-        <span class="page-card-remaining"></span>
-      </div>
-    </template>
-  `;
+  document.body.innerHTML = buildSidepanelViewMarkup({
+    emptySubtitle: '',
+    includeLoadingSpinner: true,
+    includeUnsavedPageNotice: false,
+    loadMoreText: 'Load more',
+    openNotionButtonStyle: ' style="display:none"',
+    pageCardVariant: 'unsynced',
+    standaloneUnsyncedBadge: false,
+    viewTabsMarkup: UNSYNCED_VIEW_TABS_MARKUP,
+  });
 }
 
 export function setupUnsyncedTestEnvironment() {
@@ -218,11 +240,7 @@ export async function initModule(storageMock) {
   } else {
     chrome.storage.local.get.mockResolvedValue(storageMock);
   }
-  jest.isolateModules(() => {
-    require('../../../pages/sidepanel/sidepanel.js');
-  });
-  document.dispatchEvent(new Event('DOMContentLoaded'));
-  await flushMicrotasks(10);
+  await loadSidepanelModule({ flushCount: 10 });
 }
 
 export async function clickUnsyncedTab() {
@@ -232,9 +250,9 @@ export async function clickUnsyncedTab() {
 }
 
 function buildRequiredDomContractDOM() {
-  document.body.innerHTML = buildCurrentViewMarkup({
+  document.body.innerHTML = buildSidepanelViewMarkup({
     includeStartHighlightButton: false,
-    includeViewTabs: true,
+    viewTabsMarkup: REQUIRED_DOM_CONTRACT_TABS_MARKUP,
   });
 }
 
