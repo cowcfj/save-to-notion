@@ -25,7 +25,7 @@ function mockStorageFromStore(storeSource, { getDirectValue } = {}) {
     if (Array.isArray(key)) {
       const result = {};
       for (const item of key) {
-        if (store[item]) {
+        if (Object.hasOwn(store, item)) {
           result[item] = store[item];
         }
       }
@@ -90,7 +90,9 @@ async function loadCurrentTabAndClickFirstDelete() {
   await onActivated({ tabId: 600 });
   await flushMicrotasks(1);
 
-  document.querySelector('.delete-button')?.click();
+  const deleteButton = document.querySelector('.delete-button');
+  expect(deleteButton).not.toBeNull();
+  deleteButton.click();
 }
 
 function getRemovedStorageKeys() {
@@ -129,9 +131,7 @@ describe('Sidepanel user interactions', () => {
       delBtn.click();
       // Phase 4：handleDelete shouldRemove 路徑 + helper-driven cleanup 增加多個 await，
       // 需要更多 microtask 循環才能 drain remove + tabs.query + sendMessage。
-      for (let i = 0; i < 10; i++) {
-        await Promise.resolve();
-      }
+      await flushMicrotasks(10);
 
       expect(chrome.storage.local.remove).toHaveBeenCalled();
       const removedKeys = chrome.storage.local.remove.mock.calls.flatMap(call =>
@@ -162,9 +162,7 @@ describe('Sidepanel user interactions', () => {
       // Click delete the FIRST one
       const delBtn = document.querySelector('.delete-button');
       delBtn.click();
-      for (let i = 0; i < 5; i++) {
-        await Promise.resolve();
-      }
+      await flushMicrotasks(5);
 
       expect(chrome.storage.local.set).toHaveBeenCalled();
       const args = chrome.storage.local.set.mock.calls[0][0];
@@ -278,7 +276,7 @@ describe('Sidepanel user interactions', () => {
         if (Array.isArray(k)) {
           const result = {};
           for (const key of k) {
-            if (fakeStore[key]) {
+            if (Object.hasOwn(fakeStore, key)) {
               result[key] = fakeStore[key];
             }
           }
@@ -289,14 +287,11 @@ describe('Sidepanel user interactions', () => {
 
       const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
       await onActivated({ tabId: 600 });
-      await Promise.resolve();
+      await flushMicrotasks(1);
       const delBtn = document.querySelector('.delete-button');
-      if (delBtn) {
-        delBtn.click();
-      }
-      for (let i = 0; i < 6; i++) {
-        await Promise.resolve();
-      }
+      expect(delBtn).not.toBeNull();
+      delBtn.click();
+      await flushMicrotasks(6);
       const removedKeysGarbage = chrome.storage.local.remove.mock.calls.flatMap(call =>
         Array.isArray(call[0]) ? call[0] : [call[0]]
       );
@@ -310,8 +305,7 @@ describe('Sidepanel user interactions', () => {
 
       const syncBtn = document.querySelector('#sync-button');
       syncBtn.click();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushMicrotasks(2);
 
       expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'savePage' });
       expect(document.querySelector('#status-message').className).toBe('status-message success');
@@ -359,8 +353,7 @@ describe('Sidepanel user interactions', () => {
       const timeoutSpy = jest.spyOn(globalThis, 'setTimeout');
 
       document.querySelector('#open-notion-button').click();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushMicrotasks(2);
 
       expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), OPEN_BUTTON_DEBOUNCE_MS);
 
@@ -374,9 +367,7 @@ describe('Sidepanel user interactions', () => {
 
       const syncBtn = document.querySelector('#sync-button');
       syncBtn.click();
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushMicrotasks(3);
 
       expect(document.querySelector('#status-message').className).toBe('status-message error');
     });
@@ -422,9 +413,7 @@ describe('Sidepanel user interactions', () => {
 
       const syncBtn = document.querySelector('#sync-button');
       syncBtn.click();
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushMicrotasks(3);
 
       expect(document.querySelector('#status-message').textContent).toBe(
         UI_MESSAGES.SIDEPANEL.SYNC_FAILED
@@ -450,9 +439,7 @@ describe('Sidepanel user interactions', () => {
 
       const openBtn = document.querySelector('#open-notion-button');
       openBtn.click();
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushMicrotasks(3);
 
       expect(document.querySelector('#status-message').textContent).toBe(
         UI_MESSAGES.SIDEPANEL.OPEN_FAILED
@@ -471,8 +458,7 @@ describe('Sidepanel user interactions', () => {
 
       const startBtn = document.querySelector('#start-highlight-button');
       startBtn.click();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushMicrotasks(2);
 
       expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
         action: RUNTIME_ACTIONS.START_HIGHLIGHT,
@@ -488,8 +474,7 @@ describe('Sidepanel user interactions', () => {
 
       const startBtn = document.querySelector('#start-highlight-button');
       startBtn.click();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushMicrotasks(2);
 
       expect(document.querySelector('#status-message').textContent).not.toBe(
         'Highlighter initialization failed'
@@ -511,8 +496,7 @@ describe('Sidepanel user interactions', () => {
 
       const startBtn = document.querySelector('#start-highlight-button');
       startBtn.click();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushMicrotasks(2);
 
       expect(document.querySelector('#status-message').textContent).toBe(
         `${UI_MESSAGES.POPUP.HIGHLIGHT_FAILED_PREFIX}網路連線異常，請檢查網路後重試`
@@ -536,8 +520,7 @@ describe('Sidepanel user interactions', () => {
       const startBtn = document.querySelector('#start-highlight-button');
 
       startBtn.click();
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushMicrotasks(2);
 
       expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), SYNC_BUTTON_DEBOUNCE_MS);
       expect(document.querySelector('#status-message').className).toContain('error');

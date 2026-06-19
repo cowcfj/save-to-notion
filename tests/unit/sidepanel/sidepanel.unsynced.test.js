@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import {
   clickUnsyncedTab,
   createDeferred,
+  flushMicrotasks,
   initModule,
   Logger,
   RUNTIME_ACTIONS,
@@ -127,9 +128,7 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
 
     // 點擊「載入更多」
     document.querySelector('#load-more-btn').click();
-    for (let i = 0; i < 5; i++) {
-      await Promise.resolve();
-    }
+    await flushMicrotasks(5);
 
     const cardsAfter = document.querySelectorAll('#unsynced-view .page-card');
     // 點擊後應比原來多（至少 > 10）
@@ -179,9 +178,9 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
     const currentTab = document.querySelector('[data-view="current"]');
 
     unsyncedTab.click();
-    await Promise.resolve();
+    await flushMicrotasks(1);
     currentTab.click();
-    await Promise.resolve();
+    await flushMicrotasks(1);
 
     const storageData = {};
     for (let i = 0; i < 15; i++) {
@@ -191,9 +190,7 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
       };
     }
     deferredUnsyncedLoad.resolve(storageData);
-    for (let i = 0; i < 10; i++) {
-      await Promise.resolve();
-    }
+    await flushMicrotasks(10);
 
     expect(currentTab.classList.contains('active')).toBe(true);
     expect(unsyncedTab.classList.contains('active')).toBe(false);
@@ -214,14 +211,17 @@ describe('Unsynced View (getUnsyncedPages integration)', () => {
     chrome.tabs.create.mockRejectedValueOnce(error);
 
     document.querySelector('.page-open-button').click();
-    await Promise.resolve();
+    await flushMicrotasks(1);
 
-    expect(Logger.warn).toHaveBeenCalledWith('[SidePanel] Failed to open unsynced page tab', {
-      action: 'openUnsyncedPageTab',
-      result: 'failure',
-      error,
-      url: sanitizeUrlForLogging('https://example.com/p'),
-    });
+    expect(Logger.warn).toHaveBeenCalledWith(
+      '[SidePanel] Failed to open unsynced page tab',
+      expect.objectContaining({
+        action: 'openUnsyncedPageTab',
+        result: 'failure',
+        error,
+        url: sanitizeUrlForLogging('https://example.com/p'),
+      })
+    );
   });
 
   it('badge should show correct unsynced count on init', async () => {
