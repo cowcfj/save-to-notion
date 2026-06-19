@@ -230,32 +230,32 @@ export function buildOptionsPreferenceDOM() {
     <button id="save-title-template-button"></button>
     <div id="template-preview"></div>
     <p id="template-status" class="status-message"></p>
-    <select id="ui-zoom-level">
-      <option value="1">1</option>
-      <option value="1.1">1.1</option>
-    </select>
+    <fieldset id="ui-zoom-level-group">
+      <input type="radio" name="uiZoomLevel" value="1" checked />
+      <input type="radio" name="uiZoomLevel" value="1.1" />
+    </fieldset>
     <input id="floating-rail-enabled" type="checkbox" role="switch" aria-checked="true" checked />
-    <select id="floating-rail-position">
-      <option value="top">top</option>
-      <option value="middle">middle</option>
-      <option value="bottom">bottom</option>
-    </select>
-    <select id="floating-rail-size">
-      <option value="large">large</option>
-      <option value="small">small</option>
-    </select>
+    <fieldset id="floating-rail-position-group">
+      <input type="radio" name="floatingRailPosition" value="top" />
+      <input type="radio" name="floatingRailPosition" value="middle" checked />
+      <input type="radio" name="floatingRailPosition" value="bottom" />
+    </fieldset>
+    <fieldset id="floating-rail-size-group">
+      <input type="radio" name="floatingRailSize" value="large" checked />
+      <input type="radio" name="floatingRailSize" value="small" />
+    </fieldset>
     <input id="add-source" type="checkbox" role="switch" aria-checked="true" checked />
     <input id="add-timestamp" type="checkbox" role="switch" aria-checked="true" checked />
-    <select id="highlight-style">
-      <option value="background">background</option>
-      <option value="text">text</option>
-      <option value="underline">underline</option>
-    </select>
-    <select id="highlight-content-style">
-      <option value="COLOR_SYNC">COLOR_SYNC</option>
-      <option value="COLOR_TEXT">COLOR_TEXT</option>
-      <option value="BOLD">BOLD</option>
-      <option value="NONE">NONE</option>
-    </select>
+    <fieldset id="highlight-style-group">
+      <input type="radio" name="highlightStyle" value="background" checked />
+      <input type="radio" name="highlightStyle" value="text" />
+      <input type="radio" name="highlightStyle" value="underline" />
+    </fieldset>
+    <input id="highlight-content-style-enabled" type="checkbox" role="switch" aria-checked="true" checked />
+    <fieldset id="highlight-content-style-group">
+      <input type="radio" name="highlightContentStyle" value="COLOR_SYNC" checked />
+      <input type="radio" name="highlightContentStyle" value="COLOR_TEXT" />
+      <input type="radio" name="highlightContentStyle" value="BOLD" />
+    </fieldset>
   `;
 }

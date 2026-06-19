@@ -4,6 +4,8 @@ import { setupDebugLogExport } from './debugLogExportUI.js';
 import { initAccountUI, renderAccountUI } from './accountUI.js';
 export { applyStaticOptionMessages } from './staticOptionMessages.js';
 
+import { getRadioGroupValue, setRadioGroupValue } from './preferenceControls.js';
+
 import { UIManager } from './UIManager.js';
 import { AuthManager } from './AuthManager.js';
 import { DataSourceManager } from './DataSourceManager.js';
@@ -283,44 +285,58 @@ async function savePreferenceValue({ ui, storageKey, value, statusId, successMes
   }
 }
 
-function bindSelectAutosave({
+async function restoreRadioGroupPreference({ name, storageKey, defaultValue, onApply }) {
+  const result = await chrome.storage.sync.get({ [storageKey]: defaultValue });
+  const value = setRadioGroupValue(name, result?.[storageKey], defaultValue) ?? defaultValue;
+  onApply?.(value);
+  return value;
+}
+
+function bindRadioGroupAutosave({
   ui,
-  selector,
+  name,
   storageKey,
   defaultValue,
   statusId,
   successMessage,
   onApply,
 }) {
-  const element = document.querySelector(selector);
-  if (!element) {
+  const inputs = Array.from(document.querySelectorAll(`input[type="radio"][name="${name}"]`));
+  if (inputs.length === 0) {
     return;
   }
 
-  element.addEventListener('change', async () => {
-    const nextValue = element.value;
-    try {
-      await savePreferenceValue({
-        ui,
-        storageKey,
-        value: nextValue,
-        statusId,
-        successMessage,
-      });
-      onApply?.(nextValue);
-    } catch {
-      await restorePreferenceControl({
-        element,
-        storageKey,
-        defaultValue,
-        applyValue: (select, value) => {
-          select.value = value;
-          onApply?.(value);
-        },
-      });
-      ui.showStatus(UI_MESSAGES.SETTINGS.PREFERENCE_SAVE_FAILED, 'error', statusId);
-    }
+  restoreRadioGroupPreference({ name, storageKey, defaultValue, onApply }).catch(() => {
+    const value = setRadioGroupValue(name, defaultValue, defaultValue) ?? defaultValue;
+    onApply?.(value);
   });
+
+  for (const input of inputs) {
+    input.addEventListener('change', async () => {
+      if (!input.checked) {
+        return;
+      }
+      const nextValue = getRadioGroupValue(name) ?? defaultValue;
+      try {
+        await savePreferenceValue({
+          ui,
+          storageKey,
+          value: nextValue,
+          statusId,
+          successMessage,
+        });
+        onApply?.(nextValue);
+      } catch {
+        await restoreRadioGroupPreference({
+          name,
+          storageKey,
+          defaultValue,
+          onApply,
+        });
+        ui.showStatus(UI_MESSAGES.SETTINGS.PREFERENCE_SAVE_FAILED, 'error', statusId);
+      }
+    });
+  }
 }
 
 function bindSwitchAutosave({ ui, selector, storageKey, defaultValue, statusId }) {
@@ -356,9 +372,9 @@ function bindSwitchAutosave({ ui, selector, storageKey, defaultValue, statusId }
 
 function initializeAutosavePreferences(ui) {
   // 1. Zoom Level
-  bindSelectAutosave({
+  bindRadioGroupAutosave({
     ui,
-    selector: '#ui-zoom-level',
+    name: 'uiZoomLevel',
     storageKey: 'uiZoomLevel',
     defaultValue: '1',
     statusId: 'status',
@@ -378,9 +394,9 @@ function initializeAutosavePreferences(ui) {
   });
 
   // 3. Floating Rail Position
-  bindSelectAutosave({
+  bindRadioGroupAutosave({
     ui,
-    selector: '#floating-rail-position',
+    name: 'floatingRailPosition',
     storageKey: 'floatingRailPosition',
     defaultValue: 'middle',
     statusId: 'status',
@@ -388,9 +404,9 @@ function initializeAutosavePreferences(ui) {
   });
 
   // 4. Floating Rail Size
-  bindSelectAutosave({
+  bindRadioGroupAutosave({
     ui,
-    selector: '#floating-rail-size',
+    name: 'floatingRailSize',
     storageKey: 'floatingRailSize',
     defaultValue: 'large',
     statusId: 'status',
@@ -416,23 +432,13 @@ function initializeAutosavePreferences(ui) {
   });
 
   // 7. Highlight Style
-  bindSelectAutosave({
+  bindRadioGroupAutosave({
     ui,
-    selector: '#highlight-style',
+    name: 'highlightStyle',
     storageKey: 'highlightStyle',
     defaultValue: 'background',
     statusId: TEMPLATE_STATUS_ID,
     successMessage: UI_MESSAGES.OPTIONS.TEMPLATES.HIGHLIGHT_STYLE_SAVE_SUCCESS,
-  });
-
-  // 8. Highlight Content Style
-  bindSelectAutosave({
-    ui,
-    selector: '#highlight-content-style',
-    storageKey: 'highlightContentStyle',
-    defaultValue: 'COLOR_SYNC',
-    statusId: TEMPLATE_STATUS_ID,
-    successMessage: UI_MESSAGES.OPTIONS.TEMPLATES.HIGHLIGHT_CONTENT_STYLE_SAVE_SUCCESS,
   });
 }
 
@@ -452,32 +458,6 @@ function bindTitleTemplateSaveButton(ui) {
       } catch {
         ui.showStatus(UI_MESSAGES.SETTINGS.PREFERENCE_SAVE_FAILED, 'error', TEMPLATE_STATUS_ID);
       }
-    });
-  }
-}
-
-/**
- * 初始化介面縮放偏好設定
- */
-function initializeZoomPreference() {
-  const zoomSelect = document.querySelector('#ui-zoom-level');
-  if (zoomSelect) {
-    chrome.storage.sync.get(['uiZoomLevel'], result => {
-      const zoom = String(result.uiZoomLevel || '1');
-      document.body.style.zoom = zoom;
-      zoomSelect.value = zoom;
-    });
-  }
-}
-
-/**
- * 初始化高亮與 Notion 同步樣式偏好設定
- */
-function initializeHighlightContentStylePreference() {
-  const highlightContentStyleSelect = document.querySelector('#highlight-content-style');
-  if (highlightContentStyleSelect) {
-    chrome.storage.sync.get({ highlightContentStyle: 'COLOR_SYNC' }, result => {
-      highlightContentStyleSelect.value = result.highlightContentStyle;
     });
   }
 }
@@ -516,8 +496,6 @@ export function initOptions() {
   setupDebugLogExport();
 
   // 7. 偏好設定初始化
-  initializeZoomPreference();
-  initializeHighlightContentStylePreference();
   initializeAutosavePreferences(managers.ui);
   bindTitleTemplateSaveButton(managers.ui);
 }

@@ -105,10 +105,10 @@ describe('optionsInitialization', () => {
             <button id="preview-template"></button>
             <input id="title-template" />
             <div id="template-preview"></div>
-            <select id="ui-zoom-level">
-              <option value="1">1</option>
-              <option value="1.1">1.1</option>
-            </select>
+            <fieldset id="ui-zoom-level-group">
+              <input type="radio" name="uiZoomLevel" value="1" checked />
+              <input type="radio" name="uiZoomLevel" value="1.1" />
+            </fieldset>
         `;
 
       // JSDOM doesn't support zoom property, so we mock it
@@ -329,31 +329,6 @@ describe('optionsInitialization', () => {
       expect(mockStorageInstance.updateStorageUsage).toHaveBeenCalledTimes(1);
     });
 
-    it('應初始化 Notion 同步樣式選單', () => {
-      document.body.innerHTML += `
-        <select id="highlight-content-style">
-          <option value="COLOR_SYNC">COLOR_SYNC</option>
-          <option value="inline">inline</option>
-        </select>
-      `;
-      globalThis.chrome.storage.sync.get = jest.fn((keys, cb) => {
-        if (Array.isArray(keys)) {
-          cb({});
-          return;
-        }
-
-        cb({ highlightContentStyle: 'inline' });
-      });
-
-      initOptions();
-
-      expect(globalThis.chrome.storage.sync.get).toHaveBeenCalledWith(
-        { highlightContentStyle: 'COLOR_SYNC' },
-        expect.any(Function)
-      );
-      expect(document.querySelector('#highlight-content-style').value).toBe('inline');
-    });
-
     it('should handle navigation', () => {
       initOptions();
       const navItem = document.querySelector('.nav-item');
@@ -453,29 +428,25 @@ describe('optionsInitialization', () => {
       );
     });
 
-    it('should initialize zoom level', () => {
-      globalThis.chrome.storage.sync.get = jest.fn((keys, cb) => {
-        cb({ uiZoomLevel: '1.1' });
-      });
+    it('should initialize zoom level', async () => {
+      globalThis.chrome.storage.sync.get = jest.fn().mockResolvedValue({ uiZoomLevel: '1.1' });
 
       initOptions();
+      await flushAsyncClick();
 
-      const zoomSelect = document.querySelector('#ui-zoom-level');
-      expect(globalThis.chrome.storage.sync.get).toHaveBeenCalledWith(
-        ['uiZoomLevel'],
-        expect.any(Function)
-      );
+      const zoomRadio = document.querySelector('input[name="uiZoomLevel"][value="1.1"]');
+      expect(globalThis.chrome.storage.sync.get).toHaveBeenCalledWith({ uiZoomLevel: '1' });
       expect(document.body.style.zoom).toBe('1.1');
-      expect(zoomSelect.value).toBe('1.1');
+      expect(zoomRadio.checked).toBe(true);
     });
 
-    it('選單偏好變更時應即時保存並顯示成功提示', async () => {
+    it('radio 偏好變更時應即時保存並顯示成功提示', async () => {
       buildOptionsPreferenceDOM();
       globalThis.chrome = buildChromeMock({
         storage: {
           local: { get: jest.fn().mockResolvedValue({}), remove: jest.fn().mockResolvedValue() },
           sync: {
-            get: jest.fn((keys, cb) => cb({ uiZoomLevel: '1' })),
+            get: jest.fn().mockResolvedValue({}),
             set: jest.fn().mockResolvedValue(),
             remove: jest.fn().mockResolvedValue(),
           },
@@ -484,9 +455,9 @@ describe('optionsInitialization', () => {
 
       initOptions();
 
-      const zoomSelect = document.querySelector('#ui-zoom-level');
-      zoomSelect.value = '1.1';
-      zoomSelect.dispatchEvent(new Event('change'));
+      const zoomLarge = document.querySelector('input[name="uiZoomLevel"][value="1.1"]');
+      zoomLarge.checked = true;
+      zoomLarge.dispatchEvent(new Event('change'));
       await flushAsyncClick();
 
       expect(globalThis.chrome.storage.sync.set).toHaveBeenCalledWith({ uiZoomLevel: '1.1' });
