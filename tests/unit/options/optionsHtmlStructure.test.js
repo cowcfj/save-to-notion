@@ -61,6 +61,29 @@ const expectSwitchControl = (doc, selector) => {
   expect(track.querySelector('.switch-knob')).not.toBeNull();
 };
 
+/**
+ * 驗證單選按鈕組（Radio Group）結構與無障礙語意
+ *
+ * @param {Document} doc - DOM Document 物件
+ * @param {string} containerSelector - 包含單選按鈕組的容器選擇器
+ * @param {string} name - 單選按鈕的 name 屬性
+ * @param {string[]} expectedValues - 預期的所有 radio value 清單
+ */
+const expectRadioGroupControl = (doc, containerSelector, name, expectedValues) => {
+  const container = queryRequiredElement(doc, containerSelector);
+  expect(container.getAttribute('role')).toBe('radiogroup');
+
+  const radios = container.querySelectorAll(`input[type="radio"][name="${name}"]`);
+  expect(radios).toHaveLength(expectedValues.length);
+
+  radios.forEach((radio, index) => {
+    expect(radio.getAttribute('value')).toBe(expectedValues[index]);
+    const label = doc.querySelector(`label[for="${radio.id}"]`);
+    expect(label).not.toBeNull();
+    expect(label.textContent.trim().length).toBeGreaterThan(0);
+  });
+};
+
 describe('options.html 結構', () => {
   test('health-status 應為 polite live region 的 output 標籤', () => {
     const htmlPath = path.resolve(__dirname, '../../../pages/options/options.html');
@@ -315,5 +338,51 @@ describe('options.html 結構', () => {
     const primitivesCss = readUiPrimitivesCss();
 
     expect(primitivesCss).toMatch(/\.confirm-dialog-message\s*\{[^}]*white-space:\s*pre-line;/);
+  });
+
+  test('低基數偏好設定應使用 radio controls 直接暴露所有選項', () => {
+    const html = readOptionsHtml();
+    const doc = parseOptionsHtml(html);
+
+    // 預期原來的 select 選擇器皆為 null，已被 radio 控制項取代
+    expect(doc.querySelector('#ui-zoom-level')).toBeNull();
+    expect(doc.querySelector('#floating-rail-position')).toBeNull();
+    expect(doc.querySelector('#floating-rail-size')).toBeNull();
+    expect(doc.querySelector('#highlight-style')).toBeNull();
+
+    // 驗證新的單選按鈕組（Radio Group）
+    expectRadioGroupControl(doc, '#ui-zoom-level-group', 'ui-zoom-level', ['1', '1.1']);
+    expectRadioGroupControl(doc, '#floating-rail-position-group', 'floating-rail-position', [
+      'top',
+      'middle',
+      'bottom',
+    ]);
+    expectRadioGroupControl(doc, '#floating-rail-size-group', 'floating-rail-size', [
+      'large',
+      'small',
+    ]);
+    expectRadioGroupControl(doc, '#highlight-style-group', 'highlight-style', [
+      'background',
+      'text',
+      'underline',
+    ]);
+  });
+
+  test('Notion 同步樣式應拆成啟用開關與三段樣式選項', () => {
+    const html = readOptionsHtml();
+    const doc = parseOptionsHtml(html);
+
+    // 預期原來的 select 選擇器為 null，已被 switch 與 radio controls 取代
+    expect(doc.querySelector('#highlight-content-style')).toBeNull();
+
+    // 驗證 Notion 同步啟用開關（應為 switch primitive）
+    expectSwitchControl(doc, '#highlight-content-style-enabled');
+
+    // 驗證 Notion 同步樣式單選按鈕組
+    expectRadioGroupControl(doc, '#highlight-content-style-group', 'highlight-content-style', [
+      'color-sync',
+      'color-text',
+      'bold',
+    ]);
   });
 });
