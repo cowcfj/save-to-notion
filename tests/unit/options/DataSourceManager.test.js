@@ -276,23 +276,22 @@ describe('DataSourceManager', () => {
   });
 
   describe('isSavedWebPage', () => {
-    test('識別已保存的網頁', () => {
-      const savedPage = buildPage({
+    test.each([
+      {
+        name: '識別已保存的網頁',
         parent: dataSourceParent,
-        properties: {
-          Title: { title: [{ plain_text: 'Example' }] },
-          URL: urlProperty('https://example.com'),
-        },
-      });
-
-      expect(DataSourceManager.isSavedWebPage(savedPage)).toBe(true);
-    });
-
-    test('識別屬於 database_id 父級的已保存網頁', () => {
-      const savedPage = buildPage({
+        title: 'Example',
+      },
+      {
+        name: '識別屬於 database_id 父級的已保存網頁',
         parent: databaseParent,
+        title: 'DB Child Page',
+      },
+    ])('$name', ({ parent, title }) => {
+      const savedPage = buildPage({
+        parent,
         properties: {
-          Title: { title: [{ plain_text: 'DB Child Page' }] },
+          Title: titleProperty(title),
           URL: urlProperty('https://example.com'),
         },
       });
@@ -308,20 +307,12 @@ describe('DataSourceManager', () => {
   });
 
   describe('hasUrlProperty', () => {
-    test('偵測到 data_source 有 URL 屬性', () => {
+    test.each([
+      ['偵測到 data_source 有 URL 屬性', 'data_source'],
+      ['偵測到 database (Notion API 格式) 有 URL 屬性', 'database'],
+    ])('%s', (_name, object) => {
       const database = buildDataSource({
-        properties: {
-          Title: { type: 'title' },
-          URL: urlProperty(),
-        },
-      });
-
-      expect(DataSourceManager.hasUrlProperty(database)).toBe(true);
-    });
-
-    test('偵測到 database (Notion API 格式) 有 URL 屬性', () => {
-      const database = buildDataSource({
-        object: 'database',
+        object,
         properties: {
           Title: { type: 'title' },
           URL: urlProperty(),
@@ -452,24 +443,18 @@ describe('DataSourceManager', () => {
   });
 
   describe('filterAndSortResults - preserveOrder', () => {
-    test('preserveOrder 為 true 時保留原始順序', () => {
-      const results = [
-        buildPage({
-          id: 'page-1',
-          parent: { type: 'page_id' },
-          title: 'First',
-        }),
-        buildPage({ id: 'page-2', title: 'Second' }),
-      ];
-
-      const filtered = DataSourceManager.filterAndSortResults(results, 100, true);
-
-      // 應保留原始順序，不因類型重排
-      expect(filtered[0].id).toBe('page-1');
-      expect(filtered[1].id).toBe('page-2');
-    });
-
-    test('preserveOrder 為 false 時按類型排序', () => {
+    test.each([
+      {
+        name: 'preserveOrder 為 true 時保留原始順序',
+        preserveOrder: true,
+        expectedIds: ['page-1', 'page-2'],
+      },
+      {
+        name: 'preserveOrder 為 false 時按類型排序',
+        preserveOrder: false,
+        expectedIds: ['page-2', 'page-1'],
+      },
+    ])('$name', ({ preserveOrder, expectedIds }) => {
       const results = [
         buildPage({
           id: 'page-1',
@@ -479,11 +464,9 @@ describe('DataSourceManager', () => {
         buildPage({ id: 'page-2', title: 'Workspace Page' }),
       ];
 
-      const filtered = DataSourceManager.filterAndSortResults(results, 100, false);
+      const filtered = DataSourceManager.filterAndSortResults(results, 100, preserveOrder);
 
-      // workspace 頁面應排在前面
-      expect(filtered[0].id).toBe('page-2');
-      expect(filtered[1].id).toBe('page-1');
+      expect(filtered.map(({ id }) => id)).toEqual(expectedIds);
     });
 
     test('分類頁面排在工作區頁面之後', () => {
@@ -510,13 +493,25 @@ describe('DataSourceManager', () => {
   });
 
   describe('isSavedWebPage - additional cases', () => {
-    test('data_source_id 父級但無 URL 屬性不判定為已保存網頁', () => {
-      const page = buildPage({
-        parent: dataSourceParent,
+    test.each([
+      {
+        name: 'data_source_id 父級但無 URL 屬性不判定為已保存網頁',
         properties: {
-          Title: { title: [{ plain_text: 'Just a Page' }] },
+          Title: titleProperty('Just a Page'),
           Notes: { type: 'rich_text' },
         },
+      },
+      {
+        name: '避免誤判：僅憑屬性名稱包含 "url" 不應被識別為已保存網頁',
+        properties: {
+          Title: titleProperty('Saved Article'),
+          pageurl: { type: 'rich_text' },
+        },
+      },
+    ])('$name', ({ properties }) => {
+      const page = buildPage({
+        parent: dataSourceParent,
+        properties,
       });
 
       expect(DataSourceManager.isSavedWebPage(page)).toBe(false);
@@ -531,18 +526,6 @@ describe('DataSourceManager', () => {
       });
 
       expect(DataSourceManager.isSavedWebPage(database)).toBe(false);
-    });
-
-    test('避免誤判：僅憑屬性名稱包含 "url" 不應被識別為已保存網頁', () => {
-      const page = buildPage({
-        parent: dataSourceParent,
-        properties: {
-          Title: { title: [{ plain_text: 'Saved Article' }] },
-          pageurl: { type: 'rich_text' }, // 名稱包含 url 但類型不是 url
-        },
-      });
-
-      expect(DataSourceManager.isSavedWebPage(page)).toBe(false);
     });
   });
 
@@ -616,28 +599,29 @@ describe('DataSourceManager', () => {
       expect(apiKey).toBe('');
     });
 
-    test('非搜尋結果且資料來源非空時，顯示成功載入狀態並填充 selector', () => {
-      expect.hasAssertions();
-
-      const mockData = [{ id: 'db-1', object: 'database' }];
-      expectDataSourceSelectPopulation({
-        dataSources: mockData,
+    test.each([
+      {
+        name: '非搜尋結果且資料來源非空時，顯示成功載入狀態並填充 selector',
+        dataSources: [{ id: 'db-1', object: 'database' }],
         isSearchResult: false,
         expectedStatusMessage: UI_MESSAGES.DATA_SOURCE.LOAD_SUCCESS(1),
-      });
-    });
-
-    test('搜尋結果且資料來源非空時，顯示尋獲數量狀態', () => {
-      expect.hasAssertions();
-
-      const mockData = [
-        { id: 'db-1', object: 'database' },
-        { id: 'db-2', object: 'database' },
-      ];
-      expectDataSourceSelectPopulation({
-        dataSources: mockData,
+      },
+      {
+        name: '搜尋結果且資料來源非空時，顯示尋獲數量狀態',
+        dataSources: [
+          { id: 'db-1', object: 'database' },
+          { id: 'db-2', object: 'database' },
+        ],
         isSearchResult: true,
         expectedStatusMessage: UI_MESSAGES.DATA_SOURCE.FOUND_COUNT(2),
+      },
+    ])('$name', ({ dataSources, isSearchResult, expectedStatusMessage }) => {
+      expect.hasAssertions();
+
+      expectDataSourceSelectPopulation({
+        dataSources,
+        isSearchResult,
+        expectedStatusMessage,
       });
     });
 
