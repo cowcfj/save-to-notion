@@ -8,6 +8,41 @@ describe('Preloader Performance Script', () => {
   let originalAdd;
   let originalRemove;
 
+  const normalizeCapture = options => {
+    if (typeof options === 'boolean') {
+      return options;
+    }
+
+    return Boolean(options?.capture);
+  };
+
+  const removeTrackedDocumentListener = (type, listener, options) => {
+    const expectedCapture = normalizeCapture(options);
+    const index = testListeners.findIndex(
+      l =>
+        l.type === type &&
+        l.listener === listener &&
+        normalizeCapture(l.options) === expectedCapture
+    );
+    if (index !== -1) {
+      testListeners.splice(index, 1);
+    }
+    originalRemove.call(document, type, listener, options);
+  };
+
+  const setupTrackedDocumentListeners = () => {
+    originalAdd = document.addEventListener;
+    originalRemove = document.removeEventListener;
+    testListeners = [];
+
+    document.addEventListener = jest.fn((type, listener, options) => {
+      testListeners.push({ type, listener, options });
+      originalAdd.call(document, type, listener, options);
+    });
+
+    document.removeEventListener = jest.fn(removeTrackedDocumentListener);
+  };
+
   beforeEach(() => {
     // Reset global state
     jest.resetModules();
@@ -34,23 +69,7 @@ describe('Preloader Performance Script', () => {
     // Reset DOM
     document.body.innerHTML = '';
 
-    // Track event listeners strictly for cleanup
-    originalAdd = document.addEventListener;
-    originalRemove = document.removeEventListener;
-    testListeners = [];
-
-    document.addEventListener = jest.fn((type, listener, options) => {
-      testListeners.push({ type, listener, options });
-      originalAdd.call(document, type, listener, options);
-    });
-
-    document.removeEventListener = jest.fn((type, listener, options) => {
-      const index = testListeners.findIndex(l => l.type === type && l.listener === listener);
-      if (index !== -1) {
-        testListeners.splice(index, 1);
-      }
-      originalRemove.call(document, type, listener, options);
-    });
+    setupTrackedDocumentListeners();
   });
 
   afterEach(() => {
@@ -81,6 +100,24 @@ describe('Preloader Performance Script', () => {
   };
 
   describe('Initialization Check', () => {
+    test('移除 listener 時應該比對 capture options，保留其他註冊', () => {
+      const handler = jest.fn();
+
+      document.addEventListener('click', handler, false);
+      document.addEventListener('click', handler, true);
+
+      document.removeEventListener('click', handler, false);
+
+      expect(testListeners).toHaveLength(1);
+      expect(testListeners[0]).toEqual(
+        expect.objectContaining({
+          type: 'click',
+          listener: handler,
+          options: true,
+        })
+      );
+    });
+
     test('應該只初始化一次', () => {
       runPreloader();
       expect(globalThis.__NOTION_PRELOADER_INITIALIZED__).toBe(true);
@@ -227,26 +264,12 @@ describe('Preloader Performance Script', () => {
   });
 
   describe('Keyboard Shortcut handling', () => {
-    test('應該在按下 Ctrl+S 時發送激活訊息', () => {
+    test.each([
+      ['Ctrl+S', { ctrlKey: true, key: 's' }],
+      ['Cmd+S', { metaKey: true, key: 's' }],
+    ])('應該在按下 %s 時發送激活訊息', (_shortcutLabel, keyboardOptions) => {
       runPreloader();
-      const event = new KeyboardEvent('keydown', {
-        ctrlKey: true,
-        key: 's',
-      });
-      document.dispatchEvent(event);
-
-      expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith(
-        { action: 'USER_ACTIVATE_SHORTCUT' },
-        expect.any(Function)
-      );
-    });
-
-    test('應該在按下 Cmd+S 時發送激活訊息', () => {
-      runPreloader();
-      const event = new KeyboardEvent('keydown', {
-        metaKey: true,
-        key: 's',
-      });
+      const event = new KeyboardEvent('keydown', keyboardOptions);
       document.dispatchEvent(event);
 
       expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith(
