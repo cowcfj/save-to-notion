@@ -580,6 +580,26 @@ describe('PerformanceOptimizer', () => {
       expect(optimizer.cachedQuery('article', document, { single: true })).toBe(article);
     });
 
+    test('抽樣驗證應使用元素 ownDocument 的 contains fallback', () => {
+      const ownerDocument = {
+        contains: jest.fn().mockReturnValue(true),
+      };
+      const sampledElement = {
+        nodeType: 1,
+        isConnected: undefined,
+        ownerDocument,
+      };
+      const sampledCollection = {
+        0: sampledElement,
+        length: 1,
+      };
+
+      const result = PerformanceOptimizer._validateCachedElements(sampledCollection);
+
+      expect(result).toBe(true);
+      expect(ownerDocument.contains).toHaveBeenCalledWith(sampledElement);
+    });
+
     test.each([
       {
         name: '未連接到 DOM 的元素 (isConnected: false)',

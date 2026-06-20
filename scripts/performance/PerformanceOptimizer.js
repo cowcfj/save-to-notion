@@ -121,7 +121,7 @@ function getValidationSampleSize(result) {
 function areSampledElementsConnected(result, sampleSize) {
   for (let i = 0; i < sampleSize; i++) {
     const el = result[i];
-    if (!hasNodeType(el) || !PerformanceOptimizer._isElementConnected(el)) {
+    if (!hasNodeType(el) || !isElementConnectedForValidation(el)) {
       return false;
     }
   }

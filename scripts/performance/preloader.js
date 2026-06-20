@@ -108,7 +108,7 @@ import { PRELOADER_ACTIONS } from '../config/runtimeActions/preloaderActions.js'
   const canListenRuntimeMessage = typeof runtime?.onMessage?.addListener === 'function';
 
   function isSaveShortcut(event) {
-    return (event.ctrlKey || event.metaKey) && event.key === 's';
+    return (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's';
   }
 
   /**

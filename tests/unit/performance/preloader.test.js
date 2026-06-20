@@ -278,20 +278,42 @@ describe('Preloader Performance Script', () => {
       );
     });
 
-    test('當 runtime.sendMessage 不可用時不應該發送快捷鍵訊息', () => {
-      delete globalThis.chrome.runtime.sendMessage;
-
+    test('Caps Lock 開啟時仍應該處理大寫 S 快捷鍵', () => {
       runPreloader();
-      const event = new KeyboardEvent('keydown', { ctrlKey: true, key: 's' });
+      const event = new KeyboardEvent('keydown', { ctrlKey: true, key: 'S' });
       document.dispatchEvent(event);
 
-      expect(testListeners).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            type: 'keydown',
-          }),
-        ])
+      expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith(
+        { action: 'USER_ACTIVATE_SHORTCUT' },
+        expect.any(Function)
       );
+    });
+
+    test('當 runtime.sendMessage 不可用時不應該發送快捷鍵訊息', () => {
+      const originalSendMessage = globalThis.chrome.runtime.sendMessage;
+
+      try {
+        delete globalThis.chrome.runtime.sendMessage;
+
+        runPreloader();
+        const event = new KeyboardEvent('keydown', { ctrlKey: true, key: 's' });
+
+        expect(() => {
+          document.dispatchEvent(event);
+        }).not.toThrow();
+
+        expect(testListeners).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              type: 'keydown',
+            }),
+          ])
+        );
+        expect(event.defaultPrevented).toBe(false);
+        expect(originalSendMessage).not.toHaveBeenCalled();
+      } finally {
+        globalThis.chrome.runtime.sendMessage = originalSendMessage;
+      }
     });
 
     test('應該處理快捷鍵發送訊息後的回調 (緩衝事件)', () => {
