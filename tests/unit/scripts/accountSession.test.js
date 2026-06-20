@@ -746,6 +746,11 @@ describe('refreshAccountSession（Phase 2 驗證）', () => {
         { error_code: 'INVALID_REFRESH_TOKEN' },
         'INVALID_REFRESH_TOKEN',
       ],
+      [
+        'error_code 與 code 同時存在時優先使用 error_code',
+        { error_code: 'INVALID_REFRESH_TOKEN', code: 'SESSION_REVOKED' },
+        'INVALID_REFRESH_TOKEN',
+      ],
       ['code 欄位作為 fallback 相容', { code: 'SESSION_REVOKED' }, 'SESSION_REVOKED'],
     ])('refresh terminal error 應從 %s', async (_caseName, body, expectedReason) => {
       await setExpiredAccountSession();
