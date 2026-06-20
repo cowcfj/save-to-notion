@@ -34,6 +34,63 @@ async function loadAuthModule() {
   await import('../../../scripts/auth/auth.js');
 }
 
+function buildSessionExchangePayload(overrides = {}) {
+  return {
+    access_token: 'access_123',
+    refresh_token: 'refresh_123',
+    expires_at: 1_700_000_000,
+    user_id: 'user_123',
+    ...overrides,
+  };
+}
+
+function buildAccountProfilePayload(overrides = {}) {
+  return {
+    user_id: 'user_123',
+    email: 'user@example.com',
+    display_name: 'Test User',
+    avatar_url: 'https://cdn.example.com/avatar.png',
+    ...overrides,
+  };
+}
+
+function mockJsonResponse(payload) {
+  return {
+    ok: true,
+    json: async () => payload,
+  };
+}
+
+function mockTextErrorResponse(status, body) {
+  return {
+    ok: false,
+    status,
+    text: async () => body,
+  };
+}
+
+function expectStatusError(message, detail) {
+  const statusArea = document.querySelector('#status-area');
+
+  expect(statusArea.className).toContain('status-error');
+  expect(statusArea.textContent).toContain(message);
+  if (detail) {
+    expect(statusArea.textContent).toContain(detail);
+  }
+  expect(globalThis.close).not.toHaveBeenCalled();
+}
+
+function expectNoSessionPersistence({ clearSession = false } = {}) {
+  expect(mockSetAccountSession).not.toHaveBeenCalled();
+  expect(mockSetAccountProfile).not.toHaveBeenCalled();
+  if (clearSession) {
+    expect(mockClearAccountSession).toHaveBeenCalled();
+    return;
+  }
+
+  expect(mockClearAccountSession).not.toHaveBeenCalled();
+}
+
 describe('auth.js', () => {
   let originalClose;
   let domReadyHandler;
@@ -46,68 +103,11 @@ describe('auth.js', () => {
     }
   }
 
-  function buildSessionExchangePayload(overrides = {}) {
-    return {
-      access_token: 'access_123',
-      refresh_token: 'refresh_123',
-      expires_at: 1_700_000_000,
-      user_id: 'user_123',
-      ...overrides,
-    };
-  }
-
-  function buildAccountProfilePayload(overrides = {}) {
-    return {
-      user_id: 'user_123',
-      email: 'user@example.com',
-      display_name: 'Test User',
-      avatar_url: 'https://cdn.example.com/avatar.png',
-      ...overrides,
-    };
-  }
-
-  function mockJsonResponse(payload) {
-    return {
-      ok: true,
-      json: async () => payload,
-    };
-  }
-
-  function mockTextErrorResponse(status, body) {
-    return {
-      ok: false,
-      status,
-      text: async () => body,
-    };
-  }
-
   async function runTicketExchangeFlow() {
     globalThis.history.replaceState({}, '', '/auth.html?account_ticket=ticket_123');
 
     await loadAuthModule();
     await dispatchDomReady();
-  }
-
-  function expectStatusError(message, detail) {
-    const statusArea = document.querySelector('#status-area');
-
-    expect(statusArea.className).toContain('status-error');
-    expect(statusArea.textContent).toContain(message);
-    if (detail) {
-      expect(statusArea.textContent).toContain(detail);
-    }
-    expect(globalThis.close).not.toHaveBeenCalled();
-  }
-
-  function expectNoSessionPersistence({ clearSession = false } = {}) {
-    expect(mockSetAccountSession).not.toHaveBeenCalled();
-    expect(mockSetAccountProfile).not.toHaveBeenCalled();
-    if (clearSession) {
-      expect(mockClearAccountSession).toHaveBeenCalled();
-      return;
-    }
-
-    expect(mockClearAccountSession).not.toHaveBeenCalled();
   }
 
   beforeEach(() => {
