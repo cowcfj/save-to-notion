@@ -96,6 +96,85 @@ function validatePreloaderCache(cache) {
   return typeof cache.timestamp === 'number' && Number.isFinite(cache.timestamp);
 }
 
+function isSelectorPreloadable(enableCache, selectors) {
+  if (!enableCache) {
+    return false;
+  }
+  if (!selectors) {
+    return false;
+  }
+  return Array.isArray(selectors);
+}
+
+function hasNodeType(result) {
+  return Boolean(result?.nodeType);
+}
+
+function hasCollectionLength(result) {
+  return result?.length !== undefined;
+}
+
+function getValidationSampleSize(result) {
+  return Math.min(result.length, PERFORMANCE_OPTIMIZER.MAX_VALIDATION_SAMPLE_SIZE);
+}
+
+function areSampledElementsConnected(result, sampleSize) {
+  for (let i = 0; i < sampleSize; i++) {
+    const el = result[i];
+    if (!hasNodeType(el) || !PerformanceOptimizer._isElementConnected(el)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function createBatchRetrySummary() {
+  return {
+    attempts: 0,
+    failedIndices: [],
+    lastError: null,
+  };
+}
+
+function resolveBatchFn(customBatchFn) {
+  return typeof customBatchFn === 'function' ? customBatchFn : batchProcess;
+}
+
+function createFailedIndicesForAllItems(items) {
+  return items.map((_, index) => index);
+}
+
+function collectFailedIndices(results, isResultSuccessful) {
+  const failedIndices = [];
+  results.forEach((result, index) => {
+    if (!isResultSuccessful(result, index)) {
+      failedIndices.push(index);
+    }
+  });
+  return failedIndices;
+}
+
+function normalizeBatchProcessResults(results, items, captureFailedResults, isResultSuccessful) {
+  if (!Array.isArray(results)) {
+    throw Object.assign(new Error('Batch processor returned non-array results'), {
+      failedIndices: createFailedIndicesForAllItems(items),
+    });
+  }
+
+  return {
+    results,
+    failedIndices: captureFailedResults ? collectFailedIndices(results, isResultSuccessful) : [],
+  };
+}
+
+function shouldRetryAttempt(attempt, attempts) {
+  return attempt < attempts;
+}
+
+function getRetryDelay(baseDelay, attempt) {
+  return baseDelay * Math.pow(2, attempt - 1);
+}
+
 /**
  * 性能優化器類
  * 提供 DOM 查詢緩存和批處理隊列功能
@@ -465,34 +544,26 @@ class PerformanceOptimizer {
       return false;
     }
 
-    const MAX_VALIDATION_SAMPLE_SIZE = PERFORMANCE_OPTIMIZER.MAX_VALIDATION_SAMPLE_SIZE;
-
     try {
       // 單個元素
-      if (result.nodeType) {
+      if (hasNodeType(result)) {
         return PerformanceOptimizer._isElementConnected(result);
       }
 
       // 非集合類型
-      if (result.length === undefined) {
+      if (!hasCollectionLength(result)) {
         return false;
       }
 
       // NodeList 或數組：抽樣驗證前 MAX_VALIDATION_SAMPLE_SIZE 個元素
       // 使用直接索引避免 Array.from 對整個 NodeList 的 O(n) 物質化
-      const sampleSize = Math.min(result.length, MAX_VALIDATION_SAMPLE_SIZE);
+      const sampleSize = getValidationSampleSize(result);
       // 空列表視為無效（避免返回已清空的快取）
       if (sampleSize === 0) {
         return false;
       }
 
-      for (let i = 0; i < sampleSize; i++) {
-        const el = result[i];
-        if (!el?.nodeType || !PerformanceOptimizer._isElementConnected(el)) {
-          return false;
-        }
-      }
-      return true;
+      return areSampledElementsConnected(result, sampleSize);
     } catch (error) {
       // 在 JSDOM 環境或其他邊緣情況下，驗證可能失敗
       Logger.warn('元素驗證失敗', { action: 'validateCachedElements', error: error.message });
@@ -540,7 +611,7 @@ class PerformanceOptimizer {
    * @returns {Promise<Array>} 預熱結果
    */
   preloadSelectors(selectors, context = document) {
-    if (!this.options.enableCache || !selectors || !Array.isArray(selectors)) {
+    if (!isSelectorPreloadable(this.options.enableCache, selectors)) {
       return Promise.resolve([]);
     }
 
@@ -1239,40 +1310,28 @@ async function batchProcessWithRetry(items, processor, options = {}) {
   } = options;
 
   const attempts = Math.max(1, maxAttempts);
-  const summary = {
-    attempts: 0,
-    failedIndices: [],
-    lastError: null,
-  };
-
-  const batchFn = typeof customBatchFn === 'function' ? customBatchFn : batchProcess;
+  const summary = createBatchRetrySummary();
+  const batchFn = resolveBatchFn(customBatchFn);
 
   for (let attempt = 1; attempt <= attempts; attempt++) {
     summary.attempts = attempt;
     try {
-      const results = await batchFn(items, processor);
-
-      if (!Array.isArray(results)) {
-        summary.failedIndices = items.map((_, index) => index);
-        throw new Error('Batch processor returned non-array results');
-      }
-
-      if (captureFailedResults) {
-        summary.failedIndices = [];
-        results.forEach((result, index) => {
-          if (!isResultSuccessful(result, index)) {
-            summary.failedIndices.push(index);
-          }
-        });
-      }
+      const rawResults = await batchFn(items, processor);
+      const { results, failedIndices } = normalizeBatchProcessResults(
+        rawResults,
+        items,
+        captureFailedResults,
+        isResultSuccessful
+      );
+      summary.failedIndices = failedIndices;
 
       return { results, meta: summary };
     } catch (error) {
+      summary.failedIndices = error.failedIndices || summary.failedIndices;
       summary.lastError = error;
 
-      if (attempt < attempts) {
-        const delay = baseDelay * Math.pow(2, attempt - 1);
-        await waitForDelay(delay);
+      if (shouldRetryAttempt(attempt, attempts)) {
+        await waitForDelay(getRetryDelay(baseDelay, attempt));
       }
     }
   }
