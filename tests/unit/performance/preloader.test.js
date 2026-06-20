@@ -8,8 +8,22 @@ describe('Preloader Performance Script', () => {
   let originalAdd;
   let originalRemove;
 
+  const normalizeCapture = options => {
+    if (typeof options === 'boolean') {
+      return options;
+    }
+
+    return Boolean(options?.capture);
+  };
+
   const removeTrackedDocumentListener = (type, listener, options) => {
-    const index = testListeners.findIndex(l => l.type === type && l.listener === listener);
+    const expectedCapture = normalizeCapture(options);
+    const index = testListeners.findIndex(
+      l =>
+        l.type === type &&
+        l.listener === listener &&
+        normalizeCapture(l.options) === expectedCapture
+    );
     if (index !== -1) {
       testListeners.splice(index, 1);
     }
@@ -86,6 +100,24 @@ describe('Preloader Performance Script', () => {
   };
 
   describe('Initialization Check', () => {
+    test('移除 listener 時應該比對 capture options，保留其他註冊', () => {
+      const handler = jest.fn();
+
+      document.addEventListener('click', handler, false);
+      document.addEventListener('click', handler, true);
+
+      document.removeEventListener('click', handler, false);
+
+      expect(testListeners).toHaveLength(1);
+      expect(testListeners[0]).toEqual(
+        expect.objectContaining({
+          type: 'click',
+          listener: handler,
+          options: true,
+        })
+      );
+    });
+
     test('應該只初始化一次', () => {
       runPreloader();
       expect(globalThis.__NOTION_PRELOADER_INITIALIZED__).toBe(true);

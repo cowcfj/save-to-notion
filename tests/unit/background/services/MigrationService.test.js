@@ -118,7 +118,7 @@ describe('MigrationService', () => {
         if (url === stableUrl) {
           return Promise.resolve(targetHighlights);
         }
-        return Promise.resolve(null);
+        return Promise.reject(new Error(`Unexpected highlights URL: ${url}`));
       });
     }
 
@@ -439,25 +439,25 @@ describe('MigrationService', () => {
       {
         name: 'should convert highlights format when convertFormat is enabled',
         legacyHighlights: [{ id: 'h-1' }],
-        convertedHighlights: [{ id: 'h-1', needsRangeInfo: true }],
-        formatConverterFactory: convertedHighlights =>
-          jest.fn().mockReturnValue(convertedHighlights),
+        expectedSavedHighlights: [{ id: 'h-1', needsRangeInfo: true }],
+        formatConverterFactory: expectedSavedHighlights =>
+          jest.fn().mockReturnValue(expectedSavedHighlights),
         options: formatConverter => ({ convertFormat: true, formatConverter }),
         expectedResult: true,
       },
       {
         name: 'should support async format converter when convertFormat is enabled',
         legacyHighlights: [{ id: 'h-1a' }],
-        convertedHighlights: [{ id: 'h-1a', needsRangeInfo: true }],
-        formatConverterFactory: convertedHighlights =>
-          jest.fn().mockResolvedValue(convertedHighlights),
+        expectedSavedHighlights: [{ id: 'h-1a', needsRangeInfo: true }],
+        formatConverterFactory: expectedSavedHighlights =>
+          jest.fn().mockResolvedValue(expectedSavedHighlights),
         options: formatConverter => ({ convertFormat: true, formatConverter }),
         expectedResult: true,
       },
       {
         name: 'should skip conversion if formatConverter is active but not a function',
         legacyHighlights: [{ id: 'h-2' }],
-        convertedHighlights: [{ id: 'h-2' }],
+        expectedSavedHighlights: [{ id: 'h-2' }],
         formatConverterFactory: () => 'not-a-fn',
         options: formatConverter => ({ convertFormat: true, formatConverter }),
         expectedResult: true,
@@ -465,7 +465,7 @@ describe('MigrationService', () => {
       {
         name: 'should keep original highlights when convertFormat is disabled',
         legacyHighlights: [{ id: 'h-2' }],
-        convertedHighlights: [{ id: 'h-2' }],
+        expectedSavedHighlights: [{ id: 'h-2' }],
         formatConverterFactory: () => jest.fn().mockReturnValue([{ id: 'converted' }]),
         options: formatConverter => ({ convertFormat: false, formatConverter }),
         expectedResult: true,
@@ -473,7 +473,7 @@ describe('MigrationService', () => {
       {
         name: 'should return false and NOT delete legacy data if format conversion fails',
         legacyHighlights: [{ id: 'h-3' }],
-        convertedHighlights: null,
+        expectedSavedHighlights: null,
         formatConverterFactory: () =>
           jest.fn(() => {
             throw new Error('Convert failed');
@@ -484,7 +484,7 @@ describe('MigrationService', () => {
       {
         name: 'should return false and NOT delete legacy data if format converter returns non-array',
         legacyHighlights: [{ id: 'h-4' }],
-        convertedHighlights: null,
+        expectedSavedHighlights: null,
         formatConverterFactory: () => jest.fn().mockReturnValue('not-an-array'),
         options: formatConverter => ({ convertFormat: true, formatConverter }),
         expectedResult: false,
@@ -493,13 +493,13 @@ describe('MigrationService', () => {
       '$name',
       async ({
         legacyHighlights,
-        convertedHighlights,
+        expectedSavedHighlights,
         formatConverterFactory,
         options,
         expectedResult,
       }) => {
         mockMigrationSourceData({ sourceHighlights: legacyHighlights });
-        const formatConverter = formatConverterFactory(convertedHighlights);
+        const formatConverter = formatConverterFactory(expectedSavedHighlights);
         const migrateOptions = options(formatConverter);
 
         if (expectedResult) {
@@ -518,8 +518,9 @@ describe('MigrationService', () => {
           expect(mockStorageService.savePageDataAndHighlights).toHaveBeenCalledWith(
             stableUrl,
             pageData,
-            convertedHighlights ?? legacyHighlights
+            expectedSavedHighlights ?? legacyHighlights
           );
+          expect(mockStorageService.clearLegacyKeys).toHaveBeenCalledWith(legacyUrl);
         } else {
           expect(mockStorageService.savePageDataAndHighlights).not.toHaveBeenCalled();
           expect(mockStorageService.clearLegacyKeys).not.toHaveBeenCalled();

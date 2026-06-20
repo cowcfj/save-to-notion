@@ -4,7 +4,7 @@
  */
 
 import Logger from '../../../scripts/utils/Logger.js';
-import { PerformanceOptimizer } from '../../../scripts/performance/PerformanceOptimizer';
+import { PerformanceOptimizer } from '../../../scripts/performance/PerformanceOptimizer.js';
 
 jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,

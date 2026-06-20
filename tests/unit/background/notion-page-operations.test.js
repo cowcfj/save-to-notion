@@ -6,7 +6,7 @@
 // Mock Chrome APIs
 import mockChrome from '../../mocks/chrome';
 
-const NOTION_API_BASE_URL = 'https://api.notion.com/v1/pages';
+const NOTION_API_BASE_URL = 'https://api.notion.com/v1';
 const NOTION_VERSION = '2025-09-03';
 
 function createJsonResponse({ ok, status, body }) {
@@ -20,7 +20,7 @@ function createJsonResponse({ ok, status, body }) {
 function createCheckNotionPageExists() {
   return jest.fn(async (pageId, apiKey) => {
     try {
-      const response = await fetch(`${NOTION_API_BASE_URL}/${pageId}`, {
+      const response = await fetch(`${NOTION_API_BASE_URL}/pages/${pageId}`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${apiKey}`,
@@ -223,7 +223,7 @@ describe('Background Notion Page Operations', () => {
       const result = await checkNotionPageExists(pageId, apiKey);
 
       // Assert
-      expect(globalThis.fetch).toHaveBeenCalledWith(`${NOTION_API_BASE_URL}/${pageId}`, {
+      expect(globalThis.fetch).toHaveBeenCalledWith(`${NOTION_API_BASE_URL}/pages/${pageId}`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${apiKey}`,
@@ -513,7 +513,7 @@ describe('Background Notion Page Operations', () => {
 
       // Assert
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        `${NOTION_API_BASE_URL}/${pageId}`,
+        `${NOTION_API_BASE_URL}/pages/${pageId}`,
         expect.objectContaining({
           method: 'GET',
           headers: expect.objectContaining({

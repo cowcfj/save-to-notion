@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { PerformanceOptimizer } from '../../../scripts/performance/PerformanceOptimizer';
+import { PerformanceOptimizer } from '../../../scripts/performance/PerformanceOptimizer.js';
 
 jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
