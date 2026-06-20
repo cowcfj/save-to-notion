@@ -433,6 +433,34 @@ describe('refreshAccountSession（Phase 2 驗證）', () => {
   const newRefreshToken = 'rotated_refresh_token';
   const newExpiresAt = Math.floor(Date.now() / 1000) + 86_400;
 
+  const setExpiredAccountSession = async () => {
+    await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+  };
+
+  const mockRefreshResponse = ({ ok = true, status = 200, body }) => {
+    globalThis.fetch = jest.fn().mockResolvedValueOnce({
+      ok,
+      status,
+      json: async () => body,
+    });
+  };
+
+  const mockRefreshSuccess = (overrides = {}) => {
+    mockRefreshResponse({
+      body: {
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken,
+        expiresAt: newExpiresAt,
+        rotated: true,
+        ...overrides,
+      },
+    });
+  };
+
+  const mockRefreshFailure = ({ status, body }) => {
+    mockRefreshResponse({ ok: false, status, body });
+  };
+
   beforeEach(() => {
     delete globalThis.fetch;
   });
@@ -443,23 +471,16 @@ describe('refreshAccountSession（Phase 2 驗證）', () => {
 
   // ──── Phase 2 Step 2.1 ────
   describe('[Phase2-2.1] refresh 成功時應更新三個 storage key', () => {
-    test('refresh 成功後應覆寫 accountAccessToken', async () => {
-      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
-
-      globalThis.fetch = jest.fn().mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          accessToken: newAccessToken,
-          refreshToken: newRefreshToken,
-          expiresAt: newExpiresAt,
-          rotated: true,
-        }),
-      });
-
+    test.each([
+      ['accountAccessToken', ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN, newAccessToken],
+      ['accountRefreshToken', ACCOUNT_STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken],
+      ['accountAccessTokenExpiresAt', ACCOUNT_STORAGE_KEYS.EXPIRES_AT, newExpiresAt],
+    ])('refresh 成功後應覆寫 %s', async (_label, storageKey, expectedValue) => {
+      await setExpiredAccountSession();
+      mockRefreshSuccess();
       await refreshAccountSession();
 
-      expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBe(newAccessToken);
+      expect(storageFake[storageKey]).toBe(expectedValue);
       expect(Logger.success).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
@@ -469,75 +490,17 @@ describe('refreshAccountSession（Phase 2 驗證）', () => {
       );
     });
 
-    test('refresh 成功後應覆寫 accountRefreshToken', async () => {
-      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
-
-      globalThis.fetch = jest.fn().mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          accessToken: newAccessToken,
-          refreshToken: newRefreshToken,
-          expiresAt: newExpiresAt,
-          rotated: true,
-        }),
-      });
-
-      await refreshAccountSession();
-
-      expect(storageFake[ACCOUNT_STORAGE_KEYS.REFRESH_TOKEN]).toBe(newRefreshToken);
-    });
-
-    test('refresh 成功後應覆寫 accountAccessTokenExpiresAt', async () => {
-      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
-
-      globalThis.fetch = jest.fn().mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          accessToken: newAccessToken,
-          refreshToken: newRefreshToken,
-          expiresAt: newExpiresAt,
-          rotated: true,
-        }),
-      });
-
-      await refreshAccountSession();
-
-      expect(storageFake[ACCOUNT_STORAGE_KEYS.EXPIRES_AT]).toBe(newExpiresAt);
-    });
-
     test('refresh 成功後 MUST NOT 清空 profile snapshot（email 應保留）', async () => {
-      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
-
-      globalThis.fetch = jest.fn().mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          accessToken: newAccessToken,
-          refreshToken: newRefreshToken,
-          expiresAt: newExpiresAt,
-          rotated: false,
-        }),
-      });
-
+      await setExpiredAccountSession();
+      mockRefreshSuccess({ rotated: false });
       await refreshAccountSession();
 
       expect(storageFake[ACCOUNT_STORAGE_KEYS.EMAIL]).toBe(VALID_SESSION.email);
     });
 
     test('refresh success payload 缺少必要欄位時不應污染 storage，且應視為 transient failure', async () => {
-      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
-
-      globalThis.fetch = jest.fn().mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          accessToken: '',
-          refreshToken: newRefreshToken,
-          expiresAt: newExpiresAt,
-        }),
-      });
+      await setExpiredAccountSession();
+      mockRefreshSuccess({ accessToken: '' });
 
       await expect(refreshAccountSession()).rejects.toThrow();
       expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBe(VALID_SESSION.accessToken);
@@ -555,70 +518,33 @@ describe('refreshAccountSession（Phase 2 驗證）', () => {
 
   // ──── Phase 2 Step 2.2 ────
   describe('[Phase2-2.2] refresh failure taxonomy', () => {
-    test('refresh 回 401 INVALID_REFRESH_TOKEN 時應清 session（terminal failure）', async () => {
-      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+    test.each(['INVALID_REFRESH_TOKEN', 'SESSION_REVOKED', 'REFRESH_REUSE_DETECTED'])(
+      'refresh 回 401 %s 時應清 session（terminal failure）',
+      async terminalCode => {
+        await setExpiredAccountSession();
+        mockRefreshFailure({ status: 401, body: { code: terminalCode } });
 
-      globalThis.fetch = jest.fn().mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-        json: async () => ({ code: 'INVALID_REFRESH_TOKEN' }),
-      });
+        await refreshAccountSession();
 
-      await refreshAccountSession();
-
-      // session 應已清除
-      expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBeUndefined();
-      expect(Logger.warn).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          action: 'refreshAccountSession',
-          result: 'cleared',
-          reason: 'INVALID_REFRESH_TOKEN',
-          httpStatus: 401,
-        })
-      );
-    });
-
-    test('refresh 回 401 SESSION_REVOKED 時應清 session（terminal failure）', async () => {
-      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
-
-      globalThis.fetch = jest.fn().mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-        json: async () => ({ code: 'SESSION_REVOKED' }),
-      });
-
-      await refreshAccountSession();
-
-      expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBeUndefined();
-    });
-
-    test('refresh 回 401 REFRESH_REUSE_DETECTED 時應清 session（terminal failure）', async () => {
-      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
-
-      globalThis.fetch = jest.fn().mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-        json: async () => ({ code: 'REFRESH_REUSE_DETECTED' }),
-      });
-
-      await refreshAccountSession();
-
-      expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBeUndefined();
-    });
+        expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBeUndefined();
+        expect(Logger.warn).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.objectContaining({
+            action: 'refreshAccountSession',
+            result: 'cleared',
+            reason: terminalCode,
+            httpStatus: 401,
+          })
+        );
+      }
+    );
 
     test('refresh 回 500 時不應清 session（transient failure）', async () => {
-      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
-
-      globalThis.fetch = jest.fn().mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        json: async () => ({ message: 'Internal Server Error' }),
-      });
+      await setExpiredAccountSession();
+      mockRefreshFailure({ status: 500, body: { message: 'Internal Server Error' } });
 
       await expect(refreshAccountSession()).rejects.toThrow();
 
-      // session 應保留（不清除）
       expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBe(VALID_SESSION.accessToken);
       expect(Logger.error).toHaveBeenCalledWith(
         expect.any(String),
@@ -631,13 +557,11 @@ describe('refreshAccountSession（Phase 2 驗證）', () => {
     });
 
     test('refresh 發生 network error 時不應清 session（transient failure）', async () => {
-      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
-
+      await setExpiredAccountSession();
       globalThis.fetch = jest.fn().mockRejectedValueOnce(new Error('Network Error'));
 
       await expect(refreshAccountSession()).rejects.toThrow('Network Error');
 
-      // session 應保留
       expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBe(VALID_SESSION.accessToken);
       expect(Logger.error).toHaveBeenCalledWith(
         expect.any(String),
@@ -651,7 +575,7 @@ describe('refreshAccountSession（Phase 2 驗證）', () => {
 
     test('refresh timeout 被 abort 時應 reject，且 getAccountAccessToken 應 re-throw', async () => {
       jest.useFakeTimers();
-      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+      await setExpiredAccountSession();
 
       globalThis.fetch = jest.fn((_url, options = {}) => {
         return new Promise((resolve, reject) => {
@@ -671,7 +595,7 @@ describe('refreshAccountSession（Phase 2 驗證）', () => {
       await jest.advanceTimersByTimeAsync(10_000);
       await expect(refreshPromise).rejects.toThrow('The operation was aborted.');
 
-      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
+      await setExpiredAccountSession();
       const tokenPromise = getAccountAccessToken();
       // 先 attach 空 catch 避免 timer advance 期間 unhandled rejection
       tokenPromise.catch(() => {});
@@ -761,16 +685,13 @@ describe('refreshAccountSession（Phase 2 驗證）', () => {
     const snakeExpiresAt = Math.floor(Date.now() / 1000) + 86_400;
 
     test('refresh request body 應使用 snake_case key: refresh_token', async () => {
-      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
-
-      globalThis.fetch = jest.fn().mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
+      await setExpiredAccountSession();
+      mockRefreshResponse({
+        body: {
           access_token: snakeAccessToken,
           refresh_token: snakeRefreshToken,
           expires_at: snakeExpiresAt,
-        }),
+        },
       });
 
       await refreshAccountSession();
@@ -781,88 +702,65 @@ describe('refreshAccountSession（Phase 2 驗證）', () => {
       expect(requestBody).not.toHaveProperty('refreshToken');
     });
 
-    test('refresh success 應從 snake_case 欄位解析: access_token / refresh_token / expires_at', async () => {
-      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
-
-      globalThis.fetch = jest.fn().mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
+    test.each([
+      [
+        'snake_case 欄位解析: access_token / refresh_token / expires_at',
+        {
           access_token: snakeAccessToken,
           refresh_token: snakeRefreshToken,
           expires_at: snakeExpiresAt,
-        }),
-      });
-
-      await refreshAccountSession();
-
-      expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBe(snakeAccessToken);
-      expect(storageFake[ACCOUNT_STORAGE_KEYS.REFRESH_TOKEN]).toBe(snakeRefreshToken);
-      expect(storageFake[ACCOUNT_STORAGE_KEYS.EXPIRES_AT]).toBe(snakeExpiresAt);
-    });
-
-    test('refresh terminal error 應從 error_code 解析（非 code）', async () => {
-      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
-
-      globalThis.fetch = jest.fn().mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-        json: async () => ({ error_code: 'INVALID_REFRESH_TOKEN' }),
-      });
-
-      await refreshAccountSession();
-
-      expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBeUndefined();
-      expect(Logger.warn).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          action: 'refreshAccountSession',
-          result: 'cleared',
-          reason: 'INVALID_REFRESH_TOKEN',
-          httpStatus: 401,
-        })
-      );
-    });
-
-    test('refresh terminal error 的 code 欄位應作為 fallback 相容', async () => {
-      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
-
-      globalThis.fetch = jest.fn().mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-        json: async () => ({ code: 'SESSION_REVOKED' }),
-      });
-
-      await refreshAccountSession();
-
-      expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBeUndefined();
-      expect(Logger.warn).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          reason: 'SESSION_REVOKED',
-          httpStatus: 401,
-        })
-      );
-    });
-
-    test('refresh success 的 camelCase 欄位應作為 fallback 相容', async () => {
-      await setAccountSession({ ...VALID_SESSION, expiresAt: PAST_EXPIRES_AT });
-
-      globalThis.fetch = jest.fn().mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
+        },
+        {
+          accessToken: snakeAccessToken,
+          refreshToken: snakeRefreshToken,
+          expiresAt: snakeExpiresAt,
+        },
+      ],
+      [
+        'camelCase 欄位作為 fallback 相容',
+        {
           accessToken: 'camel_access',
           refreshToken: 'camel_refresh',
           expiresAt: snakeExpiresAt,
-        }),
-      });
+        },
+        {
+          accessToken: 'camel_access',
+          refreshToken: 'camel_refresh',
+          expiresAt: snakeExpiresAt,
+        },
+      ],
+    ])('refresh success 應從 %s', async (_caseName, body, expectedSession) => {
+      await setExpiredAccountSession();
+      mockRefreshResponse({ body });
 
       await refreshAccountSession();
 
-      expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBe('camel_access');
-      expect(storageFake[ACCOUNT_STORAGE_KEYS.REFRESH_TOKEN]).toBe('camel_refresh');
-      expect(storageFake[ACCOUNT_STORAGE_KEYS.EXPIRES_AT]).toBe(snakeExpiresAt);
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBe(expectedSession.accessToken);
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.REFRESH_TOKEN]).toBe(expectedSession.refreshToken);
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.EXPIRES_AT]).toBe(expectedSession.expiresAt);
+    });
+
+    test.each([
+      [
+        'error_code 解析（非 code）',
+        { error_code: 'INVALID_REFRESH_TOKEN' },
+        'INVALID_REFRESH_TOKEN',
+      ],
+      ['code 欄位作為 fallback 相容', { code: 'SESSION_REVOKED' }, 'SESSION_REVOKED'],
+    ])('refresh terminal error 應從 %s', async (_caseName, body, expectedReason) => {
+      await setExpiredAccountSession();
+      mockRefreshFailure({ status: 401, body });
+
+      await refreshAccountSession();
+
+      expect(storageFake[ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN]).toBeUndefined();
+      expect(Logger.warn).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          reason: expectedReason,
+          httpStatus: 401,
+        })
+      );
     });
   });
 
@@ -873,45 +771,36 @@ describe('refreshAccountSession（Phase 2 驗證）', () => {
     });
 
     test('應拒絕陣列型別的 response body', async () => {
-      globalThis.fetch = jest.fn().mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ['not', 'an', 'object'],
-      });
+      mockRefreshResponse({ body: ['not', 'an', 'object'] });
 
       await expect(refreshAccountSession()).rejects.toThrow(
         'refresh response body must be an object'
       );
     });
 
-    test('應拒絕空白字串的 accessToken', async () => {
-      globalThis.fetch = jest.fn().mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
+    test.each([
+      [
+        'accessToken',
+        {
           access_token: '   ',
           refresh_token: 'valid_refresh',
           expires_at: Math.floor(Date.now() / 1000) + 3600,
-        }),
-      });
-
-      await expect(refreshAccountSession()).rejects.toThrow('refresh response missing accessToken');
-    });
-
-    test('應拒絕空白字串的 refreshToken', async () => {
-      globalThis.fetch = jest.fn().mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
+        },
+        'refresh response missing accessToken',
+      ],
+      [
+        'refreshToken',
+        {
           access_token: 'valid_access',
           refresh_token: '   ',
           expires_at: Math.floor(Date.now() / 1000) + 3600,
-        }),
-      });
+        },
+        'refresh response missing refreshToken',
+      ],
+    ])('應拒絕空白字串的 %s', async (_fieldName, body, expectedMessage) => {
+      mockRefreshResponse({ body });
 
-      await expect(refreshAccountSession()).rejects.toThrow(
-        'refresh response missing refreshToken'
-      );
+      await expect(refreshAccountSession()).rejects.toThrow(expectedMessage);
     });
 
     test('應 trim accessToken 與 refreshToken 的前後空白', async () => {
@@ -919,14 +808,12 @@ describe('refreshAccountSession（Phase 2 驗證）', () => {
       const trimmedRefresh = 'trimmed_refresh';
       const expiresAt = Math.floor(Date.now() / 1000) + 3600;
 
-      globalThis.fetch = jest.fn().mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
+      mockRefreshResponse({
+        body: {
           access_token: `  ${trimmedAccess}  `,
           refresh_token: `  ${trimmedRefresh}  `,
           expires_at: expiresAt,
-        }),
+        },
       });
 
       await refreshAccountSession();
