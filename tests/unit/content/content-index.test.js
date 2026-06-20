@@ -45,6 +45,34 @@ async function flushPromises() {
   }
 }
 
+function expectSendResponseFailure(sendResponse, error) {
+  expect(sendResponse).toHaveBeenCalledWith({
+    success: false,
+    error,
+  });
+}
+
+function mockReadabilityExtraction({
+  title = 'Test Title',
+  content = '<div>Test content</div>',
+  blocks = [],
+} = {}) {
+  ContentExtractor.extractAsync.mockResolvedValue({
+    content,
+    type: 'readability',
+    metadata: { title },
+    blocks,
+  });
+
+  const mockConverter = {
+    convert: jest.fn().mockReturnValue([{ object: 'block', type: 'paragraph' }]),
+    imageCount: 0,
+  };
+  ConverterFactory.getConverter.mockReturnValue(mockConverter);
+
+  return mockConverter;
+}
+
 describe('Content Script Entry (index.js)', () => {
   test('content default page title uses centralized zh-TW fallback copy', () => {
     expect(CONTENT_QUALITY.DEFAULT_PAGE_TITLE).toBe(DATA_SOURCE_MESSAGES.UNTITLED_PAGE);
@@ -149,13 +177,6 @@ describe('Content Script Entry (index.js)', () => {
 
     function dispatchAction(action, payload = {}) {
       return dispatchMessage({ action, ...payload });
-    }
-
-    function expectSendResponseFailure(sendResponse, error) {
-      expect(sendResponse).toHaveBeenCalledWith({
-        success: false,
-        error,
-      });
     }
 
     function getReplayCallback() {
@@ -779,27 +800,6 @@ describe('Content Script Entry (index.js)', () => {
   });
 
   describe('extractPageContent', () => {
-    function mockReadabilityExtraction({
-      title = 'Test Title',
-      content = '<div>Test content</div>',
-      blocks = [],
-    } = {}) {
-      ContentExtractor.extractAsync.mockResolvedValue({
-        content,
-        type: 'readability',
-        metadata: { title },
-        blocks,
-      });
-
-      const mockConverter = {
-        convert: jest.fn().mockReturnValue([{ object: 'block', type: 'paragraph' }]),
-        imageCount: 0,
-      };
-      ConverterFactory.getConverter.mockReturnValue(mockConverter);
-
-      return mockConverter;
-    }
-
     test('應該成功提取並轉換內容', async () => {
       mockReadabilityExtraction();
 
