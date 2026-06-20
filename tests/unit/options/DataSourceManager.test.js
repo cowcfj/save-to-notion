@@ -32,6 +32,48 @@ globalThis.chrome = {
   },
 };
 
+const dataSourceParent = { type: 'data_source_id', data_source_id: 'db-123' };
+const databaseParent = { type: 'database_id', database_id: 'db-456' };
+const workspaceParent = { type: 'workspace', workspace: true };
+
+const titleProperty = plainText => ({ title: [{ plain_text: plainText }] });
+const urlProperty = (url = undefined) => ({
+  type: 'url',
+  ...(url === undefined ? {} : { url }),
+});
+
+const buildPage = ({
+  id = 'page-1',
+  parent = workspaceParent,
+  title = 'Test Page',
+  properties = { title: titleProperty(title) },
+} = {}) => ({
+  object: 'page',
+  id,
+  parent,
+  properties,
+});
+
+const buildDataSource = ({
+  object = 'data_source',
+  id = 'db-1',
+  parent = { type: 'workspace' },
+  title = 'Regular Database',
+  properties = { Title: { type: 'title' } },
+} = {}) => ({
+  object,
+  id,
+  parent,
+  title: [{ plain_text: title }],
+  properties,
+});
+
+const mockRuntimeResponse = response => {
+  globalThis.chrome.runtime.sendMessage.mockImplementation((_msg, callback) => {
+    callback(response);
+  });
+};
+
 describe('DataSourceManager', () => {
   let dataSourceManager = null;
   let mockUiManager = null;
@@ -70,9 +112,7 @@ describe('DataSourceManager', () => {
     });
 
     test('處理 401 認證錯誤', async () => {
-      globalThis.chrome.runtime.sendMessage.mockImplementation((_msg, callback) => {
-        callback({ success: false, error: 'Unauthorized' });
-      });
+      mockRuntimeResponse({ success: false, error: 'Unauthorized' });
 
       await dataSourceManager.loadDataSources('invalid_key');
 
@@ -83,9 +123,7 @@ describe('DataSourceManager', () => {
     });
 
     test('處理網路錯誤', async () => {
-      globalThis.chrome.runtime.sendMessage.mockImplementation((_msg, callback) => {
-        callback({ success: false, error: 'Network error' });
-      });
+      mockRuntimeResponse({ success: false, error: 'Network error' });
 
       await dataSourceManager.loadDataSources('secret_test_key');
 
@@ -132,9 +170,7 @@ describe('DataSourceManager', () => {
     });
 
     test('帶有 query 參數時發送正確的請求主體', async () => {
-      globalThis.chrome.runtime.sendMessage.mockImplementation((_msg, callback) => {
-        callback({ success: true, data: { results: [] } });
-      });
+      mockRuntimeResponse({ success: true, data: { results: [] } });
 
       await dataSourceManager.loadDataSources('secret_test_key', 'test_query');
 
@@ -151,9 +187,7 @@ describe('DataSourceManager', () => {
     });
 
     test('無 query 參數時使用時間排序', async () => {
-      globalThis.chrome.runtime.sendMessage.mockImplementation((_msg, callback) => {
-        callback({ success: true, data: { results: [] } });
-      });
+      mockRuntimeResponse({ success: true, data: { results: [] } });
 
       await dataSourceManager.loadDataSources('secret_test_key');
 
@@ -175,19 +209,8 @@ describe('DataSourceManager', () => {
   describe('filterAndSortResults', () => {
     test('優先排序工作區頁面', () => {
       const results = [
-        {
-          object: 'database',
-          id: 'db-1',
-          parent: { type: 'page_id' },
-          title: [{ plain_text: 'Database' }],
-          properties: {},
-        },
-        {
-          object: 'page',
-          id: 'page-1',
-          parent: { type: 'workspace', workspace: true },
-          properties: { title: { title: [{ plain_text: 'Workspace Page' }] } },
-        },
+        buildDataSource({ object: 'database', title: 'Database', properties: {} }),
+        buildPage({ id: 'page-1', title: 'Workspace Page' }),
       ];
 
       const filtered = DataSourceManager.filterAndSortResults(results);
@@ -197,21 +220,16 @@ describe('DataSourceManager', () => {
 
     test('過濾掉已保存的網頁（parent 為 data_source_id 且有 URL）', () => {
       const results = [
-        {
-          object: 'page',
+        buildPage({
           id: 'page-1',
-          parent: { type: 'data_source_id', data_source_id: 'db-123' },
+          parent: dataSourceParent,
+          title: 'Saved Web Page',
           properties: {
-            title: { title: [{ plain_text: 'Saved Web Page' }] },
-            URL: { type: 'url', url: 'https://example.com' },
+            title: titleProperty('Saved Web Page'),
+            URL: urlProperty('https://example.com'),
           },
-        },
-        {
-          object: 'page',
-          id: 'page-2',
-          parent: { type: 'workspace', workspace: true },
-          properties: { title: { title: [{ plain_text: 'Workspace Page' }] } },
-        },
+        }),
+        buildPage({ id: 'page-2', title: 'Workspace Page' }),
       ];
 
       const filtered = DataSourceManager.filterAndSortResults(results);
@@ -223,14 +241,11 @@ describe('DataSourceManager', () => {
 
     test('保留一般頁面（不是已保存的網頁）', () => {
       const results = [
-        {
-          object: 'page',
+        buildPage({
           id: 'page-1',
           parent: { type: 'page_id', page_id: 'parent-123' },
-          properties: {
-            title: { title: [{ plain_text: 'Category Page' }] },
-          },
-        },
+          title: 'Category Page',
+        }),
       ];
 
       const filtered = DataSourceManager.filterAndSortResults(results);
@@ -241,25 +256,16 @@ describe('DataSourceManager', () => {
 
     test('保留有 URL 屬性的資料庫並優先排序', () => {
       const results = [
-        {
-          object: 'data_source',
-          id: 'db-1',
-          parent: { type: 'workspace' },
-          title: [{ plain_text: 'Regular Database' }],
-          properties: {
-            Title: { type: 'title' },
-          },
-        },
-        {
+        buildDataSource({ id: 'db-1' }),
+        buildDataSource({
           object: 'database',
           id: 'db-2',
-          parent: { type: 'workspace' },
-          title: [{ plain_text: 'URL Database' }],
+          title: 'URL Database',
           properties: {
             Title: { type: 'title' },
-            URL: { type: 'url' },
+            URL: urlProperty(),
           },
-        },
+        }),
       ];
 
       const filtered = DataSourceManager.filterAndSortResults(results);
@@ -271,39 +277,31 @@ describe('DataSourceManager', () => {
 
   describe('isSavedWebPage', () => {
     test('識別已保存的網頁', () => {
-      const savedPage = {
-        object: 'page',
-        parent: { type: 'data_source_id', data_source_id: 'db-123' },
+      const savedPage = buildPage({
+        parent: dataSourceParent,
         properties: {
           Title: { title: [{ plain_text: 'Example' }] },
-          URL: { type: 'url', url: 'https://example.com' },
+          URL: urlProperty('https://example.com'),
         },
-      };
+      });
 
       expect(DataSourceManager.isSavedWebPage(savedPage)).toBe(true);
     });
 
     test('識別屬於 database_id 父級的已保存網頁', () => {
-      const savedPage = {
-        object: 'page',
-        parent: { type: 'database_id', database_id: 'db-456' },
+      const savedPage = buildPage({
+        parent: databaseParent,
         properties: {
           Title: { title: [{ plain_text: 'DB Child Page' }] },
-          URL: { type: 'url', url: 'https://example.com' },
+          URL: urlProperty('https://example.com'),
         },
-      };
+      });
 
       expect(DataSourceManager.isSavedWebPage(savedPage)).toBe(true);
     });
 
     test('不誤判工作區頁面', () => {
-      const workspacePage = {
-        object: 'page',
-        parent: { type: 'workspace', workspace: true },
-        properties: {
-          title: { title: [{ plain_text: 'Workspace Page' }] },
-        },
-      };
+      const workspacePage = buildPage({ title: 'Workspace Page' });
 
       expect(DataSourceManager.isSavedWebPage(workspacePage)).toBe(false);
     });
@@ -311,36 +309,30 @@ describe('DataSourceManager', () => {
 
   describe('hasUrlProperty', () => {
     test('偵測到 data_source 有 URL 屬性', () => {
-      const database = {
-        object: 'data_source',
+      const database = buildDataSource({
         properties: {
           Title: { type: 'title' },
-          URL: { type: 'url' },
+          URL: urlProperty(),
         },
-      };
+      });
 
       expect(DataSourceManager.hasUrlProperty(database)).toBe(true);
     });
 
     test('偵測到 database (Notion API 格式) 有 URL 屬性', () => {
-      const database = {
+      const database = buildDataSource({
         object: 'database',
         properties: {
           Title: { type: 'title' },
-          URL: { type: 'url' },
+          URL: urlProperty(),
         },
-      };
+      });
 
       expect(DataSourceManager.hasUrlProperty(database)).toBe(true);
     });
 
     test('偵測到 data_source 沒有 URL 屬性', () => {
-      const database = {
-        object: 'data_source',
-        properties: {
-          Title: { type: 'title' },
-        },
-      };
+      const database = buildDataSource();
 
       expect(DataSourceManager.hasUrlProperty(database)).toBe(false);
     });
@@ -367,9 +359,7 @@ describe('DataSourceManager', () => {
 
   describe('loadDataSources - additional error handling', () => {
     test('處理 403 權限錯誤', async () => {
-      globalThis.chrome.runtime.sendMessage.mockImplementation((_msg, callback) => {
-        callback({ success: false, error: 'Forbidden' });
-      });
+      mockRuntimeResponse({ success: false, error: 'Forbidden' });
 
       await dataSourceManager.loadDataSources('permission_denied_key');
 
@@ -380,9 +370,7 @@ describe('DataSourceManager', () => {
     });
 
     test('處理其他 HTTP 錯誤', async () => {
-      globalThis.chrome.runtime.sendMessage.mockImplementation((_msg, callback) => {
-        callback({ success: false, error: 'Internal Server Error' });
-      });
+      mockRuntimeResponse({ success: false, error: 'Internal Server Error' });
 
       await dataSourceManager.loadDataSources('test_key');
 
@@ -394,9 +382,7 @@ describe('DataSourceManager', () => {
     });
 
     test('處理 503 錯誤（對應到 Internal Server Error 訊息）', async () => {
-      globalThis.chrome.runtime.sendMessage.mockImplementation((_msg, callback) => {
-        callback({ success: false, error: 'Service Unavailable' });
-      });
+      mockRuntimeResponse({ success: false, error: 'Service Unavailable' });
 
       await dataSourceManager.loadDataSources('test_key');
 
@@ -408,9 +394,7 @@ describe('DataSourceManager', () => {
     });
 
     test('處理空結果', async () => {
-      globalThis.chrome.runtime.sendMessage.mockImplementation((_msg, callback) => {
-        callback({ success: true, data: { results: [] } });
-      });
+      mockRuntimeResponse({ success: true, data: { results: [] } });
 
       const result = await dataSourceManager.loadDataSources('test_key');
 
@@ -422,9 +406,7 @@ describe('DataSourceManager', () => {
     });
 
     test('搜尋模式下空結果顯示 info 訊息', async () => {
-      globalThis.chrome.runtime.sendMessage.mockImplementation((_msg, callback) => {
-        callback({ success: true, data: { results: [] } });
-      });
+      mockRuntimeResponse({ success: true, data: { results: [] } });
 
       await dataSourceManager.loadDataSources('test_key', 'nonexistent');
 
@@ -435,18 +417,9 @@ describe('DataSourceManager', () => {
     });
 
     test('成功返回資料來源列表', async () => {
-      const mockResults = [
-        {
-          object: 'page',
-          id: 'page-1',
-          parent: { type: 'workspace' },
-          properties: { title: { title: [{ plain_text: 'Test Page' }] } },
-        },
-      ];
+      const mockResults = [buildPage({ title: 'Test Page' })];
 
-      globalThis.chrome.runtime.sendMessage.mockImplementation((_msg, callback) => {
-        callback({ success: true, data: { results: mockResults } });
-      });
+      mockRuntimeResponse({ success: true, data: { results: mockResults } });
 
       const result = await dataSourceManager.loadDataSources('test_key');
 
@@ -456,20 +429,18 @@ describe('DataSourceManager', () => {
     test('過濾後無可用資料來源時顯示錯誤', async () => {
       // 所有結果都是已保存的網頁，應被過濾掉
       const mockResults = [
-        {
-          object: 'page',
+        buildPage({
           id: 'saved-page-1',
-          parent: { type: 'data_source_id', data_source_id: 'db-123' },
+          parent: dataSourceParent,
+          title: 'Saved Page',
           properties: {
-            title: { title: [{ plain_text: 'Saved Page' }] },
-            URL: { type: 'url', url: 'https://example.com' },
+            title: titleProperty('Saved Page'),
+            URL: urlProperty('https://example.com'),
           },
-        },
+        }),
       ];
 
-      globalThis.chrome.runtime.sendMessage.mockImplementation((_msg, callback) => {
-        callback({ success: true, data: { results: mockResults } });
-      });
+      mockRuntimeResponse({ success: true, data: { results: mockResults } });
 
       await dataSourceManager.loadDataSources('test_key');
 
@@ -483,18 +454,12 @@ describe('DataSourceManager', () => {
   describe('filterAndSortResults - preserveOrder', () => {
     test('preserveOrder 為 true 時保留原始順序', () => {
       const results = [
-        {
-          object: 'page',
+        buildPage({
           id: 'page-1',
           parent: { type: 'page_id' },
-          properties: { title: { title: [{ plain_text: 'First' }] } },
-        },
-        {
-          object: 'page',
-          id: 'page-2',
-          parent: { type: 'workspace' },
-          properties: { title: { title: [{ plain_text: 'Second' }] } },
-        },
+          title: 'First',
+        }),
+        buildPage({ id: 'page-2', title: 'Second' }),
       ];
 
       const filtered = DataSourceManager.filterAndSortResults(results, 100, true);
@@ -506,18 +471,12 @@ describe('DataSourceManager', () => {
 
     test('preserveOrder 為 false 時按類型排序', () => {
       const results = [
-        {
-          object: 'page',
+        buildPage({
           id: 'page-1',
           parent: { type: 'page_id' },
-          properties: { title: { title: [{ plain_text: 'Category Page' }] } },
-        },
-        {
-          object: 'page',
-          id: 'page-2',
-          parent: { type: 'workspace' },
-          properties: { title: { title: [{ plain_text: 'Workspace Page' }] } },
-        },
+          title: 'Category Page',
+        }),
+        buildPage({ id: 'page-2', title: 'Workspace Page' }),
       ];
 
       const filtered = DataSourceManager.filterAndSortResults(results, 100, false);
@@ -529,24 +488,17 @@ describe('DataSourceManager', () => {
 
     test('分類頁面排在工作區頁面之後', () => {
       const results = [
-        {
-          object: 'page',
+        buildPage({
           id: 'other-1',
           parent: { type: 'block_id' },
-          properties: { title: { title: [{ plain_text: 'Other Page' }] } },
-        },
-        {
-          object: 'page',
+          title: 'Other Page',
+        }),
+        buildPage({
           id: 'category-1',
           parent: { type: 'page_id' },
-          properties: { title: { title: [{ plain_text: 'Category Page' }] } },
-        },
-        {
-          object: 'page',
-          id: 'workspace-1',
-          parent: { type: 'workspace' },
-          properties: { title: { title: [{ plain_text: 'Workspace Page' }] } },
-        },
+          title: 'Category Page',
+        }),
+        buildPage({ id: 'workspace-1', title: 'Workspace Page' }),
       ];
 
       const filtered = DataSourceManager.filterAndSortResults(results, 100, false);
@@ -559,39 +511,36 @@ describe('DataSourceManager', () => {
 
   describe('isSavedWebPage - additional cases', () => {
     test('data_source_id 父級但無 URL 屬性不判定為已保存網頁', () => {
-      const page = {
-        object: 'page',
-        parent: { type: 'data_source_id', data_source_id: 'db-123' },
+      const page = buildPage({
+        parent: dataSourceParent,
         properties: {
           Title: { title: [{ plain_text: 'Just a Page' }] },
           Notes: { type: 'rich_text' },
         },
-      };
+      });
 
       expect(DataSourceManager.isSavedWebPage(page)).toBe(false);
     });
 
     test('非頁面物件返回 false', () => {
-      const database = {
-        object: 'data_source',
+      const database = buildDataSource({
         parent: { type: 'data_source_id' },
         properties: {
-          URL: { type: 'url' },
+          URL: urlProperty(),
         },
-      };
+      });
 
       expect(DataSourceManager.isSavedWebPage(database)).toBe(false);
     });
 
     test('避免誤判：僅憑屬性名稱包含 "url" 不應被識別為已保存網頁', () => {
-      const page = {
-        object: 'page',
-        parent: { type: 'data_source_id', data_source_id: 'db-123' },
+      const page = buildPage({
+        parent: dataSourceParent,
         properties: {
           Title: { title: [{ plain_text: 'Saved Article' }] },
           pageurl: { type: 'rich_text' }, // 名稱包含 url 但類型不是 url
         },
-      };
+      });
 
       expect(DataSourceManager.isSavedWebPage(page)).toBe(false);
     });
@@ -668,6 +617,8 @@ describe('DataSourceManager', () => {
     });
 
     test('非搜尋結果且資料來源非空時，顯示成功載入狀態並填充 selector', () => {
+      expect.hasAssertions();
+
       const mockData = [{ id: 'db-1', object: 'database' }];
       expectDataSourceSelectPopulation({
         dataSources: mockData,
@@ -677,6 +628,8 @@ describe('DataSourceManager', () => {
     });
 
     test('搜尋結果且資料來源非空時，顯示尋獲數量狀態', () => {
+      expect.hasAssertions();
+
       const mockData = [
         { id: 'db-1', object: 'database' },
         { id: 'db-2', object: 'database' },
