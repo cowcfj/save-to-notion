@@ -762,6 +762,8 @@ describe('refreshAccountSession（Phase 2 驗證）', () => {
       expect(Logger.warn).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
+          action: 'refreshAccountSession',
+          result: 'cleared',
           reason: expectedReason,
           httpStatus: 401,
         })
