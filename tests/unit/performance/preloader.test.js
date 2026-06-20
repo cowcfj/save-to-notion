@@ -278,6 +278,22 @@ describe('Preloader Performance Script', () => {
       );
     });
 
+    test('當 runtime.sendMessage 不可用時不應該發送快捷鍵訊息', () => {
+      delete globalThis.chrome.runtime.sendMessage;
+
+      runPreloader();
+      const event = new KeyboardEvent('keydown', { ctrlKey: true, key: 's' });
+      document.dispatchEvent(event);
+
+      expect(testListeners).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: 'keydown',
+          }),
+        ])
+      );
+    });
+
     test('應該處理快捷鍵發送訊息後的回調 (緩衝事件)', () => {
       runPreloader();
       const event = new KeyboardEvent('keydown', { ctrlKey: true, key: 's' });
