@@ -1,25 +1,10 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import { PerformanceOptimizer } from '../../../scripts/performance/PerformanceOptimizer.js';
+import { PERFORMANCE_HTML_FIXTURE } from '../../helpers/performanceOptimizerTestHarness.js';
 
 jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
-  default: {
-    success: jest.fn(),
-    start: jest.fn(),
-    ready: jest.fn(),
-    info: jest.fn(),
-    debug: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    log: jest.fn(),
-  },
+  default: require('../../helpers/loggerMock.js').createLoggerMock(),
 }));
-
-const PERFORMANCE_HTML_FIXTURE = fs.readFileSync(
-  path.resolve(__dirname, '../../mocks/performance/performance-html-fixture.html'),
-  'utf8'
-);
 
 describe('PerformanceOptimizer extended coverage', () => {
   let optimizer = null;

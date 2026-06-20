@@ -5,17 +5,16 @@
 
 // Mock Chrome APIs
 import mockChrome from '../../mocks/chrome';
+import {
+  buildNotionPageResponse,
+  buildOpenPageRequest,
+  createJsonResponse,
+  mockNotionApiToken,
+  mockTabCreationResult,
+} from '../../helpers/notionPageOperationsTestHarness.js';
 
 const NOTION_API_BASE_URL = 'https://api.notion.com/v1';
 const NOTION_VERSION = '2025-09-03';
-
-function createJsonResponse({ ok, status, body }) {
-  return {
-    ok,
-    status,
-    json: () => Promise.resolve(body),
-  };
-}
 
 function createCheckNotionPageExists() {
   return jest.fn(async (pageId, apiKey) => {
@@ -149,31 +148,6 @@ function createHandleOpenNotionPage() {
         error: error.message,
       });
     }
-  });
-}
-
-function mockNotionApiToken(notionApiToken) {
-  mockChrome.storage.sync.get.mockImplementation((_keys, mockCb) => {
-    mockCb(notionApiToken ? { notionApiToken } : {});
-  });
-}
-
-function mockTabCreationResult(tab) {
-  mockChrome.tabs.create.mockImplementation((_options, mockCb) => {
-    mockCb(tab);
-  });
-}
-
-function buildOpenPageRequest(url = 'https://notion.so/test-page') {
-  return { url };
-}
-
-function buildNotionPageResponse(body, overrides = {}) {
-  return createJsonResponse({
-    ok: true,
-    status: 200,
-    body,
-    ...overrides,
   });
 }
 
@@ -331,7 +305,7 @@ describe('Background Notion Page Operations', () => {
       const request = { pageId: 'test-page-id' };
       const mockSendResponse = jest.fn();
 
-      mockNotionApiToken('test-api-key');
+      mockNotionApiToken(mockChrome.storage.sync.get, 'test-api-key');
 
       checkNotionPageExists.mockResolvedValue({
         exists: true,
@@ -374,7 +348,7 @@ describe('Background Notion Page Operations', () => {
       const request = { pageId: 'test-page-id' };
       const mockSendResponse = jest.fn();
 
-      mockNotionApiToken();
+      mockNotionApiToken(mockChrome.storage.sync.get);
 
       // Act
       await handleCheckNotionPageExistsMessage(request, mockSendResponse);
@@ -391,7 +365,7 @@ describe('Background Notion Page Operations', () => {
       const request = { pageId: 'test-page-id' };
       const mockSendResponse = jest.fn();
 
-      mockNotionApiToken('test-api-key');
+      mockNotionApiToken(mockChrome.storage.sync.get, 'test-api-key');
 
       checkNotionPageExists.mockRejectedValue(new Error('Check failed'));
 
@@ -418,7 +392,7 @@ describe('Background Notion Page Operations', () => {
       const mockSendResponse = jest.fn();
       const mockTab = { id: 123, url: request.url };
 
-      mockTabCreationResult(mockTab);
+      mockTabCreationResult(mockChrome.tabs.create, mockTab);
 
       // Act
       handleOpenNotionPage(request, mockSendResponse);
@@ -455,7 +429,7 @@ describe('Background Notion Page Operations', () => {
       const mockSendResponse = jest.fn();
 
       mockChrome.runtime.lastError = { message: 'Tab creation failed' };
-      mockTabCreationResult(null);
+      mockTabCreationResult(mockChrome.tabs.create, null);
 
       // Act
       handleOpenNotionPage(request, mockSendResponse);
@@ -501,7 +475,7 @@ describe('Background Notion Page Operations', () => {
       const mockSendResponse = jest.fn();
       const mockPageData = { id: pageId, object: 'page' };
 
-      mockNotionApiToken(apiKey);
+      mockNotionApiToken(mockChrome.storage.sync.get, apiKey);
 
       globalThis.fetch.mockResolvedValue(buildNotionPageResponse(mockPageData));
 

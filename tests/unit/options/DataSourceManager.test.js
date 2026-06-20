@@ -5,6 +5,15 @@
 import { DataSourceManager } from '../../../pages/options/DataSourceManager.js';
 import { UIManager } from '../../../pages/options/UIManager.js';
 import { UI_MESSAGES, ERROR_MESSAGES } from '../../../scripts/config/shared/messages.js';
+import {
+  buildDataSource,
+  buildPage,
+  dataSourceParent,
+  databaseParent,
+  mockRuntimeResponse,
+  titleProperty,
+  urlProperty,
+} from '../../helpers/optionsDataSourceTestHarness.js';
 
 // Mock dependencies
 jest.mock('../../../pages/options/UIManager.js');
@@ -30,48 +39,6 @@ globalThis.chrome = {
     sendMessage: jest.fn(),
     lastError: null,
   },
-};
-
-const dataSourceParent = { type: 'data_source_id', data_source_id: 'db-123' };
-const databaseParent = { type: 'database_id', database_id: 'db-456' };
-const workspaceParent = { type: 'workspace', workspace: true };
-
-const titleProperty = plainText => ({ title: [{ plain_text: plainText }] });
-const urlProperty = (url = undefined) => ({
-  type: 'url',
-  ...(url === undefined ? {} : { url }),
-});
-
-const buildPage = ({
-  id = 'page-1',
-  parent = workspaceParent,
-  title = 'Test Page',
-  properties = { title: titleProperty(title) },
-} = {}) => ({
-  object: 'page',
-  id,
-  parent,
-  properties,
-});
-
-const buildDataSource = ({
-  object = 'data_source',
-  id = 'db-1',
-  parent = { type: 'workspace' },
-  title = 'Regular Database',
-  properties = { Title: { type: 'title' } },
-} = {}) => ({
-  object,
-  id,
-  parent,
-  title: [{ plain_text: title }],
-  properties,
-});
-
-const mockRuntimeResponse = response => {
-  globalThis.chrome.runtime.sendMessage.mockImplementation((_msg, callback) => {
-    callback(response);
-  });
 };
 
 describe('DataSourceManager', () => {
@@ -112,7 +79,10 @@ describe('DataSourceManager', () => {
     });
 
     test('處理 401 認證錯誤', async () => {
-      mockRuntimeResponse({ success: false, error: 'Unauthorized' });
+      mockRuntimeResponse(globalThis.chrome.runtime.sendMessage, {
+        success: false,
+        error: 'Unauthorized',
+      });
 
       await dataSourceManager.loadDataSources('invalid_key');
 
@@ -123,7 +93,10 @@ describe('DataSourceManager', () => {
     });
 
     test('處理網路錯誤', async () => {
-      mockRuntimeResponse({ success: false, error: 'Network error' });
+      mockRuntimeResponse(globalThis.chrome.runtime.sendMessage, {
+        success: false,
+        error: 'Network error',
+      });
 
       await dataSourceManager.loadDataSources('secret_test_key');
 
@@ -170,7 +143,10 @@ describe('DataSourceManager', () => {
     });
 
     test('帶有 query 參數時發送正確的請求主體', async () => {
-      mockRuntimeResponse({ success: true, data: { results: [] } });
+      mockRuntimeResponse(globalThis.chrome.runtime.sendMessage, {
+        success: true,
+        data: { results: [] },
+      });
 
       await dataSourceManager.loadDataSources('secret_test_key', 'test_query');
 
@@ -187,7 +163,10 @@ describe('DataSourceManager', () => {
     });
 
     test('無 query 參數時使用時間排序', async () => {
-      mockRuntimeResponse({ success: true, data: { results: [] } });
+      mockRuntimeResponse(globalThis.chrome.runtime.sendMessage, {
+        success: true,
+        data: { results: [] },
+      });
 
       await dataSourceManager.loadDataSources('secret_test_key');
 
@@ -350,7 +329,10 @@ describe('DataSourceManager', () => {
 
   describe('loadDataSources - additional error handling', () => {
     test('處理 403 權限錯誤', async () => {
-      mockRuntimeResponse({ success: false, error: 'Forbidden' });
+      mockRuntimeResponse(globalThis.chrome.runtime.sendMessage, {
+        success: false,
+        error: 'Forbidden',
+      });
 
       await dataSourceManager.loadDataSources('permission_denied_key');
 
@@ -361,7 +343,10 @@ describe('DataSourceManager', () => {
     });
 
     test('處理其他 HTTP 錯誤', async () => {
-      mockRuntimeResponse({ success: false, error: 'Internal Server Error' });
+      mockRuntimeResponse(globalThis.chrome.runtime.sendMessage, {
+        success: false,
+        error: 'Internal Server Error',
+      });
 
       await dataSourceManager.loadDataSources('test_key');
 
@@ -373,7 +358,10 @@ describe('DataSourceManager', () => {
     });
 
     test('處理 503 錯誤（對應到 Internal Server Error 訊息）', async () => {
-      mockRuntimeResponse({ success: false, error: 'Service Unavailable' });
+      mockRuntimeResponse(globalThis.chrome.runtime.sendMessage, {
+        success: false,
+        error: 'Service Unavailable',
+      });
 
       await dataSourceManager.loadDataSources('test_key');
 
@@ -385,7 +373,10 @@ describe('DataSourceManager', () => {
     });
 
     test('處理空結果', async () => {
-      mockRuntimeResponse({ success: true, data: { results: [] } });
+      mockRuntimeResponse(globalThis.chrome.runtime.sendMessage, {
+        success: true,
+        data: { results: [] },
+      });
 
       const result = await dataSourceManager.loadDataSources('test_key');
 
@@ -397,7 +388,10 @@ describe('DataSourceManager', () => {
     });
 
     test('搜尋模式下空結果顯示 info 訊息', async () => {
-      mockRuntimeResponse({ success: true, data: { results: [] } });
+      mockRuntimeResponse(globalThis.chrome.runtime.sendMessage, {
+        success: true,
+        data: { results: [] },
+      });
 
       await dataSourceManager.loadDataSources('test_key', 'nonexistent');
 
@@ -410,7 +404,10 @@ describe('DataSourceManager', () => {
     test('成功返回資料來源列表', async () => {
       const mockResults = [buildPage({ title: 'Test Page' })];
 
-      mockRuntimeResponse({ success: true, data: { results: mockResults } });
+      mockRuntimeResponse(globalThis.chrome.runtime.sendMessage, {
+        success: true,
+        data: { results: mockResults },
+      });
 
       const result = await dataSourceManager.loadDataSources('test_key');
 
@@ -431,7 +428,10 @@ describe('DataSourceManager', () => {
         }),
       ];
 
-      mockRuntimeResponse({ success: true, data: { results: mockResults } });
+      mockRuntimeResponse(globalThis.chrome.runtime.sendMessage, {
+        success: true,
+        data: { results: mockResults },
+      });
 
       await dataSourceManager.loadDataSources('test_key');
 

@@ -1,24 +1,14 @@
-import fs from 'node:fs';
-import path from 'node:path';
+import {
+  PERFORMANCE_HTML_FIXTURE,
+  createPerformanceLoggerMock,
+  restorePerformanceGlobals,
+  setupPerformanceEnvironment,
+} from '../../helpers/performanceOptimizerTestHarness.js';
 
 jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
-  default: {
-    success: jest.fn(),
-    start: jest.fn(),
-    ready: jest.fn(),
-    info: jest.fn(),
-    debug: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    log: jest.fn(),
-  },
+  default: require('../../helpers/loggerMock.js').createLoggerMock(),
 }));
-
-const PERFORMANCE_HTML_FIXTURE = fs.readFileSync(
-  path.resolve(__dirname, '../../mocks/performance/performance-html-fixture.html'),
-  'utf8'
-);
 
 // =========================================
 // 合併自 PerformanceOptimizer.comprehensive.test.js
@@ -32,48 +22,25 @@ describe('PerformanceOptimizer - 全面測試', () => {
   let PerformanceOptimizer = null;
   let optimizer = null;
   let mockDocument = null;
-  let originalDocument = null;
-  let originalWindow = null;
-  let originalImage = null;
-  let originalPerformance = null;
-  let originalRequestIdleCallback = null;
-  let originalRequestAnimationFrame = null;
-  let originalLogger = null;
-  let originalChrome = null;
+  let originalGlobals = null;
 
   beforeEach(() => {
-    jest.useFakeTimers();
-    originalDocument = globalThis.document;
-    originalWindow = globalThis.window;
-    originalImage = globalThis.Image;
-    originalPerformance = globalThis.performance;
-    originalRequestIdleCallback = globalThis.requestIdleCallback;
-    originalRequestAnimationFrame = globalThis.requestAnimationFrame;
-    originalLogger = globalThis.Logger;
-    originalChrome = globalThis.chrome;
-    // 創建新的 DOM 環境
-    document.body.innerHTML = PERFORMANCE_HTML_FIXTURE;
-    mockDocument = document;
-
-    // 使用 Jest 原生的 globalThis
-    globalThis.performance = {
-      now: jest.fn(() => Date.now()),
-      memory: {
-        usedJSHeapSize: 10_000_000,
-        totalJSHeapSize: 20_000_000,
-        jsHeapSizeLimit: 100_000_000,
+    originalGlobals = setupPerformanceEnvironment({
+      bodyHtml: PERFORMANCE_HTML_FIXTURE,
+      useFakeTimers: true,
+      performance: {
+        now: jest.fn(() => Date.now()),
+        memory: {
+          usedJSHeapSize: 10_000_000,
+          totalJSHeapSize: 20_000_000,
+          jsHeapSizeLimit: 100_000_000,
+        },
       },
-    };
-    globalThis.requestIdleCallback = jest.fn(callback => setTimeout(callback, 0));
-    globalThis.requestAnimationFrame = jest.fn(callback => setTimeout(callback, 16));
-
-    // 模擬 Logger
-    globalThis.Logger = {
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      debug: jest.fn(),
-    };
+      requestIdleCallback: jest.fn(callback => setTimeout(callback, 0)),
+      requestAnimationFrame: jest.fn(callback => setTimeout(callback, 16)),
+      logger: createPerformanceLoggerMock(),
+    });
+    mockDocument = document;
 
     // 重新加載模塊
     jest.resetModules();
@@ -90,34 +57,7 @@ describe('PerformanceOptimizer - 全面測試', () => {
   });
 
   afterEach(() => {
-    globalThis.document = originalDocument;
-    globalThis.window = originalWindow;
-    globalThis.Image = originalImage;
-    if (originalPerformance === undefined) {
-      delete globalThis.performance;
-    } else {
-      globalThis.performance = originalPerformance;
-    }
-    if (originalRequestIdleCallback === undefined) {
-      delete globalThis.requestIdleCallback;
-    } else {
-      globalThis.requestIdleCallback = originalRequestIdleCallback;
-    }
-    if (originalRequestAnimationFrame === undefined) {
-      delete globalThis.requestAnimationFrame;
-    } else {
-      globalThis.requestAnimationFrame = originalRequestAnimationFrame;
-    }
-    if (originalLogger === undefined) {
-      delete globalThis.Logger;
-    } else {
-      globalThis.Logger = originalLogger;
-    }
-    if (originalChrome === undefined) {
-      delete globalThis.chrome;
-    } else {
-      globalThis.chrome = originalChrome;
-    }
+    restorePerformanceGlobals(originalGlobals);
     jest.useRealTimers();
     jest.clearAllMocks();
   });
