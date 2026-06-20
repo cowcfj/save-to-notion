@@ -44,6 +44,7 @@ export { sanitizeApiError } from '../../../../scripts/utils/ApiErrorSanitizer.js
 export { default as Logger } from '../../../../scripts/utils/Logger.js';
 
 import { RAIL_INSTANCE_ID } from '../../../../scripts/highlighter/ui/floatingRailInstance.js';
+import { FloatingRail } from '../../../../scripts/highlighter/ui/FloatingRail.js';
 import { checkPageStatus } from '../../../../scripts/highlighter/ui/FloatingRailRuntime.js';
 import { createFloatingRailContainer } from '../../../../scripts/highlighter/ui/components/FloatingRailContainer.js';
 import { injectRailStylesIntoShadowRoot } from '../../../../scripts/highlighter/ui/styles/floatingRailStyles.js';
@@ -155,6 +156,12 @@ export function dispatchTriggerPointerDown(rail, options = {}) {
 
   trigger.dispatchEvent(event);
   return trigger;
+}
+
+export async function createInitializedRail(manager) {
+  const rail = new FloatingRail(manager);
+  await rail.initialize();
+  return rail;
 }
 
 export function setupFloatingRailTestEnvironment() {

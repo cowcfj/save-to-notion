@@ -6,6 +6,7 @@ import {
   FloatingRail,
   RailStates,
   TEST_RAIL_POSITION_KEY,
+  createInitializedRail,
   createPointerMouseEvent,
   dispatchTriggerPointerDown,
   setupFloatingRailTestEnvironment,
@@ -24,29 +25,28 @@ describe('FloatingRail events', () => {
   });
 
   describe('event binding', () => {
-    test('trigger click 應切換 expand/collapse', async () => {
-      const rail = new FloatingRail(manager);
-      await rail.initialize();
+    test.each([
+      {
+        name: 'trigger click 應切換 expand/collapse',
+        selector: '.rail-trigger',
+        prepare: () => {},
+        expectedStates: [RailStates.EXPANDED, RailStates.COLLAPSED],
+      },
+      {
+        name: 'highlight button click 應切換 highlighting',
+        selector: '.rail-highlight-toggle',
+        prepare: rail => rail.expand(),
+        expectedStates: [RailStates.HIGHLIGHTING, RailStates.EXPANDED],
+      },
+    ])('$name', async ({ selector, prepare, expectedStates }) => {
+      const rail = await createInitializedRail(manager);
+      prepare(rail);
 
-      const trigger = rail.container.querySelector('.rail-trigger');
-      trigger.click();
-      expect(rail.stateManager.currentState).toBe(RailStates.EXPANDED);
-
-      trigger.click();
-      expect(rail.stateManager.currentState).toBe(RailStates.COLLAPSED);
-    });
-
-    test('highlight button click 應切換 highlighting', async () => {
-      const rail = new FloatingRail(manager);
-      await rail.initialize();
-      rail.expand();
-
-      const highlightToggle = rail.container.querySelector('.rail-highlight-toggle');
-      highlightToggle.click();
-      expect(rail.stateManager.currentState).toBe(RailStates.HIGHLIGHTING);
-
-      highlightToggle.click();
-      expect(rail.stateManager.currentState).toBe(RailStates.EXPANDED);
+      const button = rail.container.querySelector(selector);
+      for (const expectedState of expectedStates) {
+        button.click();
+        expect(rail.stateManager.currentState).toBe(expectedState);
+      }
     });
 
     test('save button click 應透過事件綁定呼叫 _handleSaveSync', async () => {
@@ -200,22 +200,34 @@ describe('FloatingRail events', () => {
       expect(rail.stateManager.currentState).toBe(RailStates.COLLAPSED);
     });
 
-    test('[REGRESSION] trigger 拖曳應更新 rail host 位置並保存到 sessionStorage', async () => {
+    test.each([
+      {
+        name: '[REGRESSION] trigger 拖曳應更新 rail host 位置並保存到 sessionStorage',
+        holdMs: 300,
+        expectedTop: '180px',
+        expectedStoredPosition: expect.stringContaining('"top":180'),
+      },
+      {
+        name: '[REGRESSION] trigger 未長按達門檻前不應開始拖曳',
+        holdMs: 120,
+        expectedTop: expect.not.stringMatching(/^180px$/),
+        expectedStoredPosition: null,
+      },
+    ])('$name', async ({ holdMs, expectedTop, expectedStoredPosition }) => {
       jest.useFakeTimers();
-      const rail = new FloatingRail(manager);
-      await rail.initialize();
+      const rail = await createInitializedRail(manager);
 
       try {
         dispatchTriggerPointerDown(rail);
-        jest.advanceTimersByTime(300);
+        jest.advanceTimersByTime(holdMs);
         document.dispatchEvent(new MouseEvent('pointermove', { clientX: 700, clientY: 180 }));
         document.dispatchEvent(new MouseEvent('pointerup', { clientX: 700, clientY: 180 }));
 
-        expect(rail.host.style.top).toBe('180px');
-        expect(rail.host.style.right).not.toBe('0px');
-        expect(sessionStorage.getItem(TEST_RAIL_POSITION_KEY)).toEqual(
-          expect.stringContaining('"top":180')
-        );
+        expect(rail.host.style.top).toEqual(expectedTop);
+        expect(sessionStorage.getItem(TEST_RAIL_POSITION_KEY)).toEqual(expectedStoredPosition);
+        if (expectedStoredPosition !== null) {
+          expect(rail.host.style.right).not.toBe('0px');
+        }
       } finally {
         jest.useRealTimers();
       }
@@ -264,31 +276,24 @@ describe('FloatingRail events', () => {
       }
     });
 
-    test('trigger pointerdown 非主按鍵時不應進入拖曳準備', async () => {
+    test.each([
+      {
+        name: 'trigger pointerdown 非主按鍵時不應進入拖曳準備',
+        startDrag: rail => dispatchTriggerPointerDown(rail, { button: 1 }),
+      },
+      {
+        name: '[REGRESSION] drag activation timer 在拖曳被提前清除後不應重新標記 dragging',
+        startDrag: rail => {
+          dispatchTriggerPointerDown(rail);
+          rail._clearDragArtifacts();
+        },
+      },
+    ])('$name', async ({ startDrag }) => {
       jest.useFakeTimers();
-      const rail = new FloatingRail(manager);
-      await rail.initialize();
+      const rail = await createInitializedRail(manager);
 
       try {
-        dispatchTriggerPointerDown(rail, { button: 1 });
-        jest.advanceTimersByTime(300);
-
-        expect(rail._dragState).toBeNull();
-        expect(rail.host.dataset.dragging).toBeUndefined();
-      } finally {
-        jest.useRealTimers();
-      }
-    });
-
-    test('[REGRESSION] drag activation timer 在拖曳被提前清除後不應重新標記 dragging', async () => {
-      jest.useFakeTimers();
-      const rail = new FloatingRail(manager);
-      await rail.initialize();
-
-      try {
-        dispatchTriggerPointerDown(rail);
-
-        rail._clearDragArtifacts();
+        startDrag(rail);
         jest.advanceTimersByTime(300);
 
         expect(rail._dragState).toBeNull();
@@ -335,24 +340,6 @@ describe('FloatingRail events', () => {
 
       expect(rail.host.style.top).toBe('144px');
       expect(rail.host.style.right).toBe('24px');
-    });
-
-    test('[REGRESSION] trigger 未長按達門檻前不應開始拖曳', async () => {
-      jest.useFakeTimers();
-      const rail = new FloatingRail(manager);
-      await rail.initialize();
-
-      try {
-        dispatchTriggerPointerDown(rail);
-        jest.advanceTimersByTime(120);
-        document.dispatchEvent(new MouseEvent('pointermove', { clientX: 700, clientY: 180 }));
-        document.dispatchEvent(new MouseEvent('pointerup', { clientX: 700, clientY: 180 }));
-
-        expect(rail.host.style.top).not.toBe('180px');
-        expect(sessionStorage.getItem(TEST_RAIL_POSITION_KEY)).toBeNull();
-      } finally {
-        jest.useRealTimers();
-      }
     });
 
     test('從 host style 讀取位置時應直接使用已保存的 top/right', async () => {
