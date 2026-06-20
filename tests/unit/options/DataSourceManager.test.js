@@ -44,6 +44,10 @@ globalThis.chrome = {
 describe('DataSourceManager', () => {
   let dataSourceManager = null;
   let mockUiManager = null;
+  const loadDataSourcesWithMockedResponse = async ({ apiKey = 'test_key', query, response }) => {
+    mockRuntimeResponse(globalThis.chrome.runtime.sendMessage, response);
+    return dataSourceManager.loadDataSources(apiKey, query);
+  };
 
   beforeEach(() => {
     // DOM Setup
@@ -78,31 +82,36 @@ describe('DataSourceManager', () => {
       expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining('未提供 API Key'));
     });
 
-    test('處理 401 認證錯誤', async () => {
-      mockRuntimeResponse(globalThis.chrome.runtime.sendMessage, {
-        success: false,
-        error: 'Unauthorized',
+    test.each([
+      {
+        name: '處理 401 認證錯誤',
+        apiKey: 'invalid_key',
+        response: {
+          success: false,
+          error: 'Unauthorized',
+        },
+        expectedMessage: ERROR_MESSAGES.PATTERNS.API_KEY_NOT_CONFIGURED,
+        expectedType: 'error',
+      },
+      {
+        name: '處理網路錯誤',
+        apiKey: 'secret_test_key',
+        response: {
+          success: false,
+          error: 'Network error',
+        },
+        expectedMessage: '網路連線異常',
+        expectedType: 'error',
+      },
+    ])('$name', async ({ apiKey, response, expectedMessage, expectedType }) => {
+      await loadDataSourcesWithMockedResponse({
+        apiKey,
+        response,
       });
 
-      await dataSourceManager.loadDataSources('invalid_key');
-
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining(ERROR_MESSAGES.PATTERNS.API_KEY_NOT_CONFIGURED),
-        'error'
-      );
-    });
-
-    test('處理網路錯誤', async () => {
-      mockRuntimeResponse(globalThis.chrome.runtime.sendMessage, {
-        success: false,
-        error: 'Network error',
-      });
-
-      await dataSourceManager.loadDataSources('secret_test_key');
-
-      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('網路連線異常'),
-        'error'
+        expect.stringContaining(expectedMessage),
+        expectedType
       );
     });
 
@@ -328,76 +337,78 @@ describe('DataSourceManager', () => {
   });
 
   describe('loadDataSources - additional error handling', () => {
-    test('處理 403 權限錯誤', async () => {
-      mockRuntimeResponse(globalThis.chrome.runtime.sendMessage, {
-        success: false,
-        error: 'Forbidden',
+    test.each([
+      {
+        name: '處理 403 權限錯誤',
+        apiKey: 'permission_denied_key',
+        response: {
+          success: false,
+          error: 'Forbidden',
+        },
+        expectedMessage: '無法存取',
+        expectedType: 'error',
+      },
+      {
+        name: '處理其他 HTTP 錯誤',
+        response: {
+          success: false,
+          error: 'Internal Server Error',
+        },
+        expectedMessage: ERROR_MESSAGES.PATTERNS.INTERNAL_SERVER_ERROR,
+        expectedType: 'error',
+      },
+      {
+        name: '處理 503 錯誤（對應到 Internal Server Error 訊息）',
+        response: {
+          success: false,
+          error: 'Service Unavailable',
+        },
+        expectedMessage: ERROR_MESSAGES.PATTERNS.INTERNAL_SERVER_ERROR,
+        expectedType: 'error',
+      },
+    ])('$name', async ({ apiKey, response, expectedMessage, expectedType }) => {
+      await loadDataSourcesWithMockedResponse({
+        apiKey,
+        response,
       });
 
-      await dataSourceManager.loadDataSources('permission_denied_key');
-
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining('無法存取'), // 簡化匹配，甚至可以用 constants
-        'error'
+        expect.stringContaining(expectedMessage),
+        expectedType
       );
     });
 
-    test('處理其他 HTTP 錯誤', async () => {
-      mockRuntimeResponse(globalThis.chrome.runtime.sendMessage, {
-        success: false,
-        error: 'Internal Server Error',
+    test.each([
+      {
+        name: '處理空結果',
+        response: {
+          success: true,
+          data: { results: [] },
+        },
+        expectedMessage: UI_MESSAGES.DATA_SOURCE.NO_DATA_SOURCE_FOUND,
+        expectedType: 'error',
+        query: undefined,
+      },
+      {
+        name: '搜尋模式下空結果顯示 info 訊息',
+        response: {
+          success: true,
+          data: { results: [] },
+        },
+        expectedMessage: UI_MESSAGES.DATA_SOURCE.NO_RESULT('nonexistent'),
+        expectedType: 'info',
+        query: 'nonexistent',
+      },
+    ])('$name', async ({ response, expectedMessage, expectedType, query }) => {
+      const result = await loadDataSourcesWithMockedResponse({
+        response,
+        query,
       });
-
-      await dataSourceManager.loadDataSources('test_key');
-
-      // sanitizeApiError 會正確識別 Internal Server Error 為服務不可用錯誤
-      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining(ERROR_MESSAGES.PATTERNS.INTERNAL_SERVER_ERROR),
-        'error'
-      );
-    });
-
-    test('處理 503 錯誤（對應到 Internal Server Error 訊息）', async () => {
-      mockRuntimeResponse(globalThis.chrome.runtime.sendMessage, {
-        success: false,
-        error: 'Service Unavailable',
-      });
-
-      await dataSourceManager.loadDataSources('test_key');
-
-      // sanitizeApiError 將 503 Service Unavailable 歸類為 Internal Server Error 群組
-      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining(ERROR_MESSAGES.PATTERNS.INTERNAL_SERVER_ERROR),
-        'error'
-      );
-    });
-
-    test('處理空結果', async () => {
-      mockRuntimeResponse(globalThis.chrome.runtime.sendMessage, {
-        success: true,
-        data: { results: [] },
-      });
-
-      const result = await dataSourceManager.loadDataSources('test_key');
 
       expect(result).toEqual([]);
       expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining(UI_MESSAGES.DATA_SOURCE.NO_DATA_SOURCE_FOUND),
-        'error'
-      );
-    });
-
-    test('搜尋模式下空結果顯示 info 訊息', async () => {
-      mockRuntimeResponse(globalThis.chrome.runtime.sendMessage, {
-        success: true,
-        data: { results: [] },
-      });
-
-      await dataSourceManager.loadDataSources('test_key', 'nonexistent');
-
-      expect(mockUiManager.showStatus).toHaveBeenCalledWith(
-        expect.stringContaining(UI_MESSAGES.DATA_SOURCE.NO_RESULT('nonexistent')),
-        'info'
+        expect.stringContaining(expectedMessage),
+        expectedType
       );
     });
 
