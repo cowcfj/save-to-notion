@@ -228,15 +228,7 @@ describe('auth.js', () => {
     BUILD_ENV.OAUTH_SERVER_URL = 'https://worker.test/proxy';
     globalThis.fetch
       .mockResolvedValueOnce(mockJsonResponse(buildSessionExchangePayload()))
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          user_id: 'user_123',
-          email: 'user@example.com',
-          display_name: 'Test User',
-          avatar_url: null,
-        }),
-      });
+      .mockResolvedValueOnce(mockJsonResponse(buildAccountProfilePayload({ avatar_url: null })));
     await runTicketExchangeFlow();
 
     expect(globalThis.fetch).toHaveBeenNthCalledWith(
@@ -281,13 +273,12 @@ describe('auth.js', () => {
           })
         )
       )
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
+      .mockResolvedValueOnce(
+        mockJsonResponse({
           email: 'user@example.com',
           display_name: 'Test User',
-        }),
-      });
+        })
+      );
 
     await runTicketExchangeFlow();
 

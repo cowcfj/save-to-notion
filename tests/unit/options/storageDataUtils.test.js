@@ -396,15 +396,12 @@ describe('getStorageHealthReport', () => {
     {
       name: 'migration_notion_* key 應優先視為 migration leftover 而非 config',
       key: 'migration_notion_old_data',
-      expectedConfigs: 0,
     },
-  ])('$name', async ({ key, expectedConfigs }) => {
+  ])('$name', async ({ key }) => {
     const report = await loadHealthReport({ [key]: { someField: 'x' } });
 
     expect(report.migrationKeys).toBe(1);
-    if (expectedConfigs !== undefined) {
-      expect(report.configs).toBe(expectedConfigs);
-    }
+    expect(report.configs).toBe(0);
     expect(report.cleanupPlan.summary.migrationLeftovers).toBe(1);
   });
 

@@ -848,7 +848,6 @@ describe('Content Script Entry (index.js)', () => {
             new Error('Image collection failed')
           );
         },
-        expectDebugObject: true,
       },
       {
         title: '應該在 imageResult 無 metrics 時 imageMetrics 為 null',
@@ -859,18 +858,15 @@ describe('Content Script Entry (index.js)', () => {
           });
           mergeUniqueImages.mockReturnValue([]);
         },
-        expectDebugObject: false,
       },
-    ])('$title', async ({ arrangeImages, expectDebugObject }) => {
+    ])('$title', async ({ arrangeImages }) => {
       mockReadabilityExtraction();
       arrangeImages();
 
       const result = await extractPageContent();
 
       expect(result.extractionStatus).toBe('success');
-      if (expectDebugObject) {
-        expect(result.debug).toBeDefined();
-      }
+      expect(result.debug).toBeDefined();
       expect(result.debug.imageMetrics).toBeNull();
     });
 
