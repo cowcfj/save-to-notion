@@ -5,8 +5,6 @@
 import {
   FloatingRail,
   UI_MESSAGES,
-  ErrorHandler,
-  sanitizeApiError,
   Logger,
   checkPageStatus,
   savePageFromRail,
@@ -81,9 +79,7 @@ describe('FloatingRail actions', () => {
       expect(playFailAnimation).toHaveBeenCalledWith(
         rail.elements.saveBtn,
         errorTooltip,
-        ErrorHandler.formatUserMessage(
-          sanitizeApiError(new Error('network error'), 'rail_save_sync')
-        )
+        '網路連線異常，請檢查網路後重試'
       );
       expect(playFireworkAnimation).not.toHaveBeenCalled();
     });
@@ -216,9 +212,7 @@ describe('FloatingRail actions', () => {
       expect(playFailAnimation).toHaveBeenCalledWith(
         rail.elements.saveBtn,
         errorTooltip,
-        ErrorHandler.formatUserMessage(
-          sanitizeApiError({ code: 'NETWORK_ERROR', message: 'network error' }, 'rail_save_sync')
-        )
+        '網路連線異常，請檢查網路後重試'
       );
     });
   });

@@ -241,15 +241,19 @@ describe('FloatingRail lifecycle', () => {
     });
 
     test('chrome.storage.onChanged 不可用時 initialize 與 destroy 不應拋錯', async () => {
-      const originalOnChanged = globalThis.chrome.storage.onChanged;
-      delete globalThis.chrome.storage.onChanged;
+      const originalOnChanged = globalThis.chrome?.storage?.onChanged;
+      if (globalThis.chrome?.storage) {
+        delete globalThis.chrome.storage.onChanged;
+      }
 
       try {
         const rail = new FloatingRail(manager);
         await expect(rail.initialize()).resolves.toBeUndefined();
         expect(() => rail.destroy()).not.toThrow();
       } finally {
-        globalThis.chrome.storage.onChanged = originalOnChanged;
+        if (globalThis.chrome?.storage && originalOnChanged !== undefined) {
+          globalThis.chrome.storage.onChanged = originalOnChanged;
+        }
       }
     });
 

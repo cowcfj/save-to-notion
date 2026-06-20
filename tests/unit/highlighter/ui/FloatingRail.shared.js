@@ -23,7 +23,15 @@ jest.mock('../../../../scripts/highlighter/ui/FloatingRailAnimations.js', () => 
   playFailAnimation: jest.fn(() => Promise.resolve()),
 }));
 
-export { FloatingRail } from '../../../../scripts/highlighter/ui/FloatingRail.js';
+import { RAIL_INSTANCE_ID } from '../../../../scripts/highlighter/ui/floatingRailInstance.js';
+import * as FloatingRailModule from '../../../../scripts/highlighter/ui/FloatingRail.js';
+import { checkPageStatus } from '../../../../scripts/highlighter/ui/FloatingRailRuntime.js';
+import { createFloatingRailContainer } from '../../../../scripts/highlighter/ui/components/FloatingRailContainer.js';
+import { injectRailStylesIntoShadowRoot } from '../../../../scripts/highlighter/ui/styles/floatingRailStyles.js';
+
+const { FloatingRail } = FloatingRailModule;
+
+export { FloatingRail };
 export { RailStates } from '../../../../scripts/highlighter/ui/FloatingRailState.js';
 export {
   checkPageStatus,
@@ -43,16 +51,18 @@ export { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
 export { sanitizeApiError } from '../../../../scripts/utils/ApiErrorSanitizer.js';
 export { default as Logger } from '../../../../scripts/utils/Logger.js';
 
-import { RAIL_INSTANCE_ID } from '../../../../scripts/highlighter/ui/floatingRailInstance.js';
-import { FloatingRail } from '../../../../scripts/highlighter/ui/FloatingRail.js';
-import { checkPageStatus } from '../../../../scripts/highlighter/ui/FloatingRailRuntime.js';
-import { createFloatingRailContainer } from '../../../../scripts/highlighter/ui/components/FloatingRailContainer.js';
-import { injectRailStylesIntoShadowRoot } from '../../../../scripts/highlighter/ui/styles/floatingRailStyles.js';
-
 export const TEST_RAIL_HOST_ID = `notion-floating-rail-host-${RAIL_INSTANCE_ID}`;
 export const TEST_RAIL_POSITION_KEY = `notion-floating-rail-position-${RAIL_INSTANCE_ID}`;
 export const TEST_RAIL_STATE_KEY = `notion-floating-rail-state-${RAIL_INSTANCE_ID}`;
 export const TEST_RAIL_DISMISSED_KEY = `notion-floating-rail-dismissed-${RAIL_INSTANCE_ID}`;
+
+const activeRails = new Set();
+const originalInitialize = FloatingRail.prototype.initialize;
+
+FloatingRail.prototype.initialize = function trackInitializedRail(...args) {
+  activeRails.add(this);
+  return originalInitialize.apply(this, args);
+};
 
 export function createMockContainerElement() {
   const container = document.createElement('div');
@@ -167,6 +177,7 @@ export async function createInitializedRail(manager) {
 export function setupFloatingRailTestEnvironment() {
   document.body.innerHTML = '';
   sessionStorage.clear();
+  activeRails.clear();
   const manager = createMockManager();
   createFloatingRailContainer.mockReturnValue(createMockContainerElement());
   checkPageStatus.mockResolvedValue({ isSaved: false, canSave: true });
@@ -175,6 +186,14 @@ export function setupFloatingRailTestEnvironment() {
 }
 
 export function teardownFloatingRailTestEnvironment() {
+  for (const rail of activeRails) {
+    try {
+      rail.destroy();
+    } catch {
+      // Best-effort cleanup for partially initialized test instances.
+    }
+  }
+  activeRails.clear();
   jest.restoreAllMocks();
   jest.clearAllMocks();
 }
