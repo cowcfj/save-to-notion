@@ -327,15 +327,18 @@ describe('getStorageHealthReport', () => {
     delete globalThis.chrome;
   });
 
-  test('應回傳包含使用量、健康度、清理計劃的統一報告', async () => {
-    mockGet.mockImplementation((k, cb) =>
-      cb({
-        'page_example.com': { notion: { pageId: 'p1' }, highlights: [{ id: '1' }] },
-        notionApiKey: 'key',
-      })
-    );
+  const loadHealthReport = async snapshot => {
+    mockGet.mockImplementation((_keys, cb) => cb(snapshot));
+    return getStorageHealthReport();
+  };
 
-    const report = await getStorageHealthReport();
+  const hasCleanupItem = (report, key) => report.cleanupPlan.items.some(item => item.key === key);
+
+  test('應回傳包含使用量、健康度、清理計劃的統一報告', async () => {
+    const report = await loadHealthReport({
+      'page_example.com': { notion: { pageId: 'p1' }, highlights: [{ id: '1' }] },
+      notionApiKey: 'key',
+    });
 
     expect(report.pages).toBe(1);
     expect(report.highlights).toBe(1);
@@ -348,149 +351,108 @@ describe('getStorageHealthReport', () => {
   });
 
   test('有效頁面（有標注）不應進入清理計劃', async () => {
-    mockGet.mockImplementation((k, cb) =>
-      cb({
-        'page_valid.com': { notion: { pageId: 'p1' }, highlights: [{ id: '1' }] },
-      })
-    );
+    const report = await loadHealthReport({
+      'page_valid.com': { notion: { pageId: 'p1' }, highlights: [{ id: '1' }] },
+    });
 
-    const report = await getStorageHealthReport();
     expect(report.cleanupPlan.totalKeys).toBe(0);
   });
 
   test('空 page_*（無標注且無 Notion 綁定）應進入清理計劃', async () => {
-    mockGet.mockImplementation((k, cb) =>
-      cb({
-        'page_empty.com': { notion: null, highlights: [] },
-      })
-    );
+    const report = await loadHealthReport({
+      'page_empty.com': { notion: null, highlights: [] },
+    });
 
-    const report = await getStorageHealthReport();
     expect(report.cleanupPlan.summary.emptyRecords).toBe(1);
     expect(report.cleanupPlan.totalKeys).toBe(1);
     expect(report.cleanupPlan.items[0].key).toBe('page_empty.com');
   });
 
-  test('損壞的 page_*（highlights 非陣列）應加入 corruptedData 並進入清理計劃', async () => {
-    mockGet.mockImplementation((k, cb) =>
-      cb({
-        'page_bad.com': { highlights: 'not_an_array' },
-      })
-    );
+  test.each([
+    {
+      name: '損壞的 page_*（highlights 非陣列）應加入 corruptedData 並進入清理計劃',
+      key: 'page_bad.com',
+      value: { highlights: 'not_an_array' },
+    },
+    {
+      name: '缺少 highlights 的 page_* 應視為損壞資料',
+      key: 'page_missing_highlights.com',
+      value: { notion: { pageId: 'p1' } },
+    },
+  ])('$name', async ({ key, value }) => {
+    const report = await loadHealthReport({ [key]: value });
 
-    const report = await getStorageHealthReport();
-    expect(report.corruptedData).toContain('page_bad.com');
+    expect(report.corruptedData).toContain(key);
     expect(report.pages).toBe(0);
     expect(report.highlights).toBe(0);
     expect(report.cleanupPlan.summary.corruptedRecords).toBe(1);
   });
 
-  test('缺少 highlights 的 page_* 應視為損壞資料', async () => {
-    mockGet.mockImplementation((k, cb) =>
-      cb({
-        'page_missing_highlights.com': { notion: { pageId: 'p1' } },
-      })
-    );
+  test.each([
+    {
+      name: 'migration_* key 應計入 migrationKeys 並加入清理計劃',
+      key: 'migration_old_data',
+    },
+    {
+      name: 'migration_notion_* key 應優先視為 migration leftover 而非 config',
+      key: 'migration_notion_old_data',
+    },
+  ])('$name', async ({ key }) => {
+    const report = await loadHealthReport({ [key]: { someField: 'x' } });
 
-    const report = await getStorageHealthReport();
-
-    expect(report.corruptedData).toContain('page_missing_highlights.com');
-    expect(report.pages).toBe(0);
-    expect(report.highlights).toBe(0);
-    expect(report.cleanupPlan.summary.corruptedRecords).toBe(1);
-  });
-
-  test('migration_* key 應計入 migrationKeys 並加入清理計劃', async () => {
-    mockGet.mockImplementation((k, cb) =>
-      cb({
-        migration_old_data: { someField: 'x' },
-      })
-    );
-
-    const report = await getStorageHealthReport();
-    expect(report.migrationKeys).toBe(1);
-    expect(report.cleanupPlan.summary.migrationLeftovers).toBe(1);
-  });
-
-  test('migration_notion_* key 應優先視為 migration leftover 而非 config', async () => {
-    mockGet.mockImplementation((k, cb) =>
-      cb({
-        migration_notion_old_data: { someField: 'x' },
-      })
-    );
-
-    const report = await getStorageHealthReport();
     expect(report.migrationKeys).toBe(1);
     expect(report.configs).toBe(0);
     expect(report.cleanupPlan.summary.migrationLeftovers).toBe(1);
   });
 
   test('saved_* key 應計入 legacySavedKeys（不影響清理計劃）', async () => {
-    mockGet.mockImplementation((k, cb) =>
-      cb({
-        'saved_example.com': { notionPageId: 'p1' },
-      })
-    );
+    const report = await loadHealthReport({
+      'saved_example.com': { notionPageId: 'p1' },
+    });
 
-    const report = await getStorageHealthReport();
     expect(report.legacySavedKeys).toBe(1);
     // saved_* 為舊格式殘留，不直接進入清理計劃（由升級機制處理）
     expect(report.cleanupPlan.totalKeys).toBe(0);
   });
 
   test('孤兒 highlights_*（無對應頁面且無標注）應加入清理計劃', async () => {
-    mockGet.mockImplementation((k, cb) =>
-      cb({
-        'highlights_orphan.com': [],
-      })
-    );
+    const report = await loadHealthReport({
+      'highlights_orphan.com': [],
+    });
 
-    const report = await getStorageHealthReport();
     expect(report.cleanupPlan.summary.orphanRecords).toBeGreaterThan(0);
-    expect(report.cleanupPlan.items.some(i => i.key === 'highlights_orphan.com')).toBe(true);
+    expect(hasCleanupItem(report, 'highlights_orphan.com')).toBe(true);
   });
 
   test('有 saved_* 對應的 object-format highlights_* 應計入使用量但不視為孤兒', async () => {
-    mockGet.mockImplementation((k, cb) =>
-      cb({
-        'highlights_saved.com': { highlights: [{ id: '1' }, { id: '2' }] },
-        'saved_saved.com': { notionPageId: 'p1' },
-      })
-    );
-
-    const report = await getStorageHealthReport();
+    const report = await loadHealthReport({
+      'highlights_saved.com': { highlights: [{ id: '1' }, { id: '2' }] },
+      'saved_saved.com': { notionPageId: 'p1' },
+    });
 
     expect(report.pages).toBe(1);
     expect(report.highlights).toBe(2);
     expect(report.legacySavedKeys).toBe(1);
     expect(report.cleanupPlan.summary.orphanRecords).toBe(0);
-    expect(report.cleanupPlan.items.some(i => i.key === 'highlights_saved.com')).toBe(false);
+    expect(hasCleanupItem(report, 'highlights_saved.com')).toBe(false);
   });
 
   test('損壞的 highlights_* 不應增加 pages 或 highlights，但仍應進入清理計劃', async () => {
-    mockGet.mockImplementation((k, cb) =>
-      cb({
-        'highlights_bad.com': { highlights: 'not_an_array' },
-      })
-    );
-
-    const report = await getStorageHealthReport();
+    const report = await loadHealthReport({
+      'highlights_bad.com': { highlights: 'not_an_array' },
+    });
 
     expect(report.pages).toBe(0);
     expect(report.highlights).toBe(0);
     expect(report.corruptedData).toContain('highlights_bad.com');
     expect(report.cleanupPlan.summary.corruptedRecords).toBe(1);
-    expect(report.cleanupPlan.items.some(i => i.key === 'highlights_bad.com')).toBe(true);
+    expect(hasCleanupItem(report, 'highlights_bad.com')).toBe(true);
   });
 
   test('無效的 url_alias:* 應加入清理計劃並計入 orphanRecords', async () => {
-    mockGet.mockImplementation((k, cb) =>
-      cb({
-        'url_alias:https://example.com/bad': '',
-      })
-    );
-
-    const report = await getStorageHealthReport();
+    const report = await loadHealthReport({
+      'url_alias:https://example.com/bad': '',
+    });
 
     expect(report.corruptedData).toEqual([]);
     expect(report.cleanupPlan.summary.corruptedRecords).toBe(0);
@@ -504,47 +466,36 @@ describe('getStorageHealthReport', () => {
   });
 
   test('損壞的 page_* 不應遮蔽同 URL 的合法 highlights_* 計數', async () => {
-    mockGet.mockImplementation((k, cb) =>
-      cb({
-        'page_stable.com': { notion: { pageId: 'p1' } },
-        'highlights_stable.com': [{ id: '1' }, { id: '2' }],
-      })
-    );
-
-    const report = await getStorageHealthReport();
+    const report = await loadHealthReport({
+      'page_stable.com': { notion: { pageId: 'p1' } },
+      'highlights_stable.com': [{ id: '1' }, { id: '2' }],
+    });
 
     expect(report.corruptedData).toContain('page_stable.com');
     expect(report.pages).toBe(1);
     expect(report.highlights).toBe(2);
-    expect(report.cleanupPlan.items.some(i => i.key === 'highlights_stable.com')).toBe(false);
+    expect(hasCleanupItem(report, 'highlights_stable.com')).toBe(false);
   });
 
   test('損壞的 page_* 不應阻止空 highlights_* 被判定為孤兒', async () => {
-    mockGet.mockImplementation((k, cb) =>
-      cb({
-        'page_orphan.com': { notion: { pageId: 'p1' } },
-        'highlights_orphan.com': [],
-      })
-    );
-
-    const report = await getStorageHealthReport();
+    const report = await loadHealthReport({
+      'page_orphan.com': { notion: { pageId: 'p1' } },
+      'highlights_orphan.com': [],
+    });
 
     expect(report.corruptedData).toContain('page_orphan.com');
     expect(report.cleanupPlan.summary.orphanRecords).toBe(1);
-    expect(report.cleanupPlan.items.some(i => i.key === 'highlights_orphan.com')).toBe(true);
+    expect(hasCleanupItem(report, 'highlights_orphan.com')).toBe(true);
   });
 
   test('有對應 page_* 的 highlights_* 不應計入孤兒', async () => {
-    mockGet.mockImplementation((k, cb) =>
-      cb({
-        'page_example.com': { notion: { pageId: 'p1' }, highlights: [{ id: '1' }] },
-        'highlights_example.com': [{ id: '2' }],
-      })
-    );
+    const report = await loadHealthReport({
+      'page_example.com': { notion: { pageId: 'p1' }, highlights: [{ id: '1' }] },
+      'highlights_example.com': [{ id: '2' }],
+    });
 
-    const report = await getStorageHealthReport();
     // highlights_example.com 有對應的 page_example.com，不應視為孤兒
-    expect(report.cleanupPlan.items.some(i => i.key === 'highlights_example.com')).toBe(false);
+    expect(hasCleanupItem(report, 'highlights_example.com')).toBe(false);
     // 計數去重：只計 page_example.com 的 1 個頁面 + 1 個標注
     expect(report.pages).toBe(1);
     expect(report.highlights).toBe(1);
