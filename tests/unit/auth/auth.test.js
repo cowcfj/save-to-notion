@@ -46,6 +46,70 @@ describe('auth.js', () => {
     }
   }
 
+  function buildSessionExchangePayload(overrides = {}) {
+    return {
+      access_token: 'access_123',
+      refresh_token: 'refresh_123',
+      expires_at: 1_700_000_000,
+      user_id: 'user_123',
+      ...overrides,
+    };
+  }
+
+  function buildAccountProfilePayload(overrides = {}) {
+    return {
+      user_id: 'user_123',
+      email: 'user@example.com',
+      display_name: 'Test User',
+      avatar_url: 'https://cdn.example.com/avatar.png',
+      ...overrides,
+    };
+  }
+
+  function mockJsonResponse(payload) {
+    return {
+      ok: true,
+      json: async () => payload,
+    };
+  }
+
+  function mockTextErrorResponse(status, body) {
+    return {
+      ok: false,
+      status,
+      text: async () => body,
+    };
+  }
+
+  async function runTicketExchangeFlow() {
+    globalThis.history.replaceState({}, '', '/auth.html?account_ticket=ticket_123');
+
+    await loadAuthModule();
+    await dispatchDomReady();
+  }
+
+  function expectStatusError(message, detail) {
+    const statusArea = document.querySelector('#status-area');
+
+    expect(statusArea.className).toContain('status-error');
+    expect(statusArea.textContent).toContain(message);
+    if (detail) {
+      expect(statusArea.textContent).toContain(detail);
+    }
+    expect(globalThis.close).not.toHaveBeenCalled();
+  }
+
+  function expectNoSessionPersistence({ clearSession = false } = {}) {
+    expect(mockSetAccountSession).not.toHaveBeenCalled();
+    expect(mockSetAccountProfile).not.toHaveBeenCalled();
+    if (clearSession) {
+      expect(mockClearAccountSession).toHaveBeenCalled();
+      return;
+    }
+
+    expect(mockClearAccountSession).not.toHaveBeenCalled();
+  }
+
   beforeEach(() => {
     jest.resetModules();
     jest.useFakeTimers();
@@ -110,29 +174,10 @@ describe('auth.js', () => {
 
   it('成功交換 session 與 profile 後應寫入 storage、廣播並自動關閉', async () => {
     globalThis.fetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          access_token: 'access_123',
-          refresh_token: 'refresh_123',
-          expires_at: 1_700_000_000,
-          user_id: 'user_123',
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          user_id: 'user_123',
-          email: 'user@example.com',
-          display_name: 'Test User',
-          avatar_url: 'https://cdn.example.com/avatar.png',
-        }),
-      });
+      .mockResolvedValueOnce(mockJsonResponse(buildSessionExchangePayload()))
+      .mockResolvedValueOnce(mockJsonResponse(buildAccountProfilePayload()));
 
-    globalThis.history.replaceState({}, '', '/auth.html?account_ticket=ticket_123');
-
-    await loadAuthModule();
-    await dispatchDomReady();
+    await runTicketExchangeFlow();
 
     expect(globalThis.fetch).toHaveBeenNthCalledWith(
       1,
@@ -182,15 +227,7 @@ describe('auth.js', () => {
     const { BUILD_ENV } = await import('../../../scripts/config/env/index.js');
     BUILD_ENV.OAUTH_SERVER_URL = 'https://worker.test/proxy';
     globalThis.fetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          access_token: 'access_123',
-          refresh_token: 'refresh_123',
-          expires_at: 1_700_000_000,
-          user_id: 'user_123',
-        }),
-      })
+      .mockResolvedValueOnce(mockJsonResponse(buildSessionExchangePayload()))
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -200,10 +237,7 @@ describe('auth.js', () => {
           avatar_url: null,
         }),
       });
-    globalThis.history.replaceState({}, '', '/auth.html?account_ticket=ticket_123');
-
-    await loadAuthModule();
-    await dispatchDomReady();
+    await runTicketExchangeFlow();
 
     expect(globalThis.fetch).toHaveBeenNthCalledWith(
       1,
@@ -219,24 +253,16 @@ describe('auth.js', () => {
 
   it('account/me 失敗時應清除 session 並顯示錯誤', async () => {
     globalThis.fetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
+      .mockResolvedValueOnce(
+        mockJsonResponse({
           access_token: 'access_123',
           refresh_token: 'refresh_123',
           expires_at: 1_700_000_000,
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        text: async () => 'server error',
-      });
+        })
+      )
+      .mockResolvedValueOnce(mockTextErrorResponse(500, 'server error'));
 
-    globalThis.history.replaceState({}, '', '/auth.html?account_ticket=ticket_123');
-
-    await loadAuthModule();
-    await dispatchDomReady();
+    await runTicketExchangeFlow();
 
     expect(mockClearAccountSession).toHaveBeenCalled();
     expect(document.querySelector('#status-area').className).toContain('status-error');
@@ -245,16 +271,16 @@ describe('auth.js', () => {
   });
 
   it('account/me 回 200 但缺 user_id 時應清除 session 並顯示錯誤', async () => {
+    expect.hasAssertions();
+
     globalThis.fetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          access_token: 'access_123',
-          refresh_token: 'refresh_123',
-          expires_at: 1_700_000_000,
-          user_id: 'user_from_exchange',
-        }),
-      })
+      .mockResolvedValueOnce(
+        mockJsonResponse(
+          buildSessionExchangePayload({
+            user_id: 'user_from_exchange',
+          })
+        )
+      )
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -263,127 +289,46 @@ describe('auth.js', () => {
         }),
       });
 
-    globalThis.history.replaceState({}, '', '/auth.html?account_ticket=ticket_123');
+    await runTicketExchangeFlow();
 
-    await loadAuthModule();
-    await dispatchDomReady();
-
-    expect(mockClearAccountSession).toHaveBeenCalled();
-    expect(mockSetAccountSession).not.toHaveBeenCalled();
-    expect(mockSetAccountProfile).not.toHaveBeenCalled();
-    expect(document.querySelector('#status-area').className).toContain('status-error');
-    expect(document.querySelector('#status-area').textContent).toContain('無法取得帳號資訊');
-    expect(document.querySelector('#status-area').textContent).toContain('user_id');
-    expect(globalThis.close).not.toHaveBeenCalled();
+    expectNoSessionPersistence({ clearSession: true });
+    expectStatusError('無法取得帳號資訊', 'user_id');
   });
 
   it('exchangeTicket 失敗時應顯示錯誤且不寫入 storage', async () => {
-    globalThis.fetch.mockResolvedValueOnce({
-      ok: false,
-      status: 400,
-      text: async () => 'invalid ticket',
-    });
+    expect.hasAssertions();
 
-    globalThis.history.replaceState({}, '', '/auth.html?account_ticket=ticket_123');
+    globalThis.fetch.mockResolvedValueOnce(mockTextErrorResponse(400, 'invalid ticket'));
 
-    await loadAuthModule();
-    await dispatchDomReady();
+    await runTicketExchangeFlow();
 
-    expect(mockSetAccountSession).not.toHaveBeenCalled();
-    expect(mockSetAccountProfile).not.toHaveBeenCalled();
-    expect(mockClearAccountSession).not.toHaveBeenCalled();
-    expect(document.querySelector('#status-area').className).toContain('status-error');
-    expect(document.querySelector('#status-area').textContent).toContain('無法完成 Session 交換');
-    expect(globalThis.close).not.toHaveBeenCalled();
+    expectNoSessionPersistence();
+    expectStatusError('無法完成 Session 交換');
   });
 
-  it('exchangeTicket 回傳 null 時應顯示錯誤', async () => {
-    globalThis.fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => null,
-    });
+  it.each([
+    ['null', null],
+    ['primitive 值', 'invalid response'],
+    ['陣列', ['not', 'an', 'object']],
+  ])('exchangeTicket 回傳 %s 時應顯示錯誤', async (_label, exchangePayload) => {
+    expect.hasAssertions();
 
-    globalThis.history.replaceState({}, '', '/auth.html?account_ticket=ticket_123');
+    globalThis.fetch.mockResolvedValueOnce(mockJsonResponse(exchangePayload));
 
-    await loadAuthModule();
-    await dispatchDomReady();
+    await runTicketExchangeFlow();
 
-    expect(mockSetAccountSession).not.toHaveBeenCalled();
-    expect(mockSetAccountProfile).not.toHaveBeenCalled();
-    expect(mockClearAccountSession).not.toHaveBeenCalled();
-    expect(document.querySelector('#status-area').className).toContain('status-error');
-    expect(document.querySelector('#status-area').textContent).toContain('無法完成 Session 交換');
-    expect(document.querySelector('#status-area').textContent).toContain('not a valid object');
-    expect(globalThis.close).not.toHaveBeenCalled();
-  });
-
-  it('exchangeTicket 回傳 primitive 值時應顯示錯誤', async () => {
-    globalThis.fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => 'invalid response',
-    });
-
-    globalThis.history.replaceState({}, '', '/auth.html?account_ticket=ticket_123');
-
-    await loadAuthModule();
-    await dispatchDomReady();
-
-    expect(mockSetAccountSession).not.toHaveBeenCalled();
-    expect(mockSetAccountProfile).not.toHaveBeenCalled();
-    expect(mockClearAccountSession).not.toHaveBeenCalled();
-    expect(document.querySelector('#status-area').className).toContain('status-error');
-    expect(document.querySelector('#status-area').textContent).toContain('無法完成 Session 交換');
-    expect(document.querySelector('#status-area').textContent).toContain('not a valid object');
-    expect(globalThis.close).not.toHaveBeenCalled();
-  });
-
-  it('exchangeTicket 回傳陣列時應顯示錯誤', async () => {
-    globalThis.fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ['not', 'an', 'object'],
-    });
-
-    globalThis.history.replaceState({}, '', '/auth.html?account_ticket=ticket_123');
-
-    await loadAuthModule();
-    await dispatchDomReady();
-
-    expect(mockSetAccountSession).not.toHaveBeenCalled();
-    expect(mockSetAccountProfile).not.toHaveBeenCalled();
-    expect(mockClearAccountSession).not.toHaveBeenCalled();
-    expect(document.querySelector('#status-area').className).toContain('status-error');
-    expect(document.querySelector('#status-area').textContent).toContain('無法完成 Session 交換');
-    expect(document.querySelector('#status-area').textContent).toContain('not a valid object');
-    expect(globalThis.close).not.toHaveBeenCalled();
+    expectNoSessionPersistence();
+    expectStatusError('無法完成 Session 交換', 'not a valid object');
   });
 
   it('寫入 storage 失敗時應清除 session 並顯示錯誤', async () => {
     globalThis.fetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          access_token: 'access_123',
-          refresh_token: 'refresh_123',
-          expires_at: 1_700_000_000,
-          user_id: 'user_123',
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          user_id: 'user_123',
-          email: 'user@example.com',
-          display_name: 'Test User',
-          avatar_url: 'https://cdn.example.com/avatar.png',
-        }),
-      });
+      .mockResolvedValueOnce(mockJsonResponse(buildSessionExchangePayload()))
+      .mockResolvedValueOnce(mockJsonResponse(buildAccountProfilePayload()));
 
     mockSetAccountSession.mockRejectedValueOnce(new Error('storage quota exceeded'));
 
-    globalThis.history.replaceState({}, '', '/auth.html?account_ticket=ticket_123');
-
-    await loadAuthModule();
-    await dispatchDomReady();
+    await runTicketExchangeFlow();
 
     expect(mockClearAccountSession).toHaveBeenCalled();
     expect(document.querySelector('#status-area').className).toContain('status-error');
@@ -391,93 +336,20 @@ describe('auth.js', () => {
     expect(globalThis.close).not.toHaveBeenCalled();
   });
 
-  it('account/me 回傳 null 時應清除 session 並顯示錯誤', async () => {
+  it.each([
+    ['null', null],
+    ['primitive 值', 42],
+    ['陣列', [{ email: 'user@example.com' }]],
+  ])('account/me 回傳 %s 時應清除 session 並顯示錯誤', async (_label, profilePayload) => {
+    expect.hasAssertions();
+
     globalThis.fetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          access_token: 'access_123',
-          refresh_token: 'refresh_123',
-          expires_at: 1_700_000_000,
-          user_id: 'user_123',
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => null,
-      });
+      .mockResolvedValueOnce(mockJsonResponse(buildSessionExchangePayload()))
+      .mockResolvedValueOnce(mockJsonResponse(profilePayload));
 
-    globalThis.history.replaceState({}, '', '/auth.html?account_ticket=ticket_123');
+    await runTicketExchangeFlow();
 
-    await loadAuthModule();
-    await dispatchDomReady();
-
-    expect(mockClearAccountSession).toHaveBeenCalled();
-    expect(mockSetAccountSession).not.toHaveBeenCalled();
-    expect(mockSetAccountProfile).not.toHaveBeenCalled();
-    expect(document.querySelector('#status-area').className).toContain('status-error');
-    expect(document.querySelector('#status-area').textContent).toContain('無法取得帳號資訊');
-    expect(document.querySelector('#status-area').textContent).toContain('not a valid object');
-    expect(globalThis.close).not.toHaveBeenCalled();
-  });
-
-  it('account/me 回傳 primitive 值時應清除 session 並顯示錯誤', async () => {
-    globalThis.fetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          access_token: 'access_123',
-          refresh_token: 'refresh_123',
-          expires_at: 1_700_000_000,
-          user_id: 'user_123',
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => 42,
-      });
-
-    globalThis.history.replaceState({}, '', '/auth.html?account_ticket=ticket_123');
-
-    await loadAuthModule();
-    await dispatchDomReady();
-
-    expect(mockClearAccountSession).toHaveBeenCalled();
-    expect(mockSetAccountSession).not.toHaveBeenCalled();
-    expect(mockSetAccountProfile).not.toHaveBeenCalled();
-    expect(document.querySelector('#status-area').className).toContain('status-error');
-    expect(document.querySelector('#status-area').textContent).toContain('無法取得帳號資訊');
-    expect(document.querySelector('#status-area').textContent).toContain('not a valid object');
-    expect(globalThis.close).not.toHaveBeenCalled();
-  });
-
-  it('account/me 回傳陣列時應清除 session 並顯示錯誤', async () => {
-    globalThis.fetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          access_token: 'access_123',
-          refresh_token: 'refresh_123',
-          expires_at: 1_700_000_000,
-          user_id: 'user_123',
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => [{ email: 'user@example.com' }],
-      });
-
-    globalThis.history.replaceState({}, '', '/auth.html?account_ticket=ticket_123');
-
-    await loadAuthModule();
-    await dispatchDomReady();
-
-    expect(mockClearAccountSession).toHaveBeenCalled();
-    expect(mockSetAccountSession).not.toHaveBeenCalled();
-    expect(mockSetAccountProfile).not.toHaveBeenCalled();
-    expect(document.querySelector('#status-area').className).toContain('status-error');
-    expect(document.querySelector('#status-area').textContent).toContain('無法取得帳號資訊');
-    expect(document.querySelector('#status-area').textContent).toContain('not a valid object');
-    expect(globalThis.close).not.toHaveBeenCalled();
+    expectNoSessionPersistence({ clearSession: true });
+    expectStatusError('無法取得帳號資訊', 'not a valid object');
   });
 });
