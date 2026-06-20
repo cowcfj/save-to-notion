@@ -604,5 +604,44 @@ describe('PerformanceOptimizer - 全面測試', () => {
 
       expect(meta.failedIndices).toEqual([1]);
     });
+
+    test('當批次函數回傳非陣列時應標記全部索引為失敗', async () => {
+      const module = require('../../../scripts/performance/PerformanceOptimizer');
+      const customBatchFn = jest.fn(() => Promise.resolve({ invalid: true }));
+      const processor = value => ({ url: `img-${value}` });
+
+      const { results, meta } = await module.batchProcessWithRetry([1, 2, 3], processor, {
+        customBatchFn,
+        maxAttempts: 1,
+      });
+
+      expect(customBatchFn).toHaveBeenCalledTimes(1);
+      expect(results).toBeNull();
+      expect(meta.attempts).toBe(1);
+      expect(meta.failedIndices).toEqual([0, 1, 2]);
+      expect(meta.lastError).toBeInstanceOf(Error);
+      expect(meta.lastError.message).toBe('Batch processor returned non-array results');
+    });
+
+    test('當批次函數拋出含 failedIndices 的錯誤時應傳遞到 meta', async () => {
+      const module = require('../../../scripts/performance/PerformanceOptimizer');
+      const batchError = Object.assign(new Error('partial failure'), {
+        failedIndices: [0, 2],
+      });
+      const customBatchFn = jest.fn(() => Promise.reject(batchError));
+      const processor = value => ({ url: `img-${value}` });
+
+      const { results, meta } = await module.batchProcessWithRetry([1, 2, 3], processor, {
+        customBatchFn,
+        maxAttempts: 2,
+        baseDelay: 0,
+      });
+
+      expect(customBatchFn).toHaveBeenCalledTimes(2);
+      expect(results).toBeNull();
+      expect(meta.attempts).toBe(2);
+      expect(meta.failedIndices).toEqual([0, 2]);
+      expect(meta.lastError).toBe(batchError);
+    });
   });
 });
