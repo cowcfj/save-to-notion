@@ -5,6 +5,7 @@
 
 import { IMAGE_VALIDATION } from '../config/shared/content.js';
 import * as imageUrl from './image/imageUrl.js';
+import * as srcsetExtractor from './image/srcsetExtractor.js';
 import * as imageSourceExtractor from './image/imageSourceExtractor.js';
 import * as imageBlockMerge from './image/imageBlockMerge.js';
 
@@ -26,11 +27,11 @@ const ImageUtils = {
   isValidImageUrl: imageUrl.isValidImageUrl,
   isValidCleanedImageUrl: imageUrl.isValidCleanedImageUrl,
   extractImageSrc: imageSourceExtractor.extractImageSrc,
-  extractBestUrlFromSrcset: imageSourceExtractor.extractBestUrlFromSrcset,
+  extractBestUrlFromSrcset: srcsetExtractor.extractBestUrlFromSrcset,
   generateImageCacheKey: imageSourceExtractor.generateImageCacheKey,
   IMAGE_ATTRIBUTES: imageSourceExtractor.IMAGE_ATTRIBUTES,
   IMAGE_VALIDATION,
-  extractFromSrcset: imageSourceExtractor.extractFromSrcset,
+  extractFromSrcset: srcsetExtractor.extractFromSrcset,
   extractFromAttributes: imageSourceExtractor.extractFromAttributes,
   extractFromPicture: imageSourceExtractor.extractFromPicture,
   extractFromBackgroundImage: imageSourceExtractor.extractFromBackgroundImage,
