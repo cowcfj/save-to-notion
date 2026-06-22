@@ -41,6 +41,27 @@ function _extractFromSrcsetAttribute(srcset) {
 }
 
 /**
+ * 解析圖片屬性候選值
+ *
+ * @param {string} attr - 屬性名稱
+ * @param {string|null} value - 原始屬性值
+ * @returns {string|null} 解析後的有效 URL 或 null
+ */
+function _resolveImageAttributeCandidate(attr, value) {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (attr.includes('srcset')) {
+    return _extractFromSrcsetAttribute(trimmed);
+  }
+  if (hasRejectedImageProtocol(trimmed)) {
+    return null;
+  }
+  return trimmed;
+}
+
+/**
  * 從圖片屬性提取 URL
  *
  * @param {HTMLImageElement} imgNode - 圖片元素
@@ -53,21 +74,10 @@ export function extractFromAttributes(imgNode) {
 
   for (const attr of IMAGE_ATTRIBUTES) {
     const value = imgNode.getAttribute(attr);
-    const trimmed = value?.trim();
-    if (!trimmed) {
-      continue;
+    const resolved = _resolveImageAttributeCandidate(attr, value);
+    if (resolved) {
+      return resolved;
     }
-    if (attr.includes('srcset')) {
-      const bestUrl = _extractFromSrcsetAttribute(trimmed);
-      if (bestUrl) {
-        return bestUrl;
-      }
-      continue;
-    }
-    if (hasRejectedImageProtocol(trimmed)) {
-      continue;
-    }
-    return trimmed;
   }
   return null;
 }
