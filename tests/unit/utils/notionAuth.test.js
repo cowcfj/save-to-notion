@@ -499,6 +499,11 @@ describe('notionAuth utils', () => {
 });
 
 describe('migrateDataSourceKeys', () => {
+  test('未提供 options 時應視為無需遷移', async () => {
+    await expect(migrateDataSourceKeys()).resolves.toBe(false);
+    await expect(migrateDataSourceKeys(null)).resolves.toBe(false);
+  });
+
   test('local 已有 notionDataSourceId 時不應遷移', async () => {
     const storageArea = { set: jest.fn() };
 

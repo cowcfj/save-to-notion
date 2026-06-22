@@ -366,7 +366,7 @@ function buildMigratedDataSourceKeys(syncDataSourceId) {
  * @returns {Promise<boolean>} 是否實際執行了遷移
  */
 export async function migrateDataSourceKeys(options) {
-  const migrationRequest = createDataSourceKeyMigrationRequest(options);
+  const migrationRequest = createDataSourceKeyMigrationRequest(options || {});
 
   if (!migrationRequest) {
     return false;

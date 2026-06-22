@@ -41,6 +41,10 @@ export const IMAGE_ATTRIBUTES = [
  * @returns {string|null} 提取的 URL 或 null
  */
 export function extractFromAttributes(imgNode) {
+  if (!imgNode || typeof imgNode.getAttribute !== 'function') {
+    return null;
+  }
+
   for (const attr of IMAGE_ATTRIBUTES) {
     const value = imgNode.getAttribute(attr);
     const trimmed = value?.trim();

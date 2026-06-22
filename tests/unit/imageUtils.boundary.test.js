@@ -11,6 +11,7 @@ if (globalThis.window) {
 
 // 載入原始 IIFE 模組（會將函數掛載到 global.ImageUtils）
 require('../../scripts/utils/imageUtils.js');
+const { extractFromAnchor } = require('../../scripts/utils/image/imageAnchorSource.js');
 
 // 從 global.ImageUtils 獲取函數
 const {
@@ -209,9 +210,30 @@ describe('imageUtils - 邊界條件測試', () => {
     });
   });
 
+  describe('extractFromAnchor - 邊界情況', () => {
+    test('應處理 null 或 undefined 輸入', () => {
+      expect(extractFromAnchor(null)).toBeNull();
+      expect(extractFromAnchor()).toBeNull();
+    });
+
+    test('應處理缺少 DOM 方法的非預期物件', () => {
+      expect(extractFromAnchor({ tagName: 'A' })).toBeNull();
+      expect(extractFromAnchor({ tagName: 'IMG' })).toBeNull();
+    });
+  });
+
   describe('extractFromAttributes - 邊界情況', () => {
     beforeEach(() => {
       document.body.innerHTML = '';
+    });
+
+    test('應處理 null 或 undefined 輸入', () => {
+      expect(extractFromAttributes(null)).toBeNull();
+      expect(extractFromAttributes()).toBeNull();
+    });
+
+    test('應處理缺少 getAttribute 的非預期物件', () => {
+      expect(extractFromAttributes({})).toBeNull();
     });
 
     test('應跳過 data: URL', () => {
@@ -243,6 +265,15 @@ describe('imageUtils - 邊界條件測試', () => {
   describe('extractFromPicture - 邊界情況', () => {
     beforeEach(() => {
       document.body.innerHTML = '';
+    });
+
+    test('應處理 null 或 undefined 輸入', () => {
+      expect(extractFromPicture(null)).toBeNull();
+      expect(extractFromPicture()).toBeNull();
+    });
+
+    test('應處理缺少 closest 的非預期物件', () => {
+      expect(extractFromPicture({})).toBeNull();
     });
 
     test('應處理沒有 picture 父元素的情況', () => {

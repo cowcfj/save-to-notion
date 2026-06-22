@@ -3,7 +3,7 @@
  */
 
 function _extractFromAnchorHref(node) {
-  if (node.tagName !== 'A') {
+  if (node?.tagName !== 'A' || typeof node.getAttribute !== 'function') {
     return null;
   }
   const href = node.getAttribute('href');
@@ -26,6 +26,10 @@ function _extractFromAnchorHref(node) {
  * @returns {string|null} anchor href 或 null
  */
 export function extractFromAnchor(imgNode) {
+  if (!imgNode) {
+    return null;
+  }
+
   if (imgNode.tagName !== 'A') {
     const anchor = imgNode.closest?.('a');
     return anchor ? _extractFromAnchorHref(anchor) : null;

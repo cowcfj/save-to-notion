@@ -11,7 +11,7 @@ import { extractBestUrlFromSrcset } from './srcsetExtractor.js';
  * @returns {string|null} 提取的 URL 或 null
  */
 export function extractFromPicture(imgNode) {
-  const parentPicture = imgNode.closest('picture');
+  const parentPicture = typeof imgNode?.closest === 'function' ? imgNode.closest('picture') : null;
   if (!parentPicture) {
     return null;
   }
