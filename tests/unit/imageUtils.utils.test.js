@@ -302,9 +302,21 @@ describe('ImageUtils - extractBestUrlFromSrcset', () => {
     expect(extractBestUrlFromSrcset(srcset)).toBe('large.jpg');
   });
 
+  test('應該正確比較小數 x 描述符', () => {
+    const srcset = 'standard.jpg 1x, retina.jpg 1.5x';
+    expect(extractBestUrlFromSrcset(srcset)).toBe('retina.jpg');
+  });
+
   test('應該忽略 data URL', () => {
     const srcset =
       'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw== 1x, real.jpg 2x';
+    expect(extractBestUrlFromSrcset(srcset)).toBe('real.jpg');
+  });
+
+  test.each([
+    ['主解析路徑', 'DATA:image/png;base64== 3x, real.jpg 2x'],
+    ['fallback 路徑', 'real.jpg, Data:image/png;base64=='],
+  ])('應以不分大小寫方式忽略 data: URL（%s）', (_scenario, srcset) => {
     expect(extractBestUrlFromSrcset(srcset)).toBe('real.jpg');
   });
 
@@ -558,12 +570,15 @@ describe('ImageUtils - coverage 補強', () => {
     jest.clearAllMocks();
   });
 
-  test('extractBestUrlFromSrcset 應該處理 SrcsetParser 錯誤', () => {
+  test('extractBestUrlFromSrcset 應該脫敏 SrcsetParser 錯誤訊息', () => {
     const originalParser = globalThis.SrcsetParser;
+    const sensitiveToken = 'secret-parser-token';
     try {
       globalThis.SrcsetParser = {
         parse: jest.fn(() => {
-          throw new Error('Parser Error');
+          throw new Error(
+            `Parser failed for https://example.com/image.jpg?token=${sensitiveToken}&keep=1`
+          );
         }),
       };
 
@@ -573,8 +588,11 @@ describe('ImageUtils - coverage 補強', () => {
       expect(result).toBe('image.jpg');
       expect(Logger.error).toHaveBeenCalledWith(
         'SrcsetParser 失敗',
-        expect.objectContaining({ error: 'Parser Error' })
+        expect.objectContaining({
+          error: expect.stringContaining('[REDACTED_TOKEN]'),
+        })
       );
+      expect(Logger.error.mock.calls[0][1].error).not.toContain(sensitiveToken);
     } finally {
       globalThis.SrcsetParser = originalParser;
     }
@@ -668,7 +686,7 @@ describe('ImageUtils - coverage 補強', () => {
       globalThis.URL = jest.fn((url, base) => {
         const urlStr = url.toString();
 
-        if (urlStr === initialUrl || (base && urlStr === initialUrl)) {
+        if (urlStr === initialUrl) {
           return {
             protocol: 'https:',
             hostname: 'example.com',
@@ -680,7 +698,7 @@ describe('ImageUtils - coverage 補強', () => {
           };
         }
 
-        if (urlStr === cleanedUrl || (base && urlStr === cleanedUrl)) {
+        if (urlStr === cleanedUrl) {
           throw new Error('Pattern check failed');
         }
 
