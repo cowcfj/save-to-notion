@@ -74,7 +74,7 @@ function _parseDescriptorMetric(descriptor) {
 
 function _parseSrcsetEntry(entry) {
   const [url, descriptor] = entry.trim().split(/\s+/);
-  if (!url || url.startsWith('data:')) {
+  if (!url || url.toLowerCase().startsWith('data:')) {
     return null;
   }
 
@@ -87,7 +87,7 @@ function _parseSrcsetEntry(entry) {
 function _findFallbackSrcsetUrl(srcsetEntries) {
   for (let i = srcsetEntries.length - 1; i >= 0; i--) {
     const url = srcsetEntries[i].split(/\s+/)[0];
-    if (url && !url.startsWith('data:')) {
+    if (url && !url.toLowerCase().startsWith('data:')) {
       return url;
     }
   }

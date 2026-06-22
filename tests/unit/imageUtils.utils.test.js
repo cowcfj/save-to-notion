@@ -313,6 +313,13 @@ describe('ImageUtils - extractBestUrlFromSrcset', () => {
     expect(extractBestUrlFromSrcset(srcset)).toBe('real.jpg');
   });
 
+  test.each([
+    ['主解析路徑', 'DATA:image/png;base64== 3x, real.jpg 2x'],
+    ['fallback 路徑', 'real.jpg, Data:image/png;base64=='],
+  ])('應以不分大小寫方式忽略 data: URL（%s）', (_scenario, srcset) => {
+    expect(extractBestUrlFromSrcset(srcset)).toBe('real.jpg');
+  });
+
   test('應該處理沒有描述符的條目', () => {
     const srcset = 'first.jpg, second.jpg 2x';
     expect(extractBestUrlFromSrcset(srcset)).toBe('second.jpg');
