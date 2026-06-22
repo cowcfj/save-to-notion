@@ -679,7 +679,7 @@ describe('ImageUtils - coverage 補強', () => {
       globalThis.URL = jest.fn((url, base) => {
         const urlStr = url.toString();
 
-        if (urlStr === initialUrl || (base && urlStr === initialUrl)) {
+        if (urlStr === initialUrl) {
           return {
             protocol: 'https:',
             hostname: 'example.com',
@@ -691,7 +691,7 @@ describe('ImageUtils - coverage 補強', () => {
           };
         }
 
-        if (urlStr === cleanedUrl || (base && urlStr === cleanedUrl)) {
+        if (urlStr === cleanedUrl) {
           throw new Error('Pattern check failed');
         }
 
