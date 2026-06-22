@@ -9,7 +9,7 @@ import { hasRejectedImageProtocol } from './imageUrl.js';
 function _extractWithRegex(html) {
   const imgPattern = /<img[^>]+src=["']([^"']+)["']/i;
   const match = imgPattern.exec(html);
-  const src = match?.[1];
+  const src = match?.[1]?.trim();
   if (!src || src.length > IMAGE_VALIDATION.MAX_URL_LENGTH) {
     return null;
   }

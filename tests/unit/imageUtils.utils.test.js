@@ -302,6 +302,11 @@ describe('ImageUtils - extractBestUrlFromSrcset', () => {
     expect(extractBestUrlFromSrcset(srcset)).toBe('large.jpg');
   });
 
+  test('應該正確比較小數 x 描述符', () => {
+    const srcset = 'standard.jpg 1x, retina.jpg 1.5x';
+    expect(extractBestUrlFromSrcset(srcset)).toBe('retina.jpg');
+  });
+
   test('應該忽略 data URL', () => {
     const srcset =
       'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw== 1x, real.jpg 2x';
@@ -558,12 +563,15 @@ describe('ImageUtils - coverage 補強', () => {
     jest.clearAllMocks();
   });
 
-  test('extractBestUrlFromSrcset 應該處理 SrcsetParser 錯誤', () => {
+  test('extractBestUrlFromSrcset 應該脫敏 SrcsetParser 錯誤訊息', () => {
     const originalParser = globalThis.SrcsetParser;
+    const sensitiveToken = 'secret-parser-token';
     try {
       globalThis.SrcsetParser = {
         parse: jest.fn(() => {
-          throw new Error('Parser Error');
+          throw new Error(
+            `Parser failed for https://example.com/image.jpg?token=${sensitiveToken}&keep=1`
+          );
         }),
       };
 
@@ -573,8 +581,11 @@ describe('ImageUtils - coverage 補強', () => {
       expect(result).toBe('image.jpg');
       expect(Logger.error).toHaveBeenCalledWith(
         'SrcsetParser 失敗',
-        expect.objectContaining({ error: 'Parser Error' })
+        expect.objectContaining({
+          error: expect.stringContaining('[REDACTED_TOKEN]'),
+        })
       );
+      expect(Logger.error.mock.calls[0][1].error).not.toContain(sensitiveToken);
     } finally {
       globalThis.SrcsetParser = originalParser;
     }

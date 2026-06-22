@@ -373,7 +373,12 @@ function _shouldRejectImageUrlInput(url) {
  * @returns {boolean} 是否被拒絕
  */
 export function hasRejectedImageProtocol(url) {
-  return ['data:', 'blob:'].some(prefix => url.startsWith(prefix));
+  if (typeof url !== 'string') {
+    return false;
+  }
+
+  const normalized = url.trim().toLowerCase();
+  return ['data:', 'blob:', 'javascript:'].some(prefix => normalized.startsWith(prefix));
 }
 
 function _shouldRejectRelativeImageUrl(url, allowRelative) {
@@ -524,10 +529,7 @@ function _checkUrlPatterns(url, isAbsolute) {
 
     // 2. 先檢查正向圖片路徑模式
     if (IMAGE_PATH_PATTERNS.some(pattern => pattern.test(url))) {
-      const isExplicitlyExcluded = EXCLUDE_PATTERNS.some(pattern => {
-        return pattern.source.includes(String.raw`\.`) && pattern.test(url);
-      });
-
+      const isExplicitlyExcluded = EXCLUDE_PATTERNS.some(pattern => pattern.test(url));
       if (!isExplicitlyExcluded) {
         return true;
       }

@@ -3,6 +3,7 @@
  */
 
 import { extractBestUrlFromSrcset } from './srcsetExtractor.js';
+import { validateSrcsetUrl } from './srcsetUrlValidator.js';
 
 /**
  * 從 picture 元素提取 URL
@@ -24,8 +25,9 @@ export function extractFromPicture(imgNode) {
     }
 
     const bestUrl = extractBestUrlFromSrcset(sourceSrcset);
-    if (bestUrl) {
-      return bestUrl;
+    const validatedUrl = validateSrcsetUrl(bestUrl);
+    if (validatedUrl) {
+      return validatedUrl;
     }
   }
   return null;

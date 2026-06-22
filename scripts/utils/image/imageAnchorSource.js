@@ -2,6 +2,8 @@
  * Anchor href 圖片來源提取
  */
 
+import { cleanImageUrl, hasRejectedImageProtocol, isValidCleanedImageUrl } from './imageUrl.js';
+
 function _extractFromAnchorHref(node) {
   if (node?.tagName !== 'A' || typeof node.getAttribute !== 'function') {
     return null;
@@ -10,13 +12,16 @@ function _extractFromAnchorHref(node) {
   if (!href) {
     return null;
   }
-  if (/^javascript:/i.test(href)) {
+  const normalized = href.trim();
+  if (!normalized || hasRejectedImageProtocol(normalized)) {
     return null;
   }
-  if (href.startsWith('#')) {
+  if (normalized.startsWith('#')) {
     return null;
   }
-  return href;
+
+  const cleaned = cleanImageUrl(normalized);
+  return cleaned && isValidCleanedImageUrl(cleaned) ? cleaned : null;
 }
 
 /**

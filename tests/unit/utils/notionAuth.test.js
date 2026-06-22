@@ -242,6 +242,7 @@ describe('notionAuth utils', () => {
           'X-Extension-Key': BUILD_ENV.EXTENSION_API_KEY,
         }),
         body: expect.stringContaining('"refresh_proof":"refresh_proof_2"'),
+        signal: expect.any(AbortSignal),
       })
     );
     expect(chrome.storage.local.set).toHaveBeenCalledWith({

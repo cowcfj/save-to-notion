@@ -8,6 +8,7 @@ import { sanitizeApiError } from './ApiErrorSanitizer.js';
 import { ERROR_MESSAGES } from '../config/messages/errorMessages.js';
 
 const AUTH_EPOCH_KEY = 'notionAuthEpoch';
+const REFRESH_OAUTH_REQUEST_TIMEOUT_MS = 15_000;
 
 /**
  * 檢查值是否為有效的非空字串
@@ -106,17 +107,24 @@ function buildRefreshTokenRequestBody(localData) {
   return requestBody;
 }
 
-function requestRefreshOAuthToken(localData) {
+async function requestRefreshOAuthToken(localData) {
   const serverUrl = `${BUILD_ENV.OAUTH_SERVER_URL}${NOTION_OAUTH.REFRESH_ENDPOINT}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REFRESH_OAUTH_REQUEST_TIMEOUT_MS);
 
-  return fetch(serverUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Extension-Key': BUILD_ENV.EXTENSION_API_KEY,
-    },
-    body: JSON.stringify(buildRefreshTokenRequestBody(localData)),
-  });
+  try {
+    return await fetch(serverUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Extension-Key': BUILD_ENV.EXTENSION_API_KEY,
+      },
+      body: JSON.stringify(buildRefreshTokenRequestBody(localData)),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 async function getRefreshErrorCode(response) {

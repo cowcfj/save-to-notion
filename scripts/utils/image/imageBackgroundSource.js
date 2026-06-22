@@ -3,6 +3,7 @@
  */
 
 import { IMAGE_VALIDATION } from '../../config/shared/content.js';
+import { hasRejectedImageProtocol } from './imageUrl.js';
 
 function _getBackgroundImageValue(node) {
   const style = globalThis.getComputedStyle(node);
@@ -30,21 +31,22 @@ function _shouldRejectBackgroundImageUrl(rawUrl) {
   if (!rawUrl) {
     return true;
   }
+  const normalized = rawUrl.trim();
 
-  if (rawUrl.startsWith('data:')) {
+  if (hasRejectedImageProtocol(normalized)) {
     return true;
   }
 
-  if (rawUrl.length > IMAGE_VALIDATION.MAX_URL_LENGTH) {
+  if (normalized.length > IMAGE_VALIDATION.MAX_URL_LENGTH) {
     return true;
   }
 
-  return rawUrl.length >= IMAGE_VALIDATION.MAX_BACKGROUND_URL_LENGTH;
+  return normalized.length >= IMAGE_VALIDATION.MAX_BACKGROUND_URL_LENGTH;
 }
 
 function _extractValidUrlFromComputedStyle(node) {
   const backgroundImage = _getBackgroundImageValue(node);
-  const rawUrl = _extractBackgroundImageUrl(backgroundImage);
+  const rawUrl = _extractBackgroundImageUrl(backgroundImage)?.trim();
 
   if (_shouldRejectBackgroundImageUrl(rawUrl)) {
     return null;

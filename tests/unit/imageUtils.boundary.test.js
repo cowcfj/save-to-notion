@@ -59,6 +59,15 @@ describe('imageUtils - 邊界條件測試', () => {
       const url = 'https://example.com/image.jpg?';
       expect(isValidImageUrl(url)).toBe(true);
     });
+
+    test('應拒絕圖片路徑下的 API/AJAX 端點', () => {
+      expect(isValidImageUrl('https://example.com/media/api/data')).toBe(false);
+      expect(isValidImageUrl('https://example.com/images/ajax/load')).toBe(false);
+    });
+
+    test('應保留明確圖片副檔名的 API 路徑 URL', () => {
+      expect(isValidImageUrl('https://example.com/api/avatar.jpg')).toBe(true);
+    });
   });
 
   describe('extractBestUrlFromSrcset - 畸形輸入', () => {
@@ -182,6 +191,12 @@ describe('imageUtils - 邊界條件測試', () => {
       document.body.innerHTML = '';
     });
 
+    test('應處理 null 或非 DOM 節點輸入', () => {
+      expect(extractFromSrcset(null)).toBeNull();
+      expect(extractFromSrcset()).toBeNull();
+      expect(extractFromSrcset({})).toBeNull();
+    });
+
     test('應處理空 srcset 屬性', () => {
       const img = document.createElement('img');
       img.setAttribute('srcset', '');
@@ -220,6 +235,29 @@ describe('imageUtils - 邊界條件測試', () => {
       expect(extractFromAnchor({ tagName: 'A' })).toBeNull();
       expect(extractFromAnchor({ tagName: 'IMG' })).toBeNull();
     });
+
+    test('應拒絕非圖片 anchor href', () => {
+      const anchor = document.createElement('a');
+      anchor.href = 'https://example.com/articles/story';
+      expect(extractFromAnchor(anchor)).toBeNull();
+    });
+
+    test('anchor href 非圖片時 extractImageSrc 應回退到 img src', () => {
+      const anchor = document.createElement('a');
+      anchor.href = 'https://example.com/articles/story';
+      const img = document.createElement('img');
+      img.src = 'https://example.com/images/photo.jpg';
+      anchor.append(img);
+      document.body.append(anchor);
+
+      expect(extractImageSrc(img)).toBe('https://example.com/images/photo.jpg');
+    });
+
+    test('應拒絕前後有空白的危險 anchor 協議', () => {
+      const anchor = document.createElement('a');
+      anchor.setAttribute('href', ' javascript:alert(1)');
+      expect(extractFromAnchor(anchor)).toBeNull();
+    });
   });
 
   describe('extractFromAttributes - 邊界情況', () => {
@@ -248,6 +286,20 @@ describe('imageUtils - 邊界條件測試', () => {
       img.setAttribute('src', 'blob:https://example.com/123');
       img.dataset.src = 'https://example.com/real.jpg';
       expect(extractFromAttributes(img)).toBe('https://example.com/real.jpg');
+    });
+
+    test('應從 srcset 類屬性擷取單一最佳 URL', () => {
+      const img = document.createElement('img');
+      img.dataset.srcset =
+        'https://example.com/small.jpg 400w, https://example.com/large.jpg 1200w';
+      expect(extractFromAttributes(img)).toBe('https://example.com/large.jpg');
+    });
+
+    test('應跳過無效協議的 srcset 類屬性候選', () => {
+      const img = document.createElement('img');
+      img.dataset.srcset = 'javascript:alert(1) 2x';
+      img.dataset.originalSrc = 'https://example.com/fallback.jpg';
+      expect(extractFromAttributes(img)).toBe('https://example.com/fallback.jpg');
     });
 
     test('應移除 URL 前後的空格', () => {
@@ -313,6 +365,17 @@ describe('imageUtils - 邊界條件測試', () => {
       document.body.append(picture);
       expect(extractFromPicture(img)).toBe('https://example.com/image.jpg');
     });
+
+    test('應拒絕 source srcset 中的不允許協議', () => {
+      const picture = document.createElement('picture');
+      const source = document.createElement('source');
+      source.setAttribute('srcset', 'blob:https://example.com/transient 2x');
+      const img = document.createElement('img');
+      picture.append(source, img);
+      document.body.append(picture);
+
+      expect(extractFromPicture(img)).toBeNull();
+    });
   });
 
   describe('extractFromBackgroundImage - ReDoS 防護', () => {
@@ -352,6 +415,29 @@ describe('imageUtils - 邊界條件測試', () => {
       img.style.backgroundImage = 'url(data:image/png;base64,abc)';
       document.body.append(img);
       expect(extractFromBackgroundImage(img)).toBeNull();
+    });
+
+    test('應跳過大小寫變體與 blob/javascript 背景圖片協議', () => {
+      const originalGetComputedStyle = globalThis.getComputedStyle;
+      const img = document.createElement('img');
+      const rejectedValues = [
+        'url("DATA:image/png;base64,abc")',
+        'url("blob:https://example.com/transient")',
+        'url("javascript:alert(1)")',
+      ];
+
+      try {
+        for (const backgroundImage of rejectedValues) {
+          globalThis.getComputedStyle = jest.fn(() => ({
+            backgroundImage,
+            getPropertyValue: jest.fn(() => backgroundImage),
+          }));
+
+          expect(extractFromBackgroundImage(img)).toBeNull();
+        }
+      } finally {
+        globalThis.getComputedStyle = originalGetComputedStyle;
+      }
     });
   });
 
@@ -405,6 +491,15 @@ describe('imageUtils - 邊界條件測試', () => {
       const img = document.createElement('img');
       const noscript = document.createElement('noscript');
       noscript.textContent = '<img src="blob:https://example.com/123-456">';
+      img.append(noscript);
+      document.body.append(img);
+      expect(extractFromNoscript(img)).toBeNull();
+    });
+
+    test('應跳過 noscript 中的 javascript: URL 與協議大小寫變體', () => {
+      const img = document.createElement('img');
+      const noscript = document.createElement('noscript');
+      noscript.textContent = '<img src=" JavaScript:alert(1)">';
       img.append(noscript);
       document.body.append(img);
       expect(extractFromNoscript(img)).toBeNull();

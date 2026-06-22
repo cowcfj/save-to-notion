@@ -35,8 +35,12 @@ export function extractBestUrlFromSrcset(srcset) {
  * @returns {string|null} 提取的 URL 或 null
  */
 export function extractFromSrcset(imgNode) {
-  const srcset =
-    imgNode.getAttribute('srcset') || imgNode.dataset.srcset || imgNode.dataset.lazySrcset;
+  if (!imgNode || typeof imgNode.getAttribute !== 'function') {
+    return null;
+  }
+
+  const dataset = imgNode.dataset || {};
+  const srcset = imgNode.getAttribute('srcset') || dataset.srcset || dataset.lazySrcset;
 
   if (srcset) {
     const bestUrl = extractBestUrlFromSrcset(srcset);

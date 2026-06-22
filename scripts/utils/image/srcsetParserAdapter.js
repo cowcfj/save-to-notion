@@ -5,6 +5,7 @@
 /* global SrcsetParser */
 
 import Logger from '../Logger.js';
+import { LogSanitizer } from '../LogSanitizer.js';
 
 function _getSrcsetParser() {
   if (typeof SrcsetParser !== 'undefined') {
@@ -34,7 +35,7 @@ export function parseWithSrcsetParser(srcset) {
   } catch (error) {
     Logger.error('SrcsetParser 失敗', {
       action: 'extractBestUrlFromSrcset',
-      error: error.message,
+      error: LogSanitizer._sanitizeString(error?.message || 'srcset_parse_failed'),
     });
     return null;
   }

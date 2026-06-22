@@ -3,6 +3,8 @@
  */
 
 import { hasRejectedImageProtocol } from './imageUrl.js';
+import { extractBestUrlFromSrcset } from './srcsetExtractor.js';
+import { validateSrcsetUrl } from './srcsetUrlValidator.js';
 
 /** 圖片 URL 驗證屬性列表 */
 export const IMAGE_ATTRIBUTES = [
@@ -34,6 +36,10 @@ export const IMAGE_ATTRIBUTES = [
   'data-origin',
 ];
 
+function _extractFromSrcsetAttribute(srcset) {
+  return validateSrcsetUrl(extractBestUrlFromSrcset(srcset));
+}
+
 /**
  * 從圖片屬性提取 URL
  *
@@ -49,6 +55,13 @@ export function extractFromAttributes(imgNode) {
     const value = imgNode.getAttribute(attr);
     const trimmed = value?.trim();
     if (!trimmed) {
+      continue;
+    }
+    if (attr.includes('srcset')) {
+      const bestUrl = _extractFromSrcsetAttribute(trimmed);
+      if (bestUrl) {
+        return bestUrl;
+      }
       continue;
     }
     if (hasRejectedImageProtocol(trimmed)) {
