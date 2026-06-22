@@ -85,6 +85,8 @@ const EXCLUDE_PATTERNS = [
   /\/pixel/i,
 ];
 
+const HTTP_URL_PROTOCOL_REGEX = /^https?:\/\//i;
+
 /** 圖片佔位符關鍵字 */
 const PLACEHOLDER_KEYWORDS = [
   'placeholder',
@@ -1022,14 +1024,13 @@ function _isPlausibleImageUrl(url) {
   // 例如 "fl_progressive:steep/https%3A%2F%2Fsubstack-post-media..." 是截斷結果
   // 而 "https://substackcdn.com/image/fetch/.../https%3A%2F%2F..." 是完整 URL
   // 而 "//substackcdn.com/image/fetch/.../https%3A%2F%2F..." 是合法的 protocol-relative URL
-  if (
-    EMBEDDED_URL_ENCODED_HTTP_PROTOCOL_REGEX.test(url) &&
-    !/^https?:\/\//i.test(url) &&
-    !url.startsWith('//')
-  ) {
-    return false;
+  if (!EMBEDDED_URL_ENCODED_HTTP_PROTOCOL_REGEX.test(url)) {
+    return true;
   }
-  return true;
+  if (HTTP_URL_PROTOCOL_REGEX.test(url)) {
+    return true;
+  }
+  return url.startsWith('//');
 }
 
 /**
