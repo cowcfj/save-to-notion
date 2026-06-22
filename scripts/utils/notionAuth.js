@@ -79,6 +79,46 @@ function getMissingRefreshBuildEnvKeys(buildEnv) {
   return missingBuildEnvKeys;
 }
 
+async function getRefreshAuthState() {
+  const localData = await chrome.storage.local.get([
+    'notionAuthMode',
+    'notionRefreshToken',
+    'notionRefreshProof',
+    AUTH_EPOCH_KEY,
+  ]);
+
+  return {
+    localData,
+    oldRefreshToken: localData.notionRefreshToken,
+    startAuthEpoch: normalizeAuthEpoch(localData[AUTH_EPOCH_KEY]),
+  };
+}
+
+function buildRefreshTokenRequestBody(localData) {
+  const requestBody = {
+    refresh_token: localData.notionRefreshToken,
+  };
+
+  if (isNonEmptyString(localData.notionRefreshProof)) {
+    requestBody.refresh_proof = localData.notionRefreshProof;
+  }
+
+  return requestBody;
+}
+
+function requestRefreshOAuthToken(localData) {
+  const serverUrl = `${BUILD_ENV.OAUTH_SERVER_URL}${NOTION_OAUTH.REFRESH_ENDPOINT}`;
+
+  return fetch(serverUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Extension-Key': BUILD_ENV.EXTENSION_API_KEY,
+    },
+    body: JSON.stringify(buildRefreshTokenRequestBody(localData)),
+  });
+}
+
 async function getRefreshErrorCode(response) {
   try {
     const errorData = await response.json();
@@ -104,6 +144,47 @@ async function handleFailedRefreshResponse(response, oldRefreshToken, startAuthE
     phase: 'request',
     status: response.status,
   });
+}
+
+function hasValidRefreshTokenResponse(data) {
+  return [data?.access_token, data?.refresh_token].every(value => isNonEmptyString(value));
+}
+
+function buildRefreshedOAuthStorage(data, startAuthEpoch) {
+  const refreshProof = isNonEmptyString(data?.refresh_proof) ? data.refresh_proof : null;
+
+  return {
+    hasValidRefreshProof: refreshProof !== null,
+    nextStorage: {
+      notionOAuthToken: data.access_token,
+      notionRefreshToken: data.refresh_token,
+      notionRefreshProof: refreshProof,
+      [AUTH_EPOCH_KEY]: startAuthEpoch + 1,
+    },
+  };
+}
+
+async function commitRefreshedOAuthToken({
+  oldRefreshToken,
+  startAuthEpoch,
+  nextStorage,
+  hasValidRefreshProof,
+}) {
+  if (await shouldAbortRefreshMutation(oldRefreshToken, startAuthEpoch)) {
+    return null;
+  }
+
+  await chrome.storage.local.set(nextStorage);
+  if (!hasValidRefreshProof) {
+    await clearStoredRefreshProof('refreshOAuthToken');
+  }
+
+  Logger.success('OAuth Token 已刷新', {
+    action: 'refreshOAuthToken',
+    phase: 'commit',
+    nextAuthEpoch: nextStorage[AUTH_EPOCH_KEY],
+  });
+  return nextStorage.notionOAuthToken;
 }
 
 /**
@@ -142,14 +223,7 @@ export async function ensureNotionApiKey() {
 
 async function performRefreshOAuthToken() {
   try {
-    const localData = await chrome.storage.local.get([
-      'notionAuthMode',
-      'notionRefreshToken',
-      'notionRefreshProof',
-      AUTH_EPOCH_KEY,
-    ]);
-    const oldRefreshToken = localData.notionRefreshToken;
-    const startAuthEpoch = normalizeAuthEpoch(localData[AUTH_EPOCH_KEY]);
+    const { localData, oldRefreshToken, startAuthEpoch } = await getRefreshAuthState();
 
     if (!oldRefreshToken) {
       Logger.error('無法刷新 Token：缺少 refresh_token', {
@@ -169,31 +243,14 @@ async function performRefreshOAuthToken() {
       return null;
     }
 
-    const serverUrl = `${BUILD_ENV.OAUTH_SERVER_URL}${NOTION_OAUTH.REFRESH_ENDPOINT}`;
-    const response = await fetch(serverUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Extension-Key': BUILD_ENV.EXTENSION_API_KEY,
-      },
-      body: JSON.stringify({
-        refresh_token: localData.notionRefreshToken,
-        ...(isNonEmptyString(localData.notionRefreshProof)
-          ? { refresh_proof: localData.notionRefreshProof }
-          : {}),
-      }),
-    });
-
+    const response = await requestRefreshOAuthToken(localData);
     if (!response.ok) {
       await handleFailedRefreshResponse(response, oldRefreshToken, startAuthEpoch);
       return null;
     }
 
     const data = await response.json();
-    const hasValidAccessToken = isNonEmptyString(data?.access_token);
-    const hasValidRefreshToken = isNonEmptyString(data?.refresh_token);
-
-    if (!hasValidAccessToken || !hasValidRefreshToken) {
+    if (!hasValidRefreshTokenResponse(data)) {
       Logger.error('OAuth Token 刷新回應缺少必要欄位', {
         action: 'refreshOAuthToken',
         phase: 'validate',
@@ -202,30 +259,11 @@ async function performRefreshOAuthToken() {
       return null;
     }
 
-    const hasValidRefreshProof = isNonEmptyString(data?.refresh_proof);
-
-    const nextStorage = {
-      notionOAuthToken: data.access_token,
-      notionRefreshToken: data.refresh_token,
-      notionRefreshProof: hasValidRefreshProof ? data.refresh_proof : null,
-      [AUTH_EPOCH_KEY]: startAuthEpoch + 1,
-    };
-
-    if (await shouldAbortRefreshMutation(oldRefreshToken, startAuthEpoch)) {
-      return null;
-    }
-
-    await chrome.storage.local.set(nextStorage);
-    if (!hasValidRefreshProof) {
-      await clearStoredRefreshProof('refreshOAuthToken');
-    }
-
-    Logger.success('OAuth Token 已刷新', {
-      action: 'refreshOAuthToken',
-      phase: 'commit',
-      nextAuthEpoch: nextStorage[AUTH_EPOCH_KEY],
+    return commitRefreshedOAuthToken({
+      oldRefreshToken,
+      startAuthEpoch,
+      ...buildRefreshedOAuthStorage(data, startAuthEpoch),
     });
-    return data.access_token;
   } catch (error) {
     Logger.error('OAuth Token 刷新失敗', {
       action: 'refreshOAuthToken',
@@ -274,6 +312,47 @@ export async function refreshOAuthToken() {
   return refreshInFlightPromise;
 }
 
+function getStoredDataSourceId(storageData = {}) {
+  return storageData.notionDataSourceId || storageData.notionDatabaseId;
+}
+
+function createDataSourceKeyMigrationRequest({
+  localData = {},
+  syncData = {},
+  storageArea,
+  logger,
+  action,
+  retryContext,
+}) {
+  const localDataSourceId = getStoredDataSourceId(localData);
+  const syncDataSourceId = getStoredDataSourceId(syncData);
+
+  if (localDataSourceId) {
+    return null;
+  }
+  if (!syncDataSourceId) {
+    return null;
+  }
+  if (!storageArea?.set) {
+    return null;
+  }
+
+  return {
+    action,
+    logger,
+    retryContext,
+    storageArea,
+    syncDataSourceId,
+  };
+}
+
+function buildMigratedDataSourceKeys(syncDataSourceId) {
+  return {
+    notionDataSourceId: syncDataSourceId,
+    notionDatabaseId: syncDataSourceId,
+  };
+}
+
 /**
  * 將僅存在 sync 的資料來源設定透明遷移至 local。
  *
@@ -286,27 +365,17 @@ export async function refreshOAuthToken() {
  * @param {string} options.retryContext - 失敗提示中的重試場景，例如 popup 或 options
  * @returns {Promise<boolean>} 是否實際執行了遷移
  */
-export async function migrateDataSourceKeys({
-  localData = {},
-  syncData = {},
-  storageArea,
-  logger,
-  action,
-  retryContext,
-}) {
-  const localDataSourceId = localData.notionDataSourceId || localData.notionDatabaseId;
-  const syncDataSourceId = syncData.notionDataSourceId || syncData.notionDatabaseId;
+export async function migrateDataSourceKeys(options) {
+  const migrationRequest = createDataSourceKeyMigrationRequest(options);
 
-  if (localDataSourceId || !syncDataSourceId || !storageArea?.set) {
+  if (!migrationRequest) {
     return false;
   }
 
-  try {
-    await storageArea.set({
-      notionDataSourceId: syncDataSourceId,
-      notionDatabaseId: syncDataSourceId,
-    });
+  const { action, logger, retryContext, storageArea, syncDataSourceId } = migrationRequest;
 
+  try {
+    await storageArea.set(buildMigratedDataSourceKeys(syncDataSourceId));
     logger?.success?.('[Settings] 已自動遷移 dataSourceId 從 sync 至 local', {
       action,
       operation: 'migrateDataSourceKey',
