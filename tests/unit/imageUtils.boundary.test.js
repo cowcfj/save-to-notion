@@ -9,24 +9,38 @@ if (globalThis.window) {
   delete globalThis.window.ImageUtils;
 }
 
-// 載入原始 IIFE 模組（會將函數掛載到 global.ImageUtils）
-require('../../scripts/utils/imageUtils.js');
-const { extractFromAnchor } = require('../../scripts/utils/image/imageAnchorSource.js');
+let cleanImageUrl;
+let isValidImageUrl;
+let extractBestUrlFromSrcset;
+let extractImageSrc;
+let extractFromSrcset;
+let extractFromAttributes;
+let extractFromPicture;
+let extractFromBackgroundImage;
+let extractFromNoscript;
+let extractFromAnchor;
+let IMAGE_VALIDATION_CONSTANTS;
 
-// 從 global.ImageUtils 獲取函數
-const {
-  cleanImageUrl,
-  isValidImageUrl,
-  extractBestUrlFromSrcset,
-  extractImageSrc,
-  extractFromSrcset,
-  extractFromAttributes,
-  extractFromPicture,
-  extractFromBackgroundImage,
-  extractFromNoscript,
+beforeAll(async () => {
+  // 載入原始 IIFE 模組（會將函數掛載到 global.ImageUtils）
+  await import('../../scripts/utils/imageUtils.js');
+  ({ extractFromAnchor } = await import('../../scripts/utils/image/imageAnchorSource.js'));
 
-  IMAGE_VALIDATION: IMAGE_VALIDATION_CONSTANTS,
-} = globalThis.ImageUtils || globalThis.window?.ImageUtils || {};
+  // 從 global.ImageUtils 獲取函數
+  ({
+    cleanImageUrl,
+    isValidImageUrl,
+    extractBestUrlFromSrcset,
+    extractImageSrc,
+    extractFromSrcset,
+    extractFromAttributes,
+    extractFromPicture,
+    extractFromBackgroundImage,
+    extractFromNoscript,
+
+    IMAGE_VALIDATION: IMAGE_VALIDATION_CONSTANTS,
+  } = globalThis.ImageUtils || globalThis.window?.ImageUtils || {});
+});
 
 describe('imageUtils - 邊界條件測試', () => {
   describe('isValidImageUrl - URL 長度邊界', () => {

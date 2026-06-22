@@ -483,23 +483,31 @@ describe('migrateDataSourceKeys', () => {
   });
 
   test.each([
-    [
-      'local 已有 notionDataSourceId',
-      { notionDataSourceId: 'existing-id' },
-      { notionDataSourceId: 'sync-id' },
-      { set: jest.fn() },
-      true,
-    ],
-    [
-      'local 已有 notionDatabaseId (legacy)',
-      { notionDatabaseId: 'legacy-local-id' },
-      { notionDataSourceId: 'sync-id' },
-      { set: jest.fn() },
-      true,
-    ],
-    ['sync 無 dataSourceId', {}, {}, { set: jest.fn() }, true],
-    ['storageArea.set 不存在', {}, { notionDataSourceId: 'sync-id' }, {}, false],
-  ])('%s 時不應遷移', async (description, localData, syncData, storageArea, checkSetNotCalled) => {
+    {
+      description: 'local 已有 notionDataSourceId',
+      localData: { notionDataSourceId: 'existing-id' },
+      syncData: { notionDataSourceId: 'sync-id' },
+      storageArea: { set: jest.fn() },
+    },
+    {
+      description: 'local 已有 notionDatabaseId (legacy)',
+      localData: { notionDatabaseId: 'legacy-local-id' },
+      syncData: { notionDataSourceId: 'sync-id' },
+      storageArea: { set: jest.fn() },
+    },
+    {
+      description: 'sync 無 dataSourceId',
+      localData: {},
+      syncData: {},
+      storageArea: { set: jest.fn() },
+    },
+    {
+      description: 'storageArea.set 不存在',
+      localData: {},
+      syncData: { notionDataSourceId: 'sync-id' },
+      storageArea: {},
+    },
+  ])('$description 時不應遷移', async ({ localData, syncData, storageArea }) => {
     const result = await migrateDataSourceKeys({
       localData,
       syncData,
@@ -507,8 +515,10 @@ describe('migrateDataSourceKeys', () => {
     });
 
     expect(result).toBe(false);
-    if (checkSetNotCalled && storageArea.set) {
+    if (storageArea.set) {
       expect(storageArea.set).not.toHaveBeenCalled();
+    } else {
+      expect(storageArea.set).toBeUndefined();
     }
   });
 
