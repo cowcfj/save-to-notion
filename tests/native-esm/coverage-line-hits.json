@@ -5,6 +5,36 @@
     "rationale": "createRichText body lines must not be mapped to 0 by V8 source-line conversion."
   },
   {
+    "fileSuffix": "scripts/config/shared/deepFreeze.js",
+    "lines": [8, 16, 18, 22],
+    "rationale": "deepFreeze primitive, recursive object, and freeze-return paths must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/config/messages/highlighterMessages.js",
+    "lines": [27, 28],
+    "rationale": "function-valued highlighter message builders must retain source-line hits under native ESM."
+  },
+  {
+    "fileSuffix": "scripts/config/runtimeActions/highlighterActions.js",
+    "lines": [6, 15, 23],
+    "rationale": "highlighter runtime action registry must be covered through the formal config ESM boundary."
+  },
+  {
+    "fileSuffix": "scripts/config/shared/storage.js",
+    "lines": [68, 69, 70, 72, 73, 74],
+    "rationale": "mergeDataSourceConfig local-first and sync-fallback lines must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/config/shared/saveStatus.js",
+    "lines": [77, 81, 85, 89, 100, 113, 115, 119],
+    "rationale": "save status normalization, capability resolution, and response construction must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/config/shared/content.js",
+    "lines": [42, 72, 101, 386, 397, 408, 413, 436],
+    "rationale": "content extraction selector and limit registries must be covered through formal config source paths."
+  },
+  {
     "fileSuffix": "scripts/highlighter/autoInit/initializationInputs.js",
     "lines": [38, 39, 40, 41],
     "rationale": "mock-dependent native ESM branch must retain source-line hits."
