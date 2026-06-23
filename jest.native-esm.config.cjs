@@ -11,6 +11,8 @@ module.exports = {
   coverageReporters: ['json', 'text'],
   collectCoverageFrom: [
     '<rootDir>/scripts/background/utils/BlockBuilder.js',
+    '<rootDir>/scripts/background/utils/highlightStyleMerger.js',
+    '<rootDir>/scripts/background/utils/migrationMetadataUtils.js',
     '<rootDir>/scripts/config/messages/highlighterMessages.js',
     '<rootDir>/scripts/config/runtimeActions/highlighterActions.js',
     '<rootDir>/scripts/config/shared/content.js',
@@ -18,6 +20,9 @@ module.exports = {
     '<rootDir>/scripts/config/shared/saveStatus.js',
     '<rootDir>/scripts/config/shared/storage.js',
     '<rootDir>/scripts/highlighter/autoInit/initializationInputs.js',
+    '<rootDir>/scripts/highlighter/utils/color.js',
+    '<rootDir>/scripts/highlighter/utils/safeIcon.js',
+    '<rootDir>/scripts/highlighter/utils/validation.js',
   ],
   coverageThreshold: {
     global: {

@@ -5,6 +5,16 @@
     "rationale": "createRichText body lines must not be mapped to 0 by V8 source-line conversion."
   },
   {
+    "fileSuffix": "scripts/background/utils/highlightStyleMerger.js",
+    "lines": [121, 123, 124, 532, 537, 546, 609, 678, 680, 687],
+    "rationale": "highlight style merge must retain source-line hits across style resolution, rich_text splitting, and entrypoint mapping."
+  },
+  {
+    "fileSuffix": "scripts/background/utils/migrationMetadataUtils.js",
+    "lines": [8, 10, 12, 43, 49, 54, 56, 69, 76, 87, 91, 98, 100],
+    "rationale": "Notion metadata id extraction and canonical URL comparison must retain source-line hits."
+  },
+  {
     "fileSuffix": "scripts/config/shared/deepFreeze.js",
     "lines": [8, 16, 18, 22],
     "rationale": "deepFreeze primitive, recursive object, and freeze-return paths must retain source-line hits."
@@ -38,5 +48,20 @@
     "fileSuffix": "scripts/highlighter/autoInit/initializationInputs.js",
     "lines": [38, 39, 40, 41],
     "rationale": "mock-dependent native ESM branch must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/utils/color.js",
+    "lines": [47, 48, 61, 72, 73],
+    "rationale": "color conversion and CSS variable helpers must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/utils/validation.js",
+    "lines": [18, 19, 32, 53, 68, 81, 82, 86, 99, 111, 112, 116],
+    "rationale": "validation helper branches for strings, ranges, colors, URLs, ids, and highlight data must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/utils/safeIcon.js",
+    "lines": [12, 17, 79, 80, 83, 88, 97, 101, 120, 122],
+    "rationale": "safeIcon sanitization, text fallback, namespace normalization, and DOM append paths must retain source-line hits."
   }
 ]
