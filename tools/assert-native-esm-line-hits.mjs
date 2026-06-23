@@ -43,9 +43,13 @@ const absoluteManifestPath = path.resolve(projectRoot, manifestPath);
 assertPathInsideDirectory(
   absoluteCoveragePath,
   allowedCoverageRoot,
-  '覆蓋率檔案路徑必須位於 coverage/native-esm 底下',
+  '覆蓋率檔案路徑必須位於 coverage/native-esm 底下'
 );
-assertPathInsideDirectory(absoluteManifestPath, projectRoot, 'manifest 路徑必須位於 repo root 底下');
+assertPathInsideDirectory(
+  absoluteManifestPath,
+  projectRoot,
+  'manifest 路徑必須位於 repo root 底下'
+);
 const coverage = JSON.parse(fs.readFileSync(absoluteCoveragePath, 'utf8'));
 const requiredHits = JSON.parse(fs.readFileSync(absoluteManifestPath, 'utf8'));
 
@@ -66,12 +70,12 @@ function assertFormalCoveragePath(filePath) {
   assertPathInsideDirectory(
     resolveCoverageKeyPath(filePath),
     projectRoot,
-    `coverage entry 必須位於 repo root 底下: ${filePath}`,
+    `coverage entry 必須位於 repo root 底下: ${filePath}`
   );
 }
 
 function assertAllowedSourceSuffix(fileSuffix) {
-  if (allowedSourcePrefixes.some((prefix) => fileSuffix.startsWith(prefix))) {
+  if (allowedSourcePrefixes.some(prefix => fileSuffix.startsWith(prefix))) {
     return;
   }
 
@@ -111,9 +115,15 @@ function assertValidRequirement(requirement) {
   assertRequirementLines(fileSuffix, requirement.lines);
 }
 
+function normalizeCoverageLookupPath(filePath) {
+  return normalizeToPosixPath(resolveCoverageKeyPath(filePath));
+}
+
 function findFileCoverage(fileSuffix) {
-  const normalizedSuffix = fileSuffix.split('/').join(path.sep);
-  const entry = Object.entries(coverage).find(([filePath]) => filePath.endsWith(normalizedSuffix));
+  const normalizedFilePath = normalizeCoverageLookupPath(fileSuffix.split('/').join(path.sep));
+  const entry = Object.entries(coverage).find(
+    ([filePath]) => normalizeCoverageLookupPath(filePath) === normalizedFilePath
+  );
   if (!entry) {
     throw new Error(`找不到 ${fileSuffix} 的覆蓋率資料`);
   }
@@ -136,6 +146,10 @@ const failures = [];
 const checkedFiles = new Set();
 let checkedLineCount = 0;
 
+for (const filePath of Object.keys(coverage)) {
+  assertFormalCoveragePath(filePath);
+}
+
 for (const requirement of requiredHits) {
   assertValidRequirement(requirement);
   const fileCoverage = findFileCoverage(requirement.fileSuffix);
@@ -155,4 +169,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(`Native ESM 行命中檢查通過：${checkedFiles.size} files, ${checkedLineCount} lines`);
+console.log(`Native ESM 行命中檢查通過：${checkedFiles.size} 個檔案, ${checkedLineCount} 行`);

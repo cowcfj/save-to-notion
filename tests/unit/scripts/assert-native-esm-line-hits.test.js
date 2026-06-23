@@ -138,7 +138,41 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
     const result = runCli(coveragePath, manifestPath);
 
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain('Native ESM 行命中檢查通過：2 files, 8 lines');
+    expect(result.stdout).toContain('Native ESM 行命中檢查通過：2 個檔案, 8 行');
+  });
+
+  test('coverage lookup 必須精準匹配 manifest 指定檔案', () => {
+    const coveragePath = writeCoverageFile({
+      [path.join(projectRoot, 'fixtures/scripts/background/utils/BlockBuilder.js')]: {
+        statementMap: {
+          0: {
+            start: { line: 54 },
+            end: { line: 57 },
+          },
+        },
+        s: { 0: 0 },
+      },
+      [path.join(projectRoot, 'scripts/background/utils/BlockBuilder.js')]: {
+        statementMap: {
+          0: {
+            start: { line: 54 },
+            end: { line: 57 },
+          },
+        },
+        s: { 0: 1 },
+      },
+    });
+    const manifestPath = writeManifestFile([
+      {
+        fileSuffix: 'scripts/background/utils/BlockBuilder.js',
+        lines: [54],
+      },
+    ]);
+
+    const result = runCli(coveragePath, manifestPath);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('Native ESM 行命中檢查通過：1 個檔案, 1 行');
   });
 
   test('[SECURITY] coverage entry 不可來自 copy-slice spike path', () => {
