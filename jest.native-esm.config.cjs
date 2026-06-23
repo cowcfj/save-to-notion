@@ -21,7 +21,11 @@ module.exports = {
     '<rootDir>/scripts/config/shared/storage.js',
     '<rootDir>/scripts/highlighter/autoInit/initializationInputs.js',
     '<rootDir>/scripts/highlighter/utils/color.js',
+    '<rootDir>/scripts/highlighter/utils/dom.js',
+    '<rootDir>/scripts/highlighter/utils/domStability.js',
+    '<rootDir>/scripts/highlighter/utils/path.js',
     '<rootDir>/scripts/highlighter/utils/safeIcon.js',
+    '<rootDir>/scripts/highlighter/utils/textSearch.js',
     '<rootDir>/scripts/highlighter/utils/validation.js',
   ],
   coverageThreshold: {

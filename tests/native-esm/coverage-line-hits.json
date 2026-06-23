@@ -55,6 +55,29 @@
     "rationale": "color conversion and CSS variable helpers must retain source-line hits."
   },
   {
+    "fileSuffix": "scripts/highlighter/utils/dom.js",
+    "lines": [29, 30, 42, 47, 48, 52, 65, 66, 70, 71, 89, 90, 94],
+    "rationale": "DOM validation, visibility, viewport, and attribute fallback branches must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/utils/path.js",
+    "lines": [59, 64, 67, 68, 73, 78, 90, 95, 108, 117, 120, 254, 257, 261, 265, 277, 289],
+    "rationale": "DOM path serialization, parsing, resolution, and invalid-path branches must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/utils/domStability.js",
+    "lines": [34, 42, 52, 54, 68, 72, 95, 96, 115, 120, 144, 147, 153, 159],
+    "rationale": "DOM stability container lookup, timer scheduling, observer setup, and cleanup paths must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/utils/textSearch.js",
+    "lines": [
+      155, 158, 161, 169, 213, 218, 239, 240, 310, 313, 395, 400, 403, 409, 587, 589, 594, 715, 727,
+      730, 736, 747
+    ],
+    "rationale": "TreeWalker, cross-node, fuzzy whitespace, and findTextInPage fallback paths must retain source-line hits."
+  },
+  {
     "fileSuffix": "scripts/highlighter/utils/validation.js",
     "lines": [18, 19, 32, 53, 68, 81, 82, 86, 99, 111, 112, 116],
     "rationale": "validation helper branches for strings, ranges, colors, URLs, ids, and highlight data must retain source-line hits."
