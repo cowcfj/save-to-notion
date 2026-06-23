@@ -2,12 +2,11 @@
  * @jest-environment jsdom
  */
 
-// 【重構】直接導入源代碼（Babel 自動處理 ES Module → CommonJS 轉換）
-const {
+import {
   findTextInPage,
   findTextWithTreeWalker,
   findTextFuzzy,
-} = require('../../../../scripts/highlighter/utils/textSearch.js');
+} from '../../../../scripts/highlighter/utils/textSearch.js';
 
 describe('utils/textSearch', () => {
   beforeEach(() => {
@@ -19,7 +18,7 @@ describe('utils/textSearch', () => {
       document.body.innerHTML = '<div>Hello World</div>';
       const range = findTextWithTreeWalker('Hello');
 
-      expect(range).not.toBe(null);
+      expect(range).not.toBeNull();
       expect(range.toString()).toBe('Hello');
     });
 
@@ -27,14 +26,14 @@ describe('utils/textSearch', () => {
       document.body.innerHTML = '<div>Hello World</div>';
       const range = findTextWithTreeWalker('NotFound');
 
-      expect(range).toBe(null);
+      expect(range).toBeNull();
     });
 
     test('should find text in nested elements', () => {
       document.body.innerHTML = '<div><p>Hello World</p></div>';
       const range = findTextWithTreeWalker('World');
 
-      expect(range).not.toBe(null);
+      expect(range).not.toBeNull();
       expect(range.toString()).toBe('World');
     });
 
@@ -45,8 +44,8 @@ describe('utils/textSearch', () => {
                 <style>Hidden Style</style>
             `;
 
-      expect(findTextWithTreeWalker('Visible')).not.toBe(null);
-      expect(findTextWithTreeWalker('Hidden')).toBe(null);
+      expect(findTextWithTreeWalker('Visible')).not.toBeNull();
+      expect(findTextWithTreeWalker('Hidden')).toBeNull();
     });
   });
 
@@ -55,51 +54,58 @@ describe('utils/textSearch', () => {
       document.body.innerHTML = '<div>Hello  World</div>';
       const range = findTextFuzzy('Hello World');
 
-      expect(range).not.toBe(null);
+      expect(range).not.toBeNull();
     });
 
     test('should be case insensitive', () => {
       document.body.innerHTML = '<div>Hello World</div>';
       const range = findTextFuzzy('hello world');
 
-      expect(range).not.toBe(null);
+      expect(range).not.toBeNull();
     });
 
     test('should return null if not found', () => {
       document.body.innerHTML = '<div>Hello World</div>';
       const range = findTextFuzzy('NotFound');
 
-      expect(range).toBe(null);
+      expect(range).toBeNull();
     });
 
-    test('should disambiguate multiple matches using prefix', () => {
-      document.body.innerHTML = `
-        <p>The first apple is green.</p>
-        <p>The second apple is red.</p>
-      `;
-      // 目標字串都是 "apple"
-      // context: prefix 是 "second "
-      const range = findTextFuzzy('apple', { prefix: 'second ' });
-      expect(range).not.toBe(null);
+    test.each([
+      {
+        contextType: 'prefix',
+        html: `
+          <p>The first apple is green.</p>
+          <p>The second apple is red.</p>
+        `,
+        searchText: 'apple',
+        context: { prefix: 'second ' },
+        expectedContainerText: 'second',
+        expectedText: 'apple',
+      },
+      {
+        contextType: 'suffix',
+        html: `
+          <p>Target is matching here</p>
+          <p>Target is wrong here</p>
+        `,
+        searchText: 'Target',
+        context: { suffix: ' is matching' },
+        expectedContainerText: 'matching',
+        expectedText: 'Target',
+      },
+    ])(
+      'should disambiguate multiple matches using $contextType',
+      ({ html, searchText, context, expectedContainerText, expectedText }) => {
+        document.body.innerHTML = html;
 
-      // 驗證它匹配到第二個 "apple"
-      expect(range.startContainer.textContent).toContain('second');
-      expect(range.toString()).toBe('apple');
-    });
+        const range = findTextFuzzy(searchText, context);
 
-    test('should disambiguate multiple matches using suffix', () => {
-      document.body.innerHTML = `
-        <p>Target is matching here</p>
-        <p>Target is wrong here</p>
-      `;
-      // context: suffix 是 " is matching"
-      const range = findTextFuzzy('Target', { suffix: ' is matching' });
-      expect(range).not.toBe(null);
-
-      // 驗證它匹配到第一個
-      expect(range.startContainer.textContent).toContain('matching');
-      expect(range.toString()).toBe('Target');
-    });
+        expect(range).not.toBeNull();
+        expect(range.startContainer.textContent).toContain(expectedContainerText);
+        expect(range.toString()).toBe(expectedText);
+      }
+    );
   });
 
   describe('findTextInPage', () => {
@@ -108,7 +114,7 @@ describe('utils/textSearch', () => {
       // 在 jsdom 環境中，直接測試 findTextWithTreeWalker 更可靠
       document.body.innerHTML = '<div>Direct Test</div>';
       const range = findTextWithTreeWalker('Direct');
-      expect(range).not.toBe(null);
+      expect(range).not.toBeNull();
     });
 
     test('should return null for empty/whitespace-only string', () => {
@@ -116,11 +122,11 @@ describe('utils/textSearch', () => {
 
       // trim() 後變成空字符串
       const range1 = findTextInPage('   ');
-      expect(range1).toBe(null);
+      expect(range1).toBeNull();
 
       // 完全空字符串
       const range2 = findTextInPage('');
-      expect(range2).toBe(null);
+      expect(range2).toBeNull();
     });
   });
 });

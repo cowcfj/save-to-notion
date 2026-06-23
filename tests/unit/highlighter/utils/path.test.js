@@ -2,15 +2,14 @@
  * @jest-environment jsdom
  */
 
-// 【重構】直接導入源代碼（Babel 自動處理 ES Module → CommonJS 轉換）
-const {
+import {
   getNodePath,
   parsePathFromString,
   getNodeByPath,
   isValidPathString,
   resolveElementNode,
   resolveTextNode,
-} = require('../../../../scripts/highlighter/utils/path.js');
+} from '../../../../scripts/highlighter/utils/path.js';
 
 describe('utils/path', () => {
   beforeEach(() => {
@@ -129,15 +128,15 @@ describe('utils/path', () => {
     });
 
     test('should return null for invalid format', () => {
-      expect(parsePathFromString('invalid')).toBe(null);
-      expect(parsePathFromString('div')).toBe(null);
-      expect(parsePathFromString('div[]')).toBe(null);
+      expect(parsePathFromString('invalid')).toBeNull();
+      expect(parsePathFromString('div')).toBeNull();
+      expect(parsePathFromString('div[]')).toBeNull();
     });
 
     test('should return null for non-string input', () => {
-      expect(parsePathFromString(null)).toBe(null);
-      expect(parsePathFromString()).toBe(null);
-      expect(parsePathFromString(123)).toBe(null);
+      expect(parsePathFromString(null)).toBeNull();
+      expect(parsePathFromString()).toBeNull();
+      expect(parsePathFromString(123)).toBeNull();
     });
 
     test('should parse path with hyphenated custom element', () => {
@@ -197,11 +196,11 @@ describe('utils/path', () => {
     });
 
     test('should return null for invalid path', () => {
-      expect(getNodeByPath('div[999]')).toBe(null);
+      expect(getNodeByPath('div[999]')).toBeNull();
     });
 
     test('should return null for malformed path string', () => {
-      expect(getNodeByPath('invalid')).toBe(null);
+      expect(getNodeByPath('invalid')).toBeNull();
     });
 
     test('should use fuzzy matching when exact index not found', () => {
@@ -214,7 +213,7 @@ describe('utils/path', () => {
       ];
 
       const node = getNodeByPath(path);
-      expect(node).not.toBe(null);
+      expect(node).not.toBeNull();
       expect(node.tagName.toLowerCase()).toBe('p');
     });
 

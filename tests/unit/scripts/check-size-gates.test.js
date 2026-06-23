@@ -3,10 +3,10 @@
  */
 /* eslint-disable sonarjs/no-os-command-from-path */
 
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-const { execFileSync } = require('node:child_process');
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 describe('tools/check-size-gates.mjs', () => {
   const scriptPath = path.resolve(__dirname, '../../../tools/check-size-gates.mjs');
@@ -206,16 +206,16 @@ describe('tools/check-size-gates.mjs', () => {
   });
 
   test('[REGRESSION] hard mode 應允許 background bundle 在 delta gate 內自然成長', () => {
-    expect.assertions(2);
-
-    expectHardBundleCheckPass({
-      sizes: { backgroundSize: 243_500 },
-      checkKey: 'background_bundle',
-      expected: {
-        current: 243_500,
-        hardLimit: 245_000,
-      },
-    });
+    expect(() => {
+      expectHardBundleCheckPass({
+        sizes: { backgroundSize: 243_500 },
+        checkKey: 'background_bundle',
+        expected: {
+          current: 243_500,
+          hardLimit: 245_000,
+        },
+      });
+    }).not.toThrow();
   });
 
   test('delta mode 應在增量超過門檻時失敗', () => {

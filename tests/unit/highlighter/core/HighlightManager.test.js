@@ -212,7 +212,7 @@ describe('core/HighlightManager', () => {
 
       const id = manager.addHighlight(range, 'yellow');
 
-      expect(id).not.toBe(null);
+      expect(id).not.toBeNull();
       expect(id).toMatch(/^h\d+$/);
       expect(manager.highlights.size).toBe(1);
 
@@ -226,14 +226,14 @@ describe('core/HighlightManager', () => {
       const range = createTextRange('Test', 0, 0);
 
       const id = manager.addHighlight(range);
-      expect(id).toBe(null);
+      expect(id).toBeNull();
     });
 
     test('should return null for empty or whitespace-only range', () => {
       const range = createTextRange('   ');
 
       const id = manager.addHighlight(range);
-      expect(id).toBe(null);
+      expect(id).toBeNull();
     });
 
     test('should fallback to currentColor when styleManager returns no style', () => {

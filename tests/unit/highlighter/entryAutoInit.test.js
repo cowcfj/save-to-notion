@@ -1,5 +1,5 @@
-const fs = require('node:fs');
-const path = require('node:path');
+import fs from 'node:fs';
+import path from 'node:path';
 
 jest.mock('../../../scripts/highlighter/index.js', () => ({
   setupHighlighter: jest.fn(),
@@ -208,26 +208,6 @@ describe('entryAutoInit', () => {
     expect(onMessage.removeListener).toHaveBeenCalledTimes(1);
   });
 
-  test('[REGRESSION] persistent message handler should ignore invalid request payloads', () => {
-    let messageHandler;
-    const sendResponse = jest.fn();
-    const controller = createPersistentListenersController({
-      onMessage: {
-        addListener: jest.fn(handler => {
-          messageHandler = handler;
-        }),
-        removeListener: jest.fn(),
-      },
-    });
-
-    controller.register();
-
-    expect(messageHandler(null, {}, sendResponse)).toBeUndefined();
-    expect(messageHandler(undefined, {}, sendResponse)).toBeUndefined();
-    expect(messageHandler({ action: '__proto__' }, {}, sendResponse)).toBeUndefined();
-    expect(sendResponse).not.toHaveBeenCalled();
-  });
-
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
@@ -289,6 +269,26 @@ describe('entryAutoInit', () => {
     delete globalThis.HighlighterV2;
     delete globalThis.__NOTION_STABLE_URL__;
     delete globalThis.__NOTION_RAIL_READY__;
+  });
+
+  test('[REGRESSION] persistent message handler should ignore invalid request payloads', () => {
+    let messageHandler;
+    const sendResponse = jest.fn();
+    const controller = createPersistentListenersController({
+      onMessage: {
+        addListener: jest.fn(handler => {
+          messageHandler = handler;
+        }),
+        removeListener: jest.fn(),
+      },
+    });
+
+    controller.register();
+
+    expect(messageHandler(null, {}, sendResponse)).toBeUndefined();
+    expect(messageHandler(undefined, {}, sendResponse)).toBeUndefined();
+    expect(messageHandler({ action: '__proto__' }, {}, sendResponse)).toBeUndefined();
+    expect(sendResponse).not.toHaveBeenCalled();
   });
 
   test('正常初始化 (無 stableUrl, chrome API 返回正確值)', async () => {

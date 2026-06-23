@@ -2,14 +2,13 @@
  * @jest-environment jsdom
  */
 
-// 【重構】直接導入源代碼（Babel 自動處理 ES Module → CommonJS 轉換）
-const {
+import {
   supportsHighlightAPI,
   isValidElement,
   getVisibleText,
   isInViewport,
   getAttribute,
-} = require('../../../../scripts/highlighter/utils/dom.js');
+} from '../../../../scripts/highlighter/utils/dom.js';
 
 describe('utils/dom', () => {
   describe('supportsHighlightAPI', () => {
@@ -114,7 +113,7 @@ describe('utils/dom', () => {
 
     test('should return null as default when not specified', () => {
       const div = document.createElement('div');
-      expect(getAttribute(div, 'data-id')).toBe(null);
+      expect(getAttribute(div, 'data-id')).toBeNull();
     });
 
     test('should return default value for null element', () => {

@@ -196,8 +196,6 @@ describe('options.html 結構', () => {
   });
 
   test('保存目標靜態文案應以 UI_MESSAGES key 掛載，避免 HTML 重複硬編碼', () => {
-    expect.hasAssertions();
-
     const html = readOptionsHtml();
     const doc = parseOptionsHtml(html);
 
@@ -207,18 +205,20 @@ describe('options.html 結構', () => {
       ['#refresh-databases', 'uiTitle', 'OPTIONS.DESTINATION.REFRESH_TITLE'],
       ['#add-destination-profile', 'uiMessage', 'OPTIONS.DESTINATION.ADD_BUTTON'],
     ].forEach(([selector, datasetKey, expectedValue]) => {
-      expectElementDatasetValue(doc, { selector, datasetKey, expectedValue });
+      expect(() =>
+        expectElementDatasetValue(doc, { selector, datasetKey, expectedValue })
+      ).not.toThrow();
     });
 
     ['#data-source-count', '#add-destination-profile'].forEach(selector => {
-      expectEmptyElementText(doc, selector);
+      expect(() => expectEmptyElementText(doc, selector)).not.toThrow();
     });
 
     [
       ['#database-search', 'placeholder'],
       ['#refresh-databases', 'title'],
     ].forEach(([selector, attribute]) => {
-      expectMissingElementAttribute(doc, { selector, attribute });
+      expect(() => expectMissingElementAttribute(doc, { selector, attribute })).not.toThrow();
     });
   });
 

@@ -38,28 +38,26 @@ function assertPathInsideDirectory(filePath, directoryPath, message) {
   throw new Error(message);
 }
 
-function resolveAllowedFilePath(filePath, directoryPath, message) {
+function readJsonFromCanonicalAllowedFile(filePath, directoryPath, message) {
   const absolutePath = path.resolve(projectRoot, filePath);
   assertPathInsideDirectory(absolutePath, directoryPath, message);
 
   const canonicalPath = fs.realpathSync.native(absolutePath);
   const canonicalDirectoryPath = fs.realpathSync.native(directoryPath);
   assertPathInsideDirectory(canonicalPath, canonicalDirectoryPath, message);
-  return canonicalPath;
+  return JSON.parse(fs.readFileSync(canonicalPath, 'utf8'));
 }
 
-const validatedCoveragePath = resolveAllowedFilePath(
+const coverage = readJsonFromCanonicalAllowedFile(
   coveragePath,
   allowedCoverageRoot,
   '覆蓋率檔案路徑必須位於 coverage/native-esm 底下'
 );
-const validatedManifestPath = resolveAllowedFilePath(
+const requiredHits = readJsonFromCanonicalAllowedFile(
   manifestPath,
   projectRoot,
   'manifest 路徑必須位於 repo root 底下'
 );
-const coverage = JSON.parse(fs.readFileSync(validatedCoveragePath, 'utf8'));
-const requiredHits = JSON.parse(fs.readFileSync(validatedManifestPath, 'utf8'));
 
 function normalizeToPosixPath(filePath) {
   return filePath.split(path.sep).join('/');
