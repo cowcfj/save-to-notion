@@ -1,0 +1,143 @@
+[
+  {
+    "fileSuffix": "scripts/background/utils/BlockBuilder.js",
+    "lines": [54, 55, 56, 57],
+    "rationale": "createRichText body lines must not be mapped to 0 by V8 source-line conversion."
+  },
+  {
+    "fileSuffix": "scripts/background/utils/highlightStyleMerger.js",
+    "lines": [121, 123, 124, 532, 537, 546, 609, 678, 680, 687],
+    "rationale": "highlight style merge must retain source-line hits across style resolution, rich_text splitting, and entrypoint mapping."
+  },
+  {
+    "fileSuffix": "scripts/background/utils/migrationMetadataUtils.js",
+    "lines": [8, 10, 12, 43, 49, 54, 56, 69, 76, 87, 91, 98, 100],
+    "rationale": "Notion metadata id extraction and canonical URL comparison must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/config/shared/deepFreeze.js",
+    "lines": [8, 16, 18, 22],
+    "rationale": "deepFreeze primitive, recursive object, and freeze-return paths must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/config/messages/highlighterMessages.js",
+    "lines": [27, 28],
+    "rationale": "function-valued highlighter message builders must retain source-line hits under native ESM."
+  },
+  {
+    "fileSuffix": "scripts/config/runtimeActions/highlighterActions.js",
+    "lines": [6, 15, 23],
+    "rationale": "highlighter runtime action registry must be covered through the formal config ESM boundary."
+  },
+  {
+    "fileSuffix": "scripts/config/shared/storage.js",
+    "lines": [68, 69, 70, 72, 73, 74],
+    "rationale": "mergeDataSourceConfig local-first and sync-fallback lines must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/config/shared/saveStatus.js",
+    "lines": [77, 81, 85, 89, 100, 113, 115, 119],
+    "rationale": "save status normalization, capability resolution, and response construction must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/config/shared/content.js",
+    "lines": [42, 72, 101, 386, 397, 408, 413, 436],
+    "rationale": "content extraction selector and limit registries must be covered through formal config source paths."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/autoInit/initializationInputs.js",
+    "lines": [38, 39, 40, 41],
+    "rationale": "mock-dependent native ESM branch must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/utils/color.js",
+    "lines": [47, 48, 61, 72, 73],
+    "rationale": "color conversion and CSS variable helpers must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/utils/dom.js",
+    "lines": [29, 30, 42, 47, 48, 52, 65, 66, 70, 71, 89, 90, 94],
+    "rationale": "DOM validation, visibility, viewport, and attribute fallback branches must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/utils/path.js",
+    "lines": [59, 64, 67, 68, 73, 78, 90, 95, 108, 117, 120, 254, 257, 261, 265, 277, 289],
+    "rationale": "DOM path serialization, parsing, resolution, and invalid-path branches must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/utils/domStability.js",
+    "lines": [34, 42, 52, 54, 68, 72, 95, 96, 115, 120, 144, 147, 153, 159],
+    "rationale": "DOM stability container lookup, timer scheduling, observer setup, and cleanup paths must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/utils/textSearch.js",
+    "lines": [
+      155, 158, 161, 169, 213, 218, 239, 240, 310, 313, 395, 400, 403, 409, 587, 589, 594, 715, 727,
+      730, 736, 747
+    ],
+    "rationale": "TreeWalker, cross-node, fuzzy whitespace, and findTextInPage fallback paths must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/utils/validation.js",
+    "lines": [18, 19, 32, 53, 68, 81, 82, 86, 99, 111, 112, 116],
+    "rationale": "validation helper branches for strings, ranges, colors, URLs, ids, and highlight data must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/utils/safeIcon.js",
+    "lines": [12, 17, 79, 80, 83, 88, 97, 101, 120, 122],
+    "rationale": "safeIcon sanitization, text fallback, namespace normalization, and DOM append paths must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/utils/image/imageUrl.js",
+    "lines": [
+      75, 77, 112, 116, 119, 129, 137, 190, 193, 205, 223, 226, 236, 238, 242, 255, 256, 270, 275,
+      375, 380, 381, 460, 465, 469, 484, 493, 502, 507, 518, 526
+    ],
+    "rationale": "image URL normalization, protocol rejection, validation guards, and pattern checks must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/utils/image/srcsetCandidateParser.js",
+    "lines": [103, 107, 108, 112, 115, 119],
+    "rationale": "manual srcset candidate parsing and best-candidate selection must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/utils/image/srcsetExtractor.js",
+    "lines": [17, 18, 22, 27, 28, 37, 42, 45, 46, 48, 60, 61],
+    "rationale": "srcset extraction fallback and DOM attribute paths must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/utils/image/srcsetParserAdapter.js",
+    "lines": [26, 27, 28, 29, 33, 34],
+    "rationale": "SrcsetParser adapter missing-parser and parser-success paths must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/utils/image/srcsetUrlValidator.js",
+    "lines": [29, 30, 34, 35, 38, 42],
+    "rationale": "srcset URL validation success and unsafe-protocol rejection paths must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/utils/image/imageAttributeSource.js",
+    "lines": [39, 40, 50, 51, 55, 56, 58, 61, 70, 75, 76, 77, 79, 91, 96, 101],
+    "rationale": "image attribute source extraction, srcset attributes, unsafe guards, and cache key generation must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/utils/image/imagePictureSource.js",
+    "lines": [14, 15, 20, 21, 27, 28, 30],
+    "rationale": "picture/source srcset extraction and validation paths must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/utils/image/imageNoscriptSource.js",
+    "lines": [9, 10, 12, 13, 16, 19, 32, 34, 35, 41, 47, 49],
+    "rationale": "noscript image regex extraction and safe protocol checks must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/utils/image/imageBackgroundSource.js",
+    "lines": [8, 9, 10, 21, 22, 26, 27, 47, 48, 49, 51, 55, 64, 66, 70, 72, 75, 77],
+    "rationale": "background-image computed-style extraction and parent fallback paths must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/utils/image/imageBlockMerge.js",
+    "lines": [28, 29, 32, 36, 39, 40, 50, 51, 55, 57, 58, 59, 61, 66],
+    "rationale": "image block merge duplicate filtering and non-image preservation paths must retain source-line hits."
+  }
+]
