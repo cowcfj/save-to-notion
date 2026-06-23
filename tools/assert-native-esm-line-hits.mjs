@@ -24,7 +24,7 @@ function assertPathInsideDirectory(filePath, directoryPath) {
     return;
   }
 
-  throw new Error('Coverage path must stay under coverage/native-esm');
+  throw new Error('覆蓋率檔案路徑必須位於 coverage/native-esm 底下');
 }
 
 const absoluteCoveragePath = path.resolve(projectRoot, coveragePath);
@@ -46,7 +46,7 @@ function findFileCoverage(fileSuffix) {
   const normalizedSuffix = fileSuffix.split('/').join(path.sep);
   const entry = Object.entries(coverage).find(([filePath]) => filePath.endsWith(normalizedSuffix));
   if (!entry) {
-    throw new Error(`Missing coverage entry for ${fileSuffix}`);
+    throw new Error(`找不到 ${fileSuffix} 的覆蓋率資料`);
   }
   return entry[1];
 }
@@ -70,7 +70,7 @@ for (const requirement of requiredHits) {
   for (const line of requirement.lines) {
     const count = lineHits.get(line) || 0;
     if (count <= 0) {
-      failures.push(`${requirement.fileSuffix}:${line} expected > 0 hit, got ${count}`);
+      failures.push(`${requirement.fileSuffix}:${line} 預期命中次數 > 0，實際為 ${count}`);
     }
   }
 }
@@ -80,4 +80,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log('native-esm-line-hits:ok');
+console.log('Native ESM 行命中檢查通過');
