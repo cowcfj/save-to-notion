@@ -88,7 +88,7 @@ describe('DOM/text native ESM diagnostics', () => {
       maxWaitMs: 100,
       initialGracePeriodMs: 0,
     });
-    await jest.advanceTimersByTimeAsync(0);
+    await jest.advanceTimersByTimeAsync(10);
     await expect(stable).resolves.toBe(true);
 
     await expect(waitForDOMStability({ containerSelector: '#missing' })).resolves.toBe(false);

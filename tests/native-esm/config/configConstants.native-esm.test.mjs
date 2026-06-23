@@ -85,39 +85,47 @@ describe('config native ESM diagnostics', () => {
   });
 
   test('save status helpers normalize state and preserve canonical fields', () => {
+    const hadLogger = Object.hasOwn(globalThis, 'Logger');
+    const originalLogger = globalThis.Logger;
     const warn = jest.fn();
     globalThis.Logger = { warn };
 
-    expect(isSavedStatusResponse({ deletionPending: true, wasDeleted: true })).toBe(true);
-    expect(isSavedStatusResponse({ wasDeleted: true })).toBe(false);
-    expect(isSavedStatusResponse({ statusKind: SAVE_STATUS_KINDS.SAVED })).toBe(true);
-    expect(isSavedStatusResponse({ isSaved: 1 })).toBe(true);
+    try {
+      expect(isSavedStatusResponse({ deletionPending: true, wasDeleted: true })).toBe(true);
+      expect(isSavedStatusResponse({ wasDeleted: true })).toBe(false);
+      expect(isSavedStatusResponse({ statusKind: SAVE_STATUS_KINDS.SAVED })).toBe(true);
+      expect(isSavedStatusResponse({ isSaved: 1 })).toBe(true);
 
-    const response = createSaveStatusResponse({
-      statusKind: 'unknown_kind',
-      stableUrl: 'https://example.com',
-      extra: { customFlag: 'preserved', statusKind: 'saved' },
-    });
-
-    expect(response).toEqual(
-      expect.objectContaining({
-        success: false,
-        statusKind: SAVE_STATUS_KINDS.ERROR,
-        isSaved: false,
-        canSave: false,
-        canSyncHighlights: false,
+      const response = createSaveStatusResponse({
+        statusKind: 'unknown_kind',
         stableUrl: 'https://example.com',
-        error: 'unknown_status_kind',
-        customFlag: 'preserved',
-      })
-    );
-    expect(warn).toHaveBeenCalledWith('unknown status kind', {
-      operation: 'createSaveStatusResponse',
-      reason: 'unknown_status_kind',
-      statusKind: 'unknown_kind',
-    });
+        extra: { customFlag: 'preserved', statusKind: 'saved' },
+      });
 
-    delete globalThis.Logger;
+      expect(response).toEqual(
+        expect.objectContaining({
+          success: false,
+          statusKind: SAVE_STATUS_KINDS.ERROR,
+          isSaved: false,
+          canSave: false,
+          canSyncHighlights: false,
+          stableUrl: 'https://example.com',
+          error: 'unknown_status_kind',
+          customFlag: 'preserved',
+        })
+      );
+      expect(warn).toHaveBeenCalledWith('unknown status kind', {
+        operation: 'createSaveStatusResponse',
+        reason: 'unknown_status_kind',
+        statusKind: 'unknown_kind',
+      });
+    } finally {
+      if (hadLogger) {
+        globalThis.Logger = originalLogger;
+      } else {
+        delete globalThis.Logger;
+      }
+    }
   });
 
   test('content extraction constants expose stable selector and limit cohorts', () => {
