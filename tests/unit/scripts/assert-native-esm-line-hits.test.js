@@ -90,6 +90,25 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
     expect(result.stdout).not.toContain('Native ESM 行命中檢查通過');
   });
 
+  test('[SECURITY] repo 內 manifest symlink 指向 repo 外檔案時應被拒絕', () => {
+    const externalTempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'native-esm-line-hits-'));
+    const externalManifestPath = path.join(externalTempRoot, 'coverage-line-hits.json');
+    const linkedManifestPath = path.join(tempRoot, 'linked-coverage-line-hits.json');
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    fs.writeFileSync(externalManifestPath, JSON.stringify(createPassingManifest()), 'utf8');
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    fs.symlinkSync(externalManifestPath, linkedManifestPath);
+
+    const coveragePath = writeCoverageFile(createPassingCoverage());
+    const result = runCli(coveragePath, linkedManifestPath);
+
+    fs.rmSync(externalTempRoot, { recursive: true, force: true });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('manifest 路徑必須位於 repo root 底下');
+    expect(result.stdout).not.toContain('Native ESM 行命中檢查通過');
+  });
+
   test('缺少必要 source coverage entry 時輸出繁中錯誤', () => {
     const coveragePath = writeCoverageFile({
       [path.join(projectRoot, 'scripts/background/utils/BlockBuilder.js')]: {
