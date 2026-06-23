@@ -206,16 +206,16 @@ describe('tools/check-size-gates.mjs', () => {
   });
 
   test('[REGRESSION] hard mode 應允許 background bundle 在 delta gate 內自然成長', () => {
-    expect(() => {
-      expectHardBundleCheckPass({
-        sizes: { backgroundSize: 243_500 },
-        checkKey: 'background_bundle',
-        expected: {
-          current: 243_500,
-          hardLimit: 245_000,
-        },
-      });
-    }).not.toThrow();
+    expect.assertions(2);
+
+    expectHardBundleCheckPass({
+      sizes: { backgroundSize: 243_500 },
+      checkKey: 'background_bundle',
+      expected: {
+        current: 243_500,
+        hardLimit: 245_000,
+      },
+    });
   });
 
   test('delta mode 應在增量超過門檻時失敗', () => {
