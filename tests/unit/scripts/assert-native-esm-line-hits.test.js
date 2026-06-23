@@ -12,7 +12,9 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
   const projectRoot = path.resolve(__dirname, '../../..');
   const scriptPath = path.join(projectRoot, 'tools/assert-native-esm-line-hits.mjs');
   const allowedCoverageRoot = path.join(projectRoot, 'coverage/native-esm');
-  let tempRoot;
+  const allowedManifestRoot = path.join(projectRoot, 'tests/native-esm');
+  let tempCoverageRoot;
+  let tempManifestRoot;
 
   const createPassingCoverage = () => ({
     [path.join(projectRoot, 'scripts/background/utils/BlockBuilder.js')]: {
@@ -53,14 +55,21 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
     });
 
   const writeCoverageFile = coverage => {
-    const coveragePath = path.join(tempRoot, 'coverage-final.json');
+    const coveragePath = path.join(tempCoverageRoot, 'coverage-final.json');
     // eslint-disable-next-line security/detect-non-literal-fs-filename
     fs.writeFileSync(coveragePath, JSON.stringify(coverage), 'utf8');
     return coveragePath;
   };
 
   const writeManifestFile = manifest => {
-    const manifestPath = path.join(tempRoot, 'coverage-line-hits.json');
+    const manifestPath = path.join(tempManifestRoot, 'coverage-line-hits.json');
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest), 'utf8');
+    return manifestPath;
+  };
+
+  const writeManifestOutsideAllowedRoot = manifest => {
+    const manifestPath = path.join(tempCoverageRoot, 'coverage-line-hits.json');
     // eslint-disable-next-line security/detect-non-literal-fs-filename
     fs.writeFileSync(manifestPath, JSON.stringify(manifest), 'utf8');
     return manifestPath;
@@ -68,11 +77,14 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
 
   beforeEach(() => {
     fs.mkdirSync(allowedCoverageRoot, { recursive: true });
-    tempRoot = fs.mkdtempSync(path.join(allowedCoverageRoot, 'line-hits-test-'));
+    fs.mkdirSync(allowedManifestRoot, { recursive: true });
+    tempCoverageRoot = fs.mkdtempSync(path.join(allowedCoverageRoot, 'line-hits-test-'));
+    tempManifestRoot = fs.mkdtempSync(path.join(allowedManifestRoot, 'line-hits-test-'));
   });
 
   afterEach(() => {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
+    fs.rmSync(tempCoverageRoot, { recursive: true, force: true });
+    fs.rmSync(tempManifestRoot, { recursive: true, force: true });
   });
 
   test('[SECURITY] repo 外 coverage path 應被拒絕', () => {
@@ -93,7 +105,7 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
   test('[SECURITY] repo 內 manifest symlink 指向 repo 外檔案時應被拒絕', () => {
     const externalTempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'native-esm-line-hits-'));
     const externalManifestPath = path.join(externalTempRoot, 'coverage-line-hits.json');
-    const linkedManifestPath = path.join(tempRoot, 'linked-coverage-line-hits.json');
+    const linkedManifestPath = path.join(tempManifestRoot, 'linked-coverage-line-hits.json');
     // eslint-disable-next-line security/detect-non-literal-fs-filename
     fs.writeFileSync(externalManifestPath, JSON.stringify(createPassingManifest()), 'utf8');
     // eslint-disable-next-line security/detect-non-literal-fs-filename
@@ -105,7 +117,18 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
     fs.rmSync(externalTempRoot, { recursive: true, force: true });
 
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain('manifest 路徑必須位於 repo root 底下');
+    expect(result.stderr).toContain('manifest 路徑必須位於 tests/native-esm 底下');
+    expect(result.stdout).not.toContain('Native ESM 行命中檢查通過');
+  });
+
+  test('[SECURITY] repo 內但不在 native ESM manifest 目錄的 manifest path 應被拒絕', () => {
+    const coveragePath = writeCoverageFile(createPassingCoverage());
+    const manifestPath = writeManifestOutsideAllowedRoot(createPassingManifest());
+
+    const result = runCli(coveragePath, manifestPath);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('manifest 路徑必須位於 tests/native-esm 底下');
     expect(result.stdout).not.toContain('Native ESM 行命中檢查通過');
   });
 
