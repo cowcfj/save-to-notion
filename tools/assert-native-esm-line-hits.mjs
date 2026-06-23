@@ -6,9 +6,21 @@ const [, , coveragePath = 'coverage/native-esm/coverage-final.json'] = process.a
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const allowedCoverageRoot = path.join(projectRoot, 'coverage', 'native-esm');
 
+function isDescendantPath(relativePath) {
+  if (relativePath.startsWith('..')) {
+    return false;
+  }
+
+  return !path.isAbsolute(relativePath);
+}
+
 function assertPathInsideDirectory(filePath, directoryPath) {
   const relativePath = path.relative(directoryPath, filePath);
-  if (relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath))) {
+  if (relativePath === '') {
+    return;
+  }
+
+  if (isDescendantPath(relativePath)) {
     return;
   }
 
