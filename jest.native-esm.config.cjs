@@ -27,6 +27,16 @@ module.exports = {
     '<rootDir>/scripts/highlighter/utils/safeIcon.js',
     '<rootDir>/scripts/highlighter/utils/textSearch.js',
     '<rootDir>/scripts/highlighter/utils/validation.js',
+    '<rootDir>/scripts/utils/image/imageAttributeSource.js',
+    '<rootDir>/scripts/utils/image/imageBackgroundSource.js',
+    '<rootDir>/scripts/utils/image/imageBlockMerge.js',
+    '<rootDir>/scripts/utils/image/imageNoscriptSource.js',
+    '<rootDir>/scripts/utils/image/imagePictureSource.js',
+    '<rootDir>/scripts/utils/image/imageUrl.js',
+    '<rootDir>/scripts/utils/image/srcsetCandidateParser.js',
+    '<rootDir>/scripts/utils/image/srcsetExtractor.js',
+    '<rootDir>/scripts/utils/image/srcsetParserAdapter.js',
+    '<rootDir>/scripts/utils/image/srcsetUrlValidator.js',
   ],
   coverageThreshold: {
     global: {
