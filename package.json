@@ -10,6 +10,8 @@
     "test": "jest --config jest.config.js",
     "test:watch": "jest --config jest.config.js --watch",
     "test:coverage": "jest --config jest.config.js --coverage",
+    "test:coverage:native-esm": "NODE_OPTIONS=--experimental-vm-modules jest --config jest.native-esm.config.cjs --coverage --runInBand",
+    "test:coverage:native-esm:assert": "npm run test:coverage:native-esm && node tools/assert-native-esm-line-hits.mjs",
     "test:quick": "jest --config jest.config.js --onlyChanged",
     "test:ci": "jest --config jest.config.js --ci --coverage --coverageReporters=text --coverageReporters=lcov --maxWorkers=2",
     "test:ci:diagnostic": "jest --config jest.config.js --ci --coverage --coverageReporters=text --coverageReporters=lcov --maxWorkers=2 --detectOpenHandles",

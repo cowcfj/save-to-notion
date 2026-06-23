@@ -117,6 +117,9 @@ jobs:
       - name: Jest unit and integration tests with coverage
         run: npm run test:ci
 
+      - name: Native ESM 覆蓋率正確性診斷
+        run: npm run test:coverage:native-esm:assert
+
       - name: Validate coverage file
         id: validate-coverage
         run: |
