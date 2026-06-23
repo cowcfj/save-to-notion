@@ -5,11 +5,14 @@ module.exports = {
   testEnvironment: 'node',
   testMatch: ['<rootDir>/tests/native-esm/**/*.test.mjs'],
   transform: {},
-  cacheDirectory: '<rootDir>/.jest-cache-native-esm',
+  cacheDirectory: '<rootDir>/.tmp/jest-cache-native-esm',
   coverageProvider: 'v8',
   coverageDirectory: '<rootDir>/coverage/native-esm',
   coverageReporters: ['json', 'text'],
-  collectCoverageFrom: ['<rootDir>/scripts/background/utils/BlockBuilder.js'],
+  collectCoverageFrom: [
+    '<rootDir>/scripts/background/utils/BlockBuilder.js',
+    '<rootDir>/scripts/highlighter/autoInit/initializationInputs.js',
+  ],
   coverageThreshold: {
     global: {
       branches: 0,
