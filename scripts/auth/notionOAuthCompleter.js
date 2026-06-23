@@ -34,7 +34,6 @@ const TOKEN_EXCHANGE_TIMEOUT_MS = 10_000;
  */
 
 /**
-/**
  * 處理 token 交換請求的 fetch 錯誤（如網路不通、逾時等）。
  *
  * @param {any} error

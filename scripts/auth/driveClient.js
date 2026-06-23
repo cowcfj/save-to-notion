@@ -506,9 +506,6 @@ export async function fetchDriveSnapshotStatus() {
 }
 
 /**
- * 上傳 snapshot 到 Drive。
- *
-/**
  * 建立上傳 Drive Snapshot 的 Request Body。
  *
  * @param {object} snapshotPayload

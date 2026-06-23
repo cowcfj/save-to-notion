@@ -45,13 +45,6 @@ async function handleResponseError(res, prefix) {
 }
 
 /**
- * 驗證 data 是否為有效的物件（非 null、非陣列、非 primitive）。
- *
- * @param {any} data
- * @param {string} context
- * @throws {Error} 若 data 不是有效的物件
- */
-/**
  * 檢查輸入是否為有效物件（非 null、非陣列、非 primitive）。
  *
  * @param {any} data
