@@ -177,9 +177,8 @@ describe('core/Range', () => {
       document.body.innerHTML = '<div>Find Me</div>';
       const range = findRangeByTextContent('Find');
 
-      // 可能返回 null (jsdom 限制)，但功能已驗證
-      // 實際功能由 findTextInPage 提供
-      expect(typeof range).toBe('object');
+      expect(range).not.toBeNull();
+      expect(range).toBeInstanceOf(Range);
     });
 
     test('should return null for invalid input', () => {
