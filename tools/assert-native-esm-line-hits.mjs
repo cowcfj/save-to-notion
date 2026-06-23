@@ -2,7 +2,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const [, , coveragePath = 'coverage/native-esm/coverage-final.json'] = process.argv;
+const [
+  ,
+  ,
+  coveragePath = 'coverage/native-esm/coverage-final.json',
+  manifestPath = 'tests/native-esm/coverage-line-hits.json',
+] = process.argv;
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const allowedCoverageRoot = path.join(projectRoot, 'coverage', 'native-esm');
 
@@ -14,7 +19,7 @@ function isDescendantPath(relativePath) {
   return !path.isAbsolute(relativePath);
 }
 
-function assertPathInsideDirectory(filePath, directoryPath) {
+function assertPathInsideDirectory(filePath, directoryPath, message) {
   const relativePath = path.relative(directoryPath, filePath);
   if (relativePath === '') {
     return;
@@ -24,23 +29,34 @@ function assertPathInsideDirectory(filePath, directoryPath) {
     return;
   }
 
-  throw new Error('覆蓋率檔案路徑必須位於 coverage/native-esm 底下');
+  throw new Error(message);
 }
 
 const absoluteCoveragePath = path.resolve(projectRoot, coveragePath);
-assertPathInsideDirectory(absoluteCoveragePath, allowedCoverageRoot);
+const absoluteManifestPath = path.resolve(projectRoot, manifestPath);
+assertPathInsideDirectory(
+  absoluteCoveragePath,
+  allowedCoverageRoot,
+  '覆蓋率檔案路徑必須位於 coverage/native-esm 底下',
+);
+assertPathInsideDirectory(absoluteManifestPath, projectRoot, 'manifest 路徑必須位於 repo root 底下');
 const coverage = JSON.parse(fs.readFileSync(absoluteCoveragePath, 'utf8'));
+const requiredHits = JSON.parse(fs.readFileSync(absoluteManifestPath, 'utf8'));
 
-const requiredHits = [
-  {
-    fileSuffix: 'scripts/background/utils/BlockBuilder.js',
-    lines: [54, 55, 56, 57],
-  },
-  {
-    fileSuffix: 'scripts/highlighter/autoInit/initializationInputs.js',
-    lines: [38, 39, 40, 41],
-  },
-];
+function assertValidRequirement(requirement) {
+  if (!requirement || typeof requirement.fileSuffix !== 'string') {
+    throw new Error('manifest entry 必須包含 fileSuffix 字串');
+  }
+
+  if (!Array.isArray(requirement.lines) || requirement.lines.length === 0) {
+    throw new Error(`${requirement.fileSuffix} 必須包含至少一個 line number`);
+  }
+
+  const invalidLine = requirement.lines.find((line) => !Number.isInteger(line) || line <= 0);
+  if (invalidLine !== undefined) {
+    throw new Error(`${requirement.fileSuffix} 包含無效 line number: ${invalidLine}`);
+  }
+}
 
 function findFileCoverage(fileSuffix) {
   const normalizedSuffix = fileSuffix.split('/').join(path.sep);
@@ -65,6 +81,7 @@ function getLineHits(fileCoverage) {
 const failures = [];
 
 for (const requirement of requiredHits) {
+  assertValidRequirement(requirement);
   const fileCoverage = findFileCoverage(requirement.fileSuffix);
   const lineHits = getLineHits(fileCoverage);
   for (const line of requirement.lines) {

@@ -1,0 +1,12 @@
+[
+  {
+    "fileSuffix": "scripts/background/utils/BlockBuilder.js",
+    "lines": [54, 55, 56, 57],
+    "rationale": "createRichText body lines must not be mapped to 0 by V8 source-line conversion."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/autoInit/initializationInputs.js",
+    "lines": [38, 39, 40, 41],
+    "rationale": "mock-dependent native ESM branch must retain source-line hits."
+  }
+]
