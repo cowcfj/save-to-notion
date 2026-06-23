@@ -35,8 +35,19 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
     },
   });
 
-  const runCli = coveragePath =>
-    spawnSync('node', [scriptPath, coveragePath], {
+  const createPassingManifest = () => [
+    {
+      fileSuffix: 'scripts/background/utils/BlockBuilder.js',
+      lines: [54, 55, 56, 57],
+    },
+    {
+      fileSuffix: 'scripts/highlighter/autoInit/initializationInputs.js',
+      lines: [38, 39, 40, 41],
+    },
+  ];
+
+  const runCli = (coveragePath, manifestPath) =>
+    spawnSync('node', [scriptPath, coveragePath, manifestPath].filter(Boolean), {
       cwd: projectRoot,
       encoding: 'utf8',
     });
@@ -46,6 +57,13 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
     // eslint-disable-next-line security/detect-non-literal-fs-filename
     fs.writeFileSync(coveragePath, JSON.stringify(coverage), 'utf8');
     return coveragePath;
+  };
+
+  const writeManifestFile = manifest => {
+    const manifestPath = path.join(tempRoot, 'coverage-line-hits.json');
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest), 'utf8');
+    return manifestPath;
   };
 
   beforeEach(() => {
@@ -84,8 +102,9 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
         s: { 0: 1 },
       },
     });
+    const manifestPath = writeManifestFile(createPassingManifest());
 
-    const result = runCli(coveragePath);
+    const result = runCli(coveragePath, manifestPath);
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(
@@ -97,8 +116,14 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
     const coverage = createPassingCoverage();
     coverage[path.join(projectRoot, 'scripts/background/utils/BlockBuilder.js')].s[0] = 0;
     const coveragePath = writeCoverageFile(coverage);
+    const manifestPath = writeManifestFile([
+      {
+        fileSuffix: 'scripts/background/utils/BlockBuilder.js',
+        lines: [54],
+      },
+    ]);
 
-    const result = runCli(coveragePath);
+    const result = runCli(coveragePath, manifestPath);
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(
@@ -108,10 +133,53 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
 
   test('必要 line 都命中時輸出繁中成功訊息', () => {
     const coveragePath = writeCoverageFile(createPassingCoverage());
+    const manifestPath = writeManifestFile(createPassingManifest());
 
-    const result = runCli(coveragePath);
+    const result = runCli(coveragePath, manifestPath);
 
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain('Native ESM 行命中檢查通過');
+    expect(result.stdout).toContain('Native ESM 行命中檢查通過：2 files, 8 lines');
+  });
+
+  test('[SECURITY] coverage entry 不可來自 copy-slice spike path', () => {
+    const coveragePath = writeCoverageFile({
+      [path.join(projectRoot, '.tmp/coverage-spike/scripts/background/utils/BlockBuilder.js')]: {
+        statementMap: {
+          0: {
+            start: { line: 54 },
+            end: { line: 57 },
+          },
+        },
+        s: { 0: 1 },
+      },
+    });
+    const manifestPath = writeManifestFile([
+      {
+        fileSuffix: 'scripts/background/utils/BlockBuilder.js',
+        lines: [54],
+      },
+    ]);
+
+    const result = runCli(coveragePath, manifestPath);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('coverage entry 不可來自 .tmp/coverage-spike');
+  });
+
+  test('[SECURITY] manifest fileSuffix 必須位於 native ESM allowlist', () => {
+    const coveragePath = writeCoverageFile(createPassingCoverage());
+    const manifestPath = writeManifestFile([
+      {
+        fileSuffix: 'scripts/utils/RetryManager.js',
+        lines: [1],
+      },
+    ]);
+
+    const result = runCli(coveragePath, manifestPath);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      'manifest fileSuffix 不在 native ESM diagnostic allowlist: scripts/utils/RetryManager.js'
+    );
   });
 });
