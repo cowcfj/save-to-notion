@@ -78,21 +78,37 @@ function assertAllowedSourceSuffix(fileSuffix) {
   throw new Error(`manifest fileSuffix 不在 native ESM diagnostic allowlist: ${fileSuffix}`);
 }
 
-function assertValidRequirement(requirement) {
+function assertRequirementFileSuffix(requirement) {
   if (!requirement || typeof requirement.fileSuffix !== 'string') {
     throw new Error('manifest entry 必須包含 fileSuffix 字串');
   }
 
   assertAllowedSourceSuffix(requirement.fileSuffix);
+  return requirement.fileSuffix;
+}
 
-  if (!Array.isArray(requirement.lines) || requirement.lines.length === 0) {
-    throw new Error(`${requirement.fileSuffix} 必須包含至少一個 line number`);
+function hasRequiredLineList(lines) {
+  return Array.isArray(lines) && lines.length > 0;
+}
+
+function isInvalidLineNumber(line) {
+  return !Number.isInteger(line) || line <= 0;
+}
+
+function assertRequirementLines(fileSuffix, lines) {
+  if (!hasRequiredLineList(lines)) {
+    throw new Error(`${fileSuffix} 必須包含至少一個 line number`);
   }
 
-  const invalidLine = requirement.lines.find((line) => !Number.isInteger(line) || line <= 0);
+  const invalidLine = lines.find(isInvalidLineNumber);
   if (invalidLine !== undefined) {
-    throw new Error(`${requirement.fileSuffix} 包含無效 line number: ${invalidLine}`);
+    throw new Error(`${fileSuffix} 包含無效 line number: ${invalidLine}`);
   }
+}
+
+function assertValidRequirement(requirement) {
+  const fileSuffix = assertRequirementFileSuffix(requirement);
+  assertRequirementLines(fileSuffix, requirement.lines);
 }
 
 function findFileCoverage(fileSuffix) {

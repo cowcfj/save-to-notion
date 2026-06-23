@@ -13,9 +13,9 @@ await jest.unstable_mockModule('../../../../scripts/utils/Logger.js', () => ({
 
 await jest.unstable_mockModule('../../../../scripts/utils/LogSanitizer.js', () => ({
   LogSanitizer: {
-    _sanitizeString: (value) => String(value),
+    _sanitizeString: String,
   },
-  sanitizeUrlForLogging: (url) => String(url),
+  sanitizeUrlForLogging: String,
 }));
 
 const imageUrl = await import('../../../../scripts/utils/image/imageUrl.js');
