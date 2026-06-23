@@ -45,6 +45,25 @@ async function handleResponseError(res, prefix) {
 }
 
 /**
+ * 檢查輸入是否為有效物件（非 null、非陣列、非 primitive）。
+ *
+ * @param {any} data
+ * @returns {boolean}
+ */
+function isValidObject(data) {
+  if (!data) {
+    return false;
+  }
+  if (typeof data !== 'object') {
+    return false;
+  }
+  if (Array.isArray(data)) {
+    return false;
+  }
+  return true;
+}
+
+/**
  * 驗證 data 是否為有效的物件（非 null、非陣列、非 primitive）。
  *
  * @param {any} data
@@ -52,7 +71,7 @@ async function handleResponseError(res, prefix) {
  * @throws {Error} 若 data 不是有效的物件
  */
 function ensureValidObject(data, context) {
-  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+  if (!isValidObject(data)) {
     throw new Error(`${context} response is not a valid object`);
   }
 }

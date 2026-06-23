@@ -166,32 +166,62 @@ export async function startDriveOAuthFlow() {
 // =============================================================================
 
 /**
+ * Drive Sync Metadata 欄位對應定義表
+ * 集中定義 storage key、回傳屬性名與其預設值，藉此降低 getDriveSyncMetadata 內的 ?? 複雜度
+ */
+const DRIVE_SYNC_METADATA_FIELDS = [
+  { key: DRIVE_SYNC_STORAGE_KEYS.CONNECTION_EMAIL, prop: 'connectionEmail', defaultValue: null },
+  { key: DRIVE_SYNC_STORAGE_KEYS.CONNECTED_AT, prop: 'connectedAt', defaultValue: null },
+  {
+    key: DRIVE_SYNC_STORAGE_KEYS.LAST_KNOWN_REMOTE_UPDATED_AT,
+    prop: 'lastKnownRemoteUpdatedAt',
+    defaultValue: null,
+  },
+  {
+    key: DRIVE_SYNC_STORAGE_KEYS.LAST_SUCCESSFUL_UPLOAD_AT,
+    prop: 'lastSuccessfulUploadAt',
+    defaultValue: null,
+  },
+  {
+    key: DRIVE_SYNC_STORAGE_KEYS.LAST_SUCCESSFUL_DOWNLOAD_AT,
+    prop: 'lastSuccessfulDownloadAt',
+    defaultValue: null,
+  },
+  { key: DRIVE_SYNC_STORAGE_KEYS.LAST_ERROR_CODE, prop: 'lastErrorCode', defaultValue: null },
+  { key: DRIVE_SYNC_STORAGE_KEYS.LAST_ERROR_AT, prop: 'lastErrorAt', defaultValue: null },
+  { key: DRIVE_SYNC_STORAGE_KEYS.LAST_RUN_AT, prop: 'lastRunAt', defaultValue: null },
+  { key: DRIVE_SYNC_STORAGE_KEYS.LAST_RUN_TYPE, prop: 'lastRunType', defaultValue: null },
+  {
+    key: DRIVE_SYNC_STORAGE_KEYS.NEEDS_MANUAL_REVIEW,
+    prop: 'needsManualReview',
+    defaultValue: false,
+  },
+  { key: DRIVE_SYNC_STORAGE_KEYS.INSTALLATION_ID, prop: 'installationId', defaultValue: null },
+  { key: DRIVE_SYNC_STORAGE_KEYS.PROFILE_ID, prop: 'profileId', defaultValue: null },
+  { key: DRIVE_SYNC_STORAGE_KEYS.FREQUENCY, prop: 'frequency', defaultValue: 'off' },
+  { key: DRIVE_SYNC_STORAGE_KEYS.DIRTY_REVISION, prop: 'dirtyRevision', defaultValue: 0 },
+  {
+    key: DRIVE_SYNC_STORAGE_KEYS.LAST_UPLOADED_REVISION,
+    prop: 'lastUploadedRevision',
+    defaultValue: 0,
+  },
+  { key: DRIVE_SYNC_STORAGE_KEYS.LAST_SNAPSHOT_HASH, prop: 'lastSnapshotHash', defaultValue: null },
+  { key: DRIVE_SYNC_STORAGE_KEYS.NEXT_ELIGIBLE_AT, prop: 'nextEligibleAt', defaultValue: null },
+];
+
+/**
  * 讀取所有 Drive Sync metadata。
  *
  * @returns {Promise<DriveSyncMetadata>}
  */
 export async function getDriveSyncMetadata() {
   const data = await chrome.storage.local.get(ALL_DRIVE_SYNC_KEYS);
-  return {
-    connectionEmail: data[DRIVE_SYNC_STORAGE_KEYS.CONNECTION_EMAIL] ?? null,
-    connectedAt: data[DRIVE_SYNC_STORAGE_KEYS.CONNECTED_AT] ?? null,
-    lastKnownRemoteUpdatedAt: data[DRIVE_SYNC_STORAGE_KEYS.LAST_KNOWN_REMOTE_UPDATED_AT] ?? null,
-    lastSuccessfulUploadAt: data[DRIVE_SYNC_STORAGE_KEYS.LAST_SUCCESSFUL_UPLOAD_AT] ?? null,
-    lastSuccessfulDownloadAt: data[DRIVE_SYNC_STORAGE_KEYS.LAST_SUCCESSFUL_DOWNLOAD_AT] ?? null,
-    lastErrorCode: data[DRIVE_SYNC_STORAGE_KEYS.LAST_ERROR_CODE] ?? null,
-    lastErrorAt: data[DRIVE_SYNC_STORAGE_KEYS.LAST_ERROR_AT] ?? null,
-    lastRunAt: data[DRIVE_SYNC_STORAGE_KEYS.LAST_RUN_AT] ?? null,
-    lastRunType: data[DRIVE_SYNC_STORAGE_KEYS.LAST_RUN_TYPE] ?? null,
-    needsManualReview: data[DRIVE_SYNC_STORAGE_KEYS.NEEDS_MANUAL_REVIEW] ?? false,
-    installationId: data[DRIVE_SYNC_STORAGE_KEYS.INSTALLATION_ID] ?? null,
-    profileId: data[DRIVE_SYNC_STORAGE_KEYS.PROFILE_ID] ?? null,
-    // Phase B
-    frequency: data[DRIVE_SYNC_STORAGE_KEYS.FREQUENCY] ?? 'off',
-    dirtyRevision: data[DRIVE_SYNC_STORAGE_KEYS.DIRTY_REVISION] ?? 0,
-    lastUploadedRevision: data[DRIVE_SYNC_STORAGE_KEYS.LAST_UPLOADED_REVISION] ?? 0,
-    lastSnapshotHash: data[DRIVE_SYNC_STORAGE_KEYS.LAST_SNAPSHOT_HASH] ?? null,
-    nextEligibleAt: data[DRIVE_SYNC_STORAGE_KEYS.NEXT_ELIGIBLE_AT] ?? null,
-  };
+  const metadata = {};
+  for (const item of DRIVE_SYNC_METADATA_FIELDS) {
+    const value = data[item.key];
+    metadata[item.prop] = value !== undefined && value !== null ? value : item.defaultValue;
+  }
+  return /** @type {any} */ (metadata);
 }
 
 function generateDriveSyncInstallationId() {
@@ -264,6 +294,46 @@ export async function clearDriveSyncMetadata() {
 }
 
 /**
+ * 處理成功同步時的 metadata patch 欄位更新。
+ *
+ * @param {Record<string, any>} patch
+ * @param {any} result
+ * @param {string} now
+ */
+function applySuccessfulDriveSyncRunMetadata(patch, result, now) {
+  patch[DRIVE_SYNC_STORAGE_KEYS.LAST_ERROR_CODE] = null;
+  patch[DRIVE_SYNC_STORAGE_KEYS.LAST_ERROR_AT] = null;
+  patch[DRIVE_SYNC_STORAGE_KEYS.NEEDS_MANUAL_REVIEW] = false;
+  if (result.type === 'upload') {
+    patch[DRIVE_SYNC_STORAGE_KEYS.LAST_SUCCESSFUL_UPLOAD_AT] = now;
+  } else if (result.type === 'download') {
+    patch[DRIVE_SYNC_STORAGE_KEYS.LAST_SUCCESSFUL_DOWNLOAD_AT] = now;
+  }
+  if (result.remoteUpdatedAt !== undefined) {
+    patch[DRIVE_SYNC_STORAGE_KEYS.LAST_KNOWN_REMOTE_UPDATED_AT] = result.remoteUpdatedAt;
+  }
+}
+
+/**
+ * 處理失敗同步時的 metadata patch 欄位更新。
+ *
+ * @param {Record<string, any>} patch
+ * @param {any} result
+ * @param {string} now
+ */
+function applyFailedDriveSyncRunMetadata(patch, result, now) {
+  patch[DRIVE_SYNC_STORAGE_KEYS.LAST_ERROR_CODE] =
+    result.errorCode ?? DRIVE_SYNC_ERROR_CODES.UNKNOWN;
+  patch[DRIVE_SYNC_STORAGE_KEYS.LAST_ERROR_AT] = now;
+  if (result.errorCode === DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER) {
+    patch[DRIVE_SYNC_STORAGE_KEYS.NEEDS_MANUAL_REVIEW] = true;
+  }
+  if (result.remoteUpdatedAt !== undefined) {
+    patch[DRIVE_SYNC_STORAGE_KEYS.LAST_KNOWN_REMOTE_UPDATED_AT] = result.remoteUpdatedAt;
+  }
+}
+
+/**
  * 更新 Drive Sync 執行結果 metadata（成功 / 失敗均呼叫）。
  *
  * @param {{ type: 'upload' | 'download' | 'status_check'; success: boolean; remoteUpdatedAt?: string | null; errorCode?: string | null }} result
@@ -277,27 +347,9 @@ export async function updateDriveSyncRunMetadata(result) {
   };
 
   if (result.success) {
-    patch[DRIVE_SYNC_STORAGE_KEYS.LAST_ERROR_CODE] = null;
-    patch[DRIVE_SYNC_STORAGE_KEYS.LAST_ERROR_AT] = null;
-    patch[DRIVE_SYNC_STORAGE_KEYS.NEEDS_MANUAL_REVIEW] = false;
-    if (result.type === 'upload') {
-      patch[DRIVE_SYNC_STORAGE_KEYS.LAST_SUCCESSFUL_UPLOAD_AT] = now;
-    } else if (result.type === 'download') {
-      patch[DRIVE_SYNC_STORAGE_KEYS.LAST_SUCCESSFUL_DOWNLOAD_AT] = now;
-    }
-    if (result.remoteUpdatedAt !== undefined) {
-      patch[DRIVE_SYNC_STORAGE_KEYS.LAST_KNOWN_REMOTE_UPDATED_AT] = result.remoteUpdatedAt;
-    }
+    applySuccessfulDriveSyncRunMetadata(patch, result, now);
   } else {
-    patch[DRIVE_SYNC_STORAGE_KEYS.LAST_ERROR_CODE] =
-      result.errorCode ?? DRIVE_SYNC_ERROR_CODES.UNKNOWN;
-    patch[DRIVE_SYNC_STORAGE_KEYS.LAST_ERROR_AT] = now;
-    if (result.errorCode === DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER) {
-      patch[DRIVE_SYNC_STORAGE_KEYS.NEEDS_MANUAL_REVIEW] = true;
-    }
-    if (result.remoteUpdatedAt !== undefined) {
-      patch[DRIVE_SYNC_STORAGE_KEYS.LAST_KNOWN_REMOTE_UPDATED_AT] = result.remoteUpdatedAt;
-    }
+    applyFailedDriveSyncRunMetadata(patch, result, now);
   }
 
   await chrome.storage.local.set(patch);
@@ -454,6 +506,61 @@ export async function fetchDriveSnapshotStatus() {
 }
 
 /**
+ * 建立上傳 Drive Snapshot 的 Request Body。
+ *
+ * @param {object} snapshotPayload
+ * @param {boolean} force
+ * @param {any} options
+ * @returns {string} JSON 字串
+ */
+function buildUploadRequestBody(snapshotPayload, force, options) {
+  return JSON.stringify({
+    snapshot: snapshotPayload,
+    force,
+    last_known_remote_updated_at: options.lastKnownRemoteUpdatedAt ?? null,
+    source_installation_id: options.sourceInstallationId ?? null,
+    source_profile_id: options.sourceProfileId ?? null,
+  });
+}
+
+/**
+ * 處理 409 衝突回應，記錄非預期的錯誤碼並回傳衝突結構。
+ *
+ * @param {any} json
+ * @returns {{ success: false; errorCode: string; message: string; remoteUpdatedAt: string | null }}
+ */
+function handleUploadConflictResponse(json) {
+  const code = json.code;
+  if (code && code !== DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER) {
+    Logger.warn('[DriveClient] Unexpected 409 conflict code from server', {
+      code,
+      responseBody: json,
+    });
+  }
+  return {
+    success: false,
+    errorCode: code ?? DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
+    message: json.message ?? 'Remote snapshot is newer',
+    remoteUpdatedAt: coalesce(json, 'remote_updated_at', 'updatedAt'),
+  };
+}
+
+/**
+ * 解析成功上傳後的 JSON 回應。
+ *
+ * @param {any} json
+ * @returns {{ success: true; updatedAt: string | null }}
+ */
+function parseUploadSuccessResponse(json) {
+  const metadata = json.metadata;
+  const updatedAt = metadata ? (metadata.updated_at ?? null) : (json.updatedAt ?? null);
+  return {
+    success: true,
+    updatedAt,
+  };
+}
+
+/**
  * 上傳 snapshot 到 Drive。
  *
  * @param {object} snapshotPayload - buildDriveSnapshot() 的輸出
@@ -468,29 +575,12 @@ export async function uploadDriveSnapshot(snapshotPayload, force = false, option
   const res = await fetch(url, {
     method: 'PUT',
     headers: { ...headers, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      snapshot: snapshotPayload,
-      force,
-      last_known_remote_updated_at: options.lastKnownRemoteUpdatedAt ?? null,
-      source_installation_id: options.sourceInstallationId ?? null,
-      source_profile_id: options.sourceProfileId ?? null,
-    }),
+    body: buildUploadRequestBody(snapshotPayload, force, options),
   });
 
   if (res.status === 409) {
     const json = await res.json().catch(() => ({}));
-    if (json.code && json.code !== DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER) {
-      Logger.warn('[DriveClient] Unexpected 409 conflict code from server', {
-        code: json.code,
-        responseBody: json,
-      });
-    }
-    return {
-      success: false,
-      errorCode: json.code ?? DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
-      message: json.message ?? 'Remote snapshot is newer',
-      remoteUpdatedAt: coalesce(json, 'remote_updated_at', 'updatedAt'),
-    };
+    return handleUploadConflictResponse(json);
   }
 
   if (!res.ok) {
@@ -498,10 +588,7 @@ export async function uploadDriveSnapshot(snapshotPayload, force = false, option
   }
 
   const json = await res.json().catch(() => ({}));
-  return {
-    success: true,
-    updatedAt: json.metadata?.updated_at ?? json.updatedAt ?? null,
-  };
+  return parseUploadSuccessResponse(json);
 }
 
 /**
