@@ -1,8 +1,22 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const [, , coveragePath = 'coverage/native-esm/coverage-final.json'] = process.argv;
-const absoluteCoveragePath = path.resolve(coveragePath);
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const allowedCoverageRoot = path.join(projectRoot, 'coverage', 'native-esm');
+
+function assertPathInsideDirectory(filePath, directoryPath) {
+  const relativePath = path.relative(directoryPath, filePath);
+  if (relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath))) {
+    return;
+  }
+
+  throw new Error('Coverage path must stay under coverage/native-esm');
+}
+
+const absoluteCoveragePath = path.resolve(projectRoot, coveragePath);
+assertPathInsideDirectory(absoluteCoveragePath, allowedCoverageRoot);
 const coverage = JSON.parse(fs.readFileSync(absoluteCoveragePath, 'utf8'));
 
 const requiredHits = [
