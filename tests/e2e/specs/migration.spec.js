@@ -149,7 +149,7 @@ test.describe('Migration Handlers E2E Tests', () => {
       const keys = testUrls.flatMap(url => [`highlights_${url}`, `page_${url}`]);
       return chrome.storage.local.get(keys);
     }, urls);
-    expect(Object.keys(storageData).length).toBe(0);
+    expect(Object.keys(storageData)).toHaveLength(0);
     await page.close();
   });
 
@@ -189,7 +189,7 @@ test.describe('Migration Handlers E2E Tests', () => {
     }, testUrl);
 
     expect(checkResult.pageData).toBeDefined();
-    expect(checkResult.pageData.highlights.length).toBe(1);
+    expect(checkResult.pageData.highlights).toHaveLength(1);
     expect(checkResult.pageData.highlights[0].id).toBe('h1');
     expect(checkResult.legacyData).toBeUndefined();
     await page.close();

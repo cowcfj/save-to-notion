@@ -10,6 +10,7 @@ const [
 ] = process.argv;
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const allowedCoverageRoot = path.join(projectRoot, 'coverage', 'native-esm');
+const allowedManifestRoot = path.join(projectRoot, 'tests', 'native-esm');
 const allowedSourcePrefixes = [
   'scripts/config/',
   'scripts/background/utils/',
@@ -38,28 +39,38 @@ function assertPathInsideDirectory(filePath, directoryPath, message) {
   throw new Error(message);
 }
 
-function resolveAllowedFilePath(filePath, directoryPath, message) {
+function readJsonFromCanonicalAllowedFile(filePath, directoryPath, message) {
   const absolutePath = path.resolve(projectRoot, filePath);
-  assertPathInsideDirectory(absolutePath, directoryPath, message);
+  const relativePath = path.relative(directoryPath, absolutePath);
+  const isOutsideDirectory =
+    relativePath !== '' && (relativePath.startsWith('..') || path.isAbsolute(relativePath));
+  if (isOutsideDirectory) {
+    throw new Error(message);
+  }
 
   const canonicalPath = fs.realpathSync.native(absolutePath);
   const canonicalDirectoryPath = fs.realpathSync.native(directoryPath);
-  assertPathInsideDirectory(canonicalPath, canonicalDirectoryPath, message);
-  return canonicalPath;
+  const canonicalRelativePath = path.relative(canonicalDirectoryPath, canonicalPath);
+  const isOutsideCanonicalDirectory =
+    canonicalRelativePath !== '' &&
+    (canonicalRelativePath.startsWith('..') || path.isAbsolute(canonicalRelativePath));
+  if (isOutsideCanonicalDirectory) {
+    throw new Error(message);
+  }
+
+  return JSON.parse(fs.readFileSync(canonicalPath, 'utf8'));
 }
 
-const validatedCoveragePath = resolveAllowedFilePath(
+const coverage = readJsonFromCanonicalAllowedFile(
   coveragePath,
   allowedCoverageRoot,
   '覆蓋率檔案路徑必須位於 coverage/native-esm 底下'
 );
-const validatedManifestPath = resolveAllowedFilePath(
+const requiredHits = readJsonFromCanonicalAllowedFile(
   manifestPath,
-  projectRoot,
-  'manifest 路徑必須位於 repo root 底下'
+  allowedManifestRoot,
+  'manifest 路徑必須位於 tests/native-esm 底下'
 );
-const coverage = JSON.parse(fs.readFileSync(validatedCoveragePath, 'utf8'));
-const requiredHits = JSON.parse(fs.readFileSync(validatedManifestPath, 'utf8'));
 
 function normalizeToPosixPath(filePath) {
   return filePath.split(path.sep).join('/');

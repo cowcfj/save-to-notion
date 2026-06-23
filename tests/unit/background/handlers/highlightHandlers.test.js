@@ -1037,7 +1037,7 @@ describe('highlightHandlers', () => {
 
   describe('CLEAR_HIGHLIGHTS', () => {
     it('應該拒絕無效的 content script 請求', async () => {
-      expect.hasAssertions();
+      expect.assertions(4);
 
       const validationError = createValidationError('content script 驗證失敗');
       validateContentScriptRequest.mockReturnValueOnce(validationError);
@@ -1056,7 +1056,7 @@ describe('highlightHandlers', () => {
     });
 
     it('應該拒絕無效的 popup/internal 請求', async () => {
-      expect.hasAssertions();
+      expect.assertions(4);
 
       const validationError = createValidationError('internal 驗證失敗');
       validateInternalRequest.mockReturnValueOnce(validationError);

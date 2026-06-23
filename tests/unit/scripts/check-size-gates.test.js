@@ -3,10 +3,10 @@
  */
 /* eslint-disable sonarjs/no-os-command-from-path */
 
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-const { execFileSync } = require('node:child_process');
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 describe('tools/check-size-gates.mjs', () => {
   const scriptPath = path.resolve(__dirname, '../../../tools/check-size-gates.mjs');

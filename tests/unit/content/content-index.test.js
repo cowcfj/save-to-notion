@@ -74,11 +74,6 @@ function mockReadabilityExtraction({
 }
 
 describe('Content Script Entry (index.js)', () => {
-  test('content default page title uses centralized zh-TW fallback copy', () => {
-    expect(CONTENT_QUALITY.DEFAULT_PAGE_TITLE).toBe(DATA_SOURCE_MESSAGES.UNTITLED_PAGE);
-    expect(DATA_SOURCE_MESSAGES.UNTITLED_PAGE).toBe(UI_MESSAGES.DATA_SOURCE.UNTITLED_PAGE);
-  });
-
   beforeEach(() => {
     jest.clearAllMocks();
     delete globalThis.HighlighterV2;
@@ -110,6 +105,11 @@ describe('Content Script Entry (index.js)', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  test('content default page title uses centralized zh-TW fallback copy', () => {
+    expect(CONTENT_QUALITY.DEFAULT_PAGE_TITLE).toBe(DATA_SOURCE_MESSAGES.UNTITLED_PAGE);
+    expect(DATA_SOURCE_MESSAGES.UNTITLED_PAGE).toBe(UI_MESSAGES.DATA_SOURCE.UNTITLED_PAGE);
   });
 
   describe('Message Handlers & Side Effects', () => {

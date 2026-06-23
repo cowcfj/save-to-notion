@@ -59,36 +59,6 @@ describe('NotionService - Page Data and Request Body', () => {
 
   const buildPageData = (overrides = {}) => service.buildPageData(buildPageDataOptions(overrides));
 
-  const expectExternalFile = (value, url) => {
-    expect(value).toEqual({
-      type: 'external',
-      external: { url },
-    });
-  };
-
-  const expectFetchRequest = expectedOptions => {
-    expect(globalThis.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/test'),
-      expectedOptions
-    );
-  };
-
-  const expectFetchWithoutBody = () => {
-    expectFetchRequest(
-      expect.not.objectContaining({
-        body: expect.anything(),
-      })
-    );
-  };
-
-  const expectFetchBody = body => {
-    expectFetchRequest(
-      expect.objectContaining({
-        body: JSON.stringify(body),
-      })
-    );
-  };
-
   describe('buildPageData', () => {
     it.each([
       {
@@ -144,23 +114,25 @@ describe('NotionService - Page Data and Request Body', () => {
     });
 
     it('當提供時應該加入網站圖示', () => {
-      expect.hasAssertions();
-
       const url = 'https://example.com/icon.png';
 
       const result = buildPageData({ siteIcon: url });
 
-      expectExternalFile(result.pageData.icon, url);
+      expect(result.pageData.icon).toEqual({
+        type: 'external',
+        external: { url },
+      });
     });
 
     it('應該為一般 https URL 設定 page cover', () => {
-      expect.hasAssertions();
-
       const url = 'https://example.com/cover.jpg';
 
       const result = buildPageData({ coverImage: url });
 
-      expectExternalFile(result.pageData.cover, url);
+      expect(result.pageData.cover).toEqual({
+        type: 'external',
+        external: { url },
+      });
     });
 
     it('應該忽略非字串 coverImage 而不拋出錯誤', () => {
@@ -227,22 +199,28 @@ describe('NotionService - Page Data and Request Body', () => {
     it.each([{ desc: 'body 為 undefined', body: undefined }])(
       '應該在 $desc 時不包含 body',
       async ({ body }) => {
-        expect.hasAssertions();
-
         await service._apiRequest('/test', { method: 'POST', body });
 
-        expectFetchWithoutBody();
+        expect(globalThis.fetch).toHaveBeenCalledWith(
+          expect.stringContaining('/test'),
+          expect.not.objectContaining({
+            body: expect.anything(),
+          })
+        );
       }
     );
 
     it('應該正常處理普通對象 body', async () => {
-      expect.hasAssertions();
-
       const body = { key: 'value' };
 
       await service._apiRequest('/test', { method: 'POST', body });
 
-      expectFetchBody(body);
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/test'),
+        expect.objectContaining({
+          body: JSON.stringify(body),
+        })
+      );
     });
   });
 });
