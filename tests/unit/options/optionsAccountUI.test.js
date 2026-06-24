@@ -452,8 +452,8 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       initOptions();
       await flushAsyncClick();
 
-      expectAccountLoggedIn();
       expect(document.querySelector('#account-logged-in')).not.toBeNull();
+      expectAccountLoggedIn();
     });
 
     it('token 過期且 getAccountAccessToken 回 null（terminal failure 或無 refresh token），UI 應切回未登入', async () => {
@@ -464,8 +464,8 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
       initOptions();
       await flushAsyncClick();
 
-      expectAccountLoggedOut();
       expect(document.querySelector('#account-logged-out')).not.toBeNull();
+      expectAccountLoggedOut();
     });
 
     it('token 取得發生 transient rejection 時，有 profile 應保留 logged-in UI、顯示可重試提示，且 Cloud Sync 不應卡在 loading', async () => {
