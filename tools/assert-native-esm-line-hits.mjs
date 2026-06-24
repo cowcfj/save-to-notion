@@ -11,6 +11,10 @@ const allowedSourcePrefixes = [
   'scripts/highlighter/',
   'scripts/utils/image/',
 ];
+const summaryFlagOptionNames = new Map([
+  ['--summary-json', 'summaryJsonPath'],
+  ['--summary-md', 'summaryMarkdownPath'],
+]);
 
 function readFlagValue(argv, index, flagName, errors) {
   const nextArg = argv[index + 1];
@@ -36,15 +40,10 @@ function parseCliArgs(argv) {
       skipNextArg = false;
       continue;
     }
-    if (arg === '--summary-json') {
+    const optionName = summaryFlagOptionNames.get(arg);
+    if (optionName) {
       const result = readFlagValue(argv, index, arg, errors);
-      options.summaryJsonPath = result.value;
-      skipNextArg = result.nextIndex > index;
-      continue;
-    }
-    if (arg === '--summary-md') {
-      const result = readFlagValue(argv, index, arg, errors);
-      options.summaryMarkdownPath = result.value;
+      options[optionName] = result.value;
       skipNextArg = result.nextIndex > index;
       continue;
     }
