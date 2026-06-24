@@ -75,6 +75,28 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
     return manifestPath;
   };
 
+  const runCliWithSummary = (coveragePath, manifestPath, summaryRoot = tempCoverageRoot) => {
+    const summaryJsonPath = path.join(summaryRoot, 'line-hit-summary.json');
+    const summaryMarkdownPath = path.join(summaryRoot, 'line-hit-summary.md');
+    const result = spawnSync(
+      'node',
+      [
+        scriptPath,
+        coveragePath,
+        manifestPath,
+        '--summary-json',
+        summaryJsonPath,
+        '--summary-md',
+        summaryMarkdownPath,
+      ],
+      {
+        cwd: projectRoot,
+        encoding: 'utf8',
+      }
+    );
+    return { result, summaryJsonPath, summaryMarkdownPath };
+  };
+
   beforeEach(() => {
     fs.mkdirSync(allowedCoverageRoot, { recursive: true });
     fs.mkdirSync(allowedManifestRoot, { recursive: true });
@@ -181,6 +203,121 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
 
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('Native ESM 行命中檢查通過：2 個檔案, 8 行');
+  });
+
+  test('summary JSON 會記錄 diagnostic-only gate evidence', () => {
+    const coveragePath = writeCoverageFile(createPassingCoverage());
+    const manifestPath = writeManifestFile(createPassingManifest());
+
+    const { result, summaryJsonPath } = runCliWithSummary(coveragePath, manifestPath);
+
+    expect(result.status).toBe(0);
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    const summary = JSON.parse(fs.readFileSync(summaryJsonPath, 'utf8'));
+    expect(summary.diagnosticOnly).toBe(true);
+    expect(summary.totals).toEqual({
+      files: 2,
+      requiredLines: 8,
+      passedLines: 8,
+      failedLines: 0,
+    });
+    expect(summary.gates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'source-line-correctness',
+          status: 'pass',
+          blocking: true,
+        }),
+        expect.objectContaining({
+          id: 'codecov-upload-isolation',
+          status: 'pass',
+          blocking: false,
+        }),
+      ])
+    );
+  });
+
+  test('summary Markdown 會標明不是正式 coverage truth', () => {
+    const coveragePath = writeCoverageFile(createPassingCoverage());
+    const manifestPath = writeManifestFile(createPassingManifest());
+
+    const { result, summaryMarkdownPath } = runCliWithSummary(coveragePath, manifestPath);
+
+    expect(result.status).toBe(0);
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    const markdown = fs.readFileSync(summaryMarkdownPath, 'utf8');
+    expect(markdown).toContain('Diagnostic-only');
+    expect(markdown).toContain('coverage/jest/lcov.info');
+    expect(markdown).toContain('| `source-line-correctness` | pass | yes |');
+    expect(markdown).toContain('| `scripts/background/utils/BlockBuilder.js` | 4 | 4 | 0 |');
+  });
+
+  test('必要 line 未命中時仍會寫出 failure summary', () => {
+    const coverage = createPassingCoverage();
+    coverage[path.join(projectRoot, 'scripts/background/utils/BlockBuilder.js')].s[0] = 0;
+    const coveragePath = writeCoverageFile(coverage);
+    const manifestPath = writeManifestFile([
+      {
+        fileSuffix: 'scripts/background/utils/BlockBuilder.js',
+        lines: [54],
+      },
+    ]);
+
+    const { result, summaryJsonPath } = runCliWithSummary(coveragePath, manifestPath);
+
+    expect(result.status).toBe(1);
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    const summary = JSON.parse(fs.readFileSync(summaryJsonPath, 'utf8'));
+    expect(summary.totals.failedLines).toBe(1);
+    expect(summary.files[0].failedLines).toEqual([54]);
+    expect(summary.gates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'source-line-correctness',
+          status: 'fail',
+          blocking: true,
+        }),
+      ])
+    );
+  });
+
+  test('[SECURITY] summary output path 必須位於 native ESM coverage 目錄', () => {
+    const coveragePath = writeCoverageFile(createPassingCoverage());
+    const manifestPath = writeManifestFile(createPassingManifest());
+    const outsideSummaryPath = path.join(os.tmpdir(), 'line-hit-summary.json');
+
+    const result = spawnSync(
+      'node',
+      [scriptPath, coveragePath, manifestPath, '--summary-json', outsideSummaryPath],
+      {
+        cwd: projectRoot,
+        encoding: 'utf8',
+      }
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('summary output path 必須位於 coverage/native-esm 底下');
+  });
+
+  test('[SECURITY] manifest fileSuffix 不可重複', () => {
+    const coveragePath = writeCoverageFile(createPassingCoverage());
+    const manifestPath = writeManifestFile([
+      {
+        fileSuffix: 'scripts/background/utils/BlockBuilder.js',
+        lines: [54],
+      },
+      {
+        fileSuffix: 'scripts/background/utils/BlockBuilder.js',
+        lines: [55],
+      },
+    ]);
+
+    const result = runCli(coveragePath, manifestPath);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      'manifest fileSuffix 不可重複: scripts/background/utils/BlockBuilder.js'
+    );
   });
 
   test('coverage lookup 必須精準匹配 manifest 指定檔案', () => {
