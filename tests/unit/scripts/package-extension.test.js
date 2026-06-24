@@ -5,23 +5,22 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const rootDir = path.resolve(__dirname, '../../..');
+
 describe('tools/package-extension.sh regressions', () => {
   let packageScript;
   let popupHtml;
   let sidepanelHtml;
   let authHtmlExists;
+  let authHtmlPath;
 
   beforeAll(() => {
-    packageScript = fs.readFileSync(
-      path.resolve(__dirname, '../../../tools/package-extension.sh'),
-      'utf8'
-    );
-    popupHtml = fs.readFileSync(path.resolve(__dirname, '../../../pages/popup/popup.html'), 'utf8');
-    sidepanelHtml = fs.readFileSync(
-      path.resolve(__dirname, '../../../pages/sidepanel/sidepanel.html'),
-      'utf8'
-    );
-    authHtmlExists = fs.existsSync(path.resolve(__dirname, '../../../pages/auth/auth.html'));
+    packageScript = fs.readFileSync(path.join(rootDir, 'tools/package-extension.sh'), 'utf8');
+    popupHtml = fs.readFileSync(path.join(rootDir, 'pages/popup/popup.html'), 'utf8');
+    sidepanelHtml = fs.readFileSync(path.join(rootDir, 'pages/sidepanel/sidepanel.html'), 'utf8');
+    authHtmlPath = path.relative(rootDir, path.join(rootDir, 'pages/auth/auth.html'));
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- fixture path is asserted below.
+    authHtmlExists = fs.existsSync(path.join(rootDir, authHtmlPath));
   });
 
   test('release package 應打包 dist bundle 而非 scripts 原始碼', () => {
@@ -44,7 +43,10 @@ describe('tools/package-extension.sh regressions', () => {
     const verificationBlock = packageScript.slice(packageScript.indexOf('const htmlDirs = fs'));
 
     expect(verificationBlock).toContain("path.join(pkgDir, 'pages')");
+    expect(verificationBlock).toContain("path.join('pages', entry.name)");
+    expect(verificationBlock).toContain('path.join(dirPath, file)');
     expect(verificationBlock).toContain('auth.html');
+    expect(authHtmlPath).toBe('pages/auth/auth.html');
     expect(authHtmlExists).toBe(true);
   });
 

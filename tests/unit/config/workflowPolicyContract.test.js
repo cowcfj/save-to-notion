@@ -87,17 +87,18 @@ describe('workflow policy contract', () => {
 
   test('release-please keeps runtime extension surfaces eligible for version decisions', () => {
     const rootPackageConfig = getRootReleasePackageConfig();
+    const runtimeExtensionSurfaces = [
+      'scripts/',
+      'pages/',
+      'styles/',
+      'icons/',
+      'auth.html',
+      'manifest.json',
+      'package.json',
+    ];
 
-    expect(rootPackageConfig['exclude-paths']).not.toEqual(
-      expect.arrayContaining([
-        'scripts/',
-        'pages/',
-        'styles/',
-        'icons/',
-        'auth.html',
-        'manifest.json',
-        'package.json',
-      ])
-    );
+    runtimeExtensionSurfaces.forEach(runtimePath => {
+      expect(rootPackageConfig['exclude-paths']).not.toContain(runtimePath);
+    });
   });
 });
