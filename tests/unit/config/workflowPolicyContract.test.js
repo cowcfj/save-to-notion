@@ -10,6 +10,10 @@ function readWorkflow(relativePath) {
   return fs.readFileSync(path.join(activeWorkflowDir, relativePath), 'utf8');
 }
 
+function readRootJson(relativePath) {
+  return JSON.parse(fs.readFileSync(path.join(rootDir, relativePath), 'utf8'));
+}
+
 function listActiveWorkflowFiles() {
   return fs
     .readdirSync(activeWorkflowDir)
@@ -34,5 +38,21 @@ describe('workflow policy contract', () => {
 
     expect(activeWorkflowSources).not.toContain('.github/workflows/sonarcloud.yml');
     expect(activeWorkflowSources).not.toContain('SonarCloud Scan');
+  });
+
+  test('release-please keeps test commits hidden from release notes', () => {
+    const releasePleaseConfig = readRootJson('release-please-config.json');
+    const rootPackageConfig = releasePleaseConfig.packages['.'];
+    const testSection = rootPackageConfig['changelog-sections'].find(
+      section => section.type === 'test'
+    );
+
+    expect(rootPackageConfig['exclude-paths']).toContain('tests/');
+    expect(testSection).toEqual(
+      expect.objectContaining({
+        type: 'test',
+        hidden: true,
+      })
+    );
   });
 });

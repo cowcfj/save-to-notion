@@ -64,7 +64,8 @@
         },
         {
           "type": "test",
-          "section": "🧪 測試"
+          "section": "🧪 測試",
+          "hidden": true
         },
         {
           "type": "build",
