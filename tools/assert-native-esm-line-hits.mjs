@@ -30,18 +30,22 @@ function parseCliArgs(argv) {
   };
   const errors = [];
 
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
+  let skipNextArg = false;
+  for (const [index, arg] of argv.entries()) {
+    if (skipNextArg) {
+      skipNextArg = false;
+      continue;
+    }
     if (arg === '--summary-json') {
       const result = readFlagValue(argv, index, arg, errors);
       options.summaryJsonPath = result.value;
-      index = result.nextIndex;
+      skipNextArg = result.nextIndex > index;
       continue;
     }
     if (arg === '--summary-md') {
       const result = readFlagValue(argv, index, arg, errors);
       options.summaryMarkdownPath = result.value;
-      index = result.nextIndex;
+      skipNextArg = result.nextIndex > index;
       continue;
     }
 
@@ -49,7 +53,7 @@ function parseCliArgs(argv) {
   }
 
   if (errors.length > 0) {
-    throw new Error(errors.join('\n'));
+    throw new Error(errors.join('\n') || 'CLI arguments are invalid');
   }
 
   return {
@@ -166,7 +170,7 @@ function assertValidRequirement(requirement) {
 
 function assertUniqueRequirements(requirements) {
   if (!Array.isArray(requirements)) {
-    throw new Error('manifest 必須是陣列');
+    throw new TypeError('manifest 必須是陣列');
   }
 
   const seen = new Set();
@@ -288,7 +292,7 @@ function formatGateName(gate) {
 }
 
 function escapeMarkdownTableCell(value) {
-  return String(value).replace(/\r?\n/g, ' ').replaceAll('|', '\\|');
+  return String(value).replace(/\r?\n/g, ' ').replaceAll('|', String.raw`\|`);
 }
 
 function renderMarkdownSummary(summary) {
