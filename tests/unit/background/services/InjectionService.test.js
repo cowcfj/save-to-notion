@@ -109,6 +109,24 @@ describe('InjectionService', () => {
       expect(isRestrictedInjectionUrl('https://chromewebstore.google.com/detail/xyz')).toBe(true);
     });
 
+    it('should restrict blocked hosts even when URL includes ports or case variants', () => {
+      expect(isRestrictedInjectionUrl('HTTPS://chrome.google.com:443/webstore/detail/xyz')).toBe(
+        true
+      );
+      expect(isRestrictedInjectionUrl('https://chromewebstore.google.com:8443/detail/xyz')).toBe(
+        true
+      );
+    });
+
+    it('should restrict Notion hosts even when URL includes ports or case variants', () => {
+      expect(isRestrictedInjectionUrl('HTTPS://www.notion.so:443/workspace')).toBe(true);
+      expect(isRestrictedInjectionUrl('https://team.notion.site:8443/page')).toBe(true);
+    });
+
+    it('should restrict protocols after URL canonicalization', () => {
+      expect(isRestrictedInjectionUrl('CHROME://extensions')).toBe(true);
+    });
+
     it('should return false for normal urls', () => {
       expect(isRestrictedInjectionUrl('https://example.com')).toBe(false);
     });
@@ -295,6 +313,77 @@ describe('InjectionService', () => {
         initialized: false,
         highlightCount: 0,
       });
+    });
+
+    it('[REGRESSION] rail readiness timeout 時應回退為未初始化狀態', async () => {
+      jest.useFakeTimers();
+      try {
+        globalThis.__NOTION_RAIL_READY__ = new Promise(() => {});
+
+        chrome.scripting.executeScript.mockImplementation(async (opts, verifyResult) => {
+          if (opts.files) {
+            verifyResult([]);
+            return;
+          }
+
+          const injectedFunc = recreateInjectedFunction(opts.func);
+          const resultPromise = injectedFunc();
+          await jest.advanceTimersByTimeAsync(2000);
+          const result = await resultPromise;
+          verifyResult([{ result }]);
+        });
+
+        await expect(service.injectHighlighter(1)).resolves.toEqual({
+          initialized: false,
+          highlightCount: 0,
+        });
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('[REGRESSION] rail ready 前應持續輪詢直到 activateRail', async () => {
+      jest.useFakeTimers();
+      try {
+        globalThis.HighlighterV2 = {
+          manager: { getCount: jest.fn(() => 7) },
+        };
+        const railShow = jest.fn();
+        const activateHighlighting = jest.fn();
+        let resolveRailReady = null;
+        globalThis.__NOTION_RAIL_READY__ = new Promise(resolve => {
+          resolveRailReady = resolve;
+        });
+
+        chrome.scripting.executeScript.mockImplementation(async (opts, verifyResult) => {
+          if (opts.files) {
+            verifyResult([]);
+            return;
+          }
+
+          const injectedFunc = recreateInjectedFunction(opts.func);
+          const resultPromise = injectedFunc();
+          resolveRailReady({ success: true });
+          await Promise.resolve();
+          await jest.advanceTimersByTimeAsync(100);
+          globalThis.HighlighterV2.rail = {
+            show: railShow,
+            activateHighlighting,
+          };
+          await jest.advanceTimersByTimeAsync(100);
+          const result = await resultPromise;
+          verifyResult([{ result }]);
+        });
+
+        await expect(service.injectHighlighter(1)).resolves.toEqual({
+          initialized: true,
+          highlightCount: 7,
+        });
+        expect(railShow).toHaveBeenCalledTimes(1);
+        expect(activateHighlighting).toHaveBeenCalledTimes(1);
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 

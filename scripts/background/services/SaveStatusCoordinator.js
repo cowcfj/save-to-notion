@@ -111,6 +111,14 @@ async function resolveVerifiedSaveStatus(context, deps, savedData) {
     });
   }
 
+  if (exists === false) {
+    return createSaveStatusResponse({
+      statusKind: SAVE_STATUS_KINDS.DELETION_PENDING,
+      stableUrl: normUrl,
+      savedData,
+    });
+  }
+
   if (exists === true) {
     await touchLastVerifiedIfNeeded(context, deps);
   }

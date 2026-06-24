@@ -45,15 +45,27 @@ const NOTION_DOMAINS = ['notion.so', 'notion.com', 'notion.site'];
 
 function isBlockedInjectionHost(urlObj) {
   return BLOCKED_INJECTION_HOSTS.some(({ host, pathPrefix }) => {
-    if (urlObj.host !== host) {
+    if (urlObj.hostname !== host) {
       return false;
     }
     return !pathPrefix || urlObj.pathname.startsWith(pathPrefix);
   });
 }
 
-function isNotionInjectionHost(host) {
-  return NOTION_DOMAINS.some(domain => host === domain || host.endsWith(`.${domain}`));
+function isNotionInjectionHost(hostname) {
+  const normalizedHostname = String(hostname || '').toLowerCase();
+  return NOTION_DOMAINS.some(
+    domain => normalizedHostname === domain || normalizedHostname.endsWith(`.${domain}`)
+  );
+}
+
+function hasRestrictedInjectionProtocol(urlObj) {
+  const canonicalProtocol = urlObj.protocol.toLowerCase();
+  const canonicalHref = urlObj.href.toLowerCase();
+  return RESTRICTED_PROTOCOLS.some(protocol => {
+    const normalizedProtocol = protocol.toLowerCase();
+    return canonicalProtocol === normalizedProtocol || canonicalHref.startsWith(normalizedProtocol);
+  });
 }
 
 async function activateFloatingRailInPage() {
@@ -89,13 +101,27 @@ async function activateFloatingRailInPage() {
   }
 
   async function waitForRailReady(remainingMs) {
+    if (remainingMs <= 0) {
+      return notReady();
+    }
+
+    const timeoutResult = { timedOut: true };
     const readyResult = await Promise.race([
-      globalThis.__NOTION_RAIL_READY__.catch(() => null),
-      delay(Math.max(0, remainingMs)).then(() => null),
+      globalThis.__NOTION_RAIL_READY__.catch(() => ({ rejected: true })),
+      delay(Math.max(0, Math.min(interval, remainingMs))).then(() => timeoutResult),
     ]);
 
-    if (readyResult?.success && readyResult.rail) {
-      return activateRail(readyResult.rail);
+    if (readyResult?.timedOut) {
+      return null;
+    }
+
+    if (readyResult?.success) {
+      const rail = readyResult.rail || getRail();
+      if (rail) {
+        return activateRail(rail);
+      }
+      await delay(Math.max(0, Math.min(interval, remainingMs)));
+      return null;
     }
 
     return notReady();
@@ -114,7 +140,11 @@ async function activateFloatingRailInPage() {
     }
 
     if (globalThis.__NOTION_RAIL_READY__) {
-      return waitForRailReady(timeout - (Date.now() - startTime));
+      const readyResult = await waitForRailReady(timeout - (Date.now() - startTime));
+      if (readyResult) {
+        return readyResult;
+      }
+      continue;
     }
 
     await delay(interval);
@@ -138,9 +168,9 @@ function isRestrictedInjectionUrl(url) {
   try {
     const urlObj = new URL(url);
     return (
-      RESTRICTED_PROTOCOLS.some(protocol => url.startsWith(protocol)) ||
+      hasRestrictedInjectionProtocol(urlObj) ||
       isBlockedInjectionHost(urlObj) ||
-      isNotionInjectionHost(urlObj.host)
+      isNotionInjectionHost(urlObj.hostname)
     );
   } catch (error) {
     const sanitizedErrorMsg = String(error.message).replaceAll(url, '[invalid-url]');

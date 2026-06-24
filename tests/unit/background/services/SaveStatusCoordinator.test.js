@@ -138,6 +138,47 @@ describe('SaveStatusCoordinator', () => {
     );
   });
 
+  test('exists 為 false 且 deletion 未解決時不應回傳 saved', async () => {
+    context.forceRefresh = true;
+    deps.notionService.checkPageExists.mockResolvedValue(false);
+    deps.tabService.consumeDeletionConfirmation.mockReturnValue({
+      shouldDelete: false,
+      deletionPending: false,
+    });
+
+    const result = await resolveSaveStatus(context, deps);
+
+    expect(result.statusKind).toBe('deletion_pending');
+    expect(result.deletionPending).toBe(true);
+    expect(result.isSaved).toBe(true);
+    expect(result).not.toEqual(expect.objectContaining({ statusKind: 'saved' }));
+  });
+
+  test('exists 為 true 時應更新 lastVerifiedAt 並回傳 saved', async () => {
+    context.forceRefresh = true;
+    deps.notionService.checkPageExists.mockResolvedValue(true);
+    deps.tabService.consumeDeletionConfirmation.mockReturnValue({
+      shouldDelete: false,
+      deletionPending: false,
+    });
+
+    const result = await resolveSaveStatus(context, deps);
+
+    expect(deps.storageService.setSavedPageData).toHaveBeenCalledWith(
+      'https://example.com/article',
+      expect.objectContaining({ lastVerifiedAt: deps.now })
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: true,
+        statusKind: 'saved',
+        isSaved: true,
+        canSave: false,
+        canSyncHighlights: true,
+      })
+    );
+  });
+
   test('第二次命中遠端不存在且清理成功時應回傳 deleted_remote', async () => {
     context.forceRefresh = true;
     deps.notionService.checkPageExists.mockResolvedValue(false);
