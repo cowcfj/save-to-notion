@@ -165,6 +165,10 @@ function assertValidRequirement(requirement) {
 }
 
 function assertUniqueRequirements(requirements) {
+  if (!Array.isArray(requirements)) {
+    throw new Error('manifest 必須是陣列');
+  }
+
   const seen = new Set();
   for (const requirement of requirements) {
     const fileSuffix = requirement?.fileSuffix;
@@ -283,6 +287,10 @@ function formatGateName(gate) {
   return gate.label || ['`', gate.id, '`'].join('');
 }
 
+function escapeMarkdownTableCell(value) {
+  return String(value).replace(/\r?\n/g, ' ').replaceAll('|', '\\|');
+}
+
 function renderMarkdownSummary(summary) {
   const failedFiles = summary.files.filter(file => file.failedLines.length > 0);
   const gateRows = summary.gates
@@ -294,7 +302,7 @@ function renderMarkdownSummary(summary) {
   const fileRows = summary.files
     .map(
       file =>
-        `| \`${file.fileSuffix}\` | ${file.requiredLines.length} | ${file.passedLines.length} | ${file.failedLines.length} | ${file.rationale || ''} |`
+        `| \`${file.fileSuffix}\` | ${file.requiredLines.length} | ${file.passedLines.length} | ${file.failedLines.length} | ${escapeMarkdownTableCell(file.rationale || '')} |`
     )
     .join('\n');
   const failureSection =
@@ -368,6 +376,7 @@ function runDiagnostic({ coveragePath, manifestPath }) {
   const failures = [];
   const fileResults = [];
   let checkedLineCount = 0;
+  let failedLineCount = 0;
 
   for (const filePath of Object.keys(coverage)) {
     assertFormalCoveragePath(filePath);
@@ -375,10 +384,25 @@ function runDiagnostic({ coveragePath, manifestPath }) {
 
   for (const requirement of requiredHits) {
     assertValidRequirement(requirement);
-    const fileCoverage = findFileCoverage(coverage, requirement.fileSuffix);
-    const lineHits = getLineHits(fileCoverage);
     const passedLines = [];
     const failedLines = [];
+
+    let lineHits;
+    try {
+      lineHits = getLineHits(findFileCoverage(coverage, requirement.fileSuffix));
+    } catch (error) {
+      failures.push(error.message);
+      checkedLineCount += requirement.lines.length;
+      failedLineCount += requirement.lines.length;
+      fileResults.push({
+        fileSuffix: requirement.fileSuffix,
+        rationale: requirement.rationale || '',
+        requiredLines: requirement.lines,
+        passedLines,
+        failedLines: requirement.lines,
+      });
+      continue;
+    }
 
     for (const line of requirement.lines) {
       checkedLineCount += 1;
@@ -386,6 +410,7 @@ function runDiagnostic({ coveragePath, manifestPath }) {
       if (count <= 0) {
         failedLines.push(line);
         failures.push(`${requirement.fileSuffix}:${line} 預期命中次數 > 0，實際為 ${count}`);
+        failedLineCount += 1;
       } else {
         passedLines.push(line);
       }
@@ -408,7 +433,7 @@ function runDiagnostic({ coveragePath, manifestPath }) {
       manifestPath,
       fileResults,
       checkedLineCount,
-      failedLines: failures.length,
+      failedLines: failedLineCount,
     }),
   };
 }

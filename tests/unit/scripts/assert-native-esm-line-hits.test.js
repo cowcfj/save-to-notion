@@ -359,6 +359,77 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
     );
   });
 
+  test('[SECURITY] manifest root 必須是陣列', () => {
+    const coveragePath = writeCoverageFile(createPassingCoverage());
+    const manifestPath = writeManifestFile({
+      fileSuffix: 'scripts/background/utils/BlockBuilder.js',
+      lines: [54],
+    });
+
+    const result = runCli(coveragePath, manifestPath);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('manifest 必須是陣列');
+  });
+
+  test('summary Markdown 會跳脫 manifest rationale table 字元', () => {
+    const coveragePath = writeCoverageFile(createPassingCoverage());
+    const manifestPath = writeManifestFile([
+      {
+        fileSuffix: 'scripts/background/utils/BlockBuilder.js',
+        lines: [54],
+        rationale: '第一段 | 第二段\n第三段',
+      },
+    ]);
+
+    const { result, summaryMarkdownPath } = runCliWithSummary(coveragePath, manifestPath);
+
+    expect(result.status).toBe(0);
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    const markdown = fs.readFileSync(summaryMarkdownPath, 'utf8');
+    expect(markdown).toContain(String.raw`第一段 \| 第二段 第三段`);
+  });
+
+  test('summary 會保留缺少 coverage entry 的診斷結果', () => {
+    const coveragePath = writeCoverageFile({
+      [path.join(projectRoot, 'scripts/background/utils/BlockBuilder.js')]: {
+        statementMap: {
+          0: {
+            start: { line: 54 },
+            end: { line: 57 },
+          },
+        },
+        s: { 0: 1 },
+      },
+    });
+    const manifestPath = writeManifestFile(createPassingManifest());
+
+    const { result, summaryJsonPath, summaryMarkdownPath } = runCliWithSummary(
+      coveragePath,
+      manifestPath
+    );
+
+    expect(result.status).toBe(1);
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    const summary = JSON.parse(fs.readFileSync(summaryJsonPath, 'utf8'));
+    expect(summary.totals.failedLines).toBe(4);
+    expect(summary.files).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fileSuffix: 'scripts/highlighter/autoInit/initializationInputs.js',
+          failedLines: [38, 39, 40, 41],
+        }),
+      ])
+    );
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    expect(fs.readFileSync(summaryMarkdownPath, 'utf8')).toContain(
+      'scripts/highlighter/autoInit/initializationInputs.js'
+    );
+    expect(result.stderr).toContain(
+      '找不到 scripts/highlighter/autoInit/initializationInputs.js 的覆蓋率資料'
+    );
+  });
+
   test('coverage lookup 必須精準匹配 manifest 指定檔案', () => {
     const coveragePath = writeCoverageFile({
       [path.join(projectRoot, 'fixtures/scripts/background/utils/BlockBuilder.js')]: {
