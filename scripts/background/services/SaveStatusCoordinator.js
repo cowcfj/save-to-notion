@@ -31,6 +31,22 @@ function shouldUseCache({ forceRefresh, migratedFromOldKey, isCacheValid }) {
   return !forceRefresh && !migratedFromOldKey && isCacheValid;
 }
 
+function buildSavedStatus(stableUrl, savedData) {
+  return createSaveStatusResponse({
+    statusKind: SAVE_STATUS_KINDS.SAVED,
+    stableUrl,
+    savedData,
+  });
+}
+
+function buildUnverifiedSavedStatus(stableUrl, savedData) {
+  return createSaveStatusResponse({
+    statusKind: SAVE_STATUS_KINDS.UNVERIFIED_SAVED,
+    stableUrl,
+    savedData,
+  });
+}
+
 async function touchLastVerifiedIfNeeded(context, deps) {
   await deps.storageService.setSavedPageData(context.normUrl, {
     ...context.savedData,
@@ -54,11 +70,7 @@ async function handleDeletedRemoteStatus(context, deps, savedData) {
       });
     }
 
-    return createSaveStatusResponse({
-      statusKind: SAVE_STATUS_KINDS.SAVED,
-      stableUrl: cleanupUrl,
-      savedData: latestSavedData,
-    });
+    return buildSavedStatus(cleanupUrl, latestSavedData);
   }
 
   if (!clearResult.cleared) {
@@ -75,6 +87,35 @@ async function handleDeletedRemoteStatus(context, deps, savedData) {
     statusKind: SAVE_STATUS_KINDS.DELETED_REMOTE,
     stableUrl: cleanupUrl,
   });
+}
+
+async function resolveVerifiedSaveStatus(context, deps, savedData) {
+  const { normUrl } = context;
+  const exists = await resolveExistsWithRetry(savedData, deps);
+
+  if (exists === null) {
+    return buildUnverifiedSavedStatus(normUrl, savedData);
+  }
+
+  const deletionCheck = deps.tabService.consumeDeletionConfirmation(savedData.notionPageId, exists);
+
+  if (exists === false && deletionCheck.shouldDelete) {
+    return handleDeletedRemoteStatus(context, deps, savedData);
+  }
+
+  if (exists === false && deletionCheck.deletionPending) {
+    return createSaveStatusResponse({
+      statusKind: SAVE_STATUS_KINDS.DELETION_PENDING,
+      stableUrl: normUrl,
+      savedData,
+    });
+  }
+
+  if (exists === true) {
+    await touchLastVerifiedIfNeeded(context, deps);
+  }
+
+  return buildSavedStatus(normUrl, savedData);
 }
 
 export async function resolveSaveStatus(context, rawDeps) {
@@ -107,53 +148,13 @@ export async function resolveSaveStatus(context, rawDeps) {
       isCacheValid,
     })
   ) {
-    return createSaveStatusResponse({
-      statusKind: SAVE_STATUS_KINDS.SAVED,
-      stableUrl: normUrl,
-      savedData,
-    });
+    return buildSavedStatus(normUrl, savedData);
   }
 
   deps.activeToken = await deps.getActiveToken();
   if (!deps.activeToken?.token) {
-    return createSaveStatusResponse({
-      statusKind: SAVE_STATUS_KINDS.UNVERIFIED_SAVED,
-      stableUrl: normUrl,
-      savedData,
-    });
+    return buildUnverifiedSavedStatus(normUrl, savedData);
   }
 
-  const exists = await resolveExistsWithRetry(savedData, deps);
-
-  if (exists === null) {
-    return createSaveStatusResponse({
-      statusKind: SAVE_STATUS_KINDS.UNVERIFIED_SAVED,
-      stableUrl: normUrl,
-      savedData,
-    });
-  }
-
-  const deletionCheck = deps.tabService.consumeDeletionConfirmation(savedData.notionPageId, exists);
-
-  if (exists === false && deletionCheck.shouldDelete) {
-    return handleDeletedRemoteStatus(context, deps, savedData);
-  }
-
-  if (exists === false && deletionCheck.deletionPending) {
-    return createSaveStatusResponse({
-      statusKind: SAVE_STATUS_KINDS.DELETION_PENDING,
-      stableUrl: normUrl,
-      savedData,
-    });
-  }
-
-  if (exists === true) {
-    await touchLastVerifiedIfNeeded(context, deps);
-  }
-
-  return createSaveStatusResponse({
-    statusKind: SAVE_STATUS_KINDS.SAVED,
-    stableUrl: normUrl,
-    savedData,
-  });
+  return resolveVerifiedSaveStatus(context, deps, savedData);
 }

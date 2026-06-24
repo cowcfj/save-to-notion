@@ -41,11 +41,26 @@ async function activateFloatingRailInPage() {
   const startTime = Date.now();
 
   /* eslint-disable unicorn/consistent-function-scoping -- chrome.scripting.executeScript 序列化限制：func 無法捕獲外部閉包，必須內聯定義 */
+  const notReady = () => ({ initialized: false, highlightCount: 0 });
+
   function activateRail(rail) {
     rail.show?.();
     rail.activateHighlighting?.();
     const count = globalThis.HighlighterV2?.manager?.getCount() || 0;
     return { initialized: true, highlightCount: count };
+  }
+
+  async function waitForRailReady(remainingMs) {
+    const readyResult = await Promise.race([
+      globalThis.__NOTION_RAIL_READY__.catch(() => null),
+      delay(Math.max(0, remainingMs)).then(() => null),
+    ]);
+
+    if (readyResult?.success && readyResult.rail) {
+      return activateRail(readyResult.rail);
+    }
+
+    return notReady();
   }
 
   function delay(ms) {
@@ -60,20 +75,13 @@ async function activateFloatingRailInPage() {
     }
 
     if (globalThis.__NOTION_RAIL_READY__) {
-      const readyResult = await Promise.race([
-        globalThis.__NOTION_RAIL_READY__.catch(() => null),
-        delay(Math.max(0, timeout - (Date.now() - startTime))).then(() => null),
-      ]);
-      if (readyResult?.success && readyResult.rail) {
-        return activateRail(readyResult.rail);
-      }
-      return { initialized: false, highlightCount: 0 };
+      return waitForRailReady(timeout - (Date.now() - startTime));
     }
 
     await delay(interval);
   }
 
-  return { initialized: false, highlightCount: 0 };
+  return notReady();
 }
 
 /**
