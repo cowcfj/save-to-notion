@@ -34,25 +34,23 @@ function parseCliArgs(argv) {
   };
   const errors = [];
 
-  let skipNextArg = false;
-  for (const [index, arg] of argv.entries()) {
-    if (skipNextArg) {
-      skipNextArg = false;
-      continue;
-    }
+  let index = 0;
+  while (index < argv.length) {
+    const arg = argv[index];
     const optionName = summaryFlagOptionNames.get(arg);
     if (optionName) {
       const result = readFlagValue(argv, index, arg, errors);
       options[optionName] = result.value;
-      skipNextArg = result.nextIndex > index;
+      index = result.nextIndex + 1;
       continue;
     }
 
     positional.push(arg);
+    index += 1;
   }
 
   if (errors.length > 0) {
-    throw new Error(errors.join('\n') || 'CLI arguments are invalid');
+    throw new Error(errors.join('\n') || 'CLI 參數無效');
   }
 
   return {
