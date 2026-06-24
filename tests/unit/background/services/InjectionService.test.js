@@ -622,6 +622,50 @@ describe('InjectionService', () => {
         expect.any(Function)
       );
     });
+
+    it('應在 Bundle 注入遇可恢復錯誤時返回 false', async () => {
+      chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
+        chrome.runtime.lastError = undefined;
+        callback({ status: 'preloader_only' });
+      });
+      chrome.scripting.executeScript.mockImplementation((opts, callback) => {
+        chrome.runtime.lastError = { message: 'Cannot access contents of page' };
+        callback();
+      });
+
+      await expect(service.ensureBundleInjected(1)).resolves.toBe(false);
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Bundle injection skipped'),
+        expect.objectContaining({
+          action: 'ensureBundleInjected',
+          result: 'skipped',
+          error: expect.stringContaining('Cannot access contents of page'),
+        })
+      );
+    });
+
+    it('應在 Bundle 注入遇不可恢復錯誤時記錄並向外拋出', async () => {
+      chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
+        chrome.runtime.lastError = undefined;
+        callback({ status: 'preloader_only' });
+      });
+      chrome.scripting.executeScript.mockImplementation((opts, callback) => {
+        chrome.runtime.lastError = { message: 'SyntaxError: unexpected token' };
+        callback();
+      });
+
+      await expect(service.ensureBundleInjected(1)).rejects.toThrow(
+        'SyntaxError: unexpected token'
+      );
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Bundle injection failed'),
+        expect.objectContaining({
+          action: 'ensureBundleInjected',
+          result: 'failure',
+          error: expect.stringContaining('SyntaxError: unexpected token'),
+        })
+      );
+    });
   });
 
   describe('Edge Case Utilities', () => {
@@ -654,6 +698,10 @@ describe('InjectionService', () => {
         expect(msg).toContain('Runtime Error');
         expect(Logger.warn).toHaveBeenCalled();
       });
+
+      it('應將無 message 的 runtime error 序列化', () => {
+        expect(getRuntimeErrorMessage({ code: 'NO_MESSAGE' })).toBe('{"code":"NO_MESSAGE"}');
+      });
     });
   });
 
@@ -676,6 +724,11 @@ describe('InjectionService', () => {
       chrome.scripting.executeScript.mockImplementation((opts, cb) => cb());
       const result = await service.injectWithResponse(1, null, ['test.js']);
       expect(result).toEqual([{ result: { success: true } }]);
+    });
+
+    it('沒有 function 與 files 時應返回 null', async () => {
+      await expect(service.injectWithResponse(1, null, [])).resolves.toBeNull();
+      expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
     });
 
     it('應該在拋出異常時記錄脫敏後的錯誤並返回 null', async () => {
@@ -777,12 +830,54 @@ describe('InjectionService', () => {
       expect(activateHighlighting).toHaveBeenCalledWith();
     });
 
+    it('activateFloatingRailInPage 應直接啟動現有 rail 並回傳 highlight count', async () => {
+      const railShow = jest.fn();
+      const activateHighlighting = jest.fn();
+      globalThis.HighlighterV2 = {
+        rail: { show: railShow, activateHighlighting },
+        manager: { getCount: () => 5 },
+      };
+      chrome.scripting.executeScript.mockImplementation(async (opts, verifyResult) => {
+        if (opts.files) {
+          verifyResult([]);
+          return;
+        }
+        verifyResult([{ result: await opts.func() }]);
+      });
+
+      await expect(service.injectHighlighter(1)).resolves.toEqual({
+        initialized: true,
+        highlightCount: 5,
+      });
+      expect(railShow).toHaveBeenCalledTimes(1);
+      expect(activateHighlighting).toHaveBeenCalledTimes(1);
+    });
+
     it('collectHighlights 應該觸發無文件的注射並回傳陣列', async () => {
       chrome.scripting.executeScript.mockImplementation((opts, cb) => {
         cb([{ result: ['highlight1'] }]);
       });
       const result = await service.collectHighlights(1);
       expect(result).toEqual(['highlight1']);
+    });
+
+    it('collectHighlights 應執行頁面 callback 並回傳空陣列 fallback', async () => {
+      chrome.scripting.executeScript.mockImplementation(async (opts, cb) => {
+        cb([{ result: await opts.func() }]);
+      });
+
+      await expect(service.collectHighlights(1)).resolves.toEqual([]);
+    });
+
+    it('collectHighlights 應呼叫頁面 collectHighlights callback', async () => {
+      const collectHighlights = jest.fn(() => ['highlight-from-page']);
+      globalThis.collectHighlights = collectHighlights;
+      chrome.scripting.executeScript.mockImplementation(async (opts, cb) => {
+        cb([{ result: await opts.func() }]);
+      });
+
+      await expect(service.collectHighlights(1)).resolves.toEqual(['highlight-from-page']);
+      expect(collectHighlights).toHaveBeenCalledTimes(1);
     });
 
     it('clearPageHighlights 應該觸發無文件的注射', async () => {
@@ -797,6 +892,17 @@ describe('InjectionService', () => {
         }),
         expect.any(Function)
       );
+    });
+
+    it('clearPageHighlights 應呼叫頁面 clearPageHighlights callback', async () => {
+      const clearPageHighlights = jest.fn();
+      globalThis.clearPageHighlights = clearPageHighlights;
+      chrome.scripting.executeScript.mockImplementation(async (opts, cb) => {
+        cb([{ result: await opts.func() }]);
+      });
+
+      await expect(service.clearPageHighlights(1)).resolves.toBe(false);
+      expect(clearPageHighlights).toHaveBeenCalledTimes(1);
     });
 
     it('injectHighlightRestore 應該注入特定的腳本', async () => {
