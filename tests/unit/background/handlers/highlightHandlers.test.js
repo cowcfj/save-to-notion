@@ -1037,7 +1037,7 @@ describe('highlightHandlers', () => {
 
   describe('CLEAR_HIGHLIGHTS', () => {
     it('應該拒絕無效的 content script 請求', async () => {
-      expect.assertions(4);
+      expect.assertions(5);
 
       const validationError = createValidationError('content script 驗證失敗');
       validateContentScriptRequest.mockReturnValueOnce(validationError);
@@ -1053,10 +1053,11 @@ describe('highlightHandlers', () => {
         validator: validateContentScriptRequest,
         skippedValidator: validateInternalRequest,
       });
+      expect(sendResponse).toBeDefined();
     });
 
     it('應該拒絕無效的 popup/internal 請求', async () => {
-      expect.assertions(4);
+      expect.assertions(5);
 
       const validationError = createValidationError('internal 驗證失敗');
       validateInternalRequest.mockReturnValueOnce(validationError);
@@ -1073,6 +1074,7 @@ describe('highlightHandlers', () => {
         validator: validateInternalRequest,
         skippedValidator: validateContentScriptRequest,
       });
+      expect(sendResponse).toBeDefined();
     });
 
     it.each([
