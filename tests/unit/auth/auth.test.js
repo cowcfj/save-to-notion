@@ -104,7 +104,7 @@ describe('auth.js', () => {
   }
 
   async function runTicketExchangeFlow() {
-    globalThis.history.replaceState({}, '', '/auth.html?account_ticket=ticket_123');
+    globalThis.history.replaceState({}, '', '/pages/auth/auth.html?account_ticket=ticket_123');
 
     await loadAuthModule();
     await dispatchDomReady();
@@ -149,7 +149,7 @@ describe('auth.js', () => {
   });
 
   it('缺少 account_ticket 時應顯示錯誤且不發送請求', async () => {
-    globalThis.history.replaceState({}, '', '/auth.html');
+    globalThis.history.replaceState({}, '', '/pages/auth/auth.html');
 
     await loadAuthModule();
     await dispatchDomReady();
@@ -162,7 +162,7 @@ describe('auth.js', () => {
   it('OAUTH_SERVER_URL 缺失時應顯示錯誤且不發送請求', async () => {
     const { BUILD_ENV } = await import('../../../scripts/config/env/index.js');
     BUILD_ENV.OAUTH_SERVER_URL = '';
-    globalThis.history.replaceState({}, '', '/auth.html?account_ticket=ticket_123');
+    globalThis.history.replaceState({}, '', '/pages/auth/auth.html?account_ticket=ticket_123');
 
     await loadAuthModule();
     await dispatchDomReady();

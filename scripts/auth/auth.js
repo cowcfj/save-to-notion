@@ -1,5 +1,5 @@
 /**
- * auth.js — Account Callback Bridge（auth.html 的主邏輯）
+ * auth.js — Account Callback Bridge（auth callback pages 的主邏輯）
  *
  * 執行流程：
  * 1. 解析 URL query 中的 account_ticket

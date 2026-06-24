@@ -26,15 +26,20 @@
         "CODE_OF_CONDUCT.md",
         "babel.config.js",
         "jest.config.js",
+        "jest.native-esm.config.cjs",
         "playwright.config.js",
-        "eslint.config.js",
+        "eslint.config.mjs",
+        "knip.json",
+        "sonar-project.properties",
         "README.md",
         "USER_GUIDE.md",
         "LICENSE",
         "CHANGELOG.md",
+        "examples/",
         "tools/",
         "rollup/",
-        "package-lock.json"
+        "package-lock.json",
+        "release-please-config.json"
       ],
       "changelog-sections": [
         {
@@ -64,7 +69,8 @@
         },
         {
           "type": "test",
-          "section": "🧪 測試"
+          "section": "🧪 測試",
+          "hidden": true
         },
         {
           "type": "build",
