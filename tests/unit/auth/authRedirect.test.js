@@ -24,4 +24,9 @@ describe('authRedirect', () => {
       'chrome-extension://ext_id_123/pages/auth/auth.html?account_ticket=ticket_123#done'
     );
   });
+
+  test('returns empty URL when location href is unavailable', () => {
+    expect(buildCanonicalAuthUrl(null)).toBe('');
+    expect(buildCanonicalAuthUrl({ search: '?account_ticket=ticket_123', hash: '' })).toBe('');
+  });
 });

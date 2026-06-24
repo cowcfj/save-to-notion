@@ -77,6 +77,21 @@ describe('accountAuthHandler', () => {
     });
   });
 
+  test('account_ticket 含特殊字元時應重新編碼後再導向 canonical auth page', async () => {
+    handler.setupListeners();
+
+    await onUpdatedListener(12, {
+      url: 'https://worker.test/v1/account/callback-bridge?account_ticket=ticket%26with%23parts%3Fx%3D1&ext_id=ext_id_123',
+    });
+
+    expect(runtime.getURL).toHaveBeenCalledWith(
+      'pages/auth/auth.html?account_ticket=ticket%26with%23parts%3Fx%3D1'
+    );
+    expect(tabs.update).toHaveBeenCalledWith(12, {
+      url: 'chrome-extension://ext_id_123/pages/auth/auth.html?account_ticket=ticket%26with%23parts%3Fx%3D1',
+    });
+  });
+
   test('ext_id 與目前 extension 不一致時不應攔截', async () => {
     handler.setupListeners();
 

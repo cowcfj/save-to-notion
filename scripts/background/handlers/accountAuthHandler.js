@@ -108,7 +108,9 @@ export function createAccountAuthHandler(dependencies = {}) {
     processedBridgeUrlsByTab.set(tabId, rawUrl);
 
     try {
-      const authUrl = runtime.getURL(`pages/auth/auth.html?account_ticket=${match.accountTicket}`);
+      const authUrl = runtime.getURL(
+        `pages/auth/auth.html?account_ticket=${encodeURIComponent(match.accountTicket)}`
+      );
       await tabs.update(tabId, { url: authUrl });
     } catch (error) {
       processedBridgeUrlsByTab.delete(tabId);
