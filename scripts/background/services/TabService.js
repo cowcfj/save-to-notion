@@ -209,6 +209,29 @@ function hasMigratedHighlightData(result) {
   return result.data.length > 0;
 }
 
+const TAB_SERVICE_DEPENDENCY_DEFAULTS = Object.freeze({
+  logger: Logger,
+  injectionService: undefined,
+  normalizeUrl: identityUrl,
+  computeStableUrl: null,
+  getSavedPageData: resolveNull,
+  isRestrictedUrl: returnFalse,
+  isRecoverableError: returnFalse,
+  onNoHighlightsFound: null,
+  checkPageExists: resolveNull,
+  getApiKey: resolveNull,
+  clearPageState: resolveVoid,
+  clearNotionState: resolveVoid,
+  setSavedPageData: resolveVoid,
+});
+
+function resolveTabServiceDependencies(options) {
+  return {
+    ...TAB_SERVICE_DEPENDENCY_DEFAULTS,
+    ...options,
+  };
+}
+
 /**
  * TabService 類
  */
@@ -229,37 +252,39 @@ class TabService {
    *   - highlightsKey: 標註存儲鍵名（格式: "highlights_{normUrl}"）
    */
   constructor(options = {}) {
+    const deps = resolveTabServiceDependencies(options);
+
     // === 核心依賴 ===
-    this.logger = options.logger ?? Logger;
-    this.injectionService = options.injectionService;
+    this.logger = deps.logger;
+    this.injectionService = deps.injectionService;
 
     // === URL 處理 ===
-    this.normalizeUrl = options.normalizeUrl ?? identityUrl;
-    this.computeStableUrl = options.computeStableUrl ?? null;
+    this.normalizeUrl = deps.normalizeUrl;
+    this.computeStableUrl = deps.computeStableUrl;
 
     // === 存儲查詢 ===
-    this.getSavedPageData = options.getSavedPageData ?? resolveNull;
+    this.getSavedPageData = deps.getSavedPageData;
 
     // === 安全檢查 ===
-    this.isRestrictedUrl = options.isRestrictedUrl ?? returnFalse;
-    this.isRecoverableError = options.isRecoverableError ?? returnFalse;
+    this.isRestrictedUrl = deps.isRestrictedUrl;
+    this.isRecoverableError = deps.isRecoverableError;
 
     // === 回調與狀態 ===
     // 無標註時觸發（可用於遷移或其他邏輯）
-    this.onNoHighlightsFound = options.onNoHighlightsFound ?? null;
+    this.onNoHighlightsFound = deps.onNoHighlightsFound;
     // 追蹤每個 tabId 的待處理監聽器，防止重複註冊
     this.pendingListeners = new Map();
     // 追蹤正在處理中的 tab，防止並發調用
     this.processingTabs = new Map();
 
     // === 頁面驗證邏輯 (_verifyAndUpdateStatus 使用) ===
-    this.checkPageExists = options.checkPageExists ?? resolveNull;
-    this.getApiKey = options.getApiKey ?? resolveNull;
-    this.clearPageState = options.clearPageState ?? resolveVoid;
-    this.clearNotionState = options.clearNotionState ?? resolveVoid;
+    this.checkPageExists = deps.checkPageExists;
+    this.getApiKey = deps.getApiKey;
+    this.clearPageState = deps.clearPageState;
+    this.clearNotionState = deps.clearNotionState;
     this.clearNotionStateWithRetry =
-      options.clearNotionStateWithRetry ?? createDefaultClearNotionStateWithRetry(this);
-    this.setSavedPageData = options.setSavedPageData ?? resolveVoid;
+      deps.clearNotionStateWithRetry ?? createDefaultClearNotionStateWithRetry(this);
+    this.setSavedPageData = deps.setSavedPageData;
 
     // 連續不存在保護：短時間窗內連續兩次 false 才清理。
     // Map metadata 讓暫時性 false negative 過期後重新視為第一次失敗。
@@ -1197,7 +1222,14 @@ class TabService {
 function _migrationScript(trackingParams) {
   /* eslint-disable unicorn/consistent-function-scoping */
   // 檢測開發環境
-  const isDev = chrome?.runtime?.getManifest?.()?.version_name?.includes('dev');
+  const getIsDev = () => {
+    try {
+      return chrome.runtime.getManifest().version_name.includes('dev');
+    } catch {
+      return false;
+    }
+  };
+  const isDev = getIsDev();
 
   // 內部輔助函數：結構化日誌
   const log = (level, msg, detail) => {
@@ -1236,6 +1268,14 @@ function _migrationScript(trackingParams) {
   };
 
   // 內部輔助函數：遍歷 localStorage 尋找後備的 key
+  const parseOrigin = raw => {
+    try {
+      return new URL(raw).origin;
+    } catch {
+      return null;
+    }
+  };
+
   const findLegacyHighlightFallbackKey = currentOrigin => {
     let legacyCandidate = null;
     for (let i = 0; i < localStorage.length; i++) {
@@ -1244,16 +1284,14 @@ function _migrationScript(trackingParams) {
         continue;
       }
 
-      try {
-        const keyUrl = k.replace('highlights_', '');
-        const parsedUrlOrigin = new URL(keyUrl).origin;
-        if (currentOrigin && parsedUrlOrigin === currentOrigin) {
-          return k;
-        }
-      } catch {
-        if (!legacyCandidate) {
-          legacyCandidate = k;
-        }
+      const keyUrl = k.replace('highlights_', '');
+      const keyOrigin = parseOrigin(keyUrl);
+      if (currentOrigin && keyOrigin === currentOrigin) {
+        return k;
+      }
+
+      if (!currentOrigin || !keyOrigin) {
+        legacyCandidate ||= k;
       }
     }
     return legacyCandidate;
