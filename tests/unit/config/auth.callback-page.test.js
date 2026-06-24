@@ -13,11 +13,16 @@ describe('auth callback page regressions', () => {
   let legacyAuthHtml;
   let authJs;
   let rollupPagesConfig;
+  let callbackBridgeCss;
 
   beforeAll(() => {
     authHtml = fs.readFileSync(path.resolve(__dirname, '../../../pages/auth/auth.html'), 'utf8');
     legacyAuthHtml = fs.readFileSync(path.resolve(__dirname, '../../../auth.html'), 'utf8');
     authJs = fs.readFileSync(path.resolve(__dirname, '../../../scripts/auth/auth.js'), 'utf8');
+    callbackBridgeCss = fs.readFileSync(
+      path.resolve(__dirname, '../../../styles/callback-bridge.css'),
+      'utf8'
+    );
     rollupPagesConfig = fs.readFileSync(
       path.resolve(__dirname, '../../../rollup/pages.config.mjs'),
       'utf8'
@@ -39,6 +44,14 @@ describe('auth callback page regressions', () => {
     expect(authHtml).toMatch(
       /<link\s+rel="stylesheet"\s+href="..\/..\/styles\/callback-bridge\.css"\s*\/?>/
     );
+  });
+
+  test('callback bridge layout 應由共用 stylesheet 維護', () => {
+    expect(authHtml).not.toMatch(/<style\b/);
+    expect(legacyAuthHtml).not.toMatch(/<style\b/);
+    expect(callbackBridgeCss).toContain('.card');
+    expect(callbackBridgeCss).toContain('.logo');
+    expect(callbackBridgeCss).toContain('.subtitle');
   });
 
   test('root auth.html 應直接載入 auth callback bundle，避免 client-side redirect shim', () => {
