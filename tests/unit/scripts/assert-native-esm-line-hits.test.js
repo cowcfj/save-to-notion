@@ -246,10 +246,11 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
     expect(result.status).toBe(0);
     // eslint-disable-next-line security/detect-non-literal-fs-filename
     const markdown = fs.readFileSync(summaryMarkdownPath, 'utf8');
-    expect(markdown).toContain('Diagnostic-only');
     expect(markdown).toContain('coverage/jest/lcov.info');
-    expect(markdown).toContain('| `source-line-correctness` | pass | yes |');
     expect(markdown).toContain('| `scripts/background/utils/BlockBuilder.js` | 4 | 4 | 0 |');
+    expect(markdown).toContain('僅供診斷');
+    expect(markdown).toContain('來源行命中正確性');
+    expect(markdown).toContain('| 來源行命中正確性 | 通過 | 是 |');
   });
 
   test('必要 line 未命中時仍會寫出 failure summary', () => {
@@ -297,6 +298,62 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('summary output path 必須位於 coverage/native-esm 底下');
+  });
+
+  test('[SECURITY] summary Markdown output path 必須位於 native ESM coverage 目錄', () => {
+    const coveragePath = writeCoverageFile(createPassingCoverage());
+    const manifestPath = writeManifestFile(createPassingManifest());
+    const outsideSummaryPath = path.join(os.tmpdir(), 'line-hit-summary.md');
+
+    const result = spawnSync(
+      'node',
+      [scriptPath, coveragePath, manifestPath, '--summary-md', outsideSummaryPath],
+      {
+        cwd: projectRoot,
+        encoding: 'utf8',
+      }
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('summary output path 必須位於 coverage/native-esm 底下');
+  });
+
+  test('[SECURITY] summary JSON flag 缺少輸出路徑時不得吃掉下一個 flag', () => {
+    const coveragePath = writeCoverageFile(createPassingCoverage());
+    const manifestPath = writeManifestFile(createPassingManifest());
+    const summaryMarkdownPath = path.join(tempCoverageRoot, 'line-hit-summary.md');
+
+    const result = spawnSync(
+      'node',
+      [
+        scriptPath,
+        coveragePath,
+        manifestPath,
+        '--summary-json',
+        '--summary-md',
+        summaryMarkdownPath,
+      ],
+      {
+        cwd: projectRoot,
+        encoding: 'utf8',
+      }
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('--summary-json 缺少輸出路徑');
+  });
+
+  test('[SECURITY] summary Markdown flag 缺少輸出路徑時會失敗', () => {
+    const coveragePath = writeCoverageFile(createPassingCoverage());
+    const manifestPath = writeManifestFile(createPassingManifest());
+
+    const result = spawnSync('node', [scriptPath, coveragePath, manifestPath, '--summary-md'], {
+      cwd: projectRoot,
+      encoding: 'utf8',
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('--summary-md 缺少輸出路徑');
   });
 
   test('[SECURITY] manifest fileSuffix 不可重複', () => {

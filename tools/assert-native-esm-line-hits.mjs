@@ -18,21 +18,36 @@ function parseCliArgs(argv) {
     summaryJsonPath: undefined,
     summaryMarkdownPath: undefined,
   };
+  const errors = [];
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--summary-json') {
-      options.summaryJsonPath = argv[index + 1];
-      index += 1;
+      const nextArg = argv[index + 1];
+      if (!nextArg || nextArg.startsWith('--')) {
+        errors.push('--summary-json 缺少輸出路徑');
+      } else {
+        options.summaryJsonPath = nextArg;
+        index += 1;
+      }
       continue;
     }
     if (arg === '--summary-md') {
-      options.summaryMarkdownPath = argv[index + 1];
-      index += 1;
+      const nextArg = argv[index + 1];
+      if (!nextArg || nextArg.startsWith('--')) {
+        errors.push('--summary-md 缺少輸出路徑');
+      } else {
+        options.summaryMarkdownPath = nextArg;
+        index += 1;
+      }
       continue;
     }
 
     positional.push(arg);
+  }
+
+  if (errors.length > 0) {
+    throw new Error(errors.join('\n'));
   }
 
   return {
@@ -196,38 +211,41 @@ function createGateRecords({ failedLines, checkedLineCount }) {
   return [
     {
       id: 'source-line-correctness',
+      label: '來源行命中正確性',
       status: failedLines === 0 ? 'pass' : 'fail',
       blocking: true,
       evidence:
         failedLines === 0
-          ? `${checkedLineCount} required line-hit assertions passed.`
-          : `${failedLines} required line-hit assertions failed.`,
+          ? `${checkedLineCount} 個必要行命中斷言已通過。`
+          : `${failedLines} 個必要行命中斷言失敗。`,
     },
     {
       id: 'diagnostic-integrity',
+      label: '診斷完整性',
       status: 'pass',
       blocking: true,
-      evidence: 'Coverage entries and manifest targets stayed within allowed formal source paths.',
+      evidence: '覆蓋率 entries 與 manifest targets 都維持在允許的正式 source paths 內。',
     },
     {
       id: 'official-scope-parity',
+      label: '正式範圍對齊',
       status: 'not_evaluated',
       blocking: false,
-      evidence:
-        'Diagnostic target list is intentionally narrower than jest.config.js collectCoverageFrom.',
+      evidence: '診斷 target list 刻意比 jest.config.js collectCoverageFrom 更窄。',
     },
     {
       id: 'codecov-upload-isolation',
+      label: 'Codecov 上傳隔離',
       status: 'pass',
       blocking: false,
-      evidence: 'coverage-gate.yml uploads coverage/jest/lcov.info to Codecov.',
+      evidence: 'coverage-gate.yml 會上傳 coverage/jest/lcov.info 到 Codecov。',
     },
     {
       id: 'threshold-parity',
+      label: '門檻對齊',
       status: 'not_evaluated',
       blocking: false,
-      evidence:
-        'Formal coverageThreshold remains owned by npm run test:coverage / npm run test:ci.',
+      evidence: '正式 coverageThreshold 仍由 npm run test:coverage / npm run test:ci 負責。',
     },
   ];
 }
@@ -249,12 +267,22 @@ function buildSummary({ coveragePath, manifestPath, fileResults, checkedLineCoun
   };
 }
 
+function formatGateStatus(status) {
+  return (
+    {
+      pass: '通過',
+      fail: '失敗',
+      not_evaluated: '未評估',
+    }[status] || status
+  );
+}
+
 function renderMarkdownSummary(summary) {
   const failedFiles = summary.files.filter(file => file.failedLines.length > 0);
   const gateRows = summary.gates
     .map(
       gate =>
-        `| \`${gate.id}\` | ${gate.status} | ${gate.blocking ? 'yes' : 'no'} | ${gate.evidence} |`
+        `| ${gate.label || `\`${gate.id}\``} | ${formatGateStatus(gate.status)} | ${gate.blocking ? '是' : '否'} | ${gate.evidence} |`
     )
     .join('\n');
   const fileRows = summary.files
@@ -265,35 +293,35 @@ function renderMarkdownSummary(summary) {
     .join('\n');
   const failureSection =
     failedFiles.length === 0
-      ? 'No failed required line hits.'
+      ? '沒有失敗的必要行命中。'
       : failedFiles
           .map(file => `- \`${file.fileSuffix}\`: ${file.failedLines.join(', ')}`)
           .join('\n');
 
-  return `# Native ESM Diagnostic Summary
+  return `# Native ESM 診斷摘要
 
-> Diagnostic-only. This is not the official coverage truth; Codecov still uses \`coverage/jest/lcov.info\`.
+> 僅供診斷。這不是正式 coverage truth；Codecov 仍使用 \`coverage/jest/lcov.info\`。
 
-## Totals
+## 總計
 
-- Files: ${summary.totals.files}
-- Required line-hit assertions: ${summary.totals.requiredLines}
-- Passed line-hit assertions: ${summary.totals.passedLines}
-- Failed line-hit assertions: ${summary.totals.failedLines}
+- 檔案數：${summary.totals.files}
+- 必要行命中斷言：${summary.totals.requiredLines}
+- 已通過行命中斷言：${summary.totals.passedLines}
+- 失敗行命中斷言：${summary.totals.failedLines}
 
 ## Gates
 
-| Gate | Status | Blocking | Evidence |
+| Gate | 狀態 | 阻擋 | 證據 |
 | --- | --- | --- | --- |
 ${gateRows}
 
-## Files
+## 檔案
 
-| File | Required | Passed | Failed | Rationale |
+| 檔案 | 必要 | 通過 | 失敗 | 理由 |
 | --- | ---: | ---: | ---: | --- |
 ${fileRows}
 
-## Failures
+## 失敗明細
 
 ${failureSection}
 `;
@@ -379,19 +407,28 @@ function runDiagnostic({ coveragePath, manifestPath }) {
   };
 }
 
-const cliOptions = parseCliArgs(process.argv.slice(2));
-const { failures, checkedLineCount, summary } = runDiagnostic(cliOptions);
+function main() {
+  const cliOptions = parseCliArgs(process.argv.slice(2));
+  const { failures, checkedLineCount, summary } = runDiagnostic(cliOptions);
 
-if (cliOptions.summaryJsonPath) {
-  writeSummaryFile(cliOptions.summaryJsonPath, `${JSON.stringify(summary, null, 2)}\n`);
-}
-if (cliOptions.summaryMarkdownPath) {
-  writeSummaryFile(cliOptions.summaryMarkdownPath, renderMarkdownSummary(summary));
+  if (cliOptions.summaryJsonPath) {
+    writeSummaryFile(cliOptions.summaryJsonPath, `${JSON.stringify(summary, null, 2)}\n`);
+  }
+  if (cliOptions.summaryMarkdownPath) {
+    writeSummaryFile(cliOptions.summaryMarkdownPath, renderMarkdownSummary(summary));
+  }
+
+  if (failures.length > 0) {
+    console.error(failures.join('\n'));
+    process.exit(1);
+  }
+
+  console.log(`Native ESM 行命中檢查通過：${summary.totals.files} 個檔案, ${checkedLineCount} 行`);
 }
 
-if (failures.length > 0) {
-  console.error(failures.join('\n'));
+try {
+  main();
+} catch (error) {
+  console.error(error.message);
   process.exit(1);
 }
-
-console.log(`Native ESM 行命中檢查通過：${summary.totals.files} 個檔案, ${checkedLineCount} 行`);
