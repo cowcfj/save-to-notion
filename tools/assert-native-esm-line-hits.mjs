@@ -11,6 +11,10 @@ const allowedSourcePrefixes = [
   'scripts/highlighter/',
   'scripts/utils/image/',
 ];
+const summaryFlagOptionNames = new Map([
+  ['--summary-json', 'summaryJsonPath'],
+  ['--summary-md', 'summaryMarkdownPath'],
+]);
 
 function readFlagValue(argv, index, flagName, errors) {
   const nextArg = argv[index + 1];
@@ -30,26 +34,23 @@ function parseCliArgs(argv) {
   };
   const errors = [];
 
-  for (let index = 0; index < argv.length; index += 1) {
+  let index = 0;
+  while (index < argv.length) {
     const arg = argv[index];
-    if (arg === '--summary-json') {
+    const optionName = summaryFlagOptionNames.get(arg);
+    if (optionName) {
       const result = readFlagValue(argv, index, arg, errors);
-      options.summaryJsonPath = result.value;
-      index = result.nextIndex;
-      continue;
-    }
-    if (arg === '--summary-md') {
-      const result = readFlagValue(argv, index, arg, errors);
-      options.summaryMarkdownPath = result.value;
-      index = result.nextIndex;
+      options[optionName] = result.value;
+      index = result.nextIndex + 1;
       continue;
     }
 
     positional.push(arg);
+    index += 1;
   }
 
   if (errors.length > 0) {
-    throw new Error(errors.join('\n'));
+    throw new Error(errors.join('\n') || 'CLI 參數無效');
   }
 
   return {
@@ -166,7 +167,7 @@ function assertValidRequirement(requirement) {
 
 function assertUniqueRequirements(requirements) {
   if (!Array.isArray(requirements)) {
-    throw new Error('manifest 必須是陣列');
+    throw new TypeError('manifest 必須是陣列');
   }
 
   const seen = new Set();
@@ -288,7 +289,7 @@ function formatGateName(gate) {
 }
 
 function escapeMarkdownTableCell(value) {
-  return String(value).replace(/\r?\n/g, ' ').replaceAll('|', '\\|');
+  return String(value).replace(/\r?\n/g, ' ').replaceAll('|', String.raw`\|`);
 }
 
 function renderMarkdownSummary(summary) {
