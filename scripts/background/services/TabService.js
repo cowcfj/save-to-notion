@@ -1268,6 +1268,14 @@ function _migrationScript(trackingParams) {
   };
 
   // 內部輔助函數：遍歷 localStorage 尋找後備的 key
+  const parseOrigin = raw => {
+    try {
+      return new URL(raw).origin;
+    } catch {
+      return null;
+    }
+  };
+
   const findLegacyHighlightFallbackKey = currentOrigin => {
     let legacyCandidate = null;
     for (let i = 0; i < localStorage.length; i++) {
@@ -1277,21 +1285,13 @@ function _migrationScript(trackingParams) {
       }
 
       const keyUrl = k.replace('highlights_', '');
-      if (!currentOrigin) {
-        if (!legacyCandidate) {
-          legacyCandidate = k;
-        }
-        continue;
+      const keyOrigin = parseOrigin(keyUrl);
+      if (currentOrigin && keyOrigin === currentOrigin) {
+        return k;
       }
 
-      try {
-        if (new URL(keyUrl).origin === currentOrigin) {
-          return k;
-        }
-      } catch {
-        if (!legacyCandidate) {
-          legacyCandidate = k;
-        }
+      if (!currentOrigin || !keyOrigin) {
+        legacyCandidate ||= k;
       }
     }
     return legacyCandidate;
