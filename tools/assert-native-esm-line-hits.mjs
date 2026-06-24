@@ -12,6 +12,16 @@ const allowedSourcePrefixes = [
   'scripts/utils/image/',
 ];
 
+function readFlagValue(argv, index, flagName, errors) {
+  const nextArg = argv[index + 1];
+  if (!nextArg || nextArg.startsWith('--')) {
+    errors.push(`${flagName} 缺少輸出路徑`);
+    return { nextIndex: index, value: undefined };
+  }
+
+  return { nextIndex: index + 1, value: nextArg };
+}
+
 function parseCliArgs(argv) {
   const positional = [];
   const options = {
@@ -23,23 +33,15 @@ function parseCliArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--summary-json') {
-      const nextArg = argv[index + 1];
-      if (!nextArg || nextArg.startsWith('--')) {
-        errors.push('--summary-json 缺少輸出路徑');
-      } else {
-        options.summaryJsonPath = nextArg;
-        index += 1;
-      }
+      const result = readFlagValue(argv, index, arg, errors);
+      options.summaryJsonPath = result.value;
+      index = result.nextIndex;
       continue;
     }
     if (arg === '--summary-md') {
-      const nextArg = argv[index + 1];
-      if (!nextArg || nextArg.startsWith('--')) {
-        errors.push('--summary-md 缺少輸出路徑');
-      } else {
-        options.summaryMarkdownPath = nextArg;
-        index += 1;
-      }
+      const result = readFlagValue(argv, index, arg, errors);
+      options.summaryMarkdownPath = result.value;
+      index = result.nextIndex;
       continue;
     }
 
@@ -277,12 +279,16 @@ function formatGateStatus(status) {
   );
 }
 
+function formatGateName(gate) {
+  return gate.label || ['`', gate.id, '`'].join('');
+}
+
 function renderMarkdownSummary(summary) {
   const failedFiles = summary.files.filter(file => file.failedLines.length > 0);
   const gateRows = summary.gates
     .map(
       gate =>
-        `| ${gate.label || `\`${gate.id}\``} | ${formatGateStatus(gate.status)} | ${gate.blocking ? '是' : '否'} | ${gate.evidence} |`
+        `| ${formatGateName(gate)} | ${formatGateStatus(gate.status)} | ${gate.blocking ? '是' : '否'} | ${gate.evidence} |`
     )
     .join('\n');
   const fileRows = summary.files

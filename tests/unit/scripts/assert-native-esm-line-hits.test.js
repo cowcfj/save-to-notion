@@ -48,11 +48,13 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
     },
   ];
 
-  const runCli = (coveragePath, manifestPath) =>
-    spawnSync('node', [scriptPath, coveragePath, manifestPath].filter(Boolean), {
+  const runCliWithArgs = args =>
+    spawnSync('node', [scriptPath, ...args].filter(Boolean), {
       cwd: projectRoot,
       encoding: 'utf8',
     });
+
+  const runCli = (coveragePath, manifestPath) => runCliWithArgs([coveragePath, manifestPath]);
 
   const writeCoverageFile = coverage => {
     const coveragePath = path.join(tempCoverageRoot, 'coverage-final.json');
@@ -78,24 +80,19 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
   const runCliWithSummary = (coveragePath, manifestPath, summaryRoot = tempCoverageRoot) => {
     const summaryJsonPath = path.join(summaryRoot, 'line-hit-summary.json');
     const summaryMarkdownPath = path.join(summaryRoot, 'line-hit-summary.md');
-    const result = spawnSync(
-      'node',
-      [
-        scriptPath,
-        coveragePath,
-        manifestPath,
-        '--summary-json',
-        summaryJsonPath,
-        '--summary-md',
-        summaryMarkdownPath,
-      ],
-      {
-        cwd: projectRoot,
-        encoding: 'utf8',
-      }
-    );
+    const result = runCliWithArgs([
+      coveragePath,
+      manifestPath,
+      '--summary-json',
+      summaryJsonPath,
+      '--summary-md',
+      summaryMarkdownPath,
+    ]);
     return { result, summaryJsonPath, summaryMarkdownPath };
   };
+
+  const runCliWithSummaryFlag = (coveragePath, manifestPath, flag, outputPath) =>
+    runCliWithArgs([coveragePath, manifestPath, flag, outputPath]);
 
   beforeEach(() => {
     fs.mkdirSync(allowedCoverageRoot, { recursive: true });
@@ -287,13 +284,11 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
     const manifestPath = writeManifestFile(createPassingManifest());
     const outsideSummaryPath = path.join(os.tmpdir(), 'line-hit-summary.json');
 
-    const result = spawnSync(
-      'node',
-      [scriptPath, coveragePath, manifestPath, '--summary-json', outsideSummaryPath],
-      {
-        cwd: projectRoot,
-        encoding: 'utf8',
-      }
+    const result = runCliWithSummaryFlag(
+      coveragePath,
+      manifestPath,
+      '--summary-json',
+      outsideSummaryPath
     );
 
     expect(result.status).toBe(1);
@@ -305,13 +300,11 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
     const manifestPath = writeManifestFile(createPassingManifest());
     const outsideSummaryPath = path.join(os.tmpdir(), 'line-hit-summary.md');
 
-    const result = spawnSync(
-      'node',
-      [scriptPath, coveragePath, manifestPath, '--summary-md', outsideSummaryPath],
-      {
-        cwd: projectRoot,
-        encoding: 'utf8',
-      }
+    const result = runCliWithSummaryFlag(
+      coveragePath,
+      manifestPath,
+      '--summary-md',
+      outsideSummaryPath
     );
 
     expect(result.status).toBe(1);
@@ -323,21 +316,13 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
     const manifestPath = writeManifestFile(createPassingManifest());
     const summaryMarkdownPath = path.join(tempCoverageRoot, 'line-hit-summary.md');
 
-    const result = spawnSync(
-      'node',
-      [
-        scriptPath,
-        coveragePath,
-        manifestPath,
-        '--summary-json',
-        '--summary-md',
-        summaryMarkdownPath,
-      ],
-      {
-        cwd: projectRoot,
-        encoding: 'utf8',
-      }
-    );
+    const result = runCliWithArgs([
+      coveragePath,
+      manifestPath,
+      '--summary-json',
+      '--summary-md',
+      summaryMarkdownPath,
+    ]);
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('--summary-json 缺少輸出路徑');
@@ -347,10 +332,7 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
     const coveragePath = writeCoverageFile(createPassingCoverage());
     const manifestPath = writeManifestFile(createPassingManifest());
 
-    const result = spawnSync('node', [scriptPath, coveragePath, manifestPath, '--summary-md'], {
-      cwd: projectRoot,
-      encoding: 'utf8',
-    });
+    const result = runCliWithSummaryFlag(coveragePath, manifestPath, '--summary-md');
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('--summary-md 缺少輸出路徑');
