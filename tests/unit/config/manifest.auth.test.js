@@ -1,10 +1,10 @@
 /**
  * manifest.json — auth callback web_accessible_resources 測試
  *
- * 驗證 canonical auth page 與 legacy root shim 已正確加入 web_accessible_resources，
+ * 驗證 canonical auth page 與 legacy root callback page 已正確加入 web_accessible_resources，
  * 且 matches 不包含 <all_urls>（安全限制）。
  *
- * bridge rollout 完成前，legacy direct redirect 仍可能存在，因此 auth.html 的
+ * bridge rollout 完成前，legacy direct callback 仍可能存在，因此 auth.html 的
  * web_accessible_resources 條目暫時 **MUST NOT** 移除。
  *
  * @see manifest.json

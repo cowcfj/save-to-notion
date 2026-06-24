@@ -15,7 +15,6 @@ export default {
     onboarding: 'pages/onboarding/onboarding.js',
     'update-notification': 'pages/update-notification/update-notification.js',
     auth: 'scripts/auth/auth.js',
-    'auth-redirect': 'scripts/auth/authRedirect.js',
   },
   output: {
     dir: 'dist/pages',

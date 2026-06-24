@@ -12,11 +12,16 @@ describe('auth callback page regressions', () => {
   let authHtml;
   let legacyAuthHtml;
   let authJs;
+  let rollupPagesConfig;
 
   beforeAll(() => {
     authHtml = fs.readFileSync(path.resolve(__dirname, '../../../pages/auth/auth.html'), 'utf8');
     legacyAuthHtml = fs.readFileSync(path.resolve(__dirname, '../../../auth.html'), 'utf8');
     authJs = fs.readFileSync(path.resolve(__dirname, '../../../scripts/auth/auth.js'), 'utf8');
+    rollupPagesConfig = fs.readFileSync(
+      path.resolve(__dirname, '../../../rollup/pages.config.mjs'),
+      'utf8'
+    );
   });
 
   test('canonical auth page 應以 module script 載入 bundled auth.js', () => {
@@ -36,8 +41,16 @@ describe('auth callback page regressions', () => {
     );
   });
 
-  test('root auth.html 應只作為 legacy redirect shim', () => {
-    expect(legacyAuthHtml).toContain('dist/pages/auth-redirect.js');
-    expect(legacyAuthHtml).not.toContain('dist/pages/auth.js');
+  test('root auth.html 應直接載入 auth callback bundle，避免 client-side redirect shim', () => {
+    expect(legacyAuthHtml).toMatch(
+      /<script\b(?=[^>]*\bsrc="dist\/pages\/auth\.js")(?=[^>]*\btype="module")[^>]*><\/script>/
+    );
+    expect(legacyAuthHtml).toContain('styles/callback-bridge.css');
+    expect(legacyAuthHtml).not.toContain('dist/pages/auth-redirect.js');
+  });
+
+  test('pages bundle 不應再產生 auth-redirect entry', () => {
+    expect(rollupPagesConfig).toContain("auth: 'scripts/auth/auth.js'");
+    expect(rollupPagesConfig).not.toContain("'auth-redirect':");
   });
 });
