@@ -176,7 +176,7 @@ describe('tools/check-size-gates.mjs', () => {
     );
   });
 
-  test.each([
+  const contentBundleHardPassCases = [
     ['pre-DOMPurify CI 回歸值', 257_170],
     ['DOMPurify sanitizer baseline', 283_783],
     ['Floating Rail complexity refactor baseline', 287_438],
@@ -186,32 +186,33 @@ describe('tools/check-size-gates.mjs', () => {
     ['Migration tree-shaking remediation current baseline (2026-06-06)', 296_616],
     ['接近 hard cap', 299_500],
     ['正好等於 hard cap', 300_000],
-  ])('[REGRESSION] hard mode 應允許 content bundle %s (%i bytes) 通過', (_label, contentSize) => {
-    expect.assertions(2);
-
-    const expected = {
+  ].map(([label, contentSize]) => ({
+    name: `content bundle ${label} (${contentSize} bytes)`,
+    sizes: { contentSize },
+    checkKey: 'content_bundle',
+    expected: {
       current: contentSize,
       hardLimit: 300_000,
-    };
-    const { report, check } = runHardBundleCheck({
-      sizes: { contentSize },
-      checkKey: 'content_bundle',
-    });
+    },
+  }));
 
-    expect(report.failed).toBe(false);
-    expect(check).toEqual(expect.objectContaining({ status: 'pass', ...expected }));
-  });
-
-  test('[REGRESSION] hard mode 應允許 background bundle 在 delta gate 內自然成長', () => {
-    expect.assertions(2);
-
-    const expected = {
-      current: 243_500,
-      hardLimit: 245_000,
-    };
-    const { report, check } = runHardBundleCheck({
+  test.each([
+    ...contentBundleHardPassCases,
+    {
+      name: 'background bundle 在 delta gate 內自然成長',
       sizes: { backgroundSize: 243_500 },
       checkKey: 'background_bundle',
+      expected: {
+        current: 243_500,
+        hardLimit: 245_000,
+      },
+    },
+  ])('[REGRESSION] hard mode 應允許 $name 通過', ({ sizes, checkKey, expected }) => {
+    expect.assertions(2);
+
+    const { report, check } = runHardBundleCheck({
+      sizes,
+      checkKey,
     });
 
     expect(report.failed).toBe(false);
