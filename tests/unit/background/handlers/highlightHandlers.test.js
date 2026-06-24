@@ -134,19 +134,6 @@ describe('highlightHandlers', () => {
     });
   };
 
-  const expectClearValidationRejected = ({
-    sendResponse,
-    sender,
-    validationError,
-    validator,
-    skippedValidator,
-  }) => {
-    expect(validator).toHaveBeenCalledWith(sender);
-    expect(skippedValidator).not.toHaveBeenCalled();
-    expect(mockServices.storageService.updateHighlights).not.toHaveBeenCalled();
-    expect(sendResponse).toHaveBeenCalledWith(validationError);
-  };
-
   const executeNoActiveTabQueryFailure = async executeAction => {
     mockNoActiveTab();
     const sendResponse = await executeAction();
@@ -1046,13 +1033,10 @@ describe('highlightHandlers', () => {
 
       const sendResponse = await executeClearHighlights({ sender });
 
-      expectClearValidationRejected({
-        sendResponse,
-        sender,
-        validationError,
-        validator: validateContentScriptRequest,
-        skippedValidator: validateInternalRequest,
-      });
+      expect(validateContentScriptRequest).toHaveBeenCalledWith(sender);
+      expect(validateInternalRequest).not.toHaveBeenCalled();
+      expect(mockServices.storageService.updateHighlights).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(validationError);
     });
 
     it('應該拒絕無效的 popup/internal 請求', async () => {
@@ -1066,13 +1050,10 @@ describe('highlightHandlers', () => {
 
       const sendResponse = await executeClearHighlights({ request, sender });
 
-      expectClearValidationRejected({
-        sendResponse,
-        sender,
-        validationError,
-        validator: validateInternalRequest,
-        skippedValidator: validateContentScriptRequest,
-      });
+      expect(validateInternalRequest).toHaveBeenCalledWith(sender);
+      expect(validateContentScriptRequest).not.toHaveBeenCalled();
+      expect(mockServices.storageService.updateHighlights).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(validationError);
     });
 
     it.each([

@@ -445,24 +445,26 @@ describe('Account UI (initAccountUI / renderAccountUI)', () => {
 
   describe('Phase 2 refresh 語意驗證', () => {
     it('token 過期但 refresh 成功時，UI 應保持已登入（不切回未登入）', async () => {
-      expect.assertions(2);
+      expect.assertions(3);
 
       mockAccountSession({ token: 'refreshed_token_xyz' });
 
       initOptions();
       await flushAsyncClick();
 
+      expect(document.querySelector('#account-logged-in')).not.toBeNull();
       expectAccountLoggedIn();
     });
 
     it('token 過期且 getAccountAccessToken 回 null（terminal failure 或無 refresh token），UI 應切回未登入', async () => {
-      expect.assertions(2);
+      expect.assertions(3);
 
       mockSignedOutAccountSession({ profile: createAccountProfile() });
 
       initOptions();
       await flushAsyncClick();
 
+      expect(document.querySelector('#account-logged-out')).not.toBeNull();
       expectAccountLoggedOut();
     });
 

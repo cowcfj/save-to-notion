@@ -144,6 +144,69 @@ describe('entryAutoInit', () => {
     return { result, sendResponse };
   };
 
+  beforeEach(() => {
+    jest.resetModules();
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+
+    delete globalThis.HighlighterV2;
+    delete globalThis.__NOTION_STABLE_URL__;
+    delete globalThis.__NOTION_RAIL_READY__;
+    runtimeMessageHandlers = [];
+    storageChangeHandlers = [];
+
+    globalThis.chrome = {
+      runtime: {
+        sendMessage: jest.fn(),
+        onMessage: {
+          addListener: jest.fn(handler => {
+            runtimeMessageHandlers.push(handler);
+          }),
+          removeListener: jest.fn(handler => {
+            runtimeMessageHandlers = runtimeMessageHandlers.filter(
+              registeredHandler => registeredHandler !== handler
+            );
+          }),
+        },
+      },
+      storage: {
+        sync: {
+          get: jest.fn(),
+        },
+        onChanged: {
+          addListener: jest.fn(handler => {
+            storageChangeHandlers.push(handler);
+          }),
+          removeListener: jest.fn(handler => {
+            storageChangeHandlers = storageChangeHandlers.filter(
+              registeredHandler => registeredHandler !== handler
+            );
+          }),
+        },
+      },
+    };
+
+    const indexMock = require('../../../scripts/highlighter/index.js');
+    mockSetupHighlighter = indexMock.setupHighlighter;
+    mockLogger = require('../../../scripts/utils/Logger.js').default;
+    mockFloatingRail = require('../../../scripts/highlighter/ui/FloatingRail.js').FloatingRail;
+    mockFloatingRail.mockImplementation(() => ({
+      initialize: jest.fn().mockResolvedValue(undefined),
+      hide: jest.fn(),
+      show: jest.fn(),
+    }));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.clearAllMocks();
+    delete globalThis.chrome;
+    delete globalThis.notionHighlighter;
+    delete globalThis.HighlighterV2;
+    delete globalThis.__NOTION_STABLE_URL__;
+    delete globalThis.__NOTION_RAIL_READY__;
+  });
+
   test('[REGRESSION] content-script entry should avoid top-level await during auto-init', () => {
     const source = readEntryAutoInitSource();
 
@@ -206,69 +269,6 @@ describe('entryAutoInit', () => {
 
     expect(onMessage.addListener).toHaveBeenCalledTimes(2);
     expect(onMessage.removeListener).toHaveBeenCalledTimes(1);
-  });
-
-  beforeEach(() => {
-    jest.resetModules();
-    jest.clearAllMocks();
-    jest.useFakeTimers();
-
-    delete globalThis.HighlighterV2;
-    delete globalThis.__NOTION_STABLE_URL__;
-    delete globalThis.__NOTION_RAIL_READY__;
-    runtimeMessageHandlers = [];
-    storageChangeHandlers = [];
-
-    globalThis.chrome = {
-      runtime: {
-        sendMessage: jest.fn(),
-        onMessage: {
-          addListener: jest.fn(handler => {
-            runtimeMessageHandlers.push(handler);
-          }),
-          removeListener: jest.fn(handler => {
-            runtimeMessageHandlers = runtimeMessageHandlers.filter(
-              registeredHandler => registeredHandler !== handler
-            );
-          }),
-        },
-      },
-      storage: {
-        sync: {
-          get: jest.fn(),
-        },
-        onChanged: {
-          addListener: jest.fn(handler => {
-            storageChangeHandlers.push(handler);
-          }),
-          removeListener: jest.fn(handler => {
-            storageChangeHandlers = storageChangeHandlers.filter(
-              registeredHandler => registeredHandler !== handler
-            );
-          }),
-        },
-      },
-    };
-
-    const indexMock = require('../../../scripts/highlighter/index.js');
-    mockSetupHighlighter = indexMock.setupHighlighter;
-    mockLogger = require('../../../scripts/utils/Logger.js').default;
-    mockFloatingRail = require('../../../scripts/highlighter/ui/FloatingRail.js').FloatingRail;
-    mockFloatingRail.mockImplementation(() => ({
-      initialize: jest.fn().mockResolvedValue(undefined),
-      hide: jest.fn(),
-      show: jest.fn(),
-    }));
-  });
-
-  afterEach(() => {
-    jest.useRealTimers();
-    jest.clearAllMocks();
-    delete globalThis.chrome;
-    delete globalThis.notionHighlighter;
-    delete globalThis.HighlighterV2;
-    delete globalThis.__NOTION_STABLE_URL__;
-    delete globalThis.__NOTION_RAIL_READY__;
   });
 
   test('[REGRESSION] persistent message handler should ignore invalid request payloads', () => {

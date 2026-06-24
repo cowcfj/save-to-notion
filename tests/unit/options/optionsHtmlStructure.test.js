@@ -201,6 +201,8 @@ describe('options.html 結構', () => {
     const html = readOptionsHtml();
     const doc = parseOptionsHtml(html);
 
+    expect(doc).toBeInstanceOf(Document);
+
     [
       ['#database-search', 'uiPlaceholder', 'OPTIONS.DESTINATION.SEARCH_PLACEHOLDER'],
       ['#data-source-count', 'uiMessage', 'DATA_SOURCE.LABEL_DATA_SOURCE'],
