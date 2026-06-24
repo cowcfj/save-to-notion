@@ -134,19 +134,6 @@ describe('highlightHandlers', () => {
     });
   };
 
-  const expectClearValidationRejected = ({
-    sendResponse,
-    sender,
-    validationError,
-    validator,
-    skippedValidator,
-  }) => {
-    expect(validator).toHaveBeenCalledWith(sender);
-    expect(skippedValidator).not.toHaveBeenCalled();
-    expect(mockServices.storageService.updateHighlights).not.toHaveBeenCalled();
-    expect(sendResponse).toHaveBeenCalledWith(validationError);
-  };
-
   const executeNoActiveTabQueryFailure = async executeAction => {
     mockNoActiveTab();
     const sendResponse = await executeAction();
@@ -1037,7 +1024,7 @@ describe('highlightHandlers', () => {
 
   describe('CLEAR_HIGHLIGHTS', () => {
     it('應該拒絕無效的 content script 請求', async () => {
-      expect.assertions(5);
+      expect.assertions(4);
 
       const validationError = createValidationError('content script 驗證失敗');
       validateContentScriptRequest.mockReturnValueOnce(validationError);
@@ -1046,18 +1033,14 @@ describe('highlightHandlers', () => {
 
       const sendResponse = await executeClearHighlights({ sender });
 
-      expectClearValidationRejected({
-        sendResponse,
-        sender,
-        validationError,
-        validator: validateContentScriptRequest,
-        skippedValidator: validateInternalRequest,
-      });
-      expect(sendResponse).toBeDefined();
+      expect(validateContentScriptRequest).toHaveBeenCalledWith(sender);
+      expect(validateInternalRequest).not.toHaveBeenCalled();
+      expect(mockServices.storageService.updateHighlights).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(validationError);
     });
 
     it('應該拒絕無效的 popup/internal 請求', async () => {
-      expect.assertions(5);
+      expect.assertions(4);
 
       const validationError = createValidationError('internal 驗證失敗');
       validateInternalRequest.mockReturnValueOnce(validationError);
@@ -1067,14 +1050,10 @@ describe('highlightHandlers', () => {
 
       const sendResponse = await executeClearHighlights({ request, sender });
 
-      expectClearValidationRejected({
-        sendResponse,
-        sender,
-        validationError,
-        validator: validateInternalRequest,
-        skippedValidator: validateContentScriptRequest,
-      });
-      expect(sendResponse).toBeDefined();
+      expect(validateInternalRequest).toHaveBeenCalledWith(sender);
+      expect(validateContentScriptRequest).not.toHaveBeenCalled();
+      expect(mockServices.storageService.updateHighlights).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(validationError);
     });
 
     it.each([

@@ -87,20 +87,13 @@ describe('tools/check-size-gates.mjs', () => {
     return JSON.parse(fs.readFileSync(reportPath, 'utf8'));
   };
 
-  const expectHardBundleCheckPass = ({ sizes = {}, checkKey, expected }) => {
+  const runHardBundleCheck = ({ sizes = {}, checkKey }) => {
     const report = runHardBundleReport({
       rootDir: path.join(tempRoot, 'current'),
       ...sizes,
     });
     const check = report.checks.find(check => check.key === checkKey);
 
-    expect(report.failed).toBe(false);
-    expect(check).toEqual(
-      expect.objectContaining({
-        status: 'pass',
-        ...expected,
-      })
-    );
     return { report, check };
   };
 
@@ -196,28 +189,33 @@ describe('tools/check-size-gates.mjs', () => {
   ])('[REGRESSION] hard mode 應允許 content bundle %s (%i bytes) 通過', (_label, contentSize) => {
     expect.assertions(2);
 
-    expectHardBundleCheckPass({
+    const expected = {
+      current: contentSize,
+      hardLimit: 300_000,
+    };
+    const { report, check } = runHardBundleCheck({
       sizes: { contentSize },
       checkKey: 'content_bundle',
-      expected: {
-        current: contentSize,
-        hardLimit: 300_000,
-      },
     });
+
+    expect(report.failed).toBe(false);
+    expect(check).toEqual(expect.objectContaining({ status: 'pass', ...expected }));
   });
 
   test('[REGRESSION] hard mode 應允許 background bundle 在 delta gate 內自然成長', () => {
-    expect.assertions(3);
+    expect.assertions(2);
 
-    const { report } = expectHardBundleCheckPass({
+    const expected = {
+      current: 243_500,
+      hardLimit: 245_000,
+    };
+    const { report, check } = runHardBundleCheck({
       sizes: { backgroundSize: 243_500 },
       checkKey: 'background_bundle',
-      expected: {
-        current: 243_500,
-        hardLimit: 245_000,
-      },
     });
-    expect(report).toBeDefined();
+
+    expect(report.failed).toBe(false);
+    expect(check).toEqual(expect.objectContaining({ status: 'pass', ...expected }));
   });
 
   test('delta mode 應在增量超過門檻時失敗', () => {
