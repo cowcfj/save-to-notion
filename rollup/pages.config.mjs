@@ -15,6 +15,7 @@ export default {
     onboarding: 'pages/onboarding/onboarding.js',
     'update-notification': 'pages/update-notification/update-notification.js',
     auth: 'scripts/auth/auth.js',
+    'auth-redirect': 'scripts/auth/authRedirect.js',
   },
   output: {
     dir: 'dist/pages',
@@ -34,13 +35,7 @@ export default {
     json(),
     !isDev &&
       createTerserPlugin({
-        pureFuncs: [
-          'console.debug',
-          'console.info',
-          'Logger.debug',
-          'Logger.log',
-          'Logger.info',
-        ],
+        pureFuncs: ['console.debug', 'console.info', 'Logger.debug', 'Logger.log', 'Logger.info'],
       }),
     createVisualizerPlugin('pages-bundle', 'Pages Bundle Analysis'),
   ].filter(Boolean),

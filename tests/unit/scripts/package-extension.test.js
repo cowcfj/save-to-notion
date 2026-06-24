@@ -9,6 +9,7 @@ describe('tools/package-extension.sh regressions', () => {
   let packageScript;
   let popupHtml;
   let sidepanelHtml;
+  let authHtmlExists;
 
   beforeAll(() => {
     packageScript = fs.readFileSync(
@@ -20,6 +21,7 @@ describe('tools/package-extension.sh regressions', () => {
       path.resolve(__dirname, '../../../pages/sidepanel/sidepanel.html'),
       'utf8'
     );
+    authHtmlExists = fs.existsSync(path.resolve(__dirname, '../../../pages/auth/auth.html'));
   });
 
   test('release package 應打包 dist bundle 而非 scripts 原始碼', () => {
@@ -38,10 +40,12 @@ describe('tools/package-extension.sh regressions', () => {
     expect(sidepanelHtml).toMatch(moduleScript('../../dist/pages/sidepanel.js'));
   });
 
-  test('release package 的 ES module 驗證應覆蓋 auth.html callback bridge', () => {
+  test('release package 的 ES module 驗證應覆蓋 auth callback pages', () => {
     const verificationBlock = packageScript.slice(packageScript.indexOf('const htmlDirs = fs'));
 
+    expect(verificationBlock).toContain("path.join(pkgDir, 'pages')");
     expect(verificationBlock).toContain('auth.html');
+    expect(authHtmlExists).toBe(true);
   });
 
   test('打包流程應清理所有 .DS_Store', () => {

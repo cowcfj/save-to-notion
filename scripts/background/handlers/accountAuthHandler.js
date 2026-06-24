@@ -7,7 +7,7 @@ import { sanitizeApiError } from '../../utils/ApiErrorSanitizer.js';
 /**
  * 建立 account callback bridge handler。
  *
- * 負責攔截 Worker callback bridge URL，並由 extension 主動導回 auth.html，
+ * 負責攔截 Worker callback bridge URL，並由 extension 主動導回 canonical auth page，
  * 避免由 web page 直接跨 scheme redirect 到 chrome-extension://。
  *
  * @param {object} [dependencies]
@@ -80,7 +80,7 @@ export function createAccountAuthHandler(dependencies = {}) {
   }
 
   /**
-   * 攔截符合條件的 bridge URL，並導向 auth.html。
+   * 攔截符合條件的 bridge URL，並導向 canonical auth page。
    *
    * @param {number} tabId
    * @param {{ url?: string }} changeInfo
@@ -108,7 +108,7 @@ export function createAccountAuthHandler(dependencies = {}) {
     processedBridgeUrlsByTab.set(tabId, rawUrl);
 
     try {
-      const authUrl = runtime.getURL(`auth.html?account_ticket=${match.accountTicket}`);
+      const authUrl = runtime.getURL(`pages/auth/auth.html?account_ticket=${match.accountTicket}`);
       await tabs.update(tabId, { url: authUrl });
     } catch (error) {
       processedBridgeUrlsByTab.delete(tabId);

@@ -266,7 +266,7 @@ export async function getAccountProfile() {
 
 /**
  * 將 GET /v1/account/me 回傳的 profile 資料合並寫入 storage。
- * 通常在 auth.html 成功呼叫 account/me 後呼叫。
+ * 通常在 pages/auth/auth.html 成功呼叫 account/me 後呼叫。
  *
  * @param {{ userId: string; email: string; displayName?: string | null; avatarUrl?: string | null }} profile
  * @returns {Promise<void>}

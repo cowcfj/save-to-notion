@@ -64,16 +64,16 @@ describe('accountAuthHandler', () => {
     ).not.toThrow();
   });
 
-  test('符合 callback bridge 條件時應導向 auth.html 並帶 account_ticket', async () => {
+  test('符合 callback bridge 條件時應導向 canonical auth page 並帶 account_ticket', async () => {
     handler.setupListeners();
 
     await onUpdatedListener(12, {
       url: 'https://worker.test/v1/account/callback-bridge?account_ticket=ticket_123&ext_id=ext_id_123&mode=bridge',
     });
 
-    expect(runtime.getURL).toHaveBeenCalledWith('auth.html?account_ticket=ticket_123');
+    expect(runtime.getURL).toHaveBeenCalledWith('pages/auth/auth.html?account_ticket=ticket_123');
     expect(tabs.update).toHaveBeenCalledWith(12, {
-      url: 'chrome-extension://ext_id_123/auth.html?account_ticket=ticket_123',
+      url: 'chrome-extension://ext_id_123/pages/auth/auth.html?account_ticket=ticket_123',
     });
   });
 

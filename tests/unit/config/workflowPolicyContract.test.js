@@ -20,6 +20,11 @@ function listActiveWorkflowFiles() {
     .filter(fileName => fs.statSync(path.join(activeWorkflowDir, fileName)).isFile());
 }
 
+function getRootReleasePackageConfig() {
+  const releasePleaseConfig = readRootJson('release-please-config.json');
+  return releasePleaseConfig.packages['.'];
+}
+
 describe('workflow policy contract', () => {
   test('SonarCloud GitHub Action stays out of the active workflow directory', () => {
     expect(fs.existsSync(activeSonarWorkflow)).toBe(false);
@@ -41,8 +46,7 @@ describe('workflow policy contract', () => {
   });
 
   test('release-please keeps test commits hidden from release notes', () => {
-    const releasePleaseConfig = readRootJson('release-please-config.json');
-    const rootPackageConfig = releasePleaseConfig.packages['.'];
+    const rootPackageConfig = getRootReleasePackageConfig();
     const testSection = rootPackageConfig['changelog-sections'].find(
       section => section.type === 'test'
     );
@@ -53,6 +57,47 @@ describe('workflow policy contract', () => {
         type: 'test',
         hidden: true,
       })
+    );
+  });
+
+  test('release-please excludes non-runtime repository surfaces from version decisions', () => {
+    const rootPackageConfig = getRootReleasePackageConfig();
+
+    expect(rootPackageConfig['exclude-paths']).toEqual(
+      expect.arrayContaining([
+        '.github/',
+        'docs/',
+        'examples/',
+        'tests/',
+        'tools/',
+        'rollup/',
+        'babel.config.js',
+        'eslint.config.mjs',
+        'jest.config.js',
+        'jest.native-esm.config.cjs',
+        'knip.json',
+        'playwright.config.js',
+        'sonar-project.properties',
+        'codecov.yml',
+        'package-lock.json',
+        'release-please-config.json',
+      ])
+    );
+  });
+
+  test('release-please keeps runtime extension surfaces eligible for version decisions', () => {
+    const rootPackageConfig = getRootReleasePackageConfig();
+
+    expect(rootPackageConfig['exclude-paths']).not.toEqual(
+      expect.arrayContaining([
+        'scripts/',
+        'pages/',
+        'styles/',
+        'icons/',
+        'auth.html',
+        'manifest.json',
+        'package.json',
+      ])
     );
   });
 });
