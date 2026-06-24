@@ -103,14 +103,6 @@ async function resolveVerifiedSaveStatus(context, deps, savedData) {
     return handleDeletedRemoteStatus(context, deps, savedData);
   }
 
-  if (exists === false && deletionCheck.deletionPending) {
-    return createSaveStatusResponse({
-      statusKind: SAVE_STATUS_KINDS.DELETION_PENDING,
-      stableUrl: normUrl,
-      savedData,
-    });
-  }
-
   if (exists === false) {
     return createSaveStatusResponse({
       statusKind: SAVE_STATUS_KINDS.DELETION_PENDING,
@@ -119,9 +111,7 @@ async function resolveVerifiedSaveStatus(context, deps, savedData) {
     });
   }
 
-  if (exists === true) {
-    await touchLastVerifiedIfNeeded(context, deps);
-  }
+  await touchLastVerifiedIfNeeded(context, deps);
 
   return buildSavedStatus(normUrl, savedData);
 }

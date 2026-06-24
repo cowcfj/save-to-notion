@@ -338,6 +338,8 @@ describe('InjectionService', () => {
           highlightCount: 0,
         });
       } finally {
+        delete globalThis.__NOTION_RAIL_READY__;
+        delete globalThis.HighlighterV2;
         jest.useRealTimers();
       }
     });
@@ -382,6 +384,8 @@ describe('InjectionService', () => {
         expect(railShow).toHaveBeenCalledTimes(1);
         expect(activateHighlighting).toHaveBeenCalledTimes(1);
       } finally {
+        delete globalThis.__NOTION_RAIL_READY__;
+        delete globalThis.HighlighterV2;
         jest.useRealTimers();
       }
     });
