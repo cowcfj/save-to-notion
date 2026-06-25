@@ -120,6 +120,9 @@ jobs:
       - name: Native ESM 覆蓋率正確性診斷
         run: npm run test:coverage:native-esm:assert
 
+      - name: Native ESM official scope parity report
+        run: npm run test:coverage:native-esm:scope-parity
+
       - name: 發佈 native ESM 診斷摘要
         if: always()
         run: |
@@ -127,6 +130,11 @@ jobs:
             cat coverage/native-esm/line-hit-summary.md >> "$GITHUB_STEP_SUMMARY"
           else
             echo "未產生 native ESM 診斷摘要。" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -f coverage/native-esm/scope-parity-summary.md ]; then
+            cat coverage/native-esm/scope-parity-summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "未產生 native ESM scope parity 摘要。" >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: 上傳 native ESM 診斷 artifact
@@ -137,6 +145,8 @@ jobs:
           path: |
             coverage/native-esm/line-hit-summary.json
             coverage/native-esm/line-hit-summary.md
+            coverage/native-esm/scope-parity-summary.json
+            coverage/native-esm/scope-parity-summary.md
           retention-days: 14
           if-no-files-found: warn
 

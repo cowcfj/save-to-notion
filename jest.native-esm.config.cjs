@@ -37,6 +37,7 @@ module.exports = {
     '<rootDir>/scripts/utils/image/srcsetExtractor.js',
     '<rootDir>/scripts/utils/image/srcsetParserAdapter.js',
     '<rootDir>/scripts/utils/image/srcsetUrlValidator.js',
+    '<rootDir>/pages/update-notification/update-notification.js',
   ],
   coverageThreshold: {
     global: {
