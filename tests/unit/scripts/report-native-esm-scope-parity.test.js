@@ -54,7 +54,9 @@ describe('tools/report-native-esm-scope-parity.mjs', () => {
   };
 
   const expectNoSummaryFiles = outputRoot => {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- 測試檢查暫存輸出檔案
     expect(fs.existsSync(path.join(outputRoot, 'scope-parity-summary.json'))).toBe(false);
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- 測試檢查暫存輸出檔案
     expect(fs.existsSync(path.join(outputRoot, 'scope-parity-summary.md'))).toBe(false);
   };
 
