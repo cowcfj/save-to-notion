@@ -121,6 +121,7 @@ jobs:
         run: npm run test:coverage:native-esm:assert
 
       - name: Native ESM official scope parity report
+        if: always()
         run: npm run test:coverage:native-esm:scope-parity
 
       - name: 發佈 native ESM 診斷摘要

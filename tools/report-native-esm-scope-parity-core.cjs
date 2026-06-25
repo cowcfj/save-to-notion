@@ -172,65 +172,58 @@ function createFileRecords({
     const nativeCandidate = nativeIncludedSet.has(filePath) ? 'included' : 'missing';
     const nativeCoverageEntry = classifyCoverageEntry(nativeCoverageEntries[filePath]);
     const isZeroCanary = zeroCoverageCanaryPaths.includes(filePath);
+    const records = [];
 
     if (isZeroCanary) {
-      return [
-        {
-          path: filePath,
-          official,
-          nativeCandidate,
-          nativeCoverageEntry,
-          classification: 'zero-coverage-canary',
-          reason: 'Official in-scope page script should remain visible as 0% before cutover.',
-        },
-      ];
+      records.push({
+        path: filePath,
+        official,
+        nativeCandidate,
+        nativeCoverageEntry,
+        classification: 'zero-coverage-canary',
+        reason: '正式範圍內的頁面腳本在切換前應維持可見，即使 native ESM 覆蓋率為 0%。',
+      });
     }
 
     if (official === 'included' && nativeCandidate === 'missing') {
-      return [
-        {
-          path: filePath,
-          official,
-          nativeCandidate,
-          nativeCoverageEntry,
-          classification: 'missing-from-native-candidate',
-          reason: 'Official coverage scope includes this file, but native candidate scope does not.',
-        },
-      ];
+      records.push({
+        path: filePath,
+        official,
+        nativeCandidate,
+        nativeCoverageEntry,
+        classification: 'missing-from-native-candidate',
+        reason: 'official coverage 範圍包含此檔案，但 native candidate 範圍未包含。',
+      });
     }
 
     if (official !== 'included' && nativeCandidate === 'included') {
-      return [
-        {
-          path: filePath,
-          official,
-          nativeCandidate,
-          nativeCoverageEntry,
-          classification: 'extra-native-candidate',
-          reason: 'Native candidate includes a file outside official included coverage scope.',
-        },
-      ];
+      records.push({
+        path: filePath,
+        official,
+        nativeCandidate,
+        nativeCoverageEntry,
+        classification: 'extra-native-candidate',
+        reason: 'native candidate 包含 official included coverage 範圍外的檔案。',
+      });
     }
 
     if (official === 'included' && nativeCandidate === 'included') {
-      return [
-        {
-          path: filePath,
-          official,
-          nativeCandidate,
-          nativeCoverageEntry,
-          classification: 'included-in-both',
-          reason: 'File is included by both official and native candidate coverage scopes.',
-        },
-      ];
+      records.push({
+        path: filePath,
+        official,
+        nativeCandidate,
+        nativeCoverageEntry,
+        classification: 'included-in-both',
+        reason: 'official 與 native candidate coverage 範圍都包含此檔案。',
+      });
     }
 
-    return [];
+    return records;
   });
 }
 
 function createGateRecords({ files, unsupportedPatterns }) {
-  const missingCount = files.filter(file => file.official === 'included' && file.nativeCandidate === 'missing').length;
+  const missingCount = files.filter(file => file.classification === 'missing-from-native-candidate').length;
   const extraCount = files.filter(file => file.classification === 'extra-native-candidate').length;
   const zeroCanaries = files.filter(file => file.classification === 'zero-coverage-canary');
   const zeroCanaryPass = zeroCanaries.length > 0 && zeroCanaries.every(file => file.nativeCoverageEntry === 'zero');
@@ -242,16 +235,16 @@ function createGateRecords({ files, unsupportedPatterns }) {
       blocking: false,
       evidence:
         missingCount === 0 && extraCount === 0
-          ? 'Native candidate scope matches official included coverage scope.'
-          : `Native candidate differs from official scope: ${missingCount} missing, ${extraCount} extra.`,
+          ? 'native candidate 範圍與 official included coverage 範圍一致。'
+          : `native candidate 與 official 範圍不一致：缺少 ${missingCount} 個，多出 ${extraCount} 個。`,
     },
     {
       id: 'zero-coverage-canary',
       status: zeroCanaryPass ? 'pass' : 'fail',
       blocking: false,
       evidence: zeroCanaryPass
-        ? 'Zero-coverage canary appears in native coverage output with zero hits.'
-        : 'Zero-coverage canary is missing or not represented as a zero-hit file.',
+        ? 'zero-coverage canary 已出現在 native coverage output，且命中數為 0。'
+        : 'zero-coverage canary 缺失，或未以零命中檔案呈現。',
     },
     {
       id: 'report-integrity',
@@ -259,8 +252,8 @@ function createGateRecords({ files, unsupportedPatterns }) {
       blocking: true,
       evidence:
         unsupportedPatterns.length === 0
-          ? 'Configs, source files, coverage entries, and output paths stayed under repo root / coverage/native-esm.'
-          : `${unsupportedPatterns.length} unsupported collectCoverageFrom pattern(s) found.`,
+          ? 'config、source file、coverage entry 與 output path 都維持在 repo root / coverage/native-esm 範圍內。'
+          : `發現 ${unsupportedPatterns.length} 個不支援的 collectCoverageFrom pattern。`,
     },
   ];
 }
@@ -283,7 +276,7 @@ function buildScopeParitySummary({
     nativeCoverageEntries,
     zeroCoverageCanaryPaths,
   });
-  const missingCount = files.filter(file => file.official === 'included' && file.nativeCandidate === 'missing').length;
+  const missingCount = files.filter(file => file.classification === 'missing-from-native-candidate').length;
   const extraCount = files.filter(file => file.classification === 'extra-native-candidate').length;
 
   return {
@@ -332,29 +325,29 @@ function renderMarkdownSummary(summary) {
     )
     .join('\n');
 
-  return `# Native ESM Scope Parity Summary
+  return `# Native ESM scope parity 摘要
 
-> 僅供診斷。這不是正式 coverage truth；Codecov 仍使用 \`coverage/jest/lcov.info\`。
+> 僅供診斷。這不是正式 coverage 依據；Codecov 仍使用 \`coverage/jest/lcov.info\`。
 
-## Totals
+## 總計
 
-- Official included files: ${summary.totals.officialIncluded}
-- Official excluded files: ${summary.totals.officialExcluded}
-- Native candidate files: ${summary.totals.nativeIncluded}
-- Missing from native candidate: ${summary.totals.missingFromNativeCandidate}
-- Extra native candidate files: ${summary.totals.extraNativeCandidate}
-- Zero-coverage canaries: ${summary.totals.zeroCoverageCanaries}
-- Unsupported patterns: ${summary.totals.unsupportedPatterns}
+- official included 檔案數：${summary.totals.officialIncluded}
+- official excluded 檔案數：${summary.totals.officialExcluded}
+- native candidate 檔案數：${summary.totals.nativeIncluded}
+- native candidate 缺少檔案數：${summary.totals.missingFromNativeCandidate}
+- native candidate 多出檔案數：${summary.totals.extraNativeCandidate}
+- zero-coverage canary 數：${summary.totals.zeroCoverageCanaries}
+- 不支援 pattern 數：${summary.totals.unsupportedPatterns}
 
-## Gates
+## 閘門
 
-| Gate | 狀態 | 阻擋 | 證據 |
+| 閘門 | 狀態 | 阻擋 | 證據 |
 | --- | --- | --- | --- |
 ${gateRows}
 
-## File Classifications
+## 檔案分類
 
-| File | Official | Native Candidate | Native Coverage Entry | Classification | Reason |
+| 檔案 | official 狀態 | native candidate 狀態 | native coverage entry | 分類 | 原因 |
 | --- | --- | --- | --- | --- | --- |
 ${fileRows}
 `;

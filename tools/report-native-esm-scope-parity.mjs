@@ -52,7 +52,7 @@ function parseCliArgs(argv) {
 function readNativeCoverageEntries(coveragePath) {
   const absoluteCoveragePath = path.resolve(projectRoot, coveragePath);
   if (!fs.existsSync(absoluteCoveragePath)) {
-    return {};
+    throw new Error(`找不到 native ESM 覆蓋率檔案：${coveragePath}。請先執行 npm run test:coverage:native-esm。`);
   }
   assertPathInsideDirectory(absoluteCoveragePath, projectRoot, 'native coverage path 必須位於 repo root 底下');
   const coverage = JSON.parse(fs.readFileSync(absoluteCoveragePath, 'utf8'));
@@ -103,7 +103,7 @@ function runCli() {
   const summary = buildCurrentRepoSummary();
   writeOutputFiles(summary, options);
   console.log(
-    `Native ESM scope parity report written: ${summary.totals.officialIncluded} official files, ${summary.totals.nativeIncluded} native candidate files, ${summary.totals.missingFromNativeCandidate} missing, ${summary.totals.extraNativeCandidate} extra`
+    `Native ESM scope parity 報告已寫入：${summary.totals.officialIncluded} 個 official 檔案，${summary.totals.nativeIncluded} 個 native candidate 檔案，缺少 ${summary.totals.missingFromNativeCandidate} 個，多出 ${summary.totals.extraNativeCandidate} 個`
   );
   if (summary.totals.unsupportedPatterns > 0) {
     process.exitCode = 1;
