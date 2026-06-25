@@ -2,8 +2,8 @@
  * @jest-environment node
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
+import fs from 'node:fs';
+import path from 'node:path';
 
 const createDirectory = directoryPath => {
   // eslint-disable-next-line security/detect-non-literal-fs-filename

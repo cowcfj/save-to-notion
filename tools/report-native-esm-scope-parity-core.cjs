@@ -136,10 +136,23 @@ function classifyCoverageEntry(entry) {
     return 'missing';
   }
   const hits = entry.statementHits || [];
-  if (hits.length === 0 || hits.every(hit => hit === 0)) {
+  if (hits.length === 0) {
+    return 'zero';
+  }
+  if (hits.every(hit => hit === 0)) {
     return 'zero';
   }
   return 'nonzero';
+}
+
+function getOfficialScopeStatus(filePath, officialIncludedSet, officialExcludedSet) {
+  if (officialIncludedSet.has(filePath)) {
+    return 'included';
+  }
+  if (officialExcludedSet.has(filePath)) {
+    return 'excluded';
+  }
+  return 'not_in_scope';
 }
 
 function createFileRecords({
@@ -155,11 +168,7 @@ function createFileRecords({
   const allFiles = new Set([...officialIncluded, ...officialExcluded, ...nativeIncluded, ...zeroCoverageCanaryPaths]);
 
   return [...allFiles].sort().flatMap(filePath => {
-    const official = officialIncludedSet.has(filePath)
-      ? 'included'
-      : officialExcludedSet.has(filePath)
-        ? 'excluded'
-        : 'not_in_scope';
+    const official = getOfficialScopeStatus(filePath, officialIncludedSet, officialExcludedSet);
     const nativeCandidate = nativeIncludedSet.has(filePath) ? 'included' : 'missing';
     const nativeCoverageEntry = classifyCoverageEntry(nativeCoverageEntries[filePath]);
     const isZeroCanary = zeroCoverageCanaryPaths.includes(filePath);
