@@ -27,6 +27,14 @@ function assertOutputPath(filePath) {
   );
 }
 
+function readRequiredOptionValue(argv, index, optionName) {
+  const value = argv[index + 1];
+  if (!value) {
+    throw new Error(`${optionName} 必須提供路徑值`);
+  }
+  return value;
+}
+
 function parseCliArgs(argv) {
   const options = {
     summaryJsonPath: 'coverage/native-esm/scope-parity-summary.json',
@@ -35,26 +43,38 @@ function parseCliArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--summary-json') {
-      const value = argv[index + 1];
-      if (!value) {
-        throw new Error('--summary-json 必須提供路徑值');
-      }
-      options.summaryJsonPath = value;
+      options.summaryJsonPath = readRequiredOptionValue(argv, index, arg);
       index += 1;
       continue;
     }
     if (arg === '--summary-md') {
-      const value = argv[index + 1];
-      if (!value) {
-        throw new Error('--summary-md 必須提供路徑值');
-      }
-      options.summaryMarkdownPath = value;
+      options.summaryMarkdownPath = readRequiredOptionValue(argv, index, arg);
       index += 1;
       continue;
     }
     throw new Error(`未知參數：${arg}`);
   }
   return options;
+}
+
+function isCoverageObject(coverage) {
+  if (coverage === null) {
+    return false;
+  }
+  if (Array.isArray(coverage)) {
+    return false;
+  }
+  return typeof coverage === 'object';
+}
+
+function toNativeCoverageEntry(filePath, fileCoverage) {
+  const absoluteFilePath = path.resolve(filePath);
+  assertPathInsideDirectory(absoluteFilePath, projectRoot, `coverage entry 必須位於 repo root 底下: ${filePath}`);
+  const relativePath = normalizeRelativePath(path.relative(projectRoot, absoluteFilePath));
+  if (relativePath.startsWith('.tmp/coverage-spike/')) {
+    throw new Error(`coverage entry 不可來自 .tmp/coverage-spike: ${filePath}`);
+  }
+  return [relativePath, { statementHits: Object.values(fileCoverage.s || {}) }];
 }
 
 function readNativeCoverageEntries(coveragePath) {
@@ -64,18 +84,13 @@ function readNativeCoverageEntries(coveragePath) {
   }
   assertPathInsideDirectory(absoluteCoveragePath, projectRoot, 'native coverage path 必須位於 repo root 底下');
   const coverage = JSON.parse(fs.readFileSync(absoluteCoveragePath, 'utf8'));
-  if (coverage === null || typeof coverage !== 'object' || Array.isArray(coverage)) {
+  if (!isCoverageObject(coverage)) {
     throw new Error('native ESM 覆蓋率檔案必須是 JSON object');
   }
   const entries = {};
   for (const [filePath, fileCoverage] of Object.entries(coverage)) {
-    const absoluteFilePath = path.resolve(filePath);
-    assertPathInsideDirectory(absoluteFilePath, projectRoot, `coverage entry 必須位於 repo root 底下: ${filePath}`);
-    const relativePath = normalizeRelativePath(path.relative(projectRoot, absoluteFilePath));
-    if (relativePath.startsWith('.tmp/coverage-spike/')) {
-      throw new Error(`coverage entry 不可來自 .tmp/coverage-spike: ${filePath}`);
-    }
-    entries[relativePath] = { statementHits: Object.values(fileCoverage.s || {}) };
+    const [relativePath, nativeCoverageEntry] = toNativeCoverageEntry(filePath, fileCoverage);
+    entries[relativePath] = nativeCoverageEntry;
   }
   return entries;
 }
