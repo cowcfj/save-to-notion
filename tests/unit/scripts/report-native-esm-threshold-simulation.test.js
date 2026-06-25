@@ -226,6 +226,36 @@ describe('tools/report-native-esm-threshold-simulation', () => {
     expect(summary.drift.nativeZeroIncumbentNonzeroFiles).toEqual([
       expect.objectContaining({ path: 'scripts/a.js' }),
     ]);
+    expect(summary.breadth).toEqual(
+      expect.objectContaining({
+        nativeNonzeroOfficialFiles: 1,
+        nativeZeroOfficialFiles: 1,
+        materialDriftFiles: 2,
+        nativeZeroIncumbentNonzeroFiles: 1,
+      })
+    );
+    expect(summary.breadth.topMaterialDriftGroups).toEqual([
+      expect.objectContaining({
+        group: 'scripts/a.js',
+        files: 1,
+        worstLinePctDelta: -100,
+        sampleFiles: ['scripts/a.js'],
+      }),
+      expect.objectContaining({
+        group: 'scripts/b.js',
+        files: 1,
+        worstLinePctDelta: -50,
+        sampleFiles: ['scripts/b.js'],
+      }),
+    ]);
+    expect(summary.breadth.topNativeZeroIncumbentNonzeroGroups).toEqual([
+      expect.objectContaining({
+        group: 'scripts/a.js',
+        files: 1,
+        worstLinePctDelta: -100,
+        sampleFiles: ['scripts/a.js'],
+      }),
+    ]);
   });
 
   test('threshold parity is inconclusive when official scope parity did not pass', () => {
@@ -286,6 +316,8 @@ describe('tools/report-native-esm-threshold-simulation', () => {
     expect(markdown).toContain('non-blocking');
     expect(markdown).toContain('coverage/jest/lcov.info');
     expect(markdown).toContain('threshold-parity');
+    expect(markdown).toContain('native nonzero official 檔案數');
+    expect(markdown).toContain('## Native Zero / Incumbent Nonzero');
   });
 
   test('CLI fails when required coverage inputs are missing and writes no summaries', () => {
@@ -361,6 +393,14 @@ describe('tools/report-native-esm-threshold-simulation', () => {
     expect(result.stdout).toContain('Native ESM threshold simulation 報告已寫入');
     const summary = JSON.parse(fs.readFileSync(summaryJsonPath, 'utf8'));
     expect(summary.diagnosticOnly).toBe(true);
+    expect(summary.breadth).toEqual(
+      expect.objectContaining({
+        nativeNonzeroOfficialFiles: 1,
+        nativeZeroOfficialFiles: 0,
+        materialDriftFiles: 0,
+        nativeZeroIncumbentNonzeroFiles: 0,
+      })
+    );
     expect(summary.gates).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: 'threshold-parity', status: 'pass' })])
     );

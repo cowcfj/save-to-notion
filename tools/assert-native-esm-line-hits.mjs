@@ -6,12 +6,19 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const allowedCoverageRoot = path.join(projectRoot, 'coverage', 'native-esm');
 const allowedManifestRoot = path.join(projectRoot, 'tests', 'native-esm');
 const allowedSourcePrefixes = [
+  'pages/onboarding/',
   'pages/options/',
+  'pages/popup/',
+  'pages/sidepanel/',
+  'scripts/auth/',
   'scripts/background/handlers/',
   'scripts/background/services/',
   'scripts/content/converters/',
   'scripts/content/extractors/',
+  'scripts/content/runtimeMessageHandlers.js',
+  'scripts/content/sanitizers/',
   'scripts/config/',
+  'scripts/destinations/',
   'scripts/background/utils/',
   'scripts/highlighter/',
   'scripts/utils/image/',

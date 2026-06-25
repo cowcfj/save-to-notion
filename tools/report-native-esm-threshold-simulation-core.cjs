@@ -189,6 +189,60 @@ function summarizeFileDrift({ incumbentSummary, nativeSummary, driftThreshold })
   };
 }
 
+function getPathGroup(filePath) {
+  const parts = filePath.split('/');
+  return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : parts[0];
+}
+
+function createGroupSummaryRecord(group, records) {
+  const sortedRecords = [...records].sort((left, right) => left.linePctDelta - right.linePctDelta);
+  return {
+    group,
+    files: records.length,
+    worstLinePctDelta: sortedRecords[0]?.linePctDelta ?? 0,
+    sampleFiles: sortedRecords.slice(0, 5).map(record => record.path),
+  };
+}
+
+function groupDriftFilesByPathPrefix(records) {
+  const groups = new Map();
+  for (const record of records) {
+    const group = getPathGroup(record.path);
+    const groupRecords = groups.get(group) || [];
+    groupRecords.push(record);
+    groups.set(group, groupRecords);
+  }
+
+  return [...groups.entries()]
+    .map(([group, groupRecords]) => createGroupSummaryRecord(group, groupRecords))
+    .sort((left, right) => right.files - left.files || left.worstLinePctDelta - right.worstLinePctDelta);
+}
+
+function summarizeBreadth({ sharedFiles, nativeFiles, drift }) {
+  let nativeNonzeroOfficialFiles = 0;
+  let nativeZeroOfficialFiles = 0;
+
+  for (const filePath of sharedFiles) {
+    const nativeLinePct = nativeFiles.get(filePath)?.metrics.lines.pct ?? 0;
+    if (nativeLinePct > 0) {
+      nativeNonzeroOfficialFiles += 1;
+    } else {
+      nativeZeroOfficialFiles += 1;
+    }
+  }
+
+  return {
+    nativeNonzeroOfficialFiles,
+    nativeZeroOfficialFiles,
+    materialDriftFiles: drift.materialFiles.length,
+    nativeZeroIncumbentNonzeroFiles: drift.nativeZeroIncumbentNonzeroFiles.length,
+    topMaterialDriftGroups: groupDriftFilesByPathPrefix(drift.materialFiles).slice(0, 15),
+    topNativeZeroIncumbentNonzeroGroups: groupDriftFilesByPathPrefix(
+      drift.nativeZeroIncumbentNonzeroFiles
+    ).slice(0, 15),
+  };
+}
+
 function compareCoverageSummaries({
   incumbentSummary,
   nativeSummary,
@@ -205,6 +259,7 @@ function compareCoverageSummaries({
   const incumbentOnlyFiles = [...incumbentFiles.keys()].filter(filePath => !nativeFiles.has(filePath)).sort();
   const nativeOnlyFiles = [...nativeFiles.keys()].filter(filePath => !incumbentFiles.has(filePath)).sort();
   const sharedFiles = [...incumbentFiles.keys()].filter(filePath => nativeFiles.has(filePath)).sort();
+  const drift = summarizeFileDrift({ incumbentSummary, nativeSummary, driftThreshold });
 
   return {
     schemaVersion: 1,
@@ -241,7 +296,8 @@ function compareCoverageSummaries({
         evidence: 'threshold simulation 只讀取 repo root 內 coverage inputs，並只寫入 coverage/native-esm diagnostic artifacts。',
       },
     ],
-    drift: summarizeFileDrift({ incumbentSummary, nativeSummary, driftThreshold }),
+    breadth: summarizeBreadth({ sharedFiles, nativeFiles, drift }),
+    drift,
     scope: {
       incumbentOnlyFiles,
       nativeOnlyFiles,
@@ -315,6 +371,24 @@ function renderThresholdSimulationMarkdown(summary) {
       : summary.drift.nativeZeroIncumbentNonzeroFiles
           .map(file => `- \`${file.path}\`: incumbent ${file.incumbentLinePct}, native ${file.nativeLinePct}`)
           .join('\n');
+  const materialGroupRows =
+    summary.breadth?.topMaterialDriftGroups?.length > 0
+      ? summary.breadth.topMaterialDriftGroups
+          .map(
+            record =>
+              `| \`${record.group}\` | ${record.files} | ${record.worstLinePctDelta} | ${record.sampleFiles.map(file => `\`${file}\``).join('<br>')} |`
+          )
+          .join('\n')
+      : '| 無 |  |  |  |';
+  const zeroGroupRows =
+    summary.breadth?.topNativeZeroIncumbentNonzeroGroups?.length > 0
+      ? summary.breadth.topNativeZeroIncumbentNonzeroGroups
+          .map(
+            record =>
+              `| \`${record.group}\` | ${record.files} | ${record.worstLinePctDelta} | ${record.sampleFiles.map(file => `\`${file}\``).join('<br>')} |`
+          )
+          .join('\n')
+      : '| 無 |  |  |  |';
 
   return `# Native ESM threshold simulation 摘要
 
@@ -327,6 +401,10 @@ function renderThresholdSimulationMarkdown(summary) {
 - shared 檔案數：${summary.totals.sharedFiles}
 - incumbent-only 檔案數：${summary.totals.incumbentOnlyFiles}
 - native-only 檔案數：${summary.totals.nativeOnlyFiles}
+- native nonzero official 檔案數：${summary.breadth?.nativeNonzeroOfficialFiles ?? 'n/a'}
+- native zero official 檔案數：${summary.breadth?.nativeZeroOfficialFiles ?? 'n/a'}
+- material drift 檔案數：${summary.breadth?.materialDriftFiles ?? 'n/a'}
+- native zero / incumbent nonzero 檔案數：${summary.breadth?.nativeZeroIncumbentNonzeroFiles ?? 'n/a'}
 
 ## Global Metrics
 
@@ -342,11 +420,27 @@ ${gateRows}
 
 ## Material Drift Files
 
+### Drift Groups
+
+| Group | Files | Worst Delta | Sample Files |
+| --- | ---: | ---: | --- |
+${materialGroupRows}
+
+### Files
+
 | 檔案 | Incumbent lines | Native lines | Delta |
 | --- | ---: | ---: | ---: |
 ${driftRows}
 
 ## Native Zero / Incumbent Nonzero
+
+### Zero Groups
+
+| Group | Files | Worst Delta | Sample Files |
+| --- | ---: | ---: | --- |
+${zeroGroupRows}
+
+### Files
 
 ${zeroRows}
 `;
