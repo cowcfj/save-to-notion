@@ -86,15 +86,9 @@ function toNativeCoverageEntry(filePath, fileCoverage) {
   return [relativePath, { statementHits: Object.values(fileCoverage.s) }];
 }
 
-function readNativeCoverageEntries(coveragePath) {
-  const absoluteCoveragePath = path.resolve(projectRoot, coveragePath);
-  if (!fs.existsSync(absoluteCoveragePath)) {
-    throw new Error(`找不到 native ESM 覆蓋率檔案：${coveragePath}。請先執行 npm run test:coverage:native-esm。`);
-  }
-  assertPathInsideDirectory(absoluteCoveragePath, projectRoot, 'native coverage path 必須位於 repo root 底下');
-  let coverage;
+function readCoverageJson(coveragePath, absoluteCoveragePath) {
   try {
-    coverage = JSON.parse(fs.readFileSync(absoluteCoveragePath, 'utf8'));
+    return JSON.parse(fs.readFileSync(absoluteCoveragePath, 'utf8'));
   } catch (error) {
     if (error instanceof SyntaxError) {
       throw new Error(`無法解析 native ESM 覆蓋率 JSON：${coveragePath}。原始錯誤：${error.message}`, {
@@ -103,9 +97,22 @@ function readNativeCoverageEntries(coveragePath) {
     }
     throw error;
   }
+}
+
+function assertCoverageRootSchema(coverage) {
   if (!isCoverageObject(coverage)) {
     throw new Error('native ESM 覆蓋率檔案必須是 JSON object');
   }
+}
+
+function readNativeCoverageEntries(coveragePath) {
+  const absoluteCoveragePath = path.resolve(projectRoot, coveragePath);
+  if (!fs.existsSync(absoluteCoveragePath)) {
+    throw new Error(`找不到 native ESM 覆蓋率檔案：${coveragePath}。請先執行 npm run test:coverage:native-esm。`);
+  }
+  assertPathInsideDirectory(absoluteCoveragePath, projectRoot, 'native coverage path 必須位於 repo root 底下');
+  const coverage = readCoverageJson(coveragePath, absoluteCoveragePath);
+  assertCoverageRootSchema(coverage);
   const entries = {};
   for (const [filePath, fileCoverage] of Object.entries(coverage)) {
     const [relativePath, nativeCoverageEntry] = toNativeCoverageEntry(filePath, fileCoverage);

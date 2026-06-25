@@ -53,6 +53,11 @@ describe('tools/report-native-esm-scope-parity.mjs', () => {
     fs.writeFileSync(testNativeCoveragePath, content, 'utf8');
   };
 
+  const expectNoSummaryFiles = outputRoot => {
+    expect(fs.existsSync(path.join(outputRoot, 'scope-parity-summary.json'))).toBe(false);
+    expect(fs.existsSync(path.join(outputRoot, 'scope-parity-summary.md'))).toBe(false);
+  };
+
   beforeEach(() => {
     fs.rmSync(tempRoot, { recursive: true, force: true });
     fs.rmSync(allowedOutputRoot, { recursive: true, force: true });
@@ -305,8 +310,7 @@ describe('tools/report-native-esm-scope-parity.mjs', () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('找不到 native ESM 覆蓋率檔案');
-    expect(fs.existsSync(path.join(outputRoot, 'scope-parity-summary.json'))).toBe(false);
-    expect(fs.existsSync(path.join(outputRoot, 'scope-parity-summary.md'))).toBe(false);
+    expectNoSummaryFiles(outputRoot);
   });
 
   test.each([
@@ -331,8 +335,7 @@ describe('tools/report-native-esm-scope-parity.mjs', () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('native ESM 覆蓋率檔案必須是 JSON object');
     expect(result.stderr).not.toContain('TypeError');
-    expect(fs.existsSync(path.join(outputRoot, 'scope-parity-summary.json'))).toBe(false);
-    expect(fs.existsSync(path.join(outputRoot, 'scope-parity-summary.md'))).toBe(false);
+    expectNoSummaryFiles(outputRoot);
   });
 
   test('native coverage JSON 語法錯誤時 CLI 應輸出繁體中文錯誤', () => {
@@ -347,8 +350,7 @@ describe('tools/report-native-esm-scope-parity.mjs', () => {
     expect(result.stderr).toContain(testNativeCoverageRelativePath);
     expect(result.stderr).toContain('原始錯誤：');
     expect(result.stderr).not.toContain('Unexpected end of JSON input');
-    expect(fs.existsSync(path.join(outputRoot, 'scope-parity-summary.json'))).toBe(false);
-    expect(fs.existsSync(path.join(outputRoot, 'scope-parity-summary.md'))).toBe(false);
+    expectNoSummaryFiles(outputRoot);
   });
 
   test('native coverage entry 缺少 statement map 時 CLI 應拒絕 malformed schema', () => {
@@ -367,8 +369,7 @@ describe('tools/report-native-esm-scope-parity.mjs', () => {
       'native ESM coverage entry 的 statement hit map 必須是 JSON object'
     );
     expect(result.stderr).toContain('scripts/config/shared/storage.js');
-    expect(fs.existsSync(path.join(outputRoot, 'scope-parity-summary.json'))).toBe(false);
-    expect(fs.existsSync(path.join(outputRoot, 'scope-parity-summary.md'))).toBe(false);
+    expectNoSummaryFiles(outputRoot);
   });
 
   test('CLI 成功訊息使用繁體中文摘要', () => {
