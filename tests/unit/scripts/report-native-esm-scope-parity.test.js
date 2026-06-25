@@ -19,9 +19,11 @@ const writeFile = (rootDir, relativePath, content = '') => {
 };
 
 const shouldRestoreNativeCoverageBackup = (nativeCoveragePath, nativeCoverageBackupPath) => {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
   if (fs.existsSync(nativeCoveragePath)) {
     return false;
   }
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
   return fs.existsSync(nativeCoverageBackupPath);
 };
 
@@ -33,9 +35,11 @@ const shouldRemoveTestCreatedNativeCoverage = (
   if (!removeNativeCoverageAfterTest) {
     return false;
   }
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
   if (!fs.existsSync(nativeCoveragePath)) {
     return false;
   }
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
   return !fs.existsSync(nativeCoverageBackupPath);
 };
 
