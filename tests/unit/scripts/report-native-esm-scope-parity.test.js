@@ -18,39 +18,15 @@ const writeFile = (rootDir, relativePath, content = '') => {
   fs.writeFileSync(filePath, content, 'utf8');
 };
 
-const shouldRestoreNativeCoverageBackup = (nativeCoveragePath, nativeCoverageBackupPath) => {
-  // eslint-disable-next-line security/detect-non-literal-fs-filename
-  return fs.existsSync(nativeCoverageBackupPath);
-};
-
-const shouldRemoveTestCreatedNativeCoverage = (
-  nativeCoveragePath,
-  nativeCoverageBackupPath,
-  removeNativeCoverageAfterTest
-) => {
-  if (!removeNativeCoverageAfterTest) {
-    return false;
-  }
-  // eslint-disable-next-line security/detect-non-literal-fs-filename
-  if (!fs.existsSync(nativeCoveragePath)) {
-    return false;
-  }
-  // eslint-disable-next-line security/detect-non-literal-fs-filename
-  return !fs.existsSync(nativeCoverageBackupPath);
-};
-
 describe('tools/report-native-esm-scope-parity.mjs', () => {
   const projectRoot = path.resolve(__dirname, '../../..');
   const tempRoot = path.join(projectRoot, '.tmp/test-scope-parity');
   const cliPath = path.join(projectRoot, 'tools/report-native-esm-scope-parity.mjs');
-  const nativeCoveragePath = path.join(projectRoot, 'coverage/native-esm/coverage-final.json');
-  const nativeCoverageBackupPath = path.join(
-    projectRoot,
-    'coverage/native-esm/coverage-final.json.scope-parity-test-bak'
-  );
+  const testNativeCoverageRelativePath =
+    '.tmp/test-scope-parity/native-coverage/coverage-final.json';
+  const testNativeCoveragePath = path.join(projectRoot, testNativeCoverageRelativePath);
   const allowedOutputRoot = path.join(projectRoot, 'coverage/native-esm/test-scope-parity-output');
   let reporter;
-  let removeNativeCoverageAfterTest;
 
   const loadReporter = () => {
     reporter = require('../../../tools/report-native-esm-scope-parity-core.cjs');
@@ -64,6 +40,8 @@ describe('tools/report-native-esm-scope-parity.mjs', () => {
 
   const runCliWithSummary = summaryRoot =>
     runCliWithArgs([
+      '--native-coverage',
+      testNativeCoverageRelativePath,
       '--summary-json',
       path.join(summaryRoot, 'scope-parity-summary.json'),
       '--summary-md',
@@ -71,13 +49,8 @@ describe('tools/report-native-esm-scope-parity.mjs', () => {
     ]);
 
   const writeNativeCoverageFixture = content => {
-    if (fs.existsSync(nativeCoveragePath)) {
-      fs.renameSync(nativeCoveragePath, nativeCoverageBackupPath);
-    } else {
-      removeNativeCoverageAfterTest = true;
-    }
-    createDirectory(path.dirname(nativeCoveragePath));
-    fs.writeFileSync(nativeCoveragePath, content, 'utf8');
+    createDirectory(path.dirname(testNativeCoveragePath));
+    fs.writeFileSync(testNativeCoveragePath, content, 'utf8');
   };
 
   beforeEach(() => {
@@ -85,24 +58,10 @@ describe('tools/report-native-esm-scope-parity.mjs', () => {
     fs.rmSync(allowedOutputRoot, { recursive: true, force: true });
     createDirectory(tempRoot);
     createDirectory(allowedOutputRoot);
-    removeNativeCoverageAfterTest = false;
     loadReporter();
   });
 
   afterEach(() => {
-    if (shouldRestoreNativeCoverageBackup(nativeCoveragePath, nativeCoverageBackupPath)) {
-      fs.rmSync(nativeCoveragePath, { force: true });
-      fs.renameSync(nativeCoverageBackupPath, nativeCoveragePath);
-    }
-    if (
-      shouldRemoveTestCreatedNativeCoverage(
-        nativeCoveragePath,
-        nativeCoverageBackupPath,
-        removeNativeCoverageAfterTest
-      )
-    ) {
-      fs.rmSync(nativeCoveragePath, { force: true });
-    }
     fs.rmSync(tempRoot, { recursive: true, force: true });
     fs.rmSync(allowedOutputRoot, { recursive: true, force: true });
   });
@@ -341,9 +300,6 @@ describe('tools/report-native-esm-scope-parity.mjs', () => {
   test('缺少 native coverage-final.json 時 CLI 應失敗且不產生摘要', () => {
     const outputRoot = path.join(allowedOutputRoot, 'missing-coverage-output');
     createDirectory(outputRoot);
-    if (fs.existsSync(nativeCoveragePath)) {
-      fs.renameSync(nativeCoveragePath, nativeCoverageBackupPath);
-    }
 
     const result = runCliWithSummary(outputRoot);
 
@@ -354,6 +310,7 @@ describe('tools/report-native-esm-scope-parity.mjs', () => {
   });
 
   test.each([
+    ['--native-coverage', '--native-coverage 必須提供路徑值'],
     ['--summary-json', '--summary-json 必須提供路徑值'],
     ['--summary-md', '--summary-md 必須提供路徑值'],
   ])('CLI 缺少 %s 路徑值時應輸出明確錯誤', (flag, expectedMessage) => {
@@ -378,6 +335,42 @@ describe('tools/report-native-esm-scope-parity.mjs', () => {
     expect(fs.existsSync(path.join(outputRoot, 'scope-parity-summary.md'))).toBe(false);
   });
 
+  test('native coverage JSON 語法錯誤時 CLI 應輸出繁體中文錯誤', () => {
+    const outputRoot = path.join(allowedOutputRoot, 'invalid-json-output');
+    createDirectory(outputRoot);
+    writeNativeCoverageFixture('{');
+
+    const result = runCliWithSummary(outputRoot);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('無法解析 native ESM 覆蓋率 JSON');
+    expect(result.stderr).toContain(testNativeCoverageRelativePath);
+    expect(result.stderr).toContain('原始錯誤：');
+    expect(result.stderr).not.toContain('Unexpected end of JSON input');
+    expect(fs.existsSync(path.join(outputRoot, 'scope-parity-summary.json'))).toBe(false);
+    expect(fs.existsSync(path.join(outputRoot, 'scope-parity-summary.md'))).toBe(false);
+  });
+
+  test('native coverage entry 缺少 statement map 時 CLI 應拒絕 malformed schema', () => {
+    const outputRoot = path.join(allowedOutputRoot, 'malformed-entry-output');
+    createDirectory(outputRoot);
+    writeNativeCoverageFixture(
+      JSON.stringify({
+        [path.join(projectRoot, 'scripts/config/shared/storage.js')]: {},
+      })
+    );
+
+    const result = runCliWithSummary(outputRoot);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      'native ESM coverage entry 的 statement hit map 必須是 JSON object'
+    );
+    expect(result.stderr).toContain('scripts/config/shared/storage.js');
+    expect(fs.existsSync(path.join(outputRoot, 'scope-parity-summary.json'))).toBe(false);
+    expect(fs.existsSync(path.join(outputRoot, 'scope-parity-summary.md'))).toBe(false);
+  });
+
   test('CLI 成功訊息使用繁體中文摘要', () => {
     writeNativeCoverageFixture(JSON.stringify({}));
     const outputRoot = path.join(allowedOutputRoot, 'success-output');
@@ -386,7 +379,7 @@ describe('tools/report-native-esm-scope-parity.mjs', () => {
     const result = runCliWithSummary(outputRoot);
 
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain('Native ESM scope parity 報告已寫入：');
+    expect(result.stdout).toContain('Native ESM 範圍一致性報告已寫入：');
     expect(result.stdout).toContain('official 檔案');
     expect(result.stdout).toContain('native candidate 檔案');
     expect(result.stdout).not.toContain('report written');
