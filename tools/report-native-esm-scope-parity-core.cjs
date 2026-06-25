@@ -262,7 +262,7 @@ function buildScopeParitySummary({
   officialIncluded,
   officialExcluded,
   nativeIncluded,
-  nativeCoverageEntries,
+  nativeCoverageEntries = {},
   zeroCoverageCanaryPaths = defaultZeroCoverageCanaryPaths,
   unsupportedPatterns,
   officialConfigPath = 'jest.config.js',

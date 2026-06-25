@@ -35,12 +35,20 @@ function parseCliArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--summary-json') {
-      options.summaryJsonPath = argv[index + 1];
+      const value = argv[index + 1];
+      if (!value) {
+        throw new Error('--summary-json 必須提供路徑值');
+      }
+      options.summaryJsonPath = value;
       index += 1;
       continue;
     }
     if (arg === '--summary-md') {
-      options.summaryMarkdownPath = argv[index + 1];
+      const value = argv[index + 1];
+      if (!value) {
+        throw new Error('--summary-md 必須提供路徑值');
+      }
+      options.summaryMarkdownPath = value;
       index += 1;
       continue;
     }
@@ -56,6 +64,9 @@ function readNativeCoverageEntries(coveragePath) {
   }
   assertPathInsideDirectory(absoluteCoveragePath, projectRoot, 'native coverage path 必須位於 repo root 底下');
   const coverage = JSON.parse(fs.readFileSync(absoluteCoveragePath, 'utf8'));
+  if (coverage === null || typeof coverage !== 'object' || Array.isArray(coverage)) {
+    throw new Error('native ESM 覆蓋率檔案必須是 JSON object');
+  }
   const entries = {};
   for (const [filePath, fileCoverage] of Object.entries(coverage)) {
     const absoluteFilePath = path.resolve(filePath);

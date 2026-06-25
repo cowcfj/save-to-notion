@@ -20,10 +20,6 @@ const writeFile = (rootDir, relativePath, content = '') => {
 
 const shouldRestoreNativeCoverageBackup = (nativeCoveragePath, nativeCoverageBackupPath) => {
   // eslint-disable-next-line security/detect-non-literal-fs-filename
-  if (fs.existsSync(nativeCoveragePath)) {
-    return false;
-  }
-  // eslint-disable-next-line security/detect-non-literal-fs-filename
   return fs.existsSync(nativeCoverageBackupPath);
 };
 
@@ -60,21 +56,29 @@ describe('tools/report-native-esm-scope-parity.mjs', () => {
     reporter = require('../../../tools/report-native-esm-scope-parity-core.cjs');
   };
 
+  const runCliWithArgs = args =>
+    spawnSync(process.execPath, [cliPath, ...args], {
+      cwd: projectRoot,
+      encoding: 'utf8',
+    });
+
   const runCliWithSummary = summaryRoot =>
-    spawnSync(
-      process.execPath,
-      [
-        cliPath,
-        '--summary-json',
-        path.join(summaryRoot, 'scope-parity-summary.json'),
-        '--summary-md',
-        path.join(summaryRoot, 'scope-parity-summary.md'),
-      ],
-      {
-        cwd: projectRoot,
-        encoding: 'utf8',
-      }
-    );
+    runCliWithArgs([
+      '--summary-json',
+      path.join(summaryRoot, 'scope-parity-summary.json'),
+      '--summary-md',
+      path.join(summaryRoot, 'scope-parity-summary.md'),
+    ]);
+
+  const writeNativeCoverageFixture = content => {
+    if (fs.existsSync(nativeCoveragePath)) {
+      fs.renameSync(nativeCoveragePath, nativeCoverageBackupPath);
+    } else {
+      removeNativeCoverageAfterTest = true;
+    }
+    createDirectory(path.dirname(nativeCoveragePath));
+    fs.writeFileSync(nativeCoveragePath, content, 'utf8');
+  };
 
   beforeEach(() => {
     fs.rmSync(tempRoot, { recursive: true, force: true });
@@ -87,6 +91,7 @@ describe('tools/report-native-esm-scope-parity.mjs', () => {
 
   afterEach(() => {
     if (shouldRestoreNativeCoverageBackup(nativeCoveragePath, nativeCoverageBackupPath)) {
+      fs.rmSync(nativeCoveragePath, { force: true });
       fs.renameSync(nativeCoverageBackupPath, nativeCoveragePath);
     }
     if (
@@ -274,6 +279,26 @@ describe('tools/report-native-esm-scope-parity.mjs', () => {
     );
   });
 
+  test('scope summary treats omitted native coverage entries as missing records', () => {
+    const summary = reporter.buildScopeParitySummary({
+      officialIncluded: ['scripts/background/utils/BlockBuilder.js'],
+      officialExcluded: [],
+      nativeIncluded: ['scripts/background/utils/BlockBuilder.js'],
+      zeroCoverageCanaryPaths: [],
+      unsupportedPatterns: [],
+    });
+
+    expect(summary.files).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: 'scripts/background/utils/BlockBuilder.js',
+          nativeCoverageEntry: 'missing',
+          classification: 'included-in-both',
+        }),
+      ])
+    );
+  });
+
   test('unsupported patterns are recorded and make report integrity fail', () => {
     const files = ['scripts/background/utils/BlockBuilder.js'];
     const result = reporter.evaluateCoveragePatterns(files, ['<rootDir>/scripts/**/{foo,bar}.js']);
@@ -328,12 +353,33 @@ describe('tools/report-native-esm-scope-parity.mjs', () => {
     expect(fs.existsSync(path.join(outputRoot, 'scope-parity-summary.md'))).toBe(false);
   });
 
+  test.each([
+    ['--summary-json', '--summary-json 必須提供路徑值'],
+    ['--summary-md', '--summary-md 必須提供路徑值'],
+  ])('CLI 缺少 %s 路徑值時應輸出明確錯誤', (flag, expectedMessage) => {
+    const result = runCliWithArgs([flag]);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(expectedMessage);
+    expect(result.stderr).not.toContain('TypeError');
+  });
+
+  test('native coverage JSON 為 null 時 CLI 應失敗且不產生摘要', () => {
+    const outputRoot = path.join(allowedOutputRoot, 'null-coverage-output');
+    createDirectory(outputRoot);
+    writeNativeCoverageFixture('null');
+
+    const result = runCliWithSummary(outputRoot);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('native ESM 覆蓋率檔案必須是 JSON object');
+    expect(result.stderr).not.toContain('TypeError');
+    expect(fs.existsSync(path.join(outputRoot, 'scope-parity-summary.json'))).toBe(false);
+    expect(fs.existsSync(path.join(outputRoot, 'scope-parity-summary.md'))).toBe(false);
+  });
+
   test('CLI 成功訊息使用繁體中文摘要', () => {
-    if (!fs.existsSync(nativeCoveragePath)) {
-      createDirectory(path.dirname(nativeCoveragePath));
-      fs.writeFileSync(nativeCoveragePath, JSON.stringify({}), 'utf8');
-      removeNativeCoverageAfterTest = true;
-    }
+    writeNativeCoverageFixture(JSON.stringify({}));
     const outputRoot = path.join(allowedOutputRoot, 'success-output');
     createDirectory(outputRoot);
 
