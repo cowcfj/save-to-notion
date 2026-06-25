@@ -18,6 +18,27 @@ const writeFile = (rootDir, relativePath, content = '') => {
   fs.writeFileSync(filePath, content, 'utf8');
 };
 
+const shouldRestoreNativeCoverageBackup = (nativeCoveragePath, nativeCoverageBackupPath) => {
+  if (fs.existsSync(nativeCoveragePath)) {
+    return false;
+  }
+  return fs.existsSync(nativeCoverageBackupPath);
+};
+
+const shouldRemoveTestCreatedNativeCoverage = (
+  nativeCoveragePath,
+  nativeCoverageBackupPath,
+  removeNativeCoverageAfterTest
+) => {
+  if (!removeNativeCoverageAfterTest) {
+    return false;
+  }
+  if (!fs.existsSync(nativeCoveragePath)) {
+    return false;
+  }
+  return !fs.existsSync(nativeCoverageBackupPath);
+};
+
 describe('tools/report-native-esm-scope-parity.mjs', () => {
   const projectRoot = path.resolve(__dirname, '../../..');
   const tempRoot = path.join(projectRoot, '.tmp/test-scope-parity');
@@ -61,13 +82,15 @@ describe('tools/report-native-esm-scope-parity.mjs', () => {
   });
 
   afterEach(() => {
-    if (!fs.existsSync(nativeCoveragePath) && fs.existsSync(nativeCoverageBackupPath)) {
+    if (shouldRestoreNativeCoverageBackup(nativeCoveragePath, nativeCoverageBackupPath)) {
       fs.renameSync(nativeCoverageBackupPath, nativeCoveragePath);
     }
     if (
-      removeNativeCoverageAfterTest &&
-      fs.existsSync(nativeCoveragePath) &&
-      !fs.existsSync(nativeCoverageBackupPath)
+      shouldRemoveTestCreatedNativeCoverage(
+        nativeCoveragePath,
+        nativeCoverageBackupPath,
+        removeNativeCoverageAfterTest
+      )
     ) {
       fs.rmSync(nativeCoveragePath, { force: true });
     }
