@@ -102,6 +102,9 @@ cp -a pages "$RM_DIR/"             # extension page bundle（popup / options / s
 cp -a styles "$RM_DIR/"            # callback bridge 共用 CSS
 cp -a dist "$RM_DIR/"
 
+# Native Jest ESM package markers are source/test metadata; Chrome extension
+# runtime does not need nested package.json files under extension pages.
+find "$RM_DIR/pages" -name 'package.json' -delete
 # 清理 macOS metadata，避免從 cp -a 帶入 release package。
 find "$RM_DIR" -name '.DS_Store' -delete
 # production 不打包任何殘留 sourcemap。

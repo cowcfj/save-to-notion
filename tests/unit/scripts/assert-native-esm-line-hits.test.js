@@ -464,6 +464,57 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
     expect(result.stdout).toContain('Native ESM 行命中檢查通過：1 個檔案, 1 行');
   });
 
+  test('manifest allowlist 接受 expanded native ESM cohorts', () => {
+    const coveragePath = writeCoverageFile({
+      [path.join(projectRoot, 'pages/options/confirmDialog.js')]: {
+        statementMap: {
+          0: {
+            start: { line: 22 },
+            end: { line: 23 },
+          },
+        },
+        s: { 0: 1 },
+      },
+      [path.join(projectRoot, 'scripts/background/handlers/MessageHandler.js')]: {
+        statementMap: {
+          0: {
+            start: { line: 96 },
+            end: { line: 99 },
+          },
+        },
+        s: { 0: 1 },
+      },
+      [path.join(projectRoot, 'scripts/content/converters/ContentBridge.js')]: {
+        statementMap: {
+          0: {
+            start: { line: 39 },
+            end: { line: 40 },
+          },
+        },
+        s: { 0: 1 },
+      },
+    });
+    const manifestPath = writeManifestFile([
+      {
+        fileSuffix: 'pages/options/confirmDialog.js',
+        lines: [22, 23],
+      },
+      {
+        fileSuffix: 'scripts/background/handlers/MessageHandler.js',
+        lines: [96, 97, 98, 99],
+      },
+      {
+        fileSuffix: 'scripts/content/converters/ContentBridge.js',
+        lines: [39, 40],
+      },
+    ]);
+
+    const result = runCli(coveragePath, manifestPath);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('Native ESM 行命中檢查通過：3 個檔案, 8 行');
+  });
+
   test('[SECURITY] coverage entry 不可來自 copy-slice spike path', () => {
     const coveragePath = writeCoverageFile({
       [path.join(projectRoot, '.tmp/coverage-spike/scripts/background/utils/BlockBuilder.js')]: {
