@@ -23,6 +23,43 @@ function readRequiredOptionValue(argv, index, optionName) {
   return value;
 }
 
+function parseDriftThresholdOption(rawValue) {
+  const driftThreshold = Number(rawValue);
+  if (!Number.isFinite(driftThreshold) || driftThreshold < 0) {
+    throw new Error('--drift-threshold 必須是非負數字');
+  }
+  return driftThreshold;
+}
+
+const CLI_OPTION_HANDLERS = {
+  '--incumbent-coverage': (options, value) => {
+    options.incumbentCoveragePath = value;
+  },
+  '--native-coverage': (options, value) => {
+    options.nativeCoveragePath = value;
+  },
+  '--scope-parity-json': (options, value) => {
+    options.scopeParityJsonPath = value;
+  },
+  '--summary-json': (options, value) => {
+    options.summaryJsonPath = value;
+  },
+  '--summary-md': (options, value) => {
+    options.summaryMarkdownPath = value;
+  },
+  '--drift-threshold': (options, value) => {
+    options.driftThreshold = parseDriftThresholdOption(value);
+  },
+};
+
+function getCliOptionHandler(optionName) {
+  const handler = CLI_OPTION_HANDLERS[optionName];
+  if (!handler) {
+    throw new Error(`未知參數：${optionName}`);
+  }
+  return handler;
+}
+
 function parseCliArgs(argv) {
   const options = {
     incumbentCoveragePath: 'coverage/jest/coverage-final.json',
@@ -35,42 +72,9 @@ function parseCliArgs(argv) {
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
-    if (arg === '--incumbent-coverage') {
-      options.incumbentCoveragePath = readRequiredOptionValue(argv, index, arg);
-      index += 1;
-      continue;
-    }
-    if (arg === '--native-coverage') {
-      options.nativeCoveragePath = readRequiredOptionValue(argv, index, arg);
-      index += 1;
-      continue;
-    }
-    if (arg === '--scope-parity-json') {
-      options.scopeParityJsonPath = readRequiredOptionValue(argv, index, arg);
-      index += 1;
-      continue;
-    }
-    if (arg === '--summary-json') {
-      options.summaryJsonPath = readRequiredOptionValue(argv, index, arg);
-      index += 1;
-      continue;
-    }
-    if (arg === '--summary-md') {
-      options.summaryMarkdownPath = readRequiredOptionValue(argv, index, arg);
-      index += 1;
-      continue;
-    }
-    if (arg === '--drift-threshold') {
-      const rawValue = readRequiredOptionValue(argv, index, arg);
-      const driftThreshold = Number(rawValue);
-      if (!Number.isFinite(driftThreshold) || driftThreshold < 0) {
-        throw new Error('--drift-threshold 必須是非負數字');
-      }
-      options.driftThreshold = driftThreshold;
-      index += 1;
-      continue;
-    }
-    throw new Error(`未知參數：${arg}`);
+    const handler = getCliOptionHandler(arg);
+    handler(options, readRequiredOptionValue(argv, index, arg));
+    index += 1;
   }
 
   return options;

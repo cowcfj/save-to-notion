@@ -311,6 +311,20 @@ describe('tools/report-native-esm-threshold-simulation', () => {
     expect(fs.existsSync(summaryMarkdownPath)).toBe(false);
   });
 
+  test('CLI rejects unknown options before reading coverage inputs', () => {
+    const result = runCliWithArgs(['--unknown-option']);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('未知參數：--unknown-option');
+  });
+
+  test('CLI rejects invalid drift threshold values', () => {
+    const result = runCliWithArgs(['--drift-threshold', '-1']);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('--drift-threshold 必須是非負數字');
+  });
+
   test('CLI writes JSON and Markdown summaries under coverage/native-esm', () => {
     const incumbentCoveragePath = path.join(tempRoot, 'coverage/jest/coverage-final.json');
     const nativeCoveragePath = path.join(tempRoot, 'coverage/native-esm/coverage-final.json');
