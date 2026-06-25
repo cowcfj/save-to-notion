@@ -1,5 +1,22 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.81.1](https://github.com/cowcfj/save-to-notion/compare/v2.81.0...v2.81.1) (2026-06-24)
+
+
+### 🐛 Bug 修復
+
+* **auth:** harden auth callback bridge ([#757](https://github.com/cowcfj/save-to-notion/issues/757)) ([ac84e91](https://github.com/cowcfj/save-to-notion/commit/ac84e913723d5fc96ce39f1ea0a01b08fca7bb3b))
+
+
+### ♻️ 代碼重構
+
+* **auth:** reduce code complexity in auth and drive modules ([#751](https://github.com/cowcfj/save-to-notion/issues/751)) ([36477e0](https://github.com/cowcfj/save-to-notion/commit/36477e0bfdc1646afefe48ec70d8e90387aa780c))
+* prefer Number.NaN in update notification parser ([501bb5b](https://github.com/cowcfj/save-to-notion/commit/501bb5b856d09e9059cc38386f8176f6a97f0c33))
+* reduce notion auth complexity ([#748](https://github.com/cowcfj/save-to-notion/issues/748)) ([590cb6e](https://github.com/cowcfj/save-to-notion/commit/590cb6e49c72860e803212409c44bbb61827e6ed))
+* reduce service complexity ([#756](https://github.com/cowcfj/save-to-notion/issues/756)) ([d2ec657](https://github.com/cowcfj/save-to-notion/commit/d2ec6575701153000ca98b2836610d99b45a0297))
+* share update notification version check ([#739](https://github.com/cowcfj/save-to-notion/issues/739)) ([0ab51b8](https://github.com/cowcfj/save-to-notion/commit/0ab51b87e409a8a28bf96e7c8f9d9abd1909a55e))
+* simplify PerformanceOptimizer and preloader save shortcut ([#747](https://github.com/cowcfj/save-to-notion/issues/747)) ([6f1186e](https://github.com/cowcfj/save-to-notion/commit/6f1186e6bf0d94e469cffb06daaccf7aef22b4fd))
+
 ## [2.81.0](https://github.com/cowcfj/save-to-notion/compare/v2.80.0...v2.81.0) (2026-06-19)
 
 
