@@ -8,7 +8,7 @@ module.exports = {
   cacheDirectory: '<rootDir>/.tmp/jest-cache-native-esm',
   coverageProvider: 'v8',
   coverageDirectory: '<rootDir>/coverage/native-esm',
-  coverageReporters: ['json', 'text'],
+  coverageReporters: ['json', 'text', 'lcov'],
   collectCoverageFrom: [
     '<rootDir>/scripts/background.js',
     '<rootDir>/scripts/content/index.js',

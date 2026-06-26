@@ -10,8 +10,12 @@ function readWorkflow(relativePath) {
   return fs.readFileSync(path.join(activeWorkflowDir, relativePath), 'utf8');
 }
 
+function readRootText(relativePath) {
+  return fs.readFileSync(path.join(rootDir, relativePath), 'utf8');
+}
+
 function readRootJson(relativePath) {
-  return JSON.parse(fs.readFileSync(path.join(rootDir, relativePath), 'utf8'));
+  return JSON.parse(readRootText(relativePath));
 }
 
 function listActiveWorkflowFiles() {
@@ -23,6 +27,19 @@ function listActiveWorkflowFiles() {
 function getRootReleasePackageConfig() {
   const releasePleaseConfig = readRootJson('release-please-config.json');
   return releasePleaseConfig.packages['.'];
+}
+
+function getWorkflowStepBlock(workflowSource, stepName) {
+  const stepStart = workflowSource.indexOf(`- name: ${stepName}`);
+  if (stepStart === -1) {
+    return '';
+  }
+
+  const nextStepStart = workflowSource.indexOf('\n      - name:', stepStart + 1);
+  return workflowSource.slice(
+    stepStart,
+    nextStepStart === -1 ? workflowSource.length : nextStepStart
+  );
 }
 
 describe('workflow policy contract', () => {
@@ -109,5 +126,50 @@ describe('workflow policy contract', () => {
     expect(script).toMatch(
       /^npm run test:coverage && npm run test:coverage:native-esm && node tools\/report-native-esm-threshold-simulation\.mjs/
     );
+  });
+
+  test('native ESM coverage emits LCOV only in the diagnostic output directory', () => {
+    const nativeConfig = require('../../../jest.native-esm.config.cjs');
+
+    expect(nativeConfig.coverageDirectory).toBe('<rootDir>/coverage/native-esm');
+    expect(nativeConfig.coverageReporters).toEqual(
+      expect.arrayContaining(['json', 'text', 'lcov'])
+    );
+  });
+
+  test('native ESM Codecov flag is isolated and non-carryforward', () => {
+    const codecovConfig = readRootText('codecov.yml');
+    const nativeFlagStart = codecovConfig.indexOf('  native-esm-parity:');
+    const nativeFlagEnd = codecovConfig.indexOf('\n\n', nativeFlagStart);
+    const nativeFlagBlock = codecovConfig.slice(nativeFlagStart, nativeFlagEnd);
+
+    expect(nativeFlagStart).toBeGreaterThan(-1);
+    expect(nativeFlagBlock).toContain('      - scripts/');
+    expect(nativeFlagBlock).toContain('      - pages/');
+    expect(nativeFlagBlock).toContain('    carryforward: false');
+    expect(nativeFlagBlock).not.toContain('statuses:');
+  });
+
+  test('Codecov native ESM dry-run cannot replace official unit upload', () => {
+    const workflowSource = readWorkflow('coverage-gate.yml');
+    const officialUploadStep = getWorkflowStepBlock(workflowSource, 'Upload coverage to Codecov');
+    const nativeDryRunStep = getWorkflowStepBlock(
+      workflowSource,
+      'Dry-run native ESM coverage upload to Codecov'
+    );
+
+    expect(officialUploadStep).toContain('files: ${{ steps.validate-coverage.outputs.file }}');
+    expect(officialUploadStep).toContain('flags: unit');
+    expect(officialUploadStep).toContain('use_oidc: true');
+    expect(officialUploadStep).not.toContain('coverage/native-esm/lcov.info');
+    expect(officialUploadStep).not.toContain('native-esm-parity');
+
+    expect(nativeDryRunStep).toContain('files: coverage/native-esm/lcov.info');
+    expect(nativeDryRunStep).toContain('flags: native-esm-parity');
+    expect(nativeDryRunStep).toContain('name: native-esm-parity-dry-run');
+    expect(nativeDryRunStep).toContain('dry_run: true');
+    expect(nativeDryRunStep).toContain('disable_search: true');
+    expect(nativeDryRunStep).toContain('fail_ci_if_error: false');
+    expect(nativeDryRunStep).toContain('use_oidc: true');
   });
 });

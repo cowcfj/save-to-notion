@@ -148,6 +148,7 @@ jobs:
             coverage/native-esm/line-hit-summary.md
             coverage/native-esm/scope-parity-summary.json
             coverage/native-esm/scope-parity-summary.md
+            coverage/native-esm/lcov.info
           retention-days: 14
           if-no-files-found: warn
 
@@ -184,5 +185,16 @@ jobs:
         with:
           files: ${{ steps.validate-coverage.outputs.file }}
           flags: unit
+          fail_ci_if_error: false
+          use_oidc: true
+
+      - name: Dry-run native ESM coverage upload to Codecov
+        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2
+        with:
+          files: coverage/native-esm/lcov.info
+          flags: native-esm-parity
+          name: native-esm-parity-dry-run
+          dry_run: true
+          disable_search: true
           fail_ci_if_error: false
           use_oidc: true
