@@ -1,5 +1,12 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.82.0](https://github.com/cowcfj/save-to-notion/compare/v2.81.1...v2.82.0) (2026-06-26)
+
+
+### ✨ 新功能
+
+* **test:** clean up native ESM coverage and implement blocker ledger ([#760](https://github.com/cowcfj/save-to-notion/issues/760)) ([0f9f820](https://github.com/cowcfj/save-to-notion/commit/0f9f820375b65ea7e7941496307a1fdb2d5623f0))
+
 ## [2.81.1](https://github.com/cowcfj/save-to-notion/compare/v2.81.0...v2.81.1) (2026-06-24)
 
 
