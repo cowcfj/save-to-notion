@@ -101,4 +101,13 @@ describe('workflow policy contract', () => {
       expect(rootPackageConfig['exclude-paths']).not.toContain(runtimePath);
     });
   });
+
+  test('native ESM threshold simulation regenerates required coverage artifacts before reporting', () => {
+    const script =
+      readRootJson('package.json').scripts['test:coverage:native-esm:threshold-simulation'];
+
+    expect(script).toMatch(
+      /^npm run test:coverage && npm run test:coverage:native-esm && node tools\/report-native-esm-threshold-simulation\.mjs/
+    );
+  });
 });

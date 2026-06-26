@@ -9,6 +9,8 @@ const loggerMock = {
   error: jest.fn(),
   info: jest.fn(),
   log: jest.fn(),
+  ready: jest.fn(),
+  start: jest.fn(),
   success: jest.fn(),
   warn: jest.fn(),
 };

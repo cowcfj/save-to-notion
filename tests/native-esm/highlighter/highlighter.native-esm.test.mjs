@@ -239,7 +239,7 @@ describe('highlighter native ESM diagnostics', () => {
       maxWaitMs: 500,
       stabilityThresholdMs: 50,
     });
-    jest.advanceTimersByTime(0);
+    jest.runOnlyPendingTimers();
     await expect(stabilityPromise).resolves.toBe(true);
 
     const treeWalkerRange = findTextWithTreeWalker('Native');

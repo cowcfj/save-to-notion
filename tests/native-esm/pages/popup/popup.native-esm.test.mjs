@@ -113,7 +113,7 @@ function installChrome() {
     storage: {
       sync: {
         get: jest.fn(async () => ({
-          notionApiKey: 'secret_manual_token',
+          notionApiKey: 'synthetic-manual-api-key',
           notionDataSourceId: 'ds-sync',
         })),
       },

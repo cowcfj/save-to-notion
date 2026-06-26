@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globa
 const loggerMock = {
   debug: jest.fn(),
   error: jest.fn(),
-  log: jest.fn(),
+  info: jest.fn(),
   ready: jest.fn(),
   start: jest.fn(),
   success: jest.fn(),

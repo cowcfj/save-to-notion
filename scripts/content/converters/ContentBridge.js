@@ -337,12 +337,12 @@ if (globalThis.window !== undefined) {
   globalThis.createTextBlocks = createTextBlocks;
 }
 
-// Node.js 環境導出（用於測試）
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    bridgeContentToBlocks,
-    extractAndBridge,
-    createTextBlocks,
-    createFallbackResult,
-  };
-}
+const ContentBridge = {
+  bridgeContentToBlocks,
+  extractAndBridge,
+  createTextBlocks,
+  createFallbackResult,
+};
+
+export { bridgeContentToBlocks, extractAndBridge, createTextBlocks, createFallbackResult };
+export default ContentBridge;
