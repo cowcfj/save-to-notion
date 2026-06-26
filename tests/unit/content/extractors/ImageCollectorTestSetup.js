@@ -208,22 +208,10 @@ export async function importImageCollectorTestModules() {
           }
         });
       }
-    } catch (error) {
-      process.stdout.write(`[DIAGNOSTIC] Patching Logger failed: ${error.message}\n`);
+    } catch {
+      // Best-effort CJS logger patch; tests fail later if the logger mock is unusable.
     }
   }
-
-  process.stdout.write(
-    `[DIAGNOSTIC] globalThis.Logger keys: ${globalThis.Logger ? Object.keys(globalThis.Logger).join(',') : 'undefined'}\n`
-  );
-  if (globalThis.Logger) {
-    process.stdout.write(
-      `[DIAGNOSTIC] globalThis.Logger.log type: ${typeof globalThis.Logger.log}, mockImpl type: ${typeof globalThis.Logger.log.mockImplementation}\n`
-    );
-  }
-  process.stdout.write(
-    `[DIAGNOSTIC] LoggerMod isMock: ${typeof LoggerMod.default?.log?.mockImplementation === 'function'}\n`
-  );
 
   // Populate dynamic object reference
   const populated = {
@@ -277,13 +265,6 @@ export function setupImageCollectorTestLifecycle() {
     document.body.innerHTML = '';
 
     // Standard Logger overrides
-    if (imageCollectorTestModules.Logger) {
-      process.stdout.write(
-        `[DIAGNOSTIC] Logger log type: ${typeof imageCollectorTestModules.Logger.log}, isMock: ${typeof imageCollectorTestModules.Logger.log?.mockImplementation === 'function'}\n`
-      );
-    } else {
-      process.stdout.write(`[DIAGNOSTIC] Logger is undefined!\n`);
-    }
     imageCollectorTestModules.Logger.log.mockImplementation(() => undefined);
     imageCollectorTestModules.Logger.warn.mockImplementation(() => undefined);
     imageCollectorTestModules.Logger.error.mockImplementation(() => undefined);
