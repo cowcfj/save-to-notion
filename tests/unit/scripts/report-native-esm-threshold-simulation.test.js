@@ -457,9 +457,36 @@ describe('tools/report-native-esm-threshold-simulation', () => {
     );
     expect(adapter.checks).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: 'source-line-correctness', status: 'pass' }),
-        expect.objectContaining({ id: 'native-nonzero-official-files', status: 'pass' }),
-        expect.objectContaining({ id: 'native-zero-incumbent-nonzero-files', status: 'pass' }),
+        expect.objectContaining({
+          id: 'official-scope-parity',
+          status: 'pass',
+          evidence: 'official-scope-parity 已通過。',
+        }),
+        expect.objectContaining({
+          id: 'source-line-correctness',
+          status: 'pass',
+          evidence: 'required lines 通過 4/4；失敗 0。',
+        }),
+        expect.objectContaining({
+          id: 'required-line-manifest-count',
+          status: 'pass',
+          evidence: 'required-line manifest count 4；baseline 3。',
+        }),
+        expect.objectContaining({
+          id: 'native-nonzero-official-files',
+          status: 'pass',
+          evidence: 'native nonzero official 檔案數 2；baseline 1。',
+        }),
+        expect.objectContaining({
+          id: 'native-zero-incumbent-nonzero-files',
+          status: 'pass',
+          evidence: 'native zero / incumbent nonzero 檔案數 0；baseline 1。',
+        }),
+        expect.objectContaining({
+          id: 'residual-group:scripts/a.js',
+          status: 'pass',
+          evidence: 'scripts/a.js native zero / incumbent nonzero 檔案數 0；baseline 1。',
+        }),
       ])
     );
   });
@@ -488,9 +515,50 @@ describe('tools/report-native-esm-threshold-simulation', () => {
     expect(adapter.status).toBe('fail');
     expect(adapter.checks).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: 'official-scope-parity', status: 'fail' }),
-        expect.objectContaining({ id: 'source-line-correctness', status: 'fail' }),
-        expect.objectContaining({ id: 'residual-group:scripts/a.js', status: 'fail' }),
+        expect.objectContaining({
+          id: 'official-scope-parity',
+          status: 'fail',
+          evidence: 'official-scope-parity 未通過或缺少 summary。',
+        }),
+        expect.objectContaining({
+          id: 'source-line-correctness',
+          status: 'fail',
+          evidence: 'required lines 通過 3/4；失敗 1。',
+        }),
+        expect.objectContaining({
+          id: 'residual-group:scripts/a.js',
+          status: 'fail',
+          evidence: 'scripts/a.js native zero / incumbent nonzero 檔案數 2；baseline 1。',
+        }),
+      ])
+    );
+  });
+
+  test('diagnostic threshold adapter reports missing source-line summary in zh-TW', () => {
+    const adapter = reporter.evaluateDiagnosticThresholdAdapter({
+      baseline: {
+        nativeNonzeroOfficialFiles: 1,
+        nativeZeroIncumbentNonzeroFiles: 1,
+        requiredLines: 3,
+        residualGroupCounts: {},
+      },
+      breadth: {
+        nativeNonzeroOfficialFiles: 1,
+        nativeZeroIncumbentNonzeroFiles: 1,
+        topNativeZeroIncumbentNonzeroGroups: [],
+      },
+      scopeParitySummary: {
+        gates: [{ id: 'official-scope-parity', status: 'pass' }],
+      },
+    });
+
+    expect(adapter.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'source-line-correctness',
+          status: 'not_evaluated',
+          evidence: '缺少 source-line correctness summary。',
+        }),
       ])
     );
   });
@@ -542,6 +610,17 @@ describe('tools/report-native-esm-threshold-simulation', () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('--drift-threshold 必須是非負數字');
+  });
+
+  test('CLI rejects source-line summary paths outside the repo root before reading coverage inputs', () => {
+    const result = runCliWithArgs([
+      '--source-line-json',
+      path.resolve(projectRoot, '../line-hit-summary.json'),
+    ]);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('source-line correctness summary path 必須位於 repo root 底下');
+    expect(result.stderr).not.toContain('找不到 incumbent coverage 檔案');
   });
 
   test('CLI writes JSON and Markdown summaries under coverage/native-esm', () => {

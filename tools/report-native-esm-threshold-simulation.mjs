@@ -42,6 +42,9 @@ const CLI_OPTION_HANDLERS = {
   '--scope-parity-json': (options, value) => {
     options.scopeParityJsonPath = value;
   },
+  '--source-line-json': (options, value) => {
+    options.sourceLineJsonPath = value;
+  },
   '--summary-json': (options, value) => {
     options.summaryJsonPath = value;
   },
@@ -138,6 +141,10 @@ async function buildCurrentRepoSummary(options) {
   assertInputPath(options.incumbentCoveragePath, 'incumbent coverage path 必須位於 repo root 底下');
   assertInputPath(options.nativeCoveragePath, 'native coverage path 必須位於 repo root 底下');
   assertInputPath(options.scopeParityJsonPath, 'scope parity summary path 必須位於 repo root 底下');
+  assertInputPath(
+    options.sourceLineJsonPath,
+    'source-line correctness summary path 必須位於 repo root 底下'
+  );
 
   return buildThresholdSimulationSummary({
     projectRoot,

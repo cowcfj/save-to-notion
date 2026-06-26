@@ -281,7 +281,7 @@ function evaluateResidualGroupCounts({ breadth, baseline }) {
     return createAdapterCheck(
       `residual-group:${groupName}`,
       status,
-      `${groupName} native-zero/incumbent-nonzero count ${actualCount}; baseline ${baselineCount}.`
+      `${groupName} native zero / incumbent nonzero 檔案數 ${actualCount}；baseline ${baselineCount}。`
     );
   });
 }
@@ -289,8 +289,8 @@ function evaluateResidualGroupCounts({ breadth, baseline }) {
 function createScopeParityAdapterCheck(scopeParitySummary) {
   const scopeParityPassed = isScopeParityPass(scopeParitySummary);
   const evidence = scopeParityPassed
-    ? 'official scope parity passed.'
-    : 'official scope parity did not pass or summary is missing.';
+    ? 'official-scope-parity 已通過。'
+    : 'official-scope-parity 未通過或缺少 summary。';
   return createAdapterCheck('official-scope-parity', scopeParityPassed ? 'pass' : 'fail', evidence);
 }
 
@@ -301,12 +301,12 @@ function createSourceLineAdapterChecks(sourceLineSummary, adapterBaseline) {
       createAdapterCheck(
         'source-line-correctness',
         sourceLineTotals.failedLines === 0 ? 'pass' : 'fail',
-        `${sourceLineTotals.passedLines}/${sourceLineTotals.requiredLines} required lines passed; failed ${sourceLineTotals.failedLines}.`
+        `required lines 通過 ${sourceLineTotals.passedLines}/${sourceLineTotals.requiredLines}；失敗 ${sourceLineTotals.failedLines}。`
       ),
       createAdapterCheck(
         'required-line-manifest-count',
         sourceLineTotals.requiredLines >= adapterBaseline.requiredLines ? 'pass' : 'fail',
-        `required-line manifest count ${sourceLineTotals.requiredLines}; baseline ${adapterBaseline.requiredLines}.`
+        `required-line manifest count ${sourceLineTotals.requiredLines}；baseline ${adapterBaseline.requiredLines}。`
       ),
     ];
   }
@@ -315,7 +315,7 @@ function createSourceLineAdapterChecks(sourceLineSummary, adapterBaseline) {
     createAdapterCheck(
       'source-line-correctness',
       'not_evaluated',
-      'source-line correctness summary is missing.'
+      '缺少 source-line correctness summary。'
     ),
   ];
 }
@@ -327,14 +327,14 @@ function createBreadthAdapterChecks(breadth, adapterBaseline) {
       breadth.nativeNonzeroOfficialFiles >= adapterBaseline.nativeNonzeroOfficialFiles
         ? 'pass'
         : 'fail',
-      `native nonzero official files ${breadth.nativeNonzeroOfficialFiles}; baseline ${adapterBaseline.nativeNonzeroOfficialFiles}.`
+      `native nonzero official 檔案數 ${breadth.nativeNonzeroOfficialFiles}；baseline ${adapterBaseline.nativeNonzeroOfficialFiles}。`
     ),
     createAdapterCheck(
       'native-zero-incumbent-nonzero-files',
       breadth.nativeZeroIncumbentNonzeroFiles <= adapterBaseline.nativeZeroIncumbentNonzeroFiles
         ? 'pass'
         : 'fail',
-      `native-zero/incumbent-nonzero files ${breadth.nativeZeroIncumbentNonzeroFiles}; baseline ${adapterBaseline.nativeZeroIncumbentNonzeroFiles}.`
+      `native zero / incumbent nonzero 檔案數 ${breadth.nativeZeroIncumbentNonzeroFiles}；baseline ${adapterBaseline.nativeZeroIncumbentNonzeroFiles}。`
     ),
   ];
 }
