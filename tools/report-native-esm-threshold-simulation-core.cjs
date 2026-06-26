@@ -347,7 +347,7 @@ function renderMetricRows(summary) {
       const incumbent = summary.global.incumbent[metricName].pct;
       const native = summary.global.native[metricName].pct;
       const delta = summary.global.delta[metricName];
-      const threshold = summary.thresholds?.[metricName] ?? 'N/A';
+      const threshold = summary.thresholds?.[metricName] ?? '不適用';
       return `| ${metricName} | ${incumbent} | ${native} | ${delta} | ${threshold} |`;
     })
     .join('\n');
@@ -405,10 +405,10 @@ function renderThresholdSimulationMarkdown(summary) {
 - shared 檔案數：${summary.totals.sharedFiles}
 - incumbent-only 檔案數：${summary.totals.incumbentOnlyFiles}
 - native-only 檔案數：${summary.totals.nativeOnlyFiles}
-- native nonzero official 檔案數：${summary.breadth?.nativeNonzeroOfficialFiles ?? 'n/a'}
-- native zero official 檔案數：${summary.breadth?.nativeZeroOfficialFiles ?? 'n/a'}
-- material drift 檔案數：${summary.breadth?.materialDriftFiles ?? 'n/a'}
-- native zero / incumbent nonzero 檔案數：${summary.breadth?.nativeZeroIncumbentNonzeroFiles ?? 'n/a'}
+- native nonzero official 檔案數：${summary.breadth?.nativeNonzeroOfficialFiles ?? '不適用'}
+- native zero official 檔案數：${summary.breadth?.nativeZeroOfficialFiles ?? '不適用'}
+- material drift 檔案數：${summary.breadth?.materialDriftFiles ?? '不適用'}
+- native zero / incumbent nonzero 檔案數：${summary.breadth?.nativeZeroIncumbentNonzeroFiles ?? '不適用'}
 
 ## Global Metrics
 

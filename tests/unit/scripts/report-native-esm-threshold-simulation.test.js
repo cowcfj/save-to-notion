@@ -318,7 +318,7 @@ describe('tools/report-native-esm-threshold-simulation', () => {
     expect(markdown).toContain('## Native Zero / Incumbent Nonzero');
   });
 
-  test('markdown summary renders missing thresholds as N/A', () => {
+  test('markdown summary renders missing thresholds as 不適用', () => {
     const summary = reporter.compareCoverageSummaries({
       incumbentSummary: reporter.summarizeCoverageMap({}, { projectRoot }),
       nativeSummary: reporter.summarizeCoverageMap({}, { projectRoot }),
@@ -330,9 +330,30 @@ describe('tools/report-native-esm-threshold-simulation', () => {
 
     const markdown = reporter.renderThresholdSimulationMarkdown(summary);
 
-    expect(markdown).toContain('| functions | 100 | 100 | 0 | N/A |');
-    expect(markdown).toContain('| branches | 100 | 100 | 0 | N/A |');
+    expect(markdown).toContain('| functions | 100 | 100 | 0 | 不適用 |');
+    expect(markdown).toContain('| branches | 100 | 100 | 0 | 不適用 |');
     expect(markdown).not.toContain('undefined');
+  });
+
+  test('markdown summary renders optional summary fallbacks as 不適用', () => {
+    const summary = reporter.compareCoverageSummaries({
+      incumbentSummary: reporter.summarizeCoverageMap({}, { projectRoot }),
+      nativeSummary: reporter.summarizeCoverageMap({}, { projectRoot }),
+      thresholds: { lines: 80, statements: 80, functions: 80, branches: 70 },
+      scopeParitySummary: {
+        gates: [{ id: 'official-scope-parity', status: 'pass' }],
+      },
+    });
+
+    const markdown = reporter.renderThresholdSimulationMarkdown({
+      ...summary,
+      breadth: undefined,
+    });
+
+    expect(markdown).toContain('- native nonzero official 檔案數：不適用');
+    expect(markdown).toContain('- native zero official 檔案數：不適用');
+    expect(markdown).toContain('- material drift 檔案數：不適用');
+    expect(markdown).toContain('- native zero / incumbent nonzero 檔案數：不適用');
   });
 
   test('CLI fails when required coverage inputs are missing and writes no summaries', () => {
