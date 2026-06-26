@@ -66,44 +66,36 @@ const createCoverageEntry = ({ statements, functions = {}, branches = {} }) => {
 };
 
 const buildMaterialDriftComparisonInputs = (reporter, projectRoot) => {
-  const incumbentSummary = reporter.summarizeCoverageMap(
+  const coverageFiles = [
     {
-      [path.join(projectRoot, 'scripts/a.js')]: createCoverageEntry({
-        statements: [{ startLine: 1, hits: 1 }],
-        functions: { 0: 1 },
-        branches: { 0: [1, 1] },
-      }),
-      [path.join(projectRoot, 'scripts/b.js')]: createCoverageEntry({
-        statements: [
-          { startLine: 1, hits: 1 },
-          { startLine: 2, hits: 1 },
-        ],
-        functions: { 0: 1 },
-        branches: { 0: [1, 1] },
-      }),
+      filePath: 'scripts/a.js',
+      incumbent: { statements: [1], functions: [1], branches: [[1, 1]] },
+      native: { statements: [0], functions: [0], branches: [[0, 0]] },
     },
-    { projectRoot }
-  );
-  const nativeSummary = reporter.summarizeCoverageMap(
     {
-      [path.join(projectRoot, 'scripts/a.js')]: createCoverageEntry({
-        statements: [{ startLine: 1, hits: 0 }],
-        functions: { 0: 0 },
-        branches: { 0: [0, 0] },
-      }),
-      [path.join(projectRoot, 'scripts/b.js')]: createCoverageEntry({
-        statements: [
-          { startLine: 1, hits: 1 },
-          { startLine: 2, hits: 0 },
-        ],
-        functions: { 0: 1 },
-        branches: { 0: [1, 0] },
-      }),
+      filePath: 'scripts/b.js',
+      incumbent: { statements: [1, 1], functions: [1], branches: [[1, 1]] },
+      native: { statements: [1, 0], functions: [1], branches: [[1, 0]] },
     },
-    { projectRoot }
-  );
+  ];
+  const buildSummary = profileName => {
+    const coverageMap = Object.fromEntries(
+      coverageFiles.map(({ filePath, [profileName]: profile }) => [
+        path.join(projectRoot, filePath),
+        createCoverageEntry({
+          statements: profile.statements.map((hits, index) => ({ startLine: index + 1, hits })),
+          functions: Object.fromEntries(profile.functions.map((hits, index) => [index, hits])),
+          branches: Object.fromEntries(profile.branches.map((hits, index) => [index, hits])),
+        }),
+      ])
+    );
+    return reporter.summarizeCoverageMap(coverageMap, { projectRoot });
+  };
 
-  return { incumbentSummary, nativeSummary };
+  return {
+    incumbentSummary: buildSummary('incumbent'),
+    nativeSummary: buildSummary('native'),
+  };
 };
 
 describe('tools/report-native-esm-threshold-simulation', () => {
