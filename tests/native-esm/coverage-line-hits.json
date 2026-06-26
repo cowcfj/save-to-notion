@@ -728,5 +728,31 @@
     "fileSuffix": "scripts/utils/image/imageSourceExtractor.js",
     "lines": [20, 23, 24, 25, 27, 28, 31, 32, 33, 34, 36],
     "rationale": "Utils image native ESM cohort must retain source-line hits for image source facade ordering across anchor, srcset, attributes, picture, background, and noscript sources."
+  },
+  {
+    "fileSuffix": "pages/options/storageDataUtils.js",
+    "lines": [89, 94, 161, 196, 263, 325, 346, 360, 418, 461, 503],
+    "rationale": "Options native ESM parity cohort must retain source-line hits for backup sanitization, import planning, storage health routing, and cleanup classification."
+  },
+  {
+    "fileSuffix": "pages/options/staticOptionMessages.js",
+    "lines": [10, 23, 35, 51, 65, 78, 86, 93, 100, 120, 126],
+    "rationale": "Options native ESM parity cohort must retain source-line hits for static UI message resolution, attribute bindings, and composite message handlers."
+  },
+  {
+    "fileSuffix": "pages/options/MigrationTool.js",
+    "lines": [
+      50, 57, 85, 106, 126, 149, 186, 242, 273, 313, 332, 358, 416, 456, 465, 486, 511, 530, 543,
+      566, 581, 598, 626, 652, 668, 827, 903, 934, 974, 1007, 1031, 1063, 1095
+    ],
+    "rationale": "Options native ESM parity cohort must retain source-line hits for MigrationTool initialization, scan rendering, selection state, batch migration/delete result handling, pending lists, failed-list deletion, and storage update dispatch."
+  },
+  {
+    "fileSuffix": "pages/options/debugLogExportUI.js",
+    "lines": [
+      16, 17, 29, 35, 40, 44, 47, 60, 61, 63, 67, 69, 78, 83, 95, 96, 97, 104, 107, 109, 113, 122,
+      126, 127, 129, 131, 134, 135, 137, 139
+    ],
+    "rationale": "Options native ESM parity cohort must retain source-line hits for debug log export request validation, blob download, success and error status rendering, cleanup timers, and disabled button restoration."
   }
 ]
