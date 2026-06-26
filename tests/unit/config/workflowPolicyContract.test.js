@@ -10,8 +10,12 @@ function readWorkflow(relativePath) {
   return fs.readFileSync(path.join(activeWorkflowDir, relativePath), 'utf8');
 }
 
+function readRootText(relativePath) {
+  return fs.readFileSync(path.join(rootDir, relativePath), 'utf8');
+}
+
 function readRootJson(relativePath) {
-  return JSON.parse(fs.readFileSync(path.join(rootDir, relativePath), 'utf8'));
+  return JSON.parse(readRootText(relativePath));
 }
 
 function listActiveWorkflowFiles() {
@@ -23,6 +27,19 @@ function listActiveWorkflowFiles() {
 function getRootReleasePackageConfig() {
   const releasePleaseConfig = readRootJson('release-please-config.json');
   return releasePleaseConfig.packages['.'];
+}
+
+function getWorkflowStepBlock(workflowSource, stepName) {
+  const stepStart = workflowSource.indexOf(`- name: ${stepName}`);
+  if (stepStart === -1) {
+    return '';
+  }
+
+  const nextStepStart = workflowSource.indexOf('\n      - name:', stepStart + 1);
+  return workflowSource.slice(
+    stepStart,
+    nextStepStart === -1 ? workflowSource.length : nextStepStart
+  );
 }
 
 describe('workflow policy contract', () => {
@@ -100,5 +117,56 @@ describe('workflow policy contract', () => {
     runtimeExtensionSurfaces.forEach(runtimePath => {
       expect(rootPackageConfig['exclude-paths']).not.toContain(runtimePath);
     });
+  });
+
+  test('native ESM threshold simulation regenerates required coverage artifacts before reporting', () => {
+    const script =
+      readRootJson('package.json').scripts['test:coverage:native-esm:threshold-simulation'];
+
+    expect(script).toMatch(
+      /^npm run test:coverage && npm run test:coverage:native-esm && node tools\/report-native-esm-threshold-simulation\.mjs/
+    );
+  });
+
+  test('native ESM coverage emits LCOV only in the diagnostic output directory', () => {
+    const nativeConfig = require('../../../jest.native-esm.config.cjs');
+
+    expect(nativeConfig.coverageDirectory).toBe('<rootDir>/coverage/native-esm');
+    expect(nativeConfig.coverageReporters).toEqual(
+      expect.arrayContaining(['json', 'text', 'lcov'])
+    );
+  });
+
+  test('native ESM parity flag is retired after single-upload cutover', () => {
+    const codecovConfig = readRootText('codecov.yml');
+
+    expect(codecovConfig).not.toContain('  native-esm-parity:');
+    expect(codecovConfig).not.toContain('carryforward: false # Phase 3 diagnostic flag');
+  });
+
+  test('native ESM Codecov single upload rehearsal is active in Coverage Gate workflow', () => {
+    const workflowSource = readWorkflow('coverage-gate.yml');
+    const validationStep = getWorkflowStepBlock(workflowSource, '驗證覆蓋率檔案');
+    const officialUploadStep = getWorkflowStepBlock(workflowSource, 'Upload coverage to Codecov');
+    const nativeDiagnosticArtifactStep = getWorkflowStepBlock(
+      workflowSource,
+      '上傳 native ESM 診斷 artifact'
+    );
+
+    expect(validationStep).toContain('EXPECTED_CODECOV_LCOV_FILE="coverage/native-esm/lcov.info"');
+    expect(validationStep).toContain('LCOV_FILE="coverage/native-esm/lcov.info"');
+
+    expect(officialUploadStep).toContain('files: ${{ steps.validate-coverage.outputs.file }}');
+    expect(officialUploadStep).toContain('flags: unit');
+    expect(officialUploadStep).toContain('disable_search: true');
+    expect(officialUploadStep).toContain('use_oidc: true');
+    expect(officialUploadStep).not.toContain('native-esm-parity');
+
+    expect(nativeDiagnosticArtifactStep).toContain('coverage/native-esm/lcov.info');
+    expect(workflowSource).not.toContain('- name: Validate native ESM coverage');
+    expect(workflowSource).not.toContain(
+      '- name: Upload native ESM coverage to Codecov parity flag'
+    );
+    expect(workflowSource).not.toMatch(/codecov\/codecov-action@[\s\S]*flags:\s+native-esm-parity/);
   });
 });

@@ -25,6 +25,9 @@ import {
   SAVED_PREFIX,
   SYNC_CONFIG_KEYS,
 } from '../../../scripts/config/shared/storage.js';
+import { TOOLBAR_ICONS } from '../../../scripts/config/contentSafe/toolbarIcons.js';
+import * as SHARED_INDEX from '../../../scripts/config/shared/index.js';
+import { TECHNICAL_TERM_RULES, GROUP_PROGRAMMING } from '../../../scripts/config/shared/technicalTerms.js';
 
 describe('config native ESM diagnostics', () => {
   test('deepFreeze recursively freezes objects and function metadata', () => {
@@ -140,5 +143,24 @@ describe('config native ESM diagnostics', () => {
     expect(DOM_STABILITY.THRESHOLD_MS).toBe(150);
     expect(CONTENT_QUALITY.DEFAULT_PAGE_TITLE).toBe('未命名頁面');
     expect(TEXT_PROCESSING.MAX_RICH_TEXT_LENGTH).toBe(2000);
+  });
+
+  test('contentSafe toolbar icons are frozen and contain basic svg data', () => {
+    expect(Object.isFrozen(TOOLBAR_ICONS)).toBe(true);
+    expect(TOOLBAR_ICONS.SUCCESS).toContain('<svg');
+    expect(TOOLBAR_ICONS.ERROR).toContain('<svg');
+  });
+
+  test('shared index aggregates other sub-config exports correctly', () => {
+    expect(SHARED_INDEX.SAVE_STATUS_KINDS).toBeDefined();
+    expect(SHARED_INDEX.createSaveStatusResponse).toBeDefined();
+  });
+
+  test('technicalTerms rule definitions map group and type correctly', () => {
+    expect(TECHNICAL_TERM_RULES.length).toBeGreaterThan(0);
+    const first = TECHNICAL_TERM_RULES[0];
+    expect(first.type).toBeDefined();
+    expect(first.group).toBeDefined();
+    expect(TECHNICAL_TERM_RULES.some(r => r.group === GROUP_PROGRAMMING)).toBe(true);
   });
 });

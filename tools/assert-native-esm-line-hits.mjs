@@ -6,10 +6,25 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const allowedCoverageRoot = path.join(projectRoot, 'coverage', 'native-esm');
 const allowedManifestRoot = path.join(projectRoot, 'tests', 'native-esm');
 const allowedSourcePrefixes = [
+  'pages/onboarding/',
+  'pages/options/',
+  'pages/popup/',
+  'pages/sidepanel/',
+  'scripts/auth/',
+  'scripts/background/handlers/',
+  'scripts/background/services/',
+  'scripts/content/converters/',
+  'scripts/content/extractors/',
+  'scripts/content/runtimeMessageHandlers.js',
+  'scripts/content/sanitizers/',
   'scripts/config/',
+  'scripts/destinations/',
   'scripts/background/utils/',
   'scripts/highlighter/',
   'scripts/utils/image/',
+  'scripts/sync/',
+  'scripts/performance/',
+  'scripts/legacy/',
 ];
 const summaryFlagOptionNames = new Map([
   ['--summary-json', 'summaryJsonPath'],
@@ -245,7 +260,7 @@ function createGateRecords({ failedLines, checkedLineCount }) {
       label: 'Codecov 上傳隔離',
       status: 'pass',
       blocking: false,
-      evidence: 'coverage-gate.yml 會上傳 coverage/jest/lcov.info 到 Codecov。',
+      evidence: 'coverage-gate.yml 在本次演練中會上傳 coverage/native-esm/lcov.info 到 Codecov。',
     },
     {
       id: 'threshold-parity',
@@ -315,7 +330,7 @@ function renderMarkdownSummary(summary) {
 
   return `# Native ESM 診斷摘要
 
-> 僅供診斷。這不是正式 coverage truth；Codecov 仍使用 \`coverage/jest/lcov.info\`。
+> 僅供診斷。在本次單一上傳演練中，Codecov 已切換使用 \`coverage/native-esm/lcov.info\`。
 
 ## 總計
 

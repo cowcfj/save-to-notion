@@ -28,6 +28,12 @@ const { parseWithSrcsetParser } = await import(
 );
 const { validateSrcsetUrl } = await import('../../../../scripts/utils/image/srcsetUrlValidator.js');
 const attributeSource = await import('../../../../scripts/utils/image/imageAttributeSource.js');
+const { extractFromAnchor } = await import(
+  '../../../../scripts/utils/image/imageAnchorSource.js'
+);
+const { extractImageSrc } = await import(
+  '../../../../scripts/utils/image/imageSourceExtractor.js'
+);
 const { extractFromPicture } = await import('../../../../scripts/utils/image/imagePictureSource.js');
 const { extractFromNoscript } = await import('../../../../scripts/utils/image/imageNoscriptSource.js');
 const { extractFromBackgroundImage } = await import(
@@ -90,6 +96,7 @@ describe('image pipeline native ESM diagnostics', () => {
 
   test('attribute and picture extractors read stable DOM image sources', () => {
     document.body.innerHTML = `
+      <a id="image-link" href="https://example.com/images/linked.jpg"><img id="linked-img" alt=""></a>
       <picture>
         <source srcset="https://example.com/images/small.jpg 400w, https://example.com/images/large.jpg 1200w">
         <img id="picture-img" alt="">
@@ -97,12 +104,16 @@ describe('image pipeline native ESM diagnostics', () => {
       <img id="data-img" data-srcset="https://example.com/images/a.jpg 1x, https://example.com/images/b.jpg 2x" class="hero">
     `;
 
+    const linkedImg = document.querySelector('#linked-img');
     const pictureImg = document.querySelector('#picture-img');
     const dataImg = document.querySelector('#data-img');
     const directImg = document.createElement('img');
     directImg.setAttribute('src', 'https://example.com/images/direct.jpg');
 
+    expect(extractFromAnchor(linkedImg)).toBe('https://example.com/images/linked.jpg');
+    expect(extractImageSrc(linkedImg)).toBe('https://example.com/images/linked.jpg');
     expect(extractFromPicture(pictureImg)).toBe('https://example.com/images/large.jpg');
+    expect(extractImageSrc(pictureImg)).toBe('https://example.com/images/large.jpg');
     expect(attributeSource.extractFromAttributes(dataImg)).toBe('https://example.com/images/b.jpg');
     expect(attributeSource.extractFromAttributes(directImg)).toBe(
       'https://example.com/images/direct.jpg'

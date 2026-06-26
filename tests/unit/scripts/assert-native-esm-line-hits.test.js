@@ -3,10 +3,66 @@
  */
 /* eslint-disable sonarjs/no-os-command-from-path */
 
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-const { spawnSync } = require('node:child_process');
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+
+const createExpandedNativeEsmCohortCoverage = projectRoot => ({
+  [path.join(projectRoot, 'pages/options/confirmDialog.js')]: {
+    statementMap: { 0: { start: { line: 22 }, end: { line: 23 } } },
+    s: { 0: 1 },
+  },
+  [path.join(projectRoot, 'pages/onboarding/onboardingController.js')]: {
+    statementMap: { 0: { start: { line: 29 }, end: { line: 30 } } },
+    s: { 0: 1 },
+  },
+  [path.join(projectRoot, 'pages/popup/popupActions.js')]: {
+    statementMap: { 0: { start: { line: 256 }, end: { line: 258 } } },
+    s: { 0: 1 },
+  },
+  [path.join(projectRoot, 'pages/sidepanel/sidepanel-current-view.js')]: {
+    statementMap: { 0: { start: { line: 173 }, end: { line: 174 } } },
+    s: { 0: 1 },
+  },
+  [path.join(projectRoot, 'scripts/auth/accountSession.js')]: {
+    statementMap: { 0: { start: { line: 117 }, end: { line: 118 } } },
+    s: { 0: 1 },
+  },
+  [path.join(projectRoot, 'scripts/background/handlers/MessageHandler.js')]: {
+    statementMap: { 0: { start: { line: 96 }, end: { line: 99 } } },
+    s: { 0: 1 },
+  },
+  [path.join(projectRoot, 'scripts/content/converters/ContentBridge.js')]: {
+    statementMap: { 0: { start: { line: 39 }, end: { line: 40 } } },
+    s: { 0: 1 },
+  },
+  [path.join(projectRoot, 'scripts/content/runtimeMessageHandlers.js')]: {
+    statementMap: { 0: { start: { line: 163 }, end: { line: 164 } } },
+    s: { 0: 1 },
+  },
+  [path.join(projectRoot, 'scripts/content/sanitizers/htmlSanitizer.js')]: {
+    statementMap: { 0: { start: { line: 134 }, end: { line: 135 } } },
+    s: { 0: 1 },
+  },
+  [path.join(projectRoot, 'scripts/destinations/ProfileManager.js')]: {
+    statementMap: { 0: { start: { line: 59 }, end: { line: 60 } } },
+    s: { 0: 1 },
+  },
+});
+
+const createExpandedNativeEsmCohortManifest = () => [
+  { fileSuffix: 'pages/options/confirmDialog.js', lines: [22, 23] },
+  { fileSuffix: 'pages/onboarding/onboardingController.js', lines: [29, 30] },
+  { fileSuffix: 'pages/popup/popupActions.js', lines: [256, 257, 258] },
+  { fileSuffix: 'pages/sidepanel/sidepanel-current-view.js', lines: [173, 174] },
+  { fileSuffix: 'scripts/auth/accountSession.js', lines: [117, 118] },
+  { fileSuffix: 'scripts/background/handlers/MessageHandler.js', lines: [96, 97, 98, 99] },
+  { fileSuffix: 'scripts/content/converters/ContentBridge.js', lines: [39, 40] },
+  { fileSuffix: 'scripts/content/runtimeMessageHandlers.js', lines: [163, 164] },
+  { fileSuffix: 'scripts/content/sanitizers/htmlSanitizer.js', lines: [134, 135] },
+  { fileSuffix: 'scripts/destinations/ProfileManager.js', lines: [59, 60] },
+];
 
 describe('tools/assert-native-esm-line-hits.mjs', () => {
   const projectRoot = path.resolve(__dirname, '../../..');
@@ -243,7 +299,7 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
     expect(result.status).toBe(0);
     // eslint-disable-next-line security/detect-non-literal-fs-filename
     const markdown = fs.readFileSync(summaryMarkdownPath, 'utf8');
-    expect(markdown).toContain('coverage/jest/lcov.info');
+    expect(markdown).toContain('coverage/native-esm/lcov.info');
     expect(markdown).toContain('| `scripts/background/utils/BlockBuilder.js` | 4 | 4 | 0 |');
     expect(markdown).toContain('僅供診斷');
     expect(markdown).toContain('來源行命中正確性');
@@ -462,6 +518,16 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
 
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('Native ESM 行命中檢查通過：1 個檔案, 1 行');
+  });
+
+  test('manifest allowlist 接受 expanded native ESM cohorts', () => {
+    const coveragePath = writeCoverageFile(createExpandedNativeEsmCohortCoverage(projectRoot));
+    const manifestPath = writeManifestFile(createExpandedNativeEsmCohortManifest());
+
+    const result = runCli(coveragePath, manifestPath);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('Native ESM 行命中檢查通過：10 個檔案, 23 行');
   });
 
   test('[SECURITY] coverage entry 不可來自 copy-slice spike path', () => {

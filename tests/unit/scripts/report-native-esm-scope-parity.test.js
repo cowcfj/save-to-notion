@@ -298,7 +298,7 @@ describe('tools/report-native-esm-scope-parity.mjs', () => {
 
     const markdown = reporter.renderMarkdownSummary(summary);
 
-    expect(markdown).toContain('coverage/jest/lcov.info');
+    expect(markdown).toContain('coverage/native-esm/lcov.info');
     expect(markdown).toContain('僅供診斷');
     expect(markdown).toContain('official-scope-parity');
     expect(markdown).toContain('pages/update-notification/update-notification.js');

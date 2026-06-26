@@ -327,7 +327,7 @@ function renderMarkdownSummary(summary) {
 
   return `# Native ESM scope parity 摘要
 
-> 僅供診斷。這不是正式 coverage 依據；Codecov 仍使用 \`coverage/jest/lcov.info\`。
+> 僅供診斷。在本次單一上傳演練中，Codecov 已切換使用 \`coverage/native-esm/lcov.info\`。
 
 ## 總計
 
