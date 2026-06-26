@@ -13,6 +13,7 @@ const {
   assertPathInsideDirectory,
   buildThresholdSimulationSummary,
   renderThresholdSimulationMarkdown,
+  resolveCoverageThresholds,
 } = require('./report-native-esm-threshold-simulation-core.cjs');
 
 function readRequiredOptionValue(argv, index, optionName) {
@@ -116,9 +117,9 @@ function readJsonFile(filePath, label, { required = true } = {}) {
   }
 }
 
-function readThresholds() {
+async function readThresholds() {
   const jestConfig = require(path.join(projectRoot, 'jest.config.js'));
-  return jestConfig.coverageThreshold?.global || {};
+  return resolveCoverageThresholds(jestConfig);
 }
 
 function writeOutputFiles(summary, options) {
@@ -132,7 +133,7 @@ function writeOutputFiles(summary, options) {
   fs.writeFileSync(markdownPath, renderThresholdSimulationMarkdown(summary), 'utf8');
 }
 
-function buildCurrentRepoSummary(options) {
+async function buildCurrentRepoSummary(options) {
   assertInputPath(options.incumbentCoveragePath, 'incumbent coverage path 必須位於 repo root 底下');
   assertInputPath(options.nativeCoveragePath, 'native coverage path 必須位於 repo root 底下');
   assertInputPath(options.scopeParityJsonPath, 'scope parity summary path 必須位於 repo root 底下');
@@ -146,14 +147,14 @@ function buildCurrentRepoSummary(options) {
     scopeParitySummary: readJsonFile(options.scopeParityJsonPath, 'scope parity summary', {
       required: false,
     }),
-    thresholds: readThresholds(),
+    thresholds: await readThresholds(),
     driftThreshold: options.driftThreshold,
   });
 }
 
-function runCli() {
+async function runCli() {
   const options = parseCliArgs(process.argv.slice(2));
-  const summary = buildCurrentRepoSummary(options);
+  const summary = await buildCurrentRepoSummary(options);
   writeOutputFiles(summary, options);
   const thresholdGate = summary.gates.find(gate => gate.id === 'threshold-parity');
   console.log(
@@ -162,10 +163,8 @@ function runCli() {
 }
 
 if (process.argv[1] === __filename) {
-  try {
-    runCli();
-  } catch (error) {
+  runCli().catch(error => {
     console.error(error.message);
     process.exitCode = 1;
-  }
+  });
 }

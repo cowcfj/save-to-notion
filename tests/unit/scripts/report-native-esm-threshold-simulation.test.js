@@ -356,6 +356,58 @@ describe('tools/report-native-esm-threshold-simulation', () => {
     expect(markdown).toContain('- native zero / incumbent nonzero 檔案數：不適用');
   });
 
+  test('markdown summary limits material drift files to the 50 worst deltas', () => {
+    const summary = reporter.compareCoverageSummaries({
+      incumbentSummary: reporter.summarizeCoverageMap({}, { projectRoot }),
+      nativeSummary: reporter.summarizeCoverageMap({}, { projectRoot }),
+      thresholds: { lines: 80, statements: 80, functions: 80, branches: 70 },
+      scopeParitySummary: {
+        gates: [{ id: 'official-scope-parity', status: 'pass' }],
+      },
+    });
+    const materialFiles = Array.from({ length: 55 }, (_, index) => {
+      const severity = index + 1;
+      return {
+        path: `scripts/file-${index}.js`,
+        incumbentLinePct: 100,
+        nativeLinePct: 100 - severity,
+        linePctDelta: -severity,
+      };
+    });
+
+    const markdown = reporter.renderThresholdSimulationMarkdown({
+      ...summary,
+      drift: {
+        ...summary.drift,
+        materialFiles,
+      },
+    });
+
+    const worstRow = '| `scripts/file-54.js` | 100 | 45 | -55 |';
+    const fiftiethRow = '| `scripts/file-5.js` | 100 | 94 | -6 |';
+    expect(markdown).toContain(worstRow);
+    expect(markdown).toContain(fiftiethRow);
+    expect(markdown.indexOf(worstRow)).toBeLessThan(markdown.indexOf(fiftiethRow));
+    expect(markdown).not.toContain('| `scripts/file-4.js` | 100 | 95 | -5 |');
+    expect(markdown).toContain('顯示最嚴重前 50 筆；另有 5 筆未顯示。');
+  });
+
+  test('resolveCoverageThresholds supports object and function jest config exports', async () => {
+    const thresholds = { lines: 80, statements: 80, functions: 80, branches: 70 };
+
+    await expect(
+      reporter.resolveCoverageThresholds({ coverageThreshold: { global: thresholds } })
+    ).resolves.toBe(thresholds);
+    await expect(
+      reporter.resolveCoverageThresholds(() => ({ coverageThreshold: { global: thresholds } }))
+    ).resolves.toBe(thresholds);
+    await expect(
+      reporter.resolveCoverageThresholds(async () => ({
+        coverageThreshold: { global: thresholds },
+      }))
+    ).resolves.toBe(thresholds);
+  });
+
   test('CLI fails when required coverage inputs are missing and writes no summaries', () => {
     const incumbentCoveragePath = path.join(tempRoot, 'coverage/jest/coverage-final.json');
     const nativeCoveragePath = path.join(tempRoot, 'coverage/native-esm/coverage-final.json');

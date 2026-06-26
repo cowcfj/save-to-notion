@@ -2,6 +2,14 @@ const path = require('node:path');
 const { createCoverageMap } = require('istanbul-lib-coverage');
 
 const metricNames = ['lines', 'statements', 'functions', 'branches'];
+const MAX_DRIFT_FILE_ROWS = 50;
+const REPORT_MESSAGES = Object.freeze({
+  NO_DRIFT_ROW: '| 無 |  |  |  |',
+  NO_NATIVE_ZERO_FILES: '沒有 native 0% 但 incumbent nonzero 的檔案。',
+  NOT_APPLICABLE: '不適用',
+  DRIFT_TRUNCATED_ROW: hiddenCount =>
+    `| 已截斷 | 顯示最嚴重前 ${MAX_DRIFT_FILE_ROWS} 筆；另有 ${hiddenCount} 筆未顯示。 |  |  |`,
+});
 
 function toPosix(filePath) {
   return filePath.split(path.sep).join('/');
@@ -341,13 +349,38 @@ function formatMarkdownCodeList(values) {
   return values.map(value => `\`${value}\``).join('<br>');
 }
 
+function sortByWorstLineDelta(files) {
+  return [...files].sort((left, right) => left.linePctDelta - right.linePctDelta || left.path.localeCompare(right.path));
+}
+
+function renderDriftRows(files) {
+  if (files.length === 0) {
+    return REPORT_MESSAGES.NO_DRIFT_ROW;
+  }
+
+  const displayedFiles = sortByWorstLineDelta(files).slice(0, MAX_DRIFT_FILE_ROWS);
+  const rows = displayedFiles.map(
+    file => `| \`${file.path}\` | ${file.incumbentLinePct} | ${file.nativeLinePct} | ${file.linePctDelta} |`
+  );
+  const hiddenCount = files.length - displayedFiles.length;
+  if (hiddenCount > 0) {
+    rows.push(REPORT_MESSAGES.DRIFT_TRUNCATED_ROW(hiddenCount));
+  }
+  return rows.join('\n');
+}
+
+async function resolveCoverageThresholds(configExport) {
+  const jestConfig = typeof configExport === 'function' ? await configExport() : configExport;
+  return jestConfig?.coverageThreshold?.global || {};
+}
+
 function renderMetricRows(summary) {
   return metricNames
     .map(metricName => {
       const incumbent = summary.global.incumbent[metricName].pct;
       const native = summary.global.native[metricName].pct;
       const delta = summary.global.delta[metricName];
-      const threshold = summary.thresholds?.[metricName] ?? '不適用';
+      const threshold = summary.thresholds?.[metricName] ?? REPORT_MESSAGES.NOT_APPLICABLE;
       return `| ${metricName} | ${incumbent} | ${native} | ${delta} | ${threshold} |`;
     })
     .join('\n');
@@ -360,18 +393,10 @@ function renderThresholdSimulationMarkdown(summary) {
         `| \`${gate.id}\` | ${formatGateStatus(gate.status)} | ${gate.blocking ? '是' : '否'} | ${escapeMarkdownTableCell(gate.evidence)} |`
     )
     .join('\n');
-  const driftRows =
-    summary.drift.materialFiles.length === 0
-      ? '| 無 |  |  |  |'
-      : summary.drift.materialFiles
-          .map(
-            file =>
-              `| \`${file.path}\` | ${file.incumbentLinePct} | ${file.nativeLinePct} | ${file.linePctDelta} |`
-          )
-          .join('\n');
+  const driftRows = renderDriftRows(summary.drift.materialFiles);
   const zeroRows =
     summary.drift.nativeZeroIncumbentNonzeroFiles.length === 0
-      ? '沒有 native 0% 但 incumbent nonzero 的檔案。'
+      ? REPORT_MESSAGES.NO_NATIVE_ZERO_FILES
       : summary.drift.nativeZeroIncumbentNonzeroFiles
           .map(file => `- \`${file.path}\`: incumbent ${file.incumbentLinePct}, native ${file.nativeLinePct}`)
           .join('\n');
@@ -383,7 +408,7 @@ function renderThresholdSimulationMarkdown(summary) {
               `| \`${record.group}\` | ${record.files} | ${record.worstLinePctDelta} | ${formatMarkdownCodeList(record.sampleFiles)} |`
           )
           .join('\n')
-      : '| 無 |  |  |  |';
+      : REPORT_MESSAGES.NO_DRIFT_ROW;
   const zeroGroupRows =
     summary.breadth?.topNativeZeroIncumbentNonzeroGroups?.length > 0
       ? summary.breadth.topNativeZeroIncumbentNonzeroGroups
@@ -392,7 +417,7 @@ function renderThresholdSimulationMarkdown(summary) {
               `| \`${record.group}\` | ${record.files} | ${record.worstLinePctDelta} | ${formatMarkdownCodeList(record.sampleFiles)} |`
           )
           .join('\n')
-      : '| 無 |  |  |  |';
+      : REPORT_MESSAGES.NO_DRIFT_ROW;
 
   return `# Native ESM threshold simulation 摘要
 
@@ -405,10 +430,10 @@ function renderThresholdSimulationMarkdown(summary) {
 - shared 檔案數：${summary.totals.sharedFiles}
 - incumbent-only 檔案數：${summary.totals.incumbentOnlyFiles}
 - native-only 檔案數：${summary.totals.nativeOnlyFiles}
-- native nonzero official 檔案數：${summary.breadth?.nativeNonzeroOfficialFiles ?? '不適用'}
-- native zero official 檔案數：${summary.breadth?.nativeZeroOfficialFiles ?? '不適用'}
-- material drift 檔案數：${summary.breadth?.materialDriftFiles ?? '不適用'}
-- native zero / incumbent nonzero 檔案數：${summary.breadth?.nativeZeroIncumbentNonzeroFiles ?? '不適用'}
+- native nonzero official 檔案數：${summary.breadth?.nativeNonzeroOfficialFiles ?? REPORT_MESSAGES.NOT_APPLICABLE}
+- native zero official 檔案數：${summary.breadth?.nativeZeroOfficialFiles ?? REPORT_MESSAGES.NOT_APPLICABLE}
+- material drift 檔案數：${summary.breadth?.materialDriftFiles ?? REPORT_MESSAGES.NOT_APPLICABLE}
+- native zero / incumbent nonzero 檔案數：${summary.breadth?.nativeZeroIncumbentNonzeroFiles ?? REPORT_MESSAGES.NOT_APPLICABLE}
 
 ## Global Metrics
 
@@ -456,5 +481,6 @@ module.exports = {
   compareCoverageSummaries,
   evaluateThresholds,
   renderThresholdSimulationMarkdown,
+  resolveCoverageThresholds,
   summarizeCoverageMap,
 };
