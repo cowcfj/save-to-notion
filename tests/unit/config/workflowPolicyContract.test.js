@@ -160,6 +160,7 @@ describe('workflow policy contract', () => {
 
     expect(officialUploadStep).toContain('files: ${{ steps.validate-coverage.outputs.file }}');
     expect(officialUploadStep).toContain('flags: unit');
+    expect(officialUploadStep).toContain('disable_search: true');
     expect(officialUploadStep).toContain('use_oidc: true');
     expect(officialUploadStep).not.toContain('coverage/native-esm/lcov.info');
     expect(officialUploadStep).not.toContain('native-esm-parity');

@@ -185,5 +185,6 @@ jobs:
         with:
           files: ${{ steps.validate-coverage.outputs.file }}
           flags: unit
+          disable_search: true
           fail_ci_if_error: false
           use_oidc: true
