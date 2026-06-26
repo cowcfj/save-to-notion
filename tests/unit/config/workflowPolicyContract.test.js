@@ -150,16 +150,16 @@ describe('workflow policy contract', () => {
     expect(nativeFlagBlock).not.toContain('statuses:');
   });
 
-  test('Codecov native ESM dry-run cannot replace official unit upload', () => {
+  test('Codecov native ESM separate upload cannot replace official unit upload', () => {
     const workflowSource = readWorkflow('coverage-gate.yml');
     const officialUploadStep = getWorkflowStepBlock(workflowSource, 'Upload coverage to Codecov');
     const nativeValidationStep = getWorkflowStepBlock(
       workflowSource,
       'Validate native ESM coverage'
     );
-    const nativeDryRunStep = getWorkflowStepBlock(
+    const nativeUploadStep = getWorkflowStepBlock(
       workflowSource,
-      'Dry-run native ESM coverage upload to Codecov'
+      'Upload native ESM coverage to Codecov parity flag'
     );
 
     expect(officialUploadStep).toContain('files: ${{ steps.validate-coverage.outputs.file }}');
@@ -175,15 +175,15 @@ describe('workflow policy contract', () => {
     expect(nativeValidationStep).toContain('grep -q "^end_of_record$" "$NATIVE_ESM_LCOV_FILE"');
     expect(nativeValidationStep).not.toContain('coverage/jest/lcov.info');
     expect(workflowSource.indexOf('- name: Validate native ESM coverage')).toBeLessThan(
-      workflowSource.indexOf('- name: Dry-run native ESM coverage upload to Codecov')
+      workflowSource.indexOf('- name: Upload native ESM coverage to Codecov parity flag')
     );
 
-    expect(nativeDryRunStep).toContain('files: coverage/native-esm/lcov.info');
-    expect(nativeDryRunStep).toContain('flags: native-esm-parity');
-    expect(nativeDryRunStep).toContain('name: native-esm-parity-dry-run');
-    expect(nativeDryRunStep).toContain('dry_run: true');
-    expect(nativeDryRunStep).toContain('disable_search: true');
-    expect(nativeDryRunStep).toContain('fail_ci_if_error: false');
-    expect(nativeDryRunStep).toContain('use_oidc: true');
+    expect(nativeUploadStep).toContain('files: coverage/native-esm/lcov.info');
+    expect(nativeUploadStep).toContain('flags: native-esm-parity');
+    expect(nativeUploadStep).toContain('name: native-esm-parity');
+    expect(nativeUploadStep).not.toContain('dry_run: true');
+    expect(nativeUploadStep).toContain('disable_search: true');
+    expect(nativeUploadStep).toContain('fail_ci_if_error: false');
+    expect(nativeUploadStep).toContain('use_oidc: true');
   });
 });
