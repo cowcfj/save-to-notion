@@ -317,6 +317,11 @@ function createSourceLineAdapterChecks(sourceLineSummary, adapterBaseline) {
       'not_evaluated',
       '缺少 source-line correctness summary。'
     ),
+    createAdapterCheck(
+      'required-line-manifest-count',
+      'not_evaluated',
+      '缺少 source-line correctness summary。'
+    ),
   ];
 }
 

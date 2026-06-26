@@ -559,6 +559,11 @@ describe('tools/report-native-esm-threshold-simulation', () => {
           status: 'not_evaluated',
           evidence: '缺少 source-line correctness summary。',
         }),
+        expect.objectContaining({
+          id: 'required-line-manifest-count',
+          status: 'not_evaluated',
+          evidence: '缺少 source-line correctness summary。',
+        }),
       ])
     );
   });
