@@ -4,6 +4,23 @@
 
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 
+const originalElementAnimate = Element.prototype.animate;
+const originalMatchMedia = globalThis.matchMedia;
+
+function restoreGlobalBrowserMocks() {
+  if (originalElementAnimate === undefined) {
+    delete Element.prototype.animate;
+  } else {
+    Element.prototype.animate = originalElementAnimate;
+  }
+
+  if (originalMatchMedia === undefined) {
+    delete globalThis.matchMedia;
+  } else {
+    globalThis.matchMedia = originalMatchMedia;
+  }
+}
+
 const loggerMock = {
   debug: jest.fn(),
   error: jest.fn(),
@@ -185,6 +202,7 @@ afterEach(() => {
   delete globalThis.notionHighlighter;
   delete globalThis.__NOTION_STABLE_URL__;
   delete globalThis.normalizeUrl;
+  restoreGlobalBrowserMocks();
 });
 
 describe('highlighter residual native ESM diagnostics', () => {
@@ -507,5 +525,10 @@ describe('highlighter residual native ESM diagnostics', () => {
 
     // Cleanup
     document.body.innerHTML = '';
+  });
+
+  test('restores highlighter UI global browser mocks after execution', () => {
+    expect(Element.prototype.animate).toBe(originalElementAnimate);
+    expect(globalThis.matchMedia).toBe(originalMatchMedia);
   });
 });

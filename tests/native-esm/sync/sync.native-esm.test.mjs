@@ -1,11 +1,3 @@
-/**
- * @jest-environment jsdom
- */
-
-import { TextEncoder, TextDecoder } from 'node:util';
-globalThis.TextEncoder = TextEncoder;
-globalThis.TextDecoder = TextDecoder;
-
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import {
   buildUnifiedPageStateFromLocalStorage,
