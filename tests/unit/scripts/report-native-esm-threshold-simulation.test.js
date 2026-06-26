@@ -210,6 +210,45 @@ describe('tools/report-native-esm-threshold-simulation', () => {
     });
   });
 
+  test('rounds diagnostic percentage deltas to nearest two decimals', () => {
+    const createMetrics = pct => ({
+      lines: { pct },
+      statements: { pct },
+      functions: { pct },
+      branches: { pct },
+    });
+    const thresholds = { lines: 80, statements: 80, functions: 80, branches: 80 };
+
+    const thresholdResult = reporter.evaluateThresholds(
+      { global: { metrics: createMetrics(79.99) } },
+      thresholds
+    );
+    expect(thresholdResult.metrics.lines).toEqual(
+      expect.objectContaining({ status: 'fail', delta: -0.01 })
+    );
+
+    const summary = reporter.compareCoverageSummaries({
+      incumbentSummary: {
+        files: [{ path: 'scripts/rounding.js', metrics: createMetrics(66.67) }],
+        global: { metrics: createMetrics(80) },
+      },
+      nativeSummary: {
+        files: [{ path: 'scripts/rounding.js', metrics: createMetrics(66.66) }],
+        global: { metrics: createMetrics(79.99) },
+      },
+      thresholds,
+      driftThreshold: 0,
+      scopeParitySummary: {
+        gates: [{ id: 'official-scope-parity', status: 'pass' }],
+      },
+    });
+
+    expect(summary.global.delta.lines).toBe(-0.01);
+    expect(summary.drift.materialFiles).toEqual([
+      expect.objectContaining({ path: 'scripts/rounding.js', linePctDelta: -0.01 }),
+    ]);
+  });
+
   test('compareCoverageSummaries reports threshold parity and material native drift', () => {
     const { gates, drift } = compareMaterialDriftCoverage(reporter, projectRoot);
 

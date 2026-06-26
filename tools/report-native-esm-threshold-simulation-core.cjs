@@ -54,6 +54,11 @@ function normalizePercentage(pct) {
   return pct;
 }
 
+function roundPercentageDelta(delta) {
+  const rounded = Math.round(delta * 100) / 100;
+  return Object.is(rounded, -0) ? 0 : rounded;
+}
+
 function normalizeIstanbulMetrics(coverageSummary) {
   return Object.fromEntries(
     metricNames.map(metricName => [
@@ -100,7 +105,7 @@ function evaluateThresholds(summary, thresholds = {}) {
       actual,
       threshold,
       status,
-      delta: Math.floor((actual - threshold) * 100) / 100,
+      delta: roundPercentageDelta(actual - threshold),
     };
   }
   return { pass, metrics };
@@ -114,11 +119,10 @@ function calculateGlobalDelta(incumbentSummary, nativeSummary) {
   return Object.fromEntries(
     metricNames.map(metricName => [
       metricName,
-      Math.floor(
-        (nativeSummary.global.metrics[metricName].pct -
-          incumbentSummary.global.metrics[metricName].pct) *
-          100
-      ) / 100,
+      roundPercentageDelta(
+        nativeSummary.global.metrics[metricName].pct -
+          incumbentSummary.global.metrics[metricName].pct
+      ),
     ])
   );
 }
@@ -188,7 +192,7 @@ function summarizeFileDrift({ incumbentSummary, nativeSummary, driftThreshold })
     const nativeFile = nativeFiles.get(filePath);
     const incumbentLinePct = incumbentFile.metrics.lines.pct;
     const nativeLinePct = nativeFile.metrics.lines.pct;
-    const linePctDelta = Math.floor((nativeLinePct - incumbentLinePct) * 100) / 100;
+    const linePctDelta = roundPercentageDelta(nativeLinePct - incumbentLinePct);
     const record = {
       path: filePath,
       incumbentLinePct,
