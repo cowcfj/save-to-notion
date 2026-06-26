@@ -95,6 +95,22 @@ const buildMaterialDriftComparisonInputs = (reporter, projectRoot) => {
   };
 };
 
+const compareMaterialDriftCoverage = (reporter, projectRoot) => {
+  const { incumbentSummary, nativeSummary } = buildMaterialDriftComparisonInputs(
+    reporter,
+    projectRoot
+  );
+  return reporter.compareCoverageSummaries({
+    incumbentSummary,
+    nativeSummary,
+    thresholds: { lines: 80, statements: 80, functions: 80, branches: 70 },
+    driftThreshold: 20,
+    scopeParitySummary: {
+      gates: [{ id: 'official-scope-parity', status: 'pass' }],
+    },
+  });
+};
+
 describe('tools/report-native-esm-threshold-simulation', () => {
   const projectRoot = path.resolve(__dirname, '../../..');
   const tempRoot = path.join(projectRoot, '.tmp/test-threshold-simulation');
@@ -195,22 +211,9 @@ describe('tools/report-native-esm-threshold-simulation', () => {
   });
 
   test('compareCoverageSummaries reports threshold parity and material native drift', () => {
-    const { incumbentSummary, nativeSummary } = buildMaterialDriftComparisonInputs(
-      reporter,
-      projectRoot
-    );
+    const { gates, drift } = compareMaterialDriftCoverage(reporter, projectRoot);
 
-    const summary = reporter.compareCoverageSummaries({
-      incumbentSummary,
-      nativeSummary,
-      thresholds: { lines: 80, statements: 80, functions: 80, branches: 70 },
-      driftThreshold: 20,
-      scopeParitySummary: {
-        gates: [{ id: 'official-scope-parity', status: 'pass' }],
-      },
-    });
-
-    expect(summary.gates).toEqual(
+    expect(gates).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: 'threshold-parity',
@@ -219,31 +222,23 @@ describe('tools/report-native-esm-threshold-simulation', () => {
         }),
       ])
     );
-    expect(summary.drift.materialFiles).toEqual(
+    expect(drift.materialFiles).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ path: 'scripts/a.js', linePctDelta: -100 }),
         expect.objectContaining({ path: 'scripts/b.js', linePctDelta: -50 }),
       ])
     );
-    expect(summary.drift.nativeZeroIncumbentNonzeroFiles).toEqual([
+    expect(drift.nativeZeroIncumbentNonzeroFiles).toEqual([
       expect.objectContaining({ path: 'scripts/a.js' }),
     ]);
-    expect(summary.breadth).toEqual(
-      expect.objectContaining({
-        nativeNonzeroOfficialFiles: 1,
-        nativeZeroOfficialFiles: 1,
-        materialDriftFiles: 2,
-        nativeZeroIncumbentNonzeroFiles: 1,
-      })
+  });
+
+  test('compareCoverageSummaries reports breadth and diagnostic adapter details', () => {
+    const { breadth, diagnosticThresholdAdapter } = compareMaterialDriftCoverage(
+      reporter,
+      projectRoot
     );
-    expect(summary.diagnosticThresholdAdapter).toEqual(
-      expect.objectContaining({
-        blocking: false,
-        diagnosticOnly: true,
-        status: 'fail',
-      })
-    );
-    expect(summary.breadth.topMaterialDriftGroups).toEqual([
+    const expectedMaterialGroups = [
       expect.objectContaining({
         group: 'scripts/a.js',
         files: 1,
@@ -256,15 +251,24 @@ describe('tools/report-native-esm-threshold-simulation', () => {
         worstLinePctDelta: -50,
         sampleFiles: ['scripts/b.js'],
       }),
-    ]);
-    expect(summary.breadth.topNativeZeroIncumbentNonzeroGroups).toEqual([
+    ];
+    expect(breadth).toEqual(
       expect.objectContaining({
-        group: 'scripts/a.js',
-        files: 1,
-        worstLinePctDelta: -100,
-        sampleFiles: ['scripts/a.js'],
-      }),
-    ]);
+        nativeNonzeroOfficialFiles: 1,
+        nativeZeroOfficialFiles: 1,
+        materialDriftFiles: 2,
+        nativeZeroIncumbentNonzeroFiles: 1,
+      })
+    );
+    expect(diagnosticThresholdAdapter).toEqual(
+      expect.objectContaining({
+        blocking: false,
+        diagnosticOnly: true,
+        status: 'fail',
+      })
+    );
+    expect(breadth.topMaterialDriftGroups).toEqual(expectedMaterialGroups);
+    expect(breadth.topNativeZeroIncumbentNonzeroGroups).toEqual([expectedMaterialGroups[0]]);
   });
 
   test('threshold parity is inconclusive when official scope parity did not pass', () => {

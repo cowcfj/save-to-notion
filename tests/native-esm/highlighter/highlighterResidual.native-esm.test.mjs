@@ -112,8 +112,9 @@ function createListenerTarget() {
   };
 }
 
-function flushPromises() {
-  return Promise.resolve().then(() => Promise.resolve());
+async function flushPromises() {
+  await Promise.resolve();
+  await Promise.resolve();
 }
 
 beforeEach(() => {

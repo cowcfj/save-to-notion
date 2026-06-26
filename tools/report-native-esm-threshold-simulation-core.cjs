@@ -134,7 +134,8 @@ function createThresholdParityGate({ incumbentThreshold, nativeThreshold, scopeP
       id: 'threshold-parity',
       status: 'inconclusive',
       blocking: false,
-      evidence: 'official-scope-parity 未通過或缺少 scope parity summary，threshold parity 只能作為未定論診斷。',
+      evidence:
+        'official-scope-parity 未通過或缺少 scope parity summary，threshold parity 只能作為未定論診斷。',
     };
   }
 
@@ -176,7 +177,9 @@ function createThresholdGate(id, thresholdResult, producerName) {
 function summarizeFileDrift({ incumbentSummary, nativeSummary, driftThreshold }) {
   const incumbentFiles = createFileMetricMap(incumbentSummary);
   const nativeFiles = createFileMetricMap(nativeSummary);
-  const sharedPaths = [...incumbentFiles.keys()].filter(filePath => nativeFiles.has(filePath)).sort();
+  const sharedPaths = [...incumbentFiles.keys()]
+    .filter(filePath => nativeFiles.has(filePath))
+    .sort();
   const materialFiles = [];
   const nativeZeroIncumbentNonzeroFiles = [];
 
@@ -232,7 +235,9 @@ function groupDriftFilesByPathPrefix(records) {
 
   return [...groups.entries()]
     .map(([group, groupRecords]) => createGroupSummaryRecord(group, groupRecords))
-    .sort((left, right) => right.files - left.files || left.worstLinePctDelta - right.worstLinePctDelta);
+    .sort(
+      (left, right) => right.files - left.files || left.worstLinePctDelta - right.worstLinePctDelta
+    );
 }
 
 function summarizeBreadth({ sharedFiles, nativeFiles, drift }) {
@@ -264,14 +269,14 @@ function createAdapterCheck(id, status, evidence) {
   return { id, status, evidence };
 }
 
-function getGroupCount(groups = [], groupName) {
+function getGroupCount(groupName, groups = []) {
   return groups.find(group => group.group === groupName)?.files ?? 0;
 }
 
 function evaluateResidualGroupCounts({ breadth, baseline }) {
   const baselineGroups = baseline.residualGroupCounts || {};
   return Object.entries(baselineGroups).map(([groupName, baselineCount]) => {
-    const actualCount = getGroupCount(breadth.topNativeZeroIncumbentNonzeroGroups, groupName);
+    const actualCount = getGroupCount(groupName, breadth.topNativeZeroIncumbentNonzeroGroups);
     const status = actualCount <= baselineCount ? 'pass' : 'fail';
     return createAdapterCheck(
       `residual-group:${groupName}`,
@@ -281,70 +286,85 @@ function evaluateResidualGroupCounts({ breadth, baseline }) {
   });
 }
 
-function evaluateDiagnosticThresholdAdapter({ breadth, scopeParitySummary, sourceLineSummary, baseline }) {
-  const checks = [];
-  const adapterBaseline = baseline || DEFAULT_ADAPTER_BASELINE;
+function createScopeParityAdapterCheck(scopeParitySummary) {
   const scopeParityPassed = isScopeParityPass(scopeParitySummary);
-  checks.push(
-    createAdapterCheck(
-      'official-scope-parity',
-      scopeParityPassed ? 'pass' : 'fail',
-      scopeParityPassed
-        ? 'official scope parity passed.'
-        : 'official scope parity did not pass or summary is missing.'
-    )
-  );
+  const evidence = scopeParityPassed
+    ? 'official scope parity passed.'
+    : 'official scope parity did not pass or summary is missing.';
+  return createAdapterCheck('official-scope-parity', scopeParityPassed ? 'pass' : 'fail', evidence);
+}
 
+function createSourceLineAdapterChecks(sourceLineSummary, adapterBaseline) {
   const sourceLineTotals = sourceLineSummary?.totals;
-  if (!sourceLineTotals) {
-    checks.push(
-      createAdapterCheck(
-        'source-line-correctness',
-        'not_evaluated',
-        'source-line correctness summary is missing.'
-      )
-    );
-  } else {
-    checks.push(
+  if (sourceLineTotals) {
+    return [
       createAdapterCheck(
         'source-line-correctness',
         sourceLineTotals.failedLines === 0 ? 'pass' : 'fail',
         `${sourceLineTotals.passedLines}/${sourceLineTotals.requiredLines} required lines passed; failed ${sourceLineTotals.failedLines}.`
-      )
-    );
-    checks.push(
+      ),
       createAdapterCheck(
         'required-line-manifest-count',
         sourceLineTotals.requiredLines >= adapterBaseline.requiredLines ? 'pass' : 'fail',
         `required-line manifest count ${sourceLineTotals.requiredLines}; baseline ${adapterBaseline.requiredLines}.`
-      )
-    );
+      ),
+    ];
   }
 
-  checks.push(
+  return [
+    createAdapterCheck(
+      'source-line-correctness',
+      'not_evaluated',
+      'source-line correctness summary is missing.'
+    ),
+  ];
+}
+
+function createBreadthAdapterChecks(breadth, adapterBaseline) {
+  return [
     createAdapterCheck(
       'native-nonzero-official-files',
-      breadth.nativeNonzeroOfficialFiles >= adapterBaseline.nativeNonzeroOfficialFiles ? 'pass' : 'fail',
+      breadth.nativeNonzeroOfficialFiles >= adapterBaseline.nativeNonzeroOfficialFiles
+        ? 'pass'
+        : 'fail',
       `native nonzero official files ${breadth.nativeNonzeroOfficialFiles}; baseline ${adapterBaseline.nativeNonzeroOfficialFiles}.`
-    )
-  );
-  checks.push(
+    ),
     createAdapterCheck(
       'native-zero-incumbent-nonzero-files',
       breadth.nativeZeroIncumbentNonzeroFiles <= adapterBaseline.nativeZeroIncumbentNonzeroFiles
         ? 'pass'
         : 'fail',
       `native-zero/incumbent-nonzero files ${breadth.nativeZeroIncumbentNonzeroFiles}; baseline ${adapterBaseline.nativeZeroIncumbentNonzeroFiles}.`
-    )
-  );
-  checks.push(...evaluateResidualGroupCounts({ breadth, baseline: adapterBaseline }));
+    ),
+  ];
+}
 
+function resolveAdapterStatus(checks) {
   const hasNotEvaluated = checks.some(check => check.status === 'not_evaluated');
   const hasFailures = checks.some(check => check.status === 'fail');
-  const status = hasFailures ? 'fail' : hasNotEvaluated ? 'not_evaluated' : 'pass';
+  if (hasFailures) {
+    return 'fail';
+  }
+  return hasNotEvaluated ? 'not_evaluated' : 'pass';
+}
+
+function evaluateDiagnosticThresholdAdapter({
+  breadth,
+  scopeParitySummary,
+  sourceLineSummary,
+  baseline,
+}) {
+  const adapterBaseline = baseline || DEFAULT_ADAPTER_BASELINE;
+  const checks = [
+    createScopeParityAdapterCheck(scopeParitySummary),
+    ...createSourceLineAdapterChecks(sourceLineSummary, adapterBaseline),
+    ...createBreadthAdapterChecks(breadth, adapterBaseline),
+    ...evaluateResidualGroupCounts({ breadth, baseline: adapterBaseline }),
+  ];
+
   return {
     diagnosticOnly: true,
-    status,
+    status: resolveAdapterStatus(checks),
     blocking: false,
     baseline: adapterBaseline,
     checks,
@@ -366,9 +386,15 @@ function compareCoverageSummaries({
   const nativeThreshold = evaluateThresholds(nativeSummary, thresholds);
   const incumbentFiles = createFileMetricMap(incumbentSummary);
   const nativeFiles = createFileMetricMap(nativeSummary);
-  const incumbentOnlyFiles = [...incumbentFiles.keys()].filter(filePath => !nativeFiles.has(filePath)).sort();
-  const nativeOnlyFiles = [...nativeFiles.keys()].filter(filePath => !incumbentFiles.has(filePath)).sort();
-  const sharedFiles = [...incumbentFiles.keys()].filter(filePath => nativeFiles.has(filePath)).sort();
+  const incumbentOnlyFiles = [...incumbentFiles.keys()]
+    .filter(filePath => !nativeFiles.has(filePath))
+    .sort();
+  const nativeOnlyFiles = [...nativeFiles.keys()]
+    .filter(filePath => !incumbentFiles.has(filePath))
+    .sort();
+  const sharedFiles = [...incumbentFiles.keys()]
+    .filter(filePath => nativeFiles.has(filePath))
+    .sort();
   const drift = summarizeFileDrift({ incumbentSummary, nativeSummary, driftThreshold });
   const breadth = summarizeBreadth({ sharedFiles, nativeFiles, drift });
 
@@ -404,7 +430,8 @@ function compareCoverageSummaries({
         id: 'report-integrity',
         status: 'pass',
         blocking: false,
-        evidence: 'threshold simulation 只讀取 repo root 內 coverage inputs，並只寫入 coverage/native-esm diagnostic artifacts。',
+        evidence:
+          'threshold simulation 只讀取 repo root 內 coverage inputs，並只寫入 coverage/native-esm diagnostic artifacts。',
       },
     ],
     breadth,
@@ -427,7 +454,8 @@ function buildThresholdSimulationSummary(options) {
     options.incumbentSummary ||
     summarizeCoverageMap(options.incumbentCoverageMap, { projectRoot: options.projectRoot });
   const nativeSummary =
-    options.nativeSummary || summarizeCoverageMap(options.nativeCoverageMap, { projectRoot: options.projectRoot });
+    options.nativeSummary ||
+    summarizeCoverageMap(options.nativeCoverageMap, { projectRoot: options.projectRoot });
 
   return compareCoverageSummaries({
     incumbentSummary,
@@ -454,7 +482,9 @@ function formatGateStatus(status) {
 }
 
 function escapeMarkdownTableCell(value) {
-  return String(value).replace(/\r?\n/g, ' ').replaceAll('|', String.raw`\|`);
+  return String(value)
+    .replace(/\r?\n/g, ' ')
+    .replaceAll('|', String.raw`\|`);
 }
 
 function formatMarkdownCodeList(values) {
@@ -462,7 +492,9 @@ function formatMarkdownCodeList(values) {
 }
 
 function sortByWorstLineDelta(files) {
-  return [...files].sort((left, right) => left.linePctDelta - right.linePctDelta || left.path.localeCompare(right.path));
+  return [...files].sort(
+    (left, right) => left.linePctDelta - right.linePctDelta || left.path.localeCompare(right.path)
+  );
 }
 
 function renderDriftRows(files) {
@@ -472,7 +504,8 @@ function renderDriftRows(files) {
 
   const displayedFiles = sortByWorstLineDelta(files).slice(0, MAX_DRIFT_FILE_ROWS);
   const rows = displayedFiles.map(
-    file => `| \`${file.path}\` | ${file.incumbentLinePct} | ${file.nativeLinePct} | ${file.linePctDelta} |`
+    file =>
+      `| \`${file.path}\` | ${file.incumbentLinePct} | ${file.nativeLinePct} | ${file.linePctDelta} |`
   );
   const hiddenCount = files.length - displayedFiles.length;
   if (hiddenCount > 0) {
@@ -504,7 +537,10 @@ function renderAdapterCheckRows(summary) {
     return '| 無 | 未評估 | 無 adapter checks。 |';
   }
   return checks
-    .map(check => `| \`${check.id}\` | ${formatGateStatus(check.status)} | ${escapeMarkdownTableCell(check.evidence)} |`)
+    .map(
+      check =>
+        `| \`${check.id}\` | ${formatGateStatus(check.status)} | ${escapeMarkdownTableCell(check.evidence)} |`
+    )
     .join('\n');
 }
 
@@ -516,14 +552,19 @@ function renderThresholdSimulationMarkdown(summary) {
     )
     .join('\n');
   const adapter = summary.diagnosticThresholdAdapter;
-  const adapterStatus = adapter?.status ? formatGateStatus(adapter.status) : REPORT_MESSAGES.NOT_APPLICABLE;
+  const adapterStatus = adapter?.status
+    ? formatGateStatus(adapter.status)
+    : REPORT_MESSAGES.NOT_APPLICABLE;
   const adapterCheckRows = renderAdapterCheckRows(summary);
   const driftRows = renderDriftRows(summary.drift.materialFiles);
   const zeroRows =
     summary.drift.nativeZeroIncumbentNonzeroFiles.length === 0
       ? REPORT_MESSAGES.NO_NATIVE_ZERO_FILES
       : summary.drift.nativeZeroIncumbentNonzeroFiles
-          .map(file => `- \`${file.path}\`: incumbent ${file.incumbentLinePct}, native ${file.nativeLinePct}`)
+          .map(
+            file =>
+              `- \`${file.path}\`: incumbent ${file.incumbentLinePct}, native ${file.nativeLinePct}`
+          )
           .join('\n');
   const materialGroupRows =
     summary.breadth?.topMaterialDriftGroups?.length > 0
