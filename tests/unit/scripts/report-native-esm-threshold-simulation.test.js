@@ -65,6 +65,47 @@ const createCoverageEntry = ({ statements, functions = {}, branches = {} }) => {
   };
 };
 
+const buildMaterialDriftComparisonInputs = (reporter, projectRoot) => {
+  const incumbentSummary = reporter.summarizeCoverageMap(
+    {
+      [path.join(projectRoot, 'scripts/a.js')]: createCoverageEntry({
+        statements: [{ startLine: 1, hits: 1 }],
+        functions: { 0: 1 },
+        branches: { 0: [1, 1] },
+      }),
+      [path.join(projectRoot, 'scripts/b.js')]: createCoverageEntry({
+        statements: [
+          { startLine: 1, hits: 1 },
+          { startLine: 2, hits: 1 },
+        ],
+        functions: { 0: 1 },
+        branches: { 0: [1, 1] },
+      }),
+    },
+    { projectRoot }
+  );
+  const nativeSummary = reporter.summarizeCoverageMap(
+    {
+      [path.join(projectRoot, 'scripts/a.js')]: createCoverageEntry({
+        statements: [{ startLine: 1, hits: 0 }],
+        functions: { 0: 0 },
+        branches: { 0: [0, 0] },
+      }),
+      [path.join(projectRoot, 'scripts/b.js')]: createCoverageEntry({
+        statements: [
+          { startLine: 1, hits: 1 },
+          { startLine: 2, hits: 0 },
+        ],
+        functions: { 0: 1 },
+        branches: { 0: [1, 0] },
+      }),
+    },
+    { projectRoot }
+  );
+
+  return { incumbentSummary, nativeSummary };
+};
+
 describe('tools/report-native-esm-threshold-simulation', () => {
   const projectRoot = path.resolve(__dirname, '../../..');
   const tempRoot = path.join(projectRoot, '.tmp/test-threshold-simulation');
@@ -161,41 +202,9 @@ describe('tools/report-native-esm-threshold-simulation', () => {
   });
 
   test('compareCoverageSummaries reports threshold parity and material native drift', () => {
-    const incumbentSummary = reporter.summarizeCoverageMap(
-      {
-        [path.join(projectRoot, 'scripts/a.js')]: createCoverageEntry({
-          statements: [{ startLine: 1, hits: 1 }],
-          functions: { 0: 1 },
-          branches: { 0: [1, 1] },
-        }),
-        [path.join(projectRoot, 'scripts/b.js')]: createCoverageEntry({
-          statements: [
-            { startLine: 1, hits: 1 },
-            { startLine: 2, hits: 1 },
-          ],
-          functions: { 0: 1 },
-          branches: { 0: [1, 1] },
-        }),
-      },
-      { projectRoot }
-    );
-    const nativeSummary = reporter.summarizeCoverageMap(
-      {
-        [path.join(projectRoot, 'scripts/a.js')]: createCoverageEntry({
-          statements: [{ startLine: 1, hits: 0 }],
-          functions: { 0: 0 },
-          branches: { 0: [0, 0] },
-        }),
-        [path.join(projectRoot, 'scripts/b.js')]: createCoverageEntry({
-          statements: [
-            { startLine: 1, hits: 1 },
-            { startLine: 2, hits: 0 },
-          ],
-          functions: { 0: 1 },
-          branches: { 0: [1, 0] },
-        }),
-      },
-      { projectRoot }
+    const { incumbentSummary, nativeSummary } = buildMaterialDriftComparisonInputs(
+      reporter,
+      projectRoot
     );
 
     const summary = reporter.compareCoverageSummaries({
