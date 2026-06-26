@@ -81,6 +81,44 @@ await jest.unstable_mockModule('../../../../scripts/utils/LogSanitizer.js', () =
   sanitizeUrlForLogging: jest.fn(url => url),
 }));
 
+function renderMigrationToolDom() {
+  document.body.innerHTML = `
+    <button id="migration-scan-button"></button>
+    <div id="scan-status"></div>
+    <div id="migration-list" style="display: none">
+      <label><input type="checkbox" id="migration-select-all" /> 全選</label>
+      <span id="migration-selected-count">0 項</span>
+      <div id="migration-items"></div>
+      <button id="migration-execute-button" disabled>遷移</button>
+      <button id="migration-delete-button" disabled>刪除</button>
+    </div>
+    <div id="migration-progress" style="display: none">
+      <div id="migration-progress-bar"></div>
+      <span id="migration-progress-text">0%</span>
+    </div>
+    <div id="migration-result"></div>
+    <section id="pending-migration-section" style="display: none">
+      <div id="pending-migration-list"></div>
+    </section>
+    <section id="failed-migration-section" style="display: none">
+      <div id="failed-migration-list"></div>
+    </section>
+  `;
+}
+
+function renderDebugLogExportDom() {
+  document.body.innerHTML = `
+    <button id="export-logs-button">Export</button>
+    <div id="export-status" class="status-message"></div>
+  `;
+}
+
+async function flushAsyncClickHandler() {
+  for (let index = 0; index < 5; index += 1) {
+    await Promise.resolve();
+  }
+}
+
 await jest.unstable_mockModule('../../../../scripts/auth/accountLogin.js', () => ({
   buildAccountLoginStartUrl: jest.fn(() => 'https://accounts.example.test/login'),
 }));
@@ -528,31 +566,6 @@ describe('MigrationTool native ESM diagnostics', () => {
     globalThis.chrome = originalChrome;
   });
 
-  function renderMigrationToolDom() {
-    document.body.innerHTML = `
-      <button id="migration-scan-button"></button>
-      <div id="scan-status"></div>
-      <div id="migration-list" style="display: none">
-        <label><input type="checkbox" id="migration-select-all" /> 全選</label>
-        <span id="migration-selected-count">0 項</span>
-        <div id="migration-items"></div>
-        <button id="migration-execute-button" disabled>遷移</button>
-        <button id="migration-delete-button" disabled>刪除</button>
-      </div>
-      <div id="migration-progress" style="display: none">
-        <div id="migration-progress-bar"></div>
-        <span id="migration-progress-text">0%</span>
-      </div>
-      <div id="migration-result"></div>
-      <section id="pending-migration-section" style="display: none">
-        <div id="pending-migration-list"></div>
-      </section>
-      <section id="failed-migration-section" style="display: none">
-        <div id="failed-migration-list"></div>
-      </section>
-    `;
-  }
-
   function installChromeRuntime(resolver = async () => ({ success: true })) {
     globalThis.chrome = {
       runtime: {
@@ -741,25 +754,12 @@ describe('debugLogExportUI native ESM diagnostics', () => {
     URL.revokeObjectURL = originalRevokeObjectUrl;
   });
 
-  function renderDebugLogExportDom() {
-    document.body.innerHTML = `
-      <button id="export-logs-button">Export</button>
-      <div id="export-status" class="status-message"></div>
-    `;
-  }
-
   function installLogExportResponse(response) {
     globalThis.chrome = {
       runtime: {
         sendMessage: jest.fn(async () => response),
       },
     };
-  }
-
-  async function flushAsyncClickHandler() {
-    for (let index = 0; index < 5; index += 1) {
-      await Promise.resolve();
-    }
   }
 
   test('exports validated logs, downloads a blob, and clears success status', async () => {
