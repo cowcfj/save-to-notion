@@ -1,7 +1,7 @@
-const fs = require('node:fs');
-const path = require('node:path');
-const { spawnSync } = require('node:child_process');
-const vm = require('node:vm');
+import fs from 'node:fs';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import vm from 'node:vm';
 
 describe('RetryManager module surface contracts', () => {
   test('CommonJS require exposes RetryManager helpers', () => {

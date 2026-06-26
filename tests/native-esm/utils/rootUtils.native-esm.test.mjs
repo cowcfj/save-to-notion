@@ -30,7 +30,7 @@ beforeAll(() => {
   // 模擬 DOM 與全域事件
   globalThis.addEventListener = jest.fn();
   globalThis.removeEventListener = jest.fn();
-  
+
   globalThis.document = {
     createElementNS: jest.fn().mockImplementation(() => ({
       classList: { add: jest.fn() },
@@ -53,7 +53,8 @@ beforeAll(() => {
 describe('Root utils native ESM diagnostics', () => {
   // 1. esm-safe-now pure utils tests
   test('accountDisplayUtils: resolveAccountDisplayProfile', async () => {
-    const { resolveAccountDisplayProfile } = await import('../../../scripts/utils/accountDisplayUtils.js');
+    const { resolveAccountDisplayProfile } =
+      await import('../../../scripts/utils/accountDisplayUtils.js');
     const result = resolveAccountDisplayProfile({
       email: 'test@example.com',
       displayName: ' Test User ',
@@ -68,7 +69,7 @@ describe('Root utils native ESM diagnostics', () => {
 
   test('concurrencyUtils: pMap limitConcurrency', async () => {
     const { pMap } = await import('../../../scripts/utils/concurrencyUtils.js');
-    const result = await pMap([1, 2, 3], async (x) => x * 2, { concurrency: 2 });
+    const result = await pMap([1, 2, 3], async x => x * 2, { concurrency: 2 });
     expect(result).toEqual([2, 4, 6]);
   });
 
@@ -87,13 +88,18 @@ describe('Root utils native ESM diagnostics', () => {
 
   test('temporaryImageUrl: isTemporaryImageUrl', async () => {
     const { isTemporaryImageUrl } = await import('../../../scripts/utils/temporaryImageUrl.js');
-    expect(isTemporaryImageUrl('https://sub.patreonusercontent.com/avatar?token-time=123')).toBe(true);
+    expect(isTemporaryImageUrl('https://sub.patreonusercontent.com/avatar?token-time=123')).toBe(
+      true
+    );
     expect(isTemporaryImageUrl('https://example.com/avatar')).toBe(false);
   });
 
   test('urlUtils: normalizeUrl', async () => {
-    const { normalizeUrl, hasSameOrigin, isRootUrl } = await import('../../../scripts/utils/urlUtils.js');
-    expect(normalizeUrl('https://example.com/page?utm_source=test')).toBe('https://example.com/page');
+    const { normalizeUrl, hasSameOrigin, isRootUrl } =
+      await import('../../../scripts/utils/urlUtils.js');
+    expect(normalizeUrl('https://example.com/page?utm_source=test')).toBe(
+      'https://example.com/page'
+    );
     expect(hasSameOrigin('https://example.com/a', 'https://example.com/b')).toBe(true);
     expect(isRootUrl('https://example.com')).toBe(true);
     expect(isRootUrl('https://example.com/page')).toBe(false);
@@ -135,23 +141,26 @@ describe('Root utils native ESM diagnostics', () => {
     const LoggerModule = await import('../../../scripts/utils/Logger.js');
     const Logger = LoggerModule.default;
     const { LogExporter } = await import('../../../scripts/utils/LogExporter.js');
-    
+
     const mockBuffer = {
-      getAll: () => [{ timestamp: '2026-06-26T12:00:00.000Z', level: 'info', message: 'Hello' }]
+      getAll: () => [{ timestamp: '2026-06-26T12:00:00.000Z', level: 'info', message: 'Hello' }],
     };
     const spy = jest.spyOn(Logger, 'getBuffer').mockReturnValue(mockBuffer);
-    
+
     const exportResult = LogExporter.exportLogs({ format: 'txt' });
     expect(exportResult.mimeType).toBe('text/plain');
     expect(exportResult.content).toContain('Hello');
-    
+
     spy.mockRestore();
   });
 
   test('LogSanitizer: maskSensitiveString & sanitizeUrlForLogging', async () => {
-    const { maskSensitiveString, sanitizeUrlForLogging } = await import('../../../scripts/utils/LogSanitizer.js');
+    const { maskSensitiveString, sanitizeUrlForLogging } =
+      await import('../../../scripts/utils/LogSanitizer.js');
     expect(maskSensitiveString('secret_token123', 0, 0)).toBe('***');
-    expect(sanitizeUrlForLogging('https://example.com/page?utm_source=123&token=abc')).toBe('https://example.com/page?token=[REDACTED_TOKEN]');
+    expect(sanitizeUrlForLogging('https://example.com/page?utm_source=123&token=abc')).toBe(
+      'https://example.com/page?token=[REDACTED_TOKEN]'
+    );
   });
 
   test('Logger: static methods and dispatching', async () => {
@@ -162,7 +171,7 @@ describe('Root utils native ESM diagnostics', () => {
   });
 
   test('notionAuth: ensureNotionApiKey & isNonEmptyString', async () => {
-    const { ensureNotionApiKey, isNonEmptyString } = await import('../../../scripts/utils/notionAuth.js');
+    const { isNonEmptyString } = await import('../../../scripts/utils/notionAuth.js');
     expect(isNonEmptyString('token')).toBe(true);
     expect(isNonEmptyString('')).toBe(false);
   });
@@ -173,7 +182,8 @@ describe('Root utils native ESM diagnostics', () => {
   });
 
   test('securityUtils: validateSafeSvg & separateIconAndText', async () => {
-    const { separateIconAndText, validateSafeSvg } = await import('../../../scripts/utils/securityUtils.js');
+    const { separateIconAndText, validateSafeSvg } =
+      await import('../../../scripts/utils/securityUtils.js');
     expect(separateIconAndText('🚀 Hello')).toEqual({ icon: '🚀', text: ' Hello' });
     expect(validateSafeSvg('<svg></svg>')).toBe(true);
   });
@@ -203,4 +213,3 @@ describe('Root utils native ESM diagnostics', () => {
     expect(result).toBe('success_data');
   });
 });
-

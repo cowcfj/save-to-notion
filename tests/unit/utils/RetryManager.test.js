@@ -3,11 +3,11 @@
  * 覆蓋重試條件、Retry-After、AbortSignal、超時、jitter 注入、DOM context 與覆寫回應判斷。
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
-const vm = require('node:vm');
+import fs from 'node:fs';
+import path from 'node:path';
+import vm from 'node:vm';
 
-const { RetryManager, withRetry, fetchWithRetry } = require('../../../scripts/utils/RetryManager');
+import { RetryManager, withRetry, fetchWithRetry } from '../../../scripts/utils/RetryManager.js';
 
 const retryManagerSourcePath = path.resolve(__dirname, '../../../scripts/utils/RetryManager.js');
 
