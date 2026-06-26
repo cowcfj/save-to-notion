@@ -3,9 +3,11 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import vm from 'node:vm';
 
+import { RetryManager, withRetry, fetchWithRetry } from '../../../scripts/utils/RetryManager.js';
+
 describe('RetryManager module surface contracts', () => {
-  test('CommonJS require exposes RetryManager helpers', () => {
-    const exported = require('../../../scripts/utils/RetryManager.js');
+  test('ESM import exposes RetryManager helpers', () => {
+    const exported = { RetryManager, withRetry, fetchWithRetry };
 
     expect(exported).toEqual(
       expect.objectContaining({
@@ -16,20 +18,25 @@ describe('RetryManager module surface contracts', () => {
     );
   });
 
-  test('raw Node CommonJS require exposes RetryManager helpers without Jest transforms', () => {
+  test('raw Node ESM import exposes RetryManager helpers without Jest transforms', () => {
     const result = spawnSync(
       process.execPath,
       [
         '-e',
         [
-          "const exported = require('./scripts/utils/RetryManager.js');",
-          "for (const key of ['RetryManager', 'withRetry', 'fetchWithRetry']) {",
-          "  if (typeof exported[key] !== 'function') {",
-          '    console.error(`${key}:${typeof exported[key]}`);',
-          '    process.exit(1);',
+          '(async () => {',
+          "  const exported = await import('./scripts/utils/RetryManager.js');",
+          "  for (const key of ['RetryManager', 'withRetry', 'fetchWithRetry']) {",
+          "    if (typeof exported[key] !== 'function') {",
+          '      console.error(`${key}:${typeof exported[key]}`);',
+          '      process.exit(1);',
+          '    }',
           '  }',
-          '}',
-          "console.log('RetryManager raw CommonJS surface ok');",
+          "  console.log('RetryManager raw ESM surface ok');",
+          '})().catch(error => {',
+          '  console.error(error);',
+          '  process.exit(1);',
+          '});',
         ].join('\n'),
       ],
       {
@@ -40,7 +47,7 @@ describe('RetryManager module surface contracts', () => {
 
     expect(result.stderr).toBe('');
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain('RetryManager raw CommonJS surface ok');
+    expect(result.stdout).toContain('RetryManager raw ESM surface ok');
   });
 
   test('browser-style global fallback exposes RetryManager helpers', () => {
