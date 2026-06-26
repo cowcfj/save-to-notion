@@ -45,7 +45,7 @@ describe('RetryManager module surface contracts', () => {
 
   test('browser-style global fallback exposes RetryManager helpers', () => {
     const sourcePath = path.join(__dirname, '../../../scripts/utils/RetryManager.js');
-    const source = fs.readFileSync(sourcePath, 'utf8');
+    const source = fs.readFileSync(sourcePath, 'utf8').replaceAll(/export\s+\{[\s\S]*?\};/g, ''); // 移除靜態 export 以防在 VM script 執行時報 SyntaxError
     const sandbox = {
       globalThis: {},
       setTimeout,

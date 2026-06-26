@@ -139,6 +139,9 @@ const { AuthManager } = await import('../../../../pages/options/AuthManager.js')
 const { cleanDatabaseId, formatTitle, setupTemplatePreview } = await import(
   '../../../../pages/options/options.js'
 );
+const { SearchableDatabaseSelector } = await import(
+  '../../../../pages/options/SearchableDatabaseSelector.js'
+);
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function showModal() {
@@ -288,5 +291,70 @@ describe('options page native ESM diagnostics', () => {
     expect(preview.querySelector('strong').textContent).toContain('預覽');
     expect(preview.textContent).toContain('範例網頁標題');
     expect(preview.textContent).toContain('example.com');
+  });
+});
+
+describe('SearchableDatabaseSelector native ESM tests', () => {
+  let selector = null;
+  let mockShowStatus = null;
+  let mockLoadDataSources = null;
+  let mockGetApiKey = null;
+
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = jest.fn();
+    document.body.innerHTML = `
+      <div id="database-selector-container" class="hidden">
+        <input type="text" id="database-search" />
+        <button id="selector-toggle"></button>
+        <div id="database-dropdown" class="hidden"></div>
+        <div id="data-source-list"></div>
+        <div id="data-source-count"></div>
+        <button id="refresh-databases"></button>
+      </div>
+      <input type="hidden" id="database-id" />
+      <input type="hidden" id="database-type" />
+    `;
+
+    mockShowStatus = jest.fn();
+    mockLoadDataSources = jest.fn();
+    mockGetApiKey = jest.fn().mockResolvedValue('mock_api_key');
+
+    selector = new SearchableDatabaseSelector({
+      showStatus: mockShowStatus,
+      loadDataSources: mockLoadDataSources,
+      getApiKey: mockGetApiKey,
+    });
+  });
+
+  test('constructor initializes element mappings', () => {
+    expect(selector.container).toBeTruthy();
+    expect(selector.searchInput).toBeTruthy();
+  });
+
+  test('populateDataSources handles basic database records and populates lists', () => {
+    const mockDatabases = [
+      { id: 'db1', object: 'database', title: [{ plain_text: 'DB One' }] },
+      { id: 'page1', object: 'page', properties: { title: { title: [{ plain_text: 'Page One' }] } } },
+    ];
+    selector.populateDataSources(mockDatabases);
+    expect(selector.dataSources).toHaveLength(2);
+    expect(selector.dataSourceList.children).toHaveLength(2);
+    expect(selector.dataSourceList.children[0].textContent).toContain('DB One');
+    expect(selector.dataSourceList.children[1].textContent).toContain('Page One');
+    expect(selector.searchInput.placeholder).toBe('搜尋保存目標...');
+  });
+
+  test('extractDataSourceTitle extracts various title structures safely', () => {
+    const pageDb = {
+      object: 'page',
+      properties: { title: { title: [{ plain_text: 'Page Title' }] } }
+    };
+    expect(SearchableDatabaseSelector.extractDataSourceTitle(pageDb)).toBe('Page Title');
+
+    const topDb = {
+      object: 'database',
+      title: [{ plain_text: 'Top DB' }]
+    };
+    expect(SearchableDatabaseSelector.extractDataSourceTitle(topDb)).toBe('Top DB');
   });
 });

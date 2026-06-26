@@ -12,6 +12,38 @@ const DEFAULT_ADAPTER_BASELINE = Object.freeze({
     'scripts/utils': 20,
   }),
 });
+
+const BLOCKER_LEDGER = Object.freeze([
+  {
+    path: 'scripts/background.js',
+    category: 'entrypoint-side-effect-boundary',
+    reason: '擴充套件背景服務進入點具有頂層副作用，無法在無完整瀏覽器/擴充套件環境下安全導入。',
+    expectedOwner: 'Browser Runtime',
+    conditionForRemoval: '重構進入點以延遲載入副作用，或建立穩定的 chrome 擴充套件執行期模擬。',
+  },
+  {
+    path: 'scripts/content/index.js',
+    category: 'entrypoint-side-effect-boundary',
+    reason: 'Content script 進入點具有頂層副作用，無法在無完整 DOM/擴充套件環境下安全導入。',
+    expectedOwner: 'Browser Runtime',
+    conditionForRemoval: '重構進入點以延遲載入副作用，或建立穩定的 DOM/JSDOM 執行期模擬。',
+  },
+  {
+    path: 'scripts/postinstall.js',
+    category: 'node-script-cjs-boundary',
+    reason: 'Node.js 生命週期腳本採用 CommonJS 撰寫，非原生 ESM 執行期診斷之對象。',
+    expectedOwner: 'Build Tooling',
+    conditionForRemoval: '專案全面遷移至 type: module 或替換 Node 生命週期腳本。',
+  },
+  {
+    path: 'scripts/background/handlers/saveHandlers.js',
+    category: 'high-complexity-mocking-blocker',
+    reason: '高複雜度請求/回應模擬阻礙（1500+ 行與 Notion API 互動的遺留 CJS 程式碼）。',
+    expectedOwner: 'Refactoring Owner',
+    conditionForRemoval: '將 Notion API 互動解耦為可模擬的 ESM 服務。',
+  },
+]);
+
 const REPORT_MESSAGES = Object.freeze({
   NO_DRIFT_ROW: '| 無 |  |  |  |',
   NO_NATIVE_ZERO_FILES: '沒有 native 0% 但 incumbent nonzero 的檔案。',
@@ -450,6 +482,7 @@ function compareCoverageSummaries({
       sourceLineSummary,
       baseline: adapterBaseline,
     }),
+    blockerLedger: BLOCKER_LEDGER,
     drift,
     scope: {
       incumbentOnlyFiles,
@@ -660,6 +693,12 @@ ${zeroGroupRows}
 ### Files
 
 ${zeroRows}
+
+## Blocker Ledger
+
+| 檔案路徑 | 阻礙類別 | 排除理由 | 預期所有權者 | 移除條件 |
+| --- | --- | --- | --- | --- |
+${summary.blockerLedger.map(blocker => `| \`${blocker.path}\` | \`${blocker.category}\` | ${escapeMarkdownTableCell(blocker.reason)} | \`${blocker.expectedOwner}\` | ${escapeMarkdownTableCell(blocker.conditionForRemoval)} |`).join('\n')}
 `;
 }
 

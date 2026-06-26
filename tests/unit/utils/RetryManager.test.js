@@ -28,8 +28,12 @@ function evaluateRetryManagerWithoutModule(envOptions = {}) {
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);
 
+  const rawSource = fs.readFileSync(retryManagerSourcePath, 'utf8');
+  // 移除靜態 export 以防在 VM script 執行時報 SyntaxError
+  const filteredSource = rawSource.replaceAll(/export\s+\{[\s\S]*?\};/g, '');
+
   // eslint-disable-next-line sonarjs/code-eval -- Intentional VM execution of trusted local source for isolated global export testing.
-  vm.runInContext(fs.readFileSync(retryManagerSourcePath, 'utf8'), sandbox, {
+  vm.runInContext(filteredSource, sandbox, {
     filename: retryManagerSourcePath,
   });
 
