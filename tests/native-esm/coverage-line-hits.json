@@ -608,5 +608,75 @@
       262, 264
     ],
     "rationale": "Destination native ESM cohort must retain source-line hits for destination profile normalization, legacy migration, repository storage writes, active profile resolution, and account-gated entitlement."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/autoInit/lateStableUrlRestore.js",
+    "lines": [30, 33, 36, 39, 61, 70, 75, 79, 81],
+    "rationale": "Highlighter residual native ESM cohort must retain source-line hits for late stable URL retry gating, skip handling, restore dispatch, and response mapping."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/autoInit/persistentListeners.js",
+    "lines": [18, 24, 25, 42, 54, 71, 86, 91, 111, 165, 170, 176, 177, 193, 196, 206, 214],
+    "rationale": "Highlighter residual native ESM cohort must retain source-line hits for persistent listener registration, cleanup, storage style updates, and runtime message dispatch."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/autoInit/railInitialization.js",
+    "lines": [21, 26, 37, 40, 42, 44],
+    "rationale": "Highlighter residual native ESM cohort must retain source-line hits for rail ready promise setup and failed/successful settlement paths."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/autoInit/stableUrlResolution.js",
+    "lines": [19, 58, 63, 68, 74, 93, 97, 103, 135, 139, 168, 172, 178],
+    "rationale": "Highlighter residual native ESM cohort must retain source-line hits for stable URL listener lifecycle, timeout fallback, immediate global URL return, and initialization source selection."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/core/Range.js",
+    "lines": [63, 64, 108, 113, 124, 125, 133, 134, 142],
+    "rationale": "Highlighter residual native ESM cohort must retain source-line hits for range creation, validation, serialization, and reconstruction helpers."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/core/StyleManager.js",
+    "lines": [51, 52, 79, 80, 81, 82, 83, 84],
+    "rationale": "Highlighter residual native ESM cohort must retain source-line hits for style manager setup and style application paths."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/core/HighlightStorage.js",
+    "lines": [57, 58, 72, 73, 91, 92, 103, 104],
+    "rationale": "Highlighter residual native ESM cohort must retain source-line hits for highlight persistence helpers and storage read/write normalization."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/core/HighlightInteraction.js",
+    "lines": [31, 32, 41, 42, 58, 59, 68, 69, 91, 92],
+    "rationale": "Highlighter residual native ESM cohort must retain source-line hits for highlight interaction event and selection handling helpers."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/core/HighlightMigration.js",
+    "lines": [31, 32, 41, 42, 47, 48, 91, 92, 111],
+    "rationale": "Highlighter residual native ESM cohort must retain source-line hits for highlight migration guard, transformation, and fallback paths."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/ui/FloatingRailState.js",
+    "lines": [35, 36, 48, 49, 53, 54, 66, 67, 77, 78, 83, 84],
+    "rationale": "Highlighter residual native ESM cohort must retain source-line hits for floating rail state creation, updates, and visibility helpers."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/ui/Toast.js",
+    "lines": [48, 49, 60, 61, 72, 73, 79, 80],
+    "rationale": "Highlighter residual native ESM cohort must retain source-line hits for toast DOM construction, render, and cleanup paths."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/windowAPI.js",
+    "lines": [46, 47, 50, 51, 55, 56, 57],
+    "rationale": "Highlighter residual native ESM cohort must retain source-line hits for window API installation and legacy global compatibility helpers."
+  },
+  {
+    "fileSuffix": "scripts/utils/image/imageAnchorSource.js",
+    "lines": [14, 24, 35, 38, 41, 54, 58, 62, 66, 69, 79, 85, 88],
+    "rationale": "Utils image native ESM cohort must retain source-line hits for anchor href extraction, unsafe href rejection, and cleaned URL return paths."
+  },
+  {
+    "fileSuffix": "scripts/utils/image/imageSourceExtractor.js",
+    "lines": [20, 23, 24, 25, 27, 28, 31, 32, 33, 34, 36],
+    "rationale": "Utils image native ESM cohort must retain source-line hits for image source facade ordering across anchor, srcset, attributes, picture, background, and noscript sources."
   }
 ]

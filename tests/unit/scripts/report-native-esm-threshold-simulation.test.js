@@ -236,6 +236,13 @@ describe('tools/report-native-esm-threshold-simulation', () => {
         nativeZeroIncumbentNonzeroFiles: 1,
       })
     );
+    expect(summary.diagnosticThresholdAdapter).toEqual(
+      expect.objectContaining({
+        blocking: false,
+        diagnosticOnly: true,
+        status: 'fail',
+      })
+    );
     expect(summary.breadth.topMaterialDriftGroups).toEqual([
       expect.objectContaining({
         group: 'scripts/a.js',
@@ -318,6 +325,8 @@ describe('tools/report-native-esm-threshold-simulation', () => {
     expect(markdown).toContain('non-blocking');
     expect(markdown).toContain('coverage/jest/lcov.info');
     expect(markdown).toContain('threshold-parity');
+    expect(markdown).toContain('## Diagnostic Threshold Adapter');
+    expect(markdown).toContain('official-scope-parity');
     expect(markdown).toContain('native nonzero official 檔案數');
     expect(markdown).toContain('## Native Zero / Incumbent Nonzero');
   });
@@ -352,12 +361,14 @@ describe('tools/report-native-esm-threshold-simulation', () => {
     const markdown = reporter.renderThresholdSimulationMarkdown({
       ...summary,
       breadth: undefined,
+      diagnosticThresholdAdapter: undefined,
     });
 
     expect(markdown).toContain('- native nonzero official 檔案數：不適用');
     expect(markdown).toContain('- native zero official 檔案數：不適用');
     expect(markdown).toContain('- material drift 檔案數：不適用');
     expect(markdown).toContain('- native zero / incumbent nonzero 檔案數：不適用');
+    expect(markdown).toContain('- adapter 狀態：不適用');
   });
 
   test('markdown summary limits material drift files to the 50 worst deltas', () => {
@@ -410,6 +421,74 @@ describe('tools/report-native-esm-threshold-simulation', () => {
         coverageThreshold: { global: thresholds },
       }))
     ).resolves.toBe(thresholds);
+  });
+
+  test('diagnostic threshold adapter constrains breadth and line-hit regression without official threshold claims', () => {
+    const adapter = reporter.evaluateDiagnosticThresholdAdapter({
+      baseline: {
+        nativeNonzeroOfficialFiles: 1,
+        nativeZeroIncumbentNonzeroFiles: 1,
+        requiredLines: 3,
+        residualGroupCounts: { 'scripts/a.js': 1 },
+      },
+      breadth: {
+        nativeNonzeroOfficialFiles: 2,
+        nativeZeroIncumbentNonzeroFiles: 0,
+        topNativeZeroIncumbentNonzeroGroups: [],
+      },
+      scopeParitySummary: {
+        gates: [{ id: 'official-scope-parity', status: 'pass' }],
+      },
+      sourceLineSummary: {
+        totals: { failedLines: 0, passedLines: 4, requiredLines: 4 },
+      },
+    });
+
+    expect(adapter).toEqual(
+      expect.objectContaining({
+        blocking: false,
+        diagnosticOnly: true,
+        status: 'pass',
+      })
+    );
+    expect(adapter.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'source-line-correctness', status: 'pass' }),
+        expect.objectContaining({ id: 'native-nonzero-official-files', status: 'pass' }),
+        expect.objectContaining({ id: 'native-zero-incumbent-nonzero-files', status: 'pass' }),
+      ])
+    );
+  });
+
+  test('diagnostic threshold adapter reports actionable failures', () => {
+    const adapter = reporter.evaluateDiagnosticThresholdAdapter({
+      baseline: {
+        nativeNonzeroOfficialFiles: 2,
+        nativeZeroIncumbentNonzeroFiles: 1,
+        requiredLines: 4,
+        residualGroupCounts: { 'scripts/a.js': 1 },
+      },
+      breadth: {
+        nativeNonzeroOfficialFiles: 1,
+        nativeZeroIncumbentNonzeroFiles: 2,
+        topNativeZeroIncumbentNonzeroGroups: [{ group: 'scripts/a.js', files: 2 }],
+      },
+      scopeParitySummary: {
+        gates: [{ id: 'official-scope-parity', status: 'fail' }],
+      },
+      sourceLineSummary: {
+        totals: { failedLines: 1, passedLines: 3, requiredLines: 4 },
+      },
+    });
+
+    expect(adapter.status).toBe('fail');
+    expect(adapter.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'official-scope-parity', status: 'fail' }),
+        expect.objectContaining({ id: 'source-line-correctness', status: 'fail' }),
+        expect.objectContaining({ id: 'residual-group:scripts/a.js', status: 'fail' }),
+      ])
+    );
   });
 
   test('CLI fails when required coverage inputs are missing and writes no summaries', () => {

@@ -66,6 +66,7 @@ function parseCliArgs(argv) {
     incumbentCoveragePath: 'coverage/jest/coverage-final.json',
     nativeCoveragePath: 'coverage/native-esm/coverage-final.json',
     scopeParityJsonPath: 'coverage/native-esm/scope-parity-summary.json',
+    sourceLineJsonPath: 'coverage/native-esm/line-hit-summary.json',
     summaryJsonPath: 'coverage/native-esm/threshold-simulation-summary.json',
     summaryMarkdownPath: 'coverage/native-esm/threshold-simulation-summary.md',
     driftThreshold: 20,
@@ -145,6 +146,9 @@ async function buildCurrentRepoSummary(options) {
     incumbentCoverageMap: readJsonFile(options.incumbentCoveragePath, 'incumbent coverage'),
     nativeCoverageMap: readJsonFile(options.nativeCoveragePath, 'native coverage'),
     scopeParitySummary: readJsonFile(options.scopeParityJsonPath, 'scope parity summary', {
+      required: false,
+    }),
+    sourceLineSummary: readJsonFile(options.sourceLineJsonPath, 'source-line correctness summary', {
       required: false,
     }),
     thresholds: await readThresholds(),

@@ -3,6 +3,15 @@ const { createCoverageMap } = require('istanbul-lib-coverage');
 
 const metricNames = ['lines', 'statements', 'functions', 'branches'];
 const MAX_DRIFT_FILE_ROWS = 50;
+const DEFAULT_ADAPTER_BASELINE = Object.freeze({
+  nativeNonzeroOfficialFiles: 130,
+  nativeZeroIncumbentNonzeroFiles: 55,
+  requiredLines: 1912,
+  residualGroupCounts: Object.freeze({
+    'scripts/highlighter': 22,
+    'scripts/utils': 22,
+  }),
+});
 const REPORT_MESSAGES = Object.freeze({
   NO_DRIFT_ROW: '| 無 |  |  |  |',
   NO_NATIVE_ZERO_FILES: '沒有 native 0% 但 incumbent nonzero 的檔案。',
@@ -251,12 +260,105 @@ function summarizeBreadth({ sharedFiles, nativeFiles, drift }) {
   };
 }
 
+function createAdapterCheck(id, status, evidence) {
+  return { id, status, evidence };
+}
+
+function getGroupCount(groups = [], groupName) {
+  return groups.find(group => group.group === groupName)?.files ?? 0;
+}
+
+function evaluateResidualGroupCounts({ breadth, baseline }) {
+  const baselineGroups = baseline.residualGroupCounts || {};
+  return Object.entries(baselineGroups).map(([groupName, baselineCount]) => {
+    const actualCount = getGroupCount(breadth.topNativeZeroIncumbentNonzeroGroups, groupName);
+    const status = actualCount <= baselineCount ? 'pass' : 'fail';
+    return createAdapterCheck(
+      `residual-group:${groupName}`,
+      status,
+      `${groupName} native-zero/incumbent-nonzero count ${actualCount}; baseline ${baselineCount}.`
+    );
+  });
+}
+
+function evaluateDiagnosticThresholdAdapter({ breadth, scopeParitySummary, sourceLineSummary, baseline }) {
+  const checks = [];
+  const adapterBaseline = baseline || DEFAULT_ADAPTER_BASELINE;
+  const scopeParityPassed = isScopeParityPass(scopeParitySummary);
+  checks.push(
+    createAdapterCheck(
+      'official-scope-parity',
+      scopeParityPassed ? 'pass' : 'fail',
+      scopeParityPassed
+        ? 'official scope parity passed.'
+        : 'official scope parity did not pass or summary is missing.'
+    )
+  );
+
+  const sourceLineTotals = sourceLineSummary?.totals;
+  if (!sourceLineTotals) {
+    checks.push(
+      createAdapterCheck(
+        'source-line-correctness',
+        'not_evaluated',
+        'source-line correctness summary is missing.'
+      )
+    );
+  } else {
+    checks.push(
+      createAdapterCheck(
+        'source-line-correctness',
+        sourceLineTotals.failedLines === 0 ? 'pass' : 'fail',
+        `${sourceLineTotals.passedLines}/${sourceLineTotals.requiredLines} required lines passed; failed ${sourceLineTotals.failedLines}.`
+      )
+    );
+    checks.push(
+      createAdapterCheck(
+        'required-line-manifest-count',
+        sourceLineTotals.requiredLines >= adapterBaseline.requiredLines ? 'pass' : 'fail',
+        `required-line manifest count ${sourceLineTotals.requiredLines}; baseline ${adapterBaseline.requiredLines}.`
+      )
+    );
+  }
+
+  checks.push(
+    createAdapterCheck(
+      'native-nonzero-official-files',
+      breadth.nativeNonzeroOfficialFiles >= adapterBaseline.nativeNonzeroOfficialFiles ? 'pass' : 'fail',
+      `native nonzero official files ${breadth.nativeNonzeroOfficialFiles}; baseline ${adapterBaseline.nativeNonzeroOfficialFiles}.`
+    )
+  );
+  checks.push(
+    createAdapterCheck(
+      'native-zero-incumbent-nonzero-files',
+      breadth.nativeZeroIncumbentNonzeroFiles <= adapterBaseline.nativeZeroIncumbentNonzeroFiles
+        ? 'pass'
+        : 'fail',
+      `native-zero/incumbent-nonzero files ${breadth.nativeZeroIncumbentNonzeroFiles}; baseline ${adapterBaseline.nativeZeroIncumbentNonzeroFiles}.`
+    )
+  );
+  checks.push(...evaluateResidualGroupCounts({ breadth, baseline: adapterBaseline }));
+
+  const hasNotEvaluated = checks.some(check => check.status === 'not_evaluated');
+  const hasFailures = checks.some(check => check.status === 'fail');
+  const status = hasFailures ? 'fail' : hasNotEvaluated ? 'not_evaluated' : 'pass';
+  return {
+    diagnosticOnly: true,
+    status,
+    blocking: false,
+    baseline: adapterBaseline,
+    checks,
+  };
+}
+
 function compareCoverageSummaries({
   incumbentSummary,
   nativeSummary,
   thresholds,
   driftThreshold = 20,
   scopeParitySummary,
+  sourceLineSummary,
+  adapterBaseline = DEFAULT_ADAPTER_BASELINE,
   incumbentCoveragePath = 'coverage/jest/coverage-final.json',
   nativeCoveragePath = 'coverage/native-esm/coverage-final.json',
 }) {
@@ -268,6 +370,7 @@ function compareCoverageSummaries({
   const nativeOnlyFiles = [...nativeFiles.keys()].filter(filePath => !incumbentFiles.has(filePath)).sort();
   const sharedFiles = [...incumbentFiles.keys()].filter(filePath => nativeFiles.has(filePath)).sort();
   const drift = summarizeFileDrift({ incumbentSummary, nativeSummary, driftThreshold });
+  const breadth = summarizeBreadth({ sharedFiles, nativeFiles, drift });
 
   return {
     schemaVersion: 1,
@@ -304,7 +407,13 @@ function compareCoverageSummaries({
         evidence: 'threshold simulation 只讀取 repo root 內 coverage inputs，並只寫入 coverage/native-esm diagnostic artifacts。',
       },
     ],
-    breadth: summarizeBreadth({ sharedFiles, nativeFiles, drift }),
+    breadth,
+    diagnosticThresholdAdapter: evaluateDiagnosticThresholdAdapter({
+      breadth,
+      scopeParitySummary,
+      sourceLineSummary,
+      baseline: adapterBaseline,
+    }),
     drift,
     scope: {
       incumbentOnlyFiles,
@@ -326,6 +435,8 @@ function buildThresholdSimulationSummary(options) {
     thresholds: options.thresholds,
     driftThreshold: options.driftThreshold,
     scopeParitySummary: options.scopeParitySummary,
+    sourceLineSummary: options.sourceLineSummary,
+    adapterBaseline: options.adapterBaseline,
     incumbentCoveragePath: options.incumbentCoveragePath,
     nativeCoveragePath: options.nativeCoveragePath,
   });
@@ -337,6 +448,7 @@ function formatGateStatus(status) {
       pass: '通過',
       fail: '失敗',
       inconclusive: '未定論',
+      not_evaluated: '未評估',
     }[status] || status
   );
 }
@@ -386,6 +498,16 @@ function renderMetricRows(summary) {
     .join('\n');
 }
 
+function renderAdapterCheckRows(summary) {
+  const checks = summary.diagnosticThresholdAdapter?.checks || [];
+  if (checks.length === 0) {
+    return '| 無 | 未評估 | 無 adapter checks。 |';
+  }
+  return checks
+    .map(check => `| \`${check.id}\` | ${formatGateStatus(check.status)} | ${escapeMarkdownTableCell(check.evidence)} |`)
+    .join('\n');
+}
+
 function renderThresholdSimulationMarkdown(summary) {
   const gateRows = summary.gates
     .map(
@@ -393,6 +515,9 @@ function renderThresholdSimulationMarkdown(summary) {
         `| \`${gate.id}\` | ${formatGateStatus(gate.status)} | ${gate.blocking ? '是' : '否'} | ${escapeMarkdownTableCell(gate.evidence)} |`
     )
     .join('\n');
+  const adapter = summary.diagnosticThresholdAdapter;
+  const adapterStatus = adapter?.status ? formatGateStatus(adapter.status) : REPORT_MESSAGES.NOT_APPLICABLE;
+  const adapterCheckRows = renderAdapterCheckRows(summary);
   const driftRows = renderDriftRows(summary.drift.materialFiles);
   const zeroRows =
     summary.drift.nativeZeroIncumbentNonzeroFiles.length === 0
@@ -447,6 +572,19 @@ ${renderMetricRows(summary)}
 | --- | --- | --- | --- |
 ${gateRows}
 
+## Diagnostic Threshold Adapter
+
+> non-blocking adapter simulation，用來約束 native diagnostic breadth 與 source-line correctness，不替代 official \`coverageThreshold.global\`。
+
+- adapter 狀態：${adapterStatus}
+- baseline native nonzero official 檔案數：${adapter?.baseline?.nativeNonzeroOfficialFiles ?? REPORT_MESSAGES.NOT_APPLICABLE}
+- baseline native zero / incumbent nonzero 檔案數：${adapter?.baseline?.nativeZeroIncumbentNonzeroFiles ?? REPORT_MESSAGES.NOT_APPLICABLE}
+- baseline required-line manifest count：${adapter?.baseline?.requiredLines ?? REPORT_MESSAGES.NOT_APPLICABLE}
+
+| Check | 狀態 | 證據 |
+| --- | --- | --- |
+${adapterCheckRows}
+
 ## Material Drift Files
 
 ### Drift Groups
@@ -480,6 +618,7 @@ module.exports = {
   buildThresholdSimulationSummary,
   compareCoverageSummaries,
   evaluateThresholds,
+  evaluateDiagnosticThresholdAdapter,
   normalizePercentage,
   renderThresholdSimulationMarkdown,
   resolveCoverageThresholds,
