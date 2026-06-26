@@ -2,9 +2,10 @@
  * @jest-environment jsdom
  */
 /* global document */
-import { DataSourceManager } from '../../../pages/options/DataSourceManager.js';
+import { jest } from '@jest/globals';
 import { UIManager } from '../../../pages/options/UIManager.js';
 import { UI_MESSAGES, ERROR_MESSAGES } from '../../../scripts/config/shared/messages.js';
+import Logger from '../../../scripts/utils/Logger.js';
 import {
   buildDataSource,
   buildPage,
@@ -13,25 +14,32 @@ import {
   mockRuntimeResponse,
   titleProperty,
   urlProperty,
-} from '../../helpers/optionsDataSourceTestHarness.js';
+} from './optionsDataSourceTestHarness.js';
 
-// Mock dependencies
-jest.mock('../../../pages/options/UIManager.js');
-jest.mock('../../../pages/options/SearchableDatabaseSelector.js');
-jest.mock('../../../scripts/utils/Logger.js', () => ({
-  __esModule: true,
-  default: {
-    debug: jest.fn(),
-    success: jest.fn(),
-    start: jest.fn(),
-    ready: jest.fn(),
-    info: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn(),
-  },
+// Setup common mocks that work across ESM and CJS
+const mockPopulateDataSources = jest.fn();
+const mockConstructor = jest.fn().mockImplementation(function () {
+  this.populateDataSources = mockPopulateDataSources;
+});
+
+// For native ESM
+jest.unstable_mockModule('../../../pages/options/SearchableDatabaseSelector.js', () => ({
+  SearchableDatabaseSelector: mockConstructor,
 }));
 
-import Logger from '../../../scripts/utils/Logger.js';
+// For CommonJS
+jest.mock('../../../pages/options/SearchableDatabaseSelector.js', () => {
+  const mockPopulateDataSourcesInner = jest.fn();
+  const mockConstructorInner = jest.fn().mockImplementation(function () {
+    this.populateDataSources = mockPopulateDataSourcesInner;
+  });
+  return {
+    SearchableDatabaseSelector: mockConstructorInner,
+  };
+});
+
+let SearchableDatabaseSelector;
+let DataSourceManager;
 
 // Mock chrome API
 globalThis.chrome = {
@@ -49,12 +57,27 @@ describe('DataSourceManager', () => {
     return dataSourceManager.loadDataSources(apiKey, query);
   };
 
+  beforeAll(async () => {
+    const sdsModule = await import('../../../pages/options/SearchableDatabaseSelector.js');
+    SearchableDatabaseSelector = sdsModule.SearchableDatabaseSelector;
+    const dsmModule = await import('../../../pages/options/DataSourceManager.js');
+    DataSourceManager = dsmModule.DataSourceManager;
+  });
+
   beforeEach(() => {
     // DOM Setup
     document.body.innerHTML = `
       <select id="database-select"></select>
       <input id="database-id" type="hidden" />
     `;
+
+    jest.spyOn(Logger, 'info').mockImplementation(() => {});
+    jest.spyOn(Logger, 'error').mockImplementation(() => {});
+    jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+    jest.spyOn(Logger, 'debug').mockImplementation(() => {});
+    jest.spyOn(Logger, 'start').mockImplementation(() => {});
+    jest.spyOn(Logger, 'success').mockImplementation(() => {});
+    jest.spyOn(Logger, 'ready').mockImplementation(() => {});
 
     mockUiManager = new UIManager();
     mockUiManager.showStatus = jest.fn();
@@ -69,7 +92,7 @@ describe('DataSourceManager', () => {
 
   afterEach(() => {
     document.body.innerHTML = '';
-    jest.clearAllMocks();
+    jest.restoreAllMocks();
     // 確保每次測試後都恢復真實計時器，防止 fake timers 洩漏
     jest.useRealTimers();
   });
@@ -544,9 +567,7 @@ describe('DataSourceManager', () => {
     let SearchableDatabaseSelectorMock;
 
     beforeEach(() => {
-      SearchableDatabaseSelectorMock = jest.requireMock(
-        '../../../pages/options/SearchableDatabaseSelector.js'
-      ).SearchableDatabaseSelector;
+      SearchableDatabaseSelectorMock = SearchableDatabaseSelector;
       SearchableDatabaseSelectorMock.mockClear();
     });
 

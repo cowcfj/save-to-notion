@@ -759,5 +759,10 @@
     "fileSuffix": "pages/options/DriveCloudSyncController.js",
     "lines": [315, 318, 401, 408, 443, 457, 489, 510],
     "rationale": "DriveCloudSyncController incumbent render suite must retain source-line hits under the V8/native runner for card visibility, panel rendering, last-upload fallback, error state, conflict timestamp, and frequency UI behavior."
+  },
+  {
+    "fileSuffix": "pages/options/MigrationScanner.js",
+    "lines": [48, 105, 138],
+    "rationale": "MigrationScanner incumbent suite must execute under V8/native and retain source-line hits for storage scanning, format validation, and batch migration requests."
   }
 ]

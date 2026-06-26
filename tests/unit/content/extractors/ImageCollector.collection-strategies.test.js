@@ -3,22 +3,33 @@
  */
 
 import {
-  imageCollectorTestModules,
+  importImageCollectorTestModules,
   setupImageCollectorTestLifecycle,
   trackSpy,
 } from './ImageCollectorTestSetup.js';
 
-const {
-  ImageCollector,
-  cachedQuery,
-  batchProcessWithRetry,
-  NextJsExtractor,
-  Logger,
-  ErrorHandler,
-  extractImageSrc,
-  isValidCleanedImageUrl,
-  isTemporaryImageUrl,
-} = imageCollectorTestModules;
+let ImageCollector;
+let cachedQuery;
+let batchProcessWithRetry;
+let NextJsExtractor;
+let Logger;
+let ErrorHandler;
+let extractImageSrc;
+let isValidCleanedImageUrl;
+let isTemporaryImageUrl;
+
+beforeAll(async () => {
+  const modules = await importImageCollectorTestModules();
+  ImageCollector = modules.ImageCollector;
+  cachedQuery = modules.cachedQuery;
+  batchProcessWithRetry = modules.batchProcessWithRetry;
+  NextJsExtractor = modules.NextJsExtractor;
+  Logger = modules.Logger;
+  ErrorHandler = modules.ErrorHandler;
+  extractImageSrc = modules.extractImageSrc;
+  isValidCleanedImageUrl = modules.isValidCleanedImageUrl;
+  isTemporaryImageUrl = modules.isTemporaryImageUrl;
+});
 
 describe('ImageCollector collection strategies', () => {
   setupImageCollectorTestLifecycle();

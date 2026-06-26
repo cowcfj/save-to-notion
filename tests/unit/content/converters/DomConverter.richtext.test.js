@@ -123,7 +123,8 @@ describe('DomConverter 富文字處理', () => {
 
     test('重構 context 後仍不 mutate original rich text item', () => {
       const input = [{ type: 'text', text: { content: '  Hello  ' }, annotations: { bold: true } }];
-      const clonedInput = structuredClone(input);
+      // eslint-disable-next-line unicorn/prefer-structured-clone
+      const clonedInput = JSON.parse(JSON.stringify(input));
 
       const result = DomConverter._processRichTextArray(input);
       expect(input).toEqual(clonedInput);
