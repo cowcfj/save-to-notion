@@ -2,6 +2,8 @@
  * @jest-environment jsdom
  */
 
+import { jest } from '@jest/globals';
+
 jest.mock('../../../pages/options/confirmDialog.js', () => ({
   confirmDialog: jest.fn().mockResolvedValue(true),
 }));

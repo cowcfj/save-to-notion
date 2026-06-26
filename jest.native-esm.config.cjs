@@ -3,7 +3,13 @@
 module.exports = {
   rootDir: '.',
   testEnvironment: 'node',
-  testMatch: ['<rootDir>/tests/native-esm/**/*.test.mjs'],
+  testMatch: [
+    '<rootDir>/tests/native-esm/**/*.test.mjs',
+    '<rootDir>/tests/unit/options/DriveCloudSyncController.render.test.js',
+    '<rootDir>/tests/unit/content/extractors/ReadabilityAdapter.test.js',
+    '<rootDir>/tests/unit/background/services/NotionService.page-data.test.js',
+  ],
+  setupFiles: ['<rootDir>/tests/native-esm/incumbent-parity.setup.mjs'],
   transform: {},
   cacheDirectory: '<rootDir>/.tmp/jest-cache-native-esm',
   coverageProvider: 'v8',

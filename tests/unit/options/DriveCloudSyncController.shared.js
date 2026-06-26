@@ -2,14 +2,15 @@
  * @jest-environment jsdom
  */
 
+import { jest } from '@jest/globals';
+import * as confirmDialogModule from '../../../pages/options/confirmDialog.js';
 import * as driveClient from '../../../scripts/auth/driveClient.js';
 
 jest.mock('../../../pages/options/confirmDialog.js', () => ({
   confirmDialog: jest.fn().mockResolvedValue(true),
 }));
 
-export const getConfirmDialogMock = () =>
-  require('../../../pages/options/confirmDialog.js').confirmDialog;
+export const getConfirmDialogMock = () => confirmDialogModule.confirmDialog;
 
 export async function flushAsyncWork() {
   // Let Jest flush queued Promise callbacks without advancing delayed status timers.
@@ -141,11 +142,18 @@ export function installChromeMock(sendMessage, storageState) {
 }
 
 export function setupConfirmDialogMock() {
-  getConfirmDialogMock().mockReset();
-  getConfirmDialogMock().mockResolvedValue(true);
+  const confirmDialogMock = getConfirmDialogMock();
+  if (typeof confirmDialogMock?.mockReset !== 'function') {
+    return;
+  }
+  confirmDialogMock.mockReset();
+  confirmDialogMock.mockResolvedValue(true);
 }
 
 export function spyOnDriveClientDefaults() {
+  if (Object.prototype.toString.call(driveClient) === '[object Module]') {
+    return;
+  }
   jest.spyOn(driveClient, 'getDriveSyncMetadata');
   jest.spyOn(driveClient, 'ensureDriveSyncIdentity').mockResolvedValue('local-install');
   jest.spyOn(driveClient, 'startDriveOAuthFlow').mockResolvedValue();

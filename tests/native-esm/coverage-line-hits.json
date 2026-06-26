@@ -251,9 +251,9 @@
     "fileSuffix": "scripts/background/services/NotionService.js",
     "lines": [
       164, 165, 166, 170, 172, 173, 182, 187, 188, 204, 205, 206, 218, 220, 225, 227, 232, 270, 271,
-      272, 275, 276, 277, 278, 279, 280, 281, 316, 317
+      272, 275, 276, 277, 278, 279, 280, 281, 316, 317, 417, 422, 1030, 1054, 1060, 1106, 1123, 1132
     ],
-    "rationale": "Background services native ESM cohort must retain source-line hits for NotionService client initialization, scoped client resolution, retryable Notion error classification, and unauthorized error classification."
+    "rationale": "Background services native ESM cohort must retain source-line hits for NotionService client initialization, scoped client resolution, retryable Notion error classification, unauthorized error classification, raw API request body handling, page data construction, cover assignment, temporary cover rejection, and external cover creation."
   },
   {
     "fileSuffix": "scripts/background/services/StorageService.js",
@@ -599,8 +599,8 @@
   },
   {
     "fileSuffix": "scripts/content/extractors/ReadabilityAdapter.js",
-    "lines": [81, 91, 104, 105, 110, 118, 121, 143],
-    "rationale": "Second content breadth cohort must retain source-line hits for readability content quality checks, DOM parsing, link density calculation, and valid-content return."
+    "lines": [55, 81, 86, 91, 95, 104, 105, 110, 118, 121, 126, 136, 143, 155, 179],
+    "rationale": "Second content breadth cohort and incumbent ReadabilityAdapter suite must retain source-line hits for readability content quality checks, safe query fallback, DOM parsing, link density calculation, list exception, high-link-density rejection, valid-content return, details expansion, and click-error logging."
   },
   {
     "fileSuffix": "scripts/content/extractors/NextJsDataResolver.js",
@@ -754,5 +754,10 @@
       126, 127, 129, 131, 134, 135, 137, 139
     ],
     "rationale": "Options native ESM parity cohort must retain source-line hits for debug log export request validation, blob download, success and error status rendering, cleanup timers, and disabled button restoration."
+  },
+  {
+    "fileSuffix": "pages/options/DriveCloudSyncController.js",
+    "lines": [315, 318, 401, 408, 443, 457, 489, 510],
+    "rationale": "DriveCloudSyncController incumbent render suite must retain source-line hits under the V8/native runner for card visibility, panel rendering, last-upload fallback, error state, conflict timestamp, and frequency UI behavior."
   }
 ]
