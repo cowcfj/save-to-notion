@@ -1,5 +1,10 @@
 [
   {
+    "fileSuffix": "scripts/highlighter/utils/floatingRailAvailability.js",
+    "lines": [43, 171],
+    "rationale": "withAvailableFloatingRail and formatRuntimeErrorMessage must retain source-line hits under native ESM."
+  },
+  {
     "fileSuffix": "scripts/highlighter/index.js",
     "lines": [74, 98],
     "rationale": "setupHighlighter and initHighlighter must retain source-line hits under native ESM."

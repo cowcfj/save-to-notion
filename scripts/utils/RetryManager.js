@@ -843,3 +843,5 @@ if (typeof module !== 'undefined' && module.exports) {
   globalThis.withRetry = withRetry;
   globalThis.fetchWithRetry = fetchWithRetry;
 }
+
+export { RetryManager, withRetry, fetchWithRetry };

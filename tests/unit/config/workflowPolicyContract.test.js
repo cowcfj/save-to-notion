@@ -1,6 +1,6 @@
 /* eslint-disable security/detect-non-literal-fs-filename */
-const fs = require('node:fs');
-const path = require('node:path');
+import fs from 'node:fs';
+import path from 'node:path';
 
 const rootDir = path.resolve(__dirname, '../../..');
 const activeWorkflowDir = path.join(rootDir, '.github/workflows');

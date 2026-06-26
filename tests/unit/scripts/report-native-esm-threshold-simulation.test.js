@@ -250,7 +250,12 @@ describe('tools/report-native-esm-threshold-simulation', () => {
   });
 
   test('compareCoverageSummaries reports threshold parity and material native drift', () => {
-    const { gates, drift } = compareMaterialDriftCoverage(reporter, projectRoot);
+    const result = compareMaterialDriftCoverage(reporter, projectRoot);
+    const { gates, drift } = result;
+
+    expect(result.blockerLedger).toBeInstanceOf(Array);
+    expect(result.blockerLedger).toHaveLength(4);
+    expect(result.blockerLedger[0].path).toBe('scripts/background.js');
 
     expect(gates).toEqual(
       expect.arrayContaining([
@@ -372,6 +377,9 @@ describe('tools/report-native-esm-threshold-simulation', () => {
     expect(markdown).toContain('official-scope-parity');
     expect(markdown).toContain('native nonzero official 檔案數');
     expect(markdown).toContain('## Native Zero / Incumbent Nonzero');
+    expect(markdown).toContain('## Blocker Ledger');
+    expect(markdown).toContain('scripts/background.js');
+    expect(markdown).toContain('entrypoint-side-effect-boundary');
   });
 
   test('markdown summary renders missing thresholds as 不適用', () => {
