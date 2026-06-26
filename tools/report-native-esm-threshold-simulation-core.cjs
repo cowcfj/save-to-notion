@@ -39,7 +39,7 @@ function normalizeCoveragePath(filePath, projectRoot = process.cwd()) {
 }
 
 function normalizePercentage(pct) {
-  if (pct === 'Unknown') {
+  if (pct === 'Unknown' || Number.isNaN(pct)) {
     return 100;
   }
   return pct;
@@ -480,6 +480,7 @@ module.exports = {
   buildThresholdSimulationSummary,
   compareCoverageSummaries,
   evaluateThresholds,
+  normalizePercentage,
   renderThresholdSimulationMarkdown,
   resolveCoverageThresholds,
   summarizeCoverageMap,

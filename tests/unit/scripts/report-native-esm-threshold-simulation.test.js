@@ -162,6 +162,10 @@ describe('tools/report-native-esm-threshold-simulation', () => {
     });
   });
 
+  test('normalizePercentage treats NaN coverage percentages as full coverage', () => {
+    expect(reporter.normalizePercentage(Number.NaN)).toBe(100);
+  });
+
   test('evaluateThresholds records pass and fail per global metric', () => {
     const summary = {
       global: {
