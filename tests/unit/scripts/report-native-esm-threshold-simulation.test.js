@@ -318,6 +318,23 @@ describe('tools/report-native-esm-threshold-simulation', () => {
     expect(markdown).toContain('## Native Zero / Incumbent Nonzero');
   });
 
+  test('markdown summary renders missing thresholds as N/A', () => {
+    const summary = reporter.compareCoverageSummaries({
+      incumbentSummary: reporter.summarizeCoverageMap({}, { projectRoot }),
+      nativeSummary: reporter.summarizeCoverageMap({}, { projectRoot }),
+      thresholds: { lines: 80, statements: 80 },
+      scopeParitySummary: {
+        gates: [{ id: 'official-scope-parity', status: 'pass' }],
+      },
+    });
+
+    const markdown = reporter.renderThresholdSimulationMarkdown(summary);
+
+    expect(markdown).toContain('| functions | 100 | 100 | 0 | N/A |');
+    expect(markdown).toContain('| branches | 100 | 100 | 0 | N/A |');
+    expect(markdown).not.toContain('undefined');
+  });
+
   test('CLI fails when required coverage inputs are missing and writes no summaries', () => {
     const incumbentCoveragePath = path.join(tempRoot, 'coverage/jest/coverage-final.json');
     const nativeCoveragePath = path.join(tempRoot, 'coverage/native-esm/coverage-final.json');
@@ -339,6 +356,18 @@ describe('tools/report-native-esm-threshold-simulation', () => {
     expect(result.stderr).toContain('找不到 incumbent coverage 檔案');
     expect(fs.existsSync(summaryJsonPath)).toBe(false);
     expect(fs.existsSync(summaryMarkdownPath)).toBe(false);
+  });
+
+  test('CLI rejects missing option values before reading coverage inputs', () => {
+    const result = runCliWithArgs([
+      '--incumbent-coverage',
+      '--native-coverage',
+      'coverage/native-esm/coverage-final.json',
+    ]);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('--incumbent-coverage 必須提供路徑值');
+    expect(result.stderr).not.toContain('找不到 incumbent coverage 檔案');
   });
 
   test('CLI rejects unknown options before reading coverage inputs', () => {

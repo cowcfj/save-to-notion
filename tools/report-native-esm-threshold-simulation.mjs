@@ -17,7 +17,7 @@ const {
 
 function readRequiredOptionValue(argv, index, optionName) {
   const value = argv[index + 1];
-  if (!value) {
+  if (!value || value.startsWith('--')) {
     throw new Error(`${optionName} 必須提供路徑值`);
   }
   return value;

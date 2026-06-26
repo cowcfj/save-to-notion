@@ -347,7 +347,7 @@ function renderMetricRows(summary) {
       const incumbent = summary.global.incumbent[metricName].pct;
       const native = summary.global.native[metricName].pct;
       const delta = summary.global.delta[metricName];
-      const threshold = summary.thresholds[metricName];
+      const threshold = summary.thresholds?.[metricName] ?? 'N/A';
       return `| ${metricName} | ${incumbent} | ${native} | ${delta} | ${threshold} |`;
     })
     .join('\n');
