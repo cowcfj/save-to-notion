@@ -163,8 +163,10 @@ async function runCli() {
 }
 
 if (process.argv[1] === __filename) {
-  runCli().catch(error => {
+  try {
+    await runCli();
+  } catch (error) {
     console.error(error.message);
     process.exitCode = 1;
-  });
+  }
 }
