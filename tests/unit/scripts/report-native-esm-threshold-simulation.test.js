@@ -327,7 +327,7 @@ describe('tools/report-native-esm-threshold-simulation', () => {
 
     expect(markdown).toContain('僅供診斷');
     expect(markdown).toContain('non-blocking');
-    expect(markdown).toContain('coverage/jest/lcov.info');
+    expect(markdown).toContain('coverage/native-esm/lcov.info');
     expect(markdown).toContain('threshold-parity');
     expect(markdown).toContain('## Diagnostic Threshold Adapter');
     expect(markdown).toContain('official-scope-parity');

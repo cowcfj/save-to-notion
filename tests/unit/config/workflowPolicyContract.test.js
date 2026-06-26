@@ -150,19 +150,22 @@ describe('workflow policy contract', () => {
     expect(nativeFlagBlock).not.toContain('statuses:');
   });
 
-  test('native ESM Codecov evidence remains diagnostic-only after separate upload trial', () => {
+  test('native ESM Codecov single upload rehearsal is active in Coverage Gate workflow', () => {
     const workflowSource = readWorkflow('coverage-gate.yml');
+    const validationStep = getWorkflowStepBlock(workflowSource, '驗證覆蓋率檔案');
     const officialUploadStep = getWorkflowStepBlock(workflowSource, 'Upload coverage to Codecov');
     const nativeDiagnosticArtifactStep = getWorkflowStepBlock(
       workflowSource,
       '上傳 native ESM 診斷 artifact'
     );
 
+    expect(validationStep).toContain('EXPECTED_CODECOV_LCOV_FILE="coverage/native-esm/lcov.info"');
+    expect(validationStep).toContain('LCOV_FILE="coverage/native-esm/lcov.info"');
+
     expect(officialUploadStep).toContain('files: ${{ steps.validate-coverage.outputs.file }}');
     expect(officialUploadStep).toContain('flags: unit');
     expect(officialUploadStep).toContain('disable_search: true');
     expect(officialUploadStep).toContain('use_oidc: true');
-    expect(officialUploadStep).not.toContain('coverage/native-esm/lcov.info');
     expect(officialUploadStep).not.toContain('native-esm-parity');
 
     expect(nativeDiagnosticArtifactStep).toContain('coverage/native-esm/lcov.info');

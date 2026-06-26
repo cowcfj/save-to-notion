@@ -155,10 +155,10 @@ jobs:
       - name: 驗證覆蓋率檔案
         id: validate-coverage
         run: |
-          EXPECTED_CODECOV_LCOV_FILE="coverage/jest/lcov.info"
-          LCOV_FILE="coverage/jest/lcov.info"
+          EXPECTED_CODECOV_LCOV_FILE="coverage/native-esm/lcov.info"
+          LCOV_FILE="coverage/native-esm/lcov.info"
           if [ "$LCOV_FILE" != "$EXPECTED_CODECOV_LCOV_FILE" ]; then
-            echo "Codecov 上傳必須維持使用既有 Jest LCOV。" >&2
+            echo "Codecov 上傳在本次演練中必須使用 native ESM LCOV。" >&2
             exit 1
           fi
           if [ ! -f "$LCOV_FILE" ]; then

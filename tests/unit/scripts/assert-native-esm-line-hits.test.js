@@ -299,7 +299,7 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
     expect(result.status).toBe(0);
     // eslint-disable-next-line security/detect-non-literal-fs-filename
     const markdown = fs.readFileSync(summaryMarkdownPath, 'utf8');
-    expect(markdown).toContain('coverage/jest/lcov.info');
+    expect(markdown).toContain('coverage/native-esm/lcov.info');
     expect(markdown).toContain('| `scripts/background/utils/BlockBuilder.js` | 4 | 4 | 0 |');
     expect(markdown).toContain('僅供診斷');
     expect(markdown).toContain('來源行命中正確性');

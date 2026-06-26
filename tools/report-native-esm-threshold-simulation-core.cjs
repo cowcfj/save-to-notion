@@ -592,7 +592,7 @@ function renderThresholdSimulationMarkdown(summary) {
 
   return `# Native ESM threshold simulation 摘要
 
-> 僅供診斷，所有 gates 都是 non-blocking。這不是正式 coverage truth；Codecov 仍使用 \`coverage/jest/lcov.info\`。
+> 僅供診斷，所有 gates 都是 non-blocking。在本次單一上傳演練中，Codecov 已切換使用 \`coverage/native-esm/lcov.info\`。
 
 ## 總計
 
