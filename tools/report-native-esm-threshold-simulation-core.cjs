@@ -4,12 +4,12 @@ const { createCoverageMap } = require('istanbul-lib-coverage');
 const metricNames = ['lines', 'statements', 'functions', 'branches'];
 const MAX_DRIFT_FILE_ROWS = 50;
 const DEFAULT_ADAPTER_BASELINE = Object.freeze({
-  nativeNonzeroOfficialFiles: 130,
-  nativeZeroIncumbentNonzeroFiles: 55,
-  requiredLines: 1912,
+  nativeNonzeroOfficialFiles: 162,
+  nativeZeroIncumbentNonzeroFiles: 23,
+  requiredLines: 2073,
   residualGroupCounts: Object.freeze({
-    'scripts/highlighter': 22,
-    'scripts/utils': 22,
+    'scripts/highlighter': 0,
+    'scripts/utils': 20,
   }),
 });
 const REPORT_MESSAGES = Object.freeze({

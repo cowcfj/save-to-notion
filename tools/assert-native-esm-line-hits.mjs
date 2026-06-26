@@ -22,6 +22,9 @@ const allowedSourcePrefixes = [
   'scripts/background/utils/',
   'scripts/highlighter/',
   'scripts/utils/image/',
+  'scripts/sync/',
+  'scripts/performance/',
+  'scripts/legacy/',
 ];
 const summaryFlagOptionNames = new Map([
   ['--summary-json', 'summaryJsonPath'],

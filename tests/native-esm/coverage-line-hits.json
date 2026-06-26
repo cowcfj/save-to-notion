@@ -1,5 +1,50 @@
 [
   {
+    "fileSuffix": "scripts/highlighter/index.js",
+    "lines": [74, 98],
+    "rationale": "setupHighlighter and initHighlighter must retain source-line hits under native ESM."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/entryAutoInit.js",
+    "lines": [38, 41],
+    "rationale": "entryAutoInit startup logic must execute and hit main initialization guards."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/ui/styles/floatingRailStyles.js",
+    "lines": [19, 536],
+    "rationale": "getRailThemeVars and getFloatingRailCSS style generators must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/ui/components/FloatingRailContainer.js",
+    "lines": [36, 134],
+    "rationale": "createFloatingRailContainer element construction and returns must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/ui/FloatingRail.js",
+    "lines": [75, 145],
+    "rationale": "FloatingRail constructor and initialize must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/ui/FloatingRailAnimations.js",
+    "lines": [22, 160],
+    "rationale": "playLaunchAnimation and playFailAnimation must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/highlighter/ui/FloatingRailRuntime.js",
+    "lines": [19, 24],
+    "rationale": "checkPageStatus and savePageFromRail runtime bridges must retain source-line hits."
+  },
+  {
+    "fileSuffix": "scripts/sync/driveSnapshot.js",
+    "lines": [120, 216, 385, 561, 562, 563],
+    "rationale": "driveSnapshot core functions (isPlainObject, normalizeSavedState, buildUnifiedPageStateFromLocalStorage, buildDriveSnapshot) must retain source-line hits under Native ESM."
+  },
+  {
+    "fileSuffix": "scripts/sync/driveSnapshotHash.js",
+    "lines": [9],
+    "rationale": "driveSnapshotHash computeDriveSnapshotHash must retain source-line hits under Native ESM."
+  },
+  {
     "fileSuffix": "scripts/background/utils/BlockBuilder.js",
     "lines": [54, 55, 56, 57],
     "rationale": "createRichText body lines must not be mapped to 0 by V8 source-line conversion."

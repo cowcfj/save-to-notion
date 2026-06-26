@@ -31,8 +31,29 @@ await jest.unstable_mockModule('../../../scripts/utils/urlUtils.js', () => ({
   normalizeUrl: jest.fn(url => String(url || '').replace(/#.*$/, '')),
 }));
 
+await jest.unstable_mockModule('../../../scripts/utils/ApiErrorSanitizer.js', () => ({
+  sanitizeApiError: jest.fn(err => err),
+}));
+
+await jest.unstable_mockModule('../../../scripts/utils/ErrorHandler.js', () => ({
+  ErrorHandler: {
+    handleError: jest.fn(),
+    captureException: jest.fn(),
+    formatUserMessage: jest.fn(err => String(err)),
+  },
+  ErrorTypes: {
+    VALIDATION_ERROR: 'VALIDATION_ERROR',
+  },
+  ErrorSeverity: {
+    LOW: 'low',
+    MEDIUM: 'medium',
+    HIGH: 'high',
+    CRITICAL: 'critical',
+  },
+}));
+
 await jest.unstable_mockModule('../../../styles/ui-token-constants.js', () => ({
-  hexToRgba: (hex, alpha) => `${hex}/${alpha}`,
+  hexToRgba: (hex, alpha) => `rgba(${hex}, ${alpha})`,
   UI_TOKENS: {
     color: {
       primary: '#2563eb',
@@ -40,8 +61,28 @@ await jest.unstable_mockModule('../../../styles/ui-token-constants.js', () => ({
       warning: '#f59e0b',
       danger: '#ef4444',
       white: '#ffffff',
+      black: '#000000',
       text: '#1e293b',
       textMuted: '#64748b',
+      brand: '#F47565',
+      brandHover: '#E66651',
+      actionSave: '#0A84FF',
+      actionSaveHover: '#0070E5',
+      actionManage: '#8B5CF6',
+      actionManageHover: '#7C3AED',
+      iconOnAccent: '#FFFFFF',
+    },
+    theme: {
+      light: {
+        surface: 'rgba(244, 244, 247, 0.82)',
+        border: 'rgba(0, 0, 0, 0.06)',
+        iconMuted: 'rgba(31, 33, 38, 0.78)',
+      },
+      dark: {
+        surface: 'rgba(22, 24, 30, 0.78)',
+        border: 'rgba(255, 255, 255, 0.10)',
+        iconMuted: 'rgba(240, 243, 247, 0.88)',
+      },
     },
     status: {
       successBg: '#dcfce7',
@@ -54,9 +95,9 @@ await jest.unstable_mockModule('../../../styles/ui-token-constants.js', () => ({
       warningText: '#92400e',
       warningBorder: '#fcd34d',
     },
-    radius: { sm: '4px', md: '8px' },
-    shadow: { md: '0 4px 12px rgba(0, 0, 0, 0.12)' },
-    spacing: { sm: '8px', md: '16px' },
+    radius: { sm: '4px', md: '8px', lg: '12px' },
+    shadow: { sm: '0 2px 4px rgba(0, 0, 0, 0.1)', md: '0 4px 12px rgba(0, 0, 0, 0.12)' },
+    spacing: { xs: '4px', sm: '8px', md: '16px' },
   },
 }));
 
@@ -354,5 +395,117 @@ describe('highlighter residual native ESM diagnostics', () => {
     expect(globalThis.notionHighlighter.isActive()).toBe(true);
     globalThis.notionHighlighter.toggle();
     expect(globalThis.HighlighterV2.rail.hide).toHaveBeenCalled();
+  });
+
+  test('highlighter UI elements (FloatingRail, Container, Animations, styles) execute under native ESM jsdom', async () => {
+    // Mock Element.prototype.animate to prevent jsdom crashes
+    Element.prototype.animate = Element.prototype.animate || jest.fn(() => ({
+      finished: Promise.resolve(),
+      cancel: jest.fn(),
+    }));
+
+    // Mock matchMedia
+    globalThis.matchMedia = globalThis.matchMedia || jest.fn(() => ({
+      matches: false,
+    }));
+
+    // Setup global chrome mock
+    globalThis.chrome = {
+      storage: {
+        sync: {
+          get: jest.fn(async () => ({})),
+          onChanged: { addListener: jest.fn() },
+        },
+        local: {
+          get: jest.fn(async () => ({})),
+        },
+        onChanged: { addListener: jest.fn() },
+      },
+      runtime: {
+        id: 'test',
+        sendMessage: jest.fn(async () => ({})),
+        onMessage: { addListener: jest.fn() },
+      },
+    };
+
+    // 1. styles
+    const { getRailThemeVars, getFloatingRailCSS } = await import(
+      '../../../scripts/highlighter/ui/styles/floatingRailStyles.js'
+    );
+    expect(getRailThemeVars()).toContain(':host');
+    expect(getFloatingRailCSS()).toContain(':host');
+
+    // 2. Animations
+    const { playLaunchAnimation, playFailAnimation, playFireworkAnimation } = await import(
+      '../../../scripts/highlighter/ui/FloatingRailAnimations.js'
+    );
+    const btn = document.createElement('button');
+    const anim = playLaunchAnimation(btn);
+    expect(anim).toBeDefined();
+    anim.cancel();
+
+    const tooltip = document.createElement('div');
+    await playFailAnimation(btn, tooltip, 'Failed message');
+    expect(tooltip.textContent).toBe('Failed message');
+
+    await playFireworkAnimation(btn);
+
+    // 3. Container
+    const { createFloatingRailContainer } = await import(
+      '../../../scripts/highlighter/ui/components/FloatingRailContainer.js'
+    );
+    const container = createFloatingRailContainer();
+    expect(container.className).toContain('rail-container');
+
+    // 4. FloatingRail 主類別
+    const { FloatingRail } = await import('../../../scripts/highlighter/ui/FloatingRail.js');
+    const mockManager = {
+      collectHighlightsForNotion: jest.fn(() => []),
+      handleDocumentClick: jest.fn(),
+    };
+
+    const rail = new FloatingRail(mockManager);
+    expect(rail).toBeDefined();
+    await rail.initialize();
+
+    expect(rail.host).toBeDefined();
+    rail.show();
+    expect(rail.host.style.display).toBe('block');
+    rail.hide();
+    expect(rail.host.style.display).toBe('none');
+
+    rail.dismiss();
+    rail.undismiss();
+    rail.collapse();
+    rail.expand();
+    rail.activateHighlighting();
+    rail.deactivateHighlighting();
+    rail.setColor('blue');
+
+    // 5. FloatingRailRuntime
+    const { checkPageStatus, savePageFromRail, syncHighlights, openSidePanel } = await import(
+      '../../../scripts/highlighter/ui/FloatingRailRuntime.js'
+    );
+    globalThis.chrome.runtime.sendMessage = jest.fn(async () => ({ success: true }));
+    await expect(checkPageStatus()).resolves.toEqual({ success: true });
+    await expect(savePageFromRail()).resolves.toEqual({ success: true });
+    await expect(syncHighlights([])).resolves.toEqual({ success: true });
+    await expect(openSidePanel()).resolves.toEqual({ success: true });
+
+    // 6. index.js setup
+    const { setupHighlighter, initHighlighter } = await import('../../../scripts/highlighter/index.js');
+    const h = initHighlighter({ skipRestore: true });
+    expect(h).toBeDefined();
+
+    const sh = setupHighlighter({ skipRestore: true });
+    expect(sh.manager).toBeDefined();
+
+    // 7. entryAutoInit.js (side effect module)
+    delete globalThis.HighlighterV2;
+    delete globalThis.notionHighlighter;
+    await import('../../../scripts/highlighter/entryAutoInit.js');
+
+    // Cleanup
+    document.body.innerHTML = '';
   });
 });
