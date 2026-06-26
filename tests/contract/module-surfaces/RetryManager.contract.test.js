@@ -5,6 +5,9 @@ import vm from 'node:vm';
 
 import { RetryManager, withRetry, fetchWithRetry } from '../../../scripts/utils/RetryManager.js';
 
+const repoRoot = process.cwd();
+const retryManagerSourcePath = path.resolve(repoRoot, 'scripts/utils/RetryManager.js');
+
 describe('RetryManager module surface contracts', () => {
   test('ESM import exposes RetryManager helpers', () => {
     const exported = { RetryManager, withRetry, fetchWithRetry };
@@ -40,7 +43,7 @@ describe('RetryManager module surface contracts', () => {
         ].join('\n'),
       ],
       {
-        cwd: path.resolve(__dirname, '../..', '..'),
+        cwd: repoRoot,
         encoding: 'utf8',
       }
     );
@@ -51,8 +54,9 @@ describe('RetryManager module surface contracts', () => {
   });
 
   test('browser-style global fallback exposes RetryManager helpers', () => {
-    const sourcePath = path.join(__dirname, '../../../scripts/utils/RetryManager.js');
-    const source = fs.readFileSync(sourcePath, 'utf8').replaceAll(/export\s+\{[\s\S]*?\};/g, ''); // 移除靜態 export 以防在 VM script 執行時報 SyntaxError
+    const source = fs
+      .readFileSync(retryManagerSourcePath, 'utf8')
+      .replaceAll(/export\s+\{[\s\S]*?\};/g, ''); // 移除靜態 export 以防在 VM script 執行時報 SyntaxError
     const sandbox = {
       globalThis: {},
       setTimeout,
@@ -67,7 +71,7 @@ describe('RetryManager module surface contracts', () => {
     sandbox.globalThis = sandbox;
 
     // eslint-disable-next-line sonarjs/code-eval -- Intentional VM execution of trusted local source for browser-global contract testing.
-    vm.runInNewContext(source, sandbox, { filename: sourcePath });
+    vm.runInNewContext(source, sandbox, { filename: retryManagerSourcePath });
 
     expect(sandbox.RetryManager).toEqual(expect.any(Function));
     expect(sandbox.withRetry).toEqual(expect.any(Function));
