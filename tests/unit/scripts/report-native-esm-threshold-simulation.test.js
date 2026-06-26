@@ -66,35 +66,32 @@ const createCoverageEntry = ({ statements, functions = {}, branches = {} }) => {
 };
 
 const buildMaterialDriftComparisonInputs = (reporter, projectRoot) => {
-  const coverageFiles = [
-    {
-      filePath: 'scripts/a.js',
-      incumbent: { statements: [1], functions: [1], branches: [[1, 1]] },
-      native: { statements: [0], functions: [0], branches: [[0, 0]] },
-    },
-    {
-      filePath: 'scripts/b.js',
-      incumbent: { statements: [1, 1], functions: [1], branches: [[1, 1]] },
-      native: { statements: [1, 0], functions: [1], branches: [[1, 0]] },
-    },
+  const profiles = ['incumbent', 'native'];
+  const coverageRows = [
+    ['scripts/a.js', [[1], [1], [[1, 1]]], [[0], [0], [[0, 0]]]],
+    ['scripts/b.js', [[1, 1], [1], [[1, 1]]], [[1, 0], [1], [[1, 0]]]],
   ];
-  const buildSummary = profileName => {
-    const coverageMap = Object.fromEntries(
-      coverageFiles.map(({ filePath, [profileName]: profile }) => [
-        path.join(projectRoot, filePath),
-        createCoverageEntry({
-          statements: profile.statements.map((hits, index) => ({ startLine: index + 1, hits })),
-          functions: Object.fromEntries(profile.functions.map((hits, index) => [index, hits])),
-          branches: Object.fromEntries(profile.branches.map((hits, index) => [index, hits])),
-        }),
-      ])
+  const toIndexedHits = hits => Object.fromEntries(hits.map((hit, index) => [index, hit]));
+  const buildEntry = ([statements, functions, branches]) =>
+    createCoverageEntry({
+      statements: statements.map((hits, index) => ({ startLine: index + 1, hits })),
+      functions: toIndexedHits(functions),
+      branches: toIndexedHits(branches),
+    });
+  const buildSummary = profileIndex =>
+    reporter.summarizeCoverageMap(
+      Object.fromEntries(
+        coverageRows.map(([filePath, ...profileEntries]) => [
+          path.join(projectRoot, filePath),
+          buildEntry(profileEntries[profileIndex]),
+        ])
+      ),
+      { projectRoot }
     );
-    return reporter.summarizeCoverageMap(coverageMap, { projectRoot });
-  };
 
   return {
-    incumbentSummary: buildSummary('incumbent'),
-    nativeSummary: buildSummary('native'),
+    incumbentSummary: buildSummary(profiles.indexOf('incumbent')),
+    nativeSummary: buildSummary(profiles.indexOf('native')),
   };
 };
 
