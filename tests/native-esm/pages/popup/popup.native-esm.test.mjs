@@ -76,6 +76,16 @@ await jest.unstable_mockModule('../../../../scripts/auth/accountLoginInitiator.j
   startAccountLogin: jest.fn(async () => ({ success: true })),
 }));
 
+await jest.unstable_mockModule('../../../../scripts/config/env/index.js', () => ({
+  BUILD_ENV: {
+    ENABLE_ACCOUNT: true,
+    ENABLE_OAUTH: true,
+    EXTENSION_API_KEY: '',
+    OAUTH_CLIENT_ID: '',
+    OAUTH_SERVER_URL: '',
+  },
+}));
+
 await jest.unstable_mockModule('../../../../scripts/destinations/ProfileStore.js', () => ({
   AccountGatedDestinationEntitlementProvider: jest.fn(),
   LocalDestinationProfileRepository: jest.fn(),
