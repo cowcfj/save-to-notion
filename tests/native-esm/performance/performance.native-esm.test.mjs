@@ -15,7 +15,7 @@ const loggerMock = {
 const errorHandlerMock = {
   handleError: jest.fn(),
   captureException: jest.fn(),
-  formatUserMessage: jest.fn(err => String(err)),
+  formatUserMessage: jest.fn(String),
   logError: jest.fn(),
 };
 
@@ -103,7 +103,7 @@ describe('Performance native ESM diagnostics', () => {
 
     // Advance time to test TTL expiration
     jest.advanceTimersByTime(200);
-    const resultExpired = optimizer.cachedQuery(selector, document, { single: true });
+    optimizer.cachedQuery(selector, document, { single: true });
     expect(optimizer.getStats().cache.misses).toBeGreaterThan(1);
   });
 

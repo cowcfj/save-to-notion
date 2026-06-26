@@ -39,7 +39,7 @@ await jest.unstable_mockModule('../../../scripts/utils/ErrorHandler.js', () => (
   ErrorHandler: {
     handleError: jest.fn(),
     captureException: jest.fn(),
-    formatUserMessage: jest.fn(err => String(err)),
+    formatUserMessage: jest.fn(String),
   },
   ErrorTypes: {
     VALIDATION_ERROR: 'VALIDATION_ERROR',

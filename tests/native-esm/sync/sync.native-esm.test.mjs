@@ -36,15 +36,16 @@ function installCrypto() {
       digest: jest.fn(async () => mockHashBuffer),
     },
   };
-  try {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
+  if (descriptor?.configurable !== false) {
     Object.defineProperty(globalThis, 'crypto', {
       value: mockCrypto,
       writable: true,
       configurable: true,
     });
-  } catch (e) {
-    globalThis.crypto = mockCrypto;
+    return;
   }
+  globalThis.crypto = mockCrypto;
 }
 
 describe('Sync native ESM diagnostics', () => {

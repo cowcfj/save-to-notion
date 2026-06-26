@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 
 const loggerMock = {
   debug: jest.fn(),
