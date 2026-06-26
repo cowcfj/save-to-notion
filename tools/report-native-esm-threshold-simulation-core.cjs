@@ -337,6 +337,10 @@ function escapeMarkdownTableCell(value) {
   return String(value).replace(/\r?\n/g, ' ').replaceAll('|', String.raw`\|`);
 }
 
+function formatMarkdownCodeList(values) {
+  return values.map(value => `\`${value}\``).join('<br>');
+}
+
 function renderMetricRows(summary) {
   return metricNames
     .map(metricName => {
@@ -376,7 +380,7 @@ function renderThresholdSimulationMarkdown(summary) {
       ? summary.breadth.topMaterialDriftGroups
           .map(
             record =>
-              `| \`${record.group}\` | ${record.files} | ${record.worstLinePctDelta} | ${record.sampleFiles.map(file => `\`${file}\``).join('<br>')} |`
+              `| \`${record.group}\` | ${record.files} | ${record.worstLinePctDelta} | ${formatMarkdownCodeList(record.sampleFiles)} |`
           )
           .join('\n')
       : '| 無 |  |  |  |';
@@ -385,7 +389,7 @@ function renderThresholdSimulationMarkdown(summary) {
       ? summary.breadth.topNativeZeroIncumbentNonzeroGroups
           .map(
             record =>
-              `| \`${record.group}\` | ${record.files} | ${record.worstLinePctDelta} | ${record.sampleFiles.map(file => `\`${file}\``).join('<br>')} |`
+              `| \`${record.group}\` | ${record.files} | ${record.worstLinePctDelta} | ${formatMarkdownCodeList(record.sampleFiles)} |`
           )
           .join('\n')
       : '| 無 |  |  |  |';

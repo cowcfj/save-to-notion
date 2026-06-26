@@ -203,11 +203,11 @@ describe('remaining content native ESM diagnostics', () => {
   });
 
   test('Next.js data resolver and Readability helper paths execute under jsdom', () => {
-    document.body.innerHTML = `
+    document.body.innerHTML = String.raw`
       <script id="__NEXT_DATA__" type="application/json">
         {"props":{"pageProps":{"article":{"content":"body"}}}}
       </script>
-      <script>self.__next_f.push([1,"3:{\\"content\\":\\"app body\\"}\\n"])</script>
+      <script>self.__next_f.push([1,"3:{\"content\":\"app body\"}\n"])</script>
       <main><p>${'x'.repeat(400)}</p></main>
     `;
 
@@ -217,9 +217,9 @@ describe('remaining content native ESM diagnostics', () => {
     expect(getAppRouterData(document)).toEqual(
       expect.objectContaining({ appRouterFragments: expect.any(Array) })
     );
-    expect(parseAppRouterScript('self.__next_f.push([1,"3:{\\"body\\":\\"rsc\\"}\\n"])')).toEqual([
-      { body: 'rsc' },
-    ]);
+    expect(
+      parseAppRouterScript(String.raw`self.__next_f.push([1,"3:{\"body\":\"rsc\"}\n"])`)
+    ).toEqual([{ body: 'rsc' }]);
     expect(findArticleData({ props: { pageProps: { article: { content: 'body' } } } })).toEqual({
       content: 'body',
     });
