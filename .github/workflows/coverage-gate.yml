@@ -187,28 +187,3 @@ jobs:
           flags: unit
           fail_ci_if_error: false
           use_oidc: true
-
-      - name: Validate native ESM coverage
-        id: validate-native-esm-coverage
-        run: |
-          NATIVE_ESM_LCOV_FILE="coverage/native-esm/lcov.info"
-          if [ ! -f "$NATIVE_ESM_LCOV_FILE" ]; then
-            echo "在 $NATIVE_ESM_LCOV_FILE 找不到 native ESM 覆蓋率檔案。" >&2
-            exit 1
-          fi
-          if grep -q "^SF:" "$NATIVE_ESM_LCOV_FILE" && grep -q "^end_of_record$" "$NATIVE_ESM_LCOV_FILE"; then
-            echo "Native ESM LCOV file validated: $NATIVE_ESM_LCOV_FILE"
-          else
-            echo "$NATIVE_ESM_LCOV_FILE 的 LCOV 格式無效" >&2
-            exit 1
-          fi
-
-      - name: Upload native ESM coverage to Codecov parity flag
-        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2
-        with:
-          files: coverage/native-esm/lcov.info
-          flags: native-esm-parity
-          name: native-esm-parity
-          disable_search: true
-          fail_ci_if_error: false
-          use_oidc: true

@@ -150,16 +150,12 @@ describe('workflow policy contract', () => {
     expect(nativeFlagBlock).not.toContain('statuses:');
   });
 
-  test('Codecov native ESM separate upload cannot replace official unit upload', () => {
+  test('native ESM Codecov evidence remains diagnostic-only after separate upload trial', () => {
     const workflowSource = readWorkflow('coverage-gate.yml');
     const officialUploadStep = getWorkflowStepBlock(workflowSource, 'Upload coverage to Codecov');
-    const nativeValidationStep = getWorkflowStepBlock(
+    const nativeDiagnosticArtifactStep = getWorkflowStepBlock(
       workflowSource,
-      'Validate native ESM coverage'
-    );
-    const nativeUploadStep = getWorkflowStepBlock(
-      workflowSource,
-      'Upload native ESM coverage to Codecov parity flag'
+      '上傳 native ESM 診斷 artifact'
     );
 
     expect(officialUploadStep).toContain('files: ${{ steps.validate-coverage.outputs.file }}');
@@ -168,22 +164,11 @@ describe('workflow policy contract', () => {
     expect(officialUploadStep).not.toContain('coverage/native-esm/lcov.info');
     expect(officialUploadStep).not.toContain('native-esm-parity');
 
-    expect(nativeValidationStep).toContain('id: validate-native-esm-coverage');
-    expect(nativeValidationStep).toContain('NATIVE_ESM_LCOV_FILE="coverage/native-esm/lcov.info"');
-    expect(nativeValidationStep).toContain('[ ! -f "$NATIVE_ESM_LCOV_FILE" ]');
-    expect(nativeValidationStep).toContain('grep -q "^SF:" "$NATIVE_ESM_LCOV_FILE"');
-    expect(nativeValidationStep).toContain('grep -q "^end_of_record$" "$NATIVE_ESM_LCOV_FILE"');
-    expect(nativeValidationStep).not.toContain('coverage/jest/lcov.info');
-    expect(workflowSource.indexOf('- name: Validate native ESM coverage')).toBeLessThan(
-      workflowSource.indexOf('- name: Upload native ESM coverage to Codecov parity flag')
+    expect(nativeDiagnosticArtifactStep).toContain('coverage/native-esm/lcov.info');
+    expect(workflowSource).not.toContain('- name: Validate native ESM coverage');
+    expect(workflowSource).not.toContain(
+      '- name: Upload native ESM coverage to Codecov parity flag'
     );
-
-    expect(nativeUploadStep).toContain('files: coverage/native-esm/lcov.info');
-    expect(nativeUploadStep).toContain('flags: native-esm-parity');
-    expect(nativeUploadStep).toContain('name: native-esm-parity');
-    expect(nativeUploadStep).not.toContain('dry_run: true');
-    expect(nativeUploadStep).toContain('disable_search: true');
-    expect(nativeUploadStep).toContain('fail_ci_if_error: false');
-    expect(nativeUploadStep).toContain('use_oidc: true');
+    expect(workflowSource).not.toMatch(/codecov\/codecov-action@[\s\S]*flags:\s+native-esm-parity/);
   });
 });
