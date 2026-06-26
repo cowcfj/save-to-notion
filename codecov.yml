@@ -64,13 +64,6 @@ flags:
       - pages/
     carryforward: true # 允許攜帶上次覆蓋率
 
-  native-esm-parity:
-    paths:
-      - scripts/
-      - pages/
-    carryforward: false # Phase 3 diagnostic flag; do not pollute official coverage
-
-
 # 說明：
 # - 生產代碼位於 scripts/（背景 / 內容 / 工具邏輯）與 pages/（options / popup / sidepanel 等頁面 UI）
 # - tests/helpers/ 僅包含測試工具（如 mock helpers），不計入覆蓋率

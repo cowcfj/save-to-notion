@@ -137,17 +137,11 @@ describe('workflow policy contract', () => {
     );
   });
 
-  test('native ESM Codecov flag is isolated and non-carryforward', () => {
+  test('native ESM parity flag is retired after single-upload cutover', () => {
     const codecovConfig = readRootText('codecov.yml');
-    const nativeFlagStart = codecovConfig.indexOf('  native-esm-parity:');
-    const nativeFlagEnd = codecovConfig.indexOf('\n\n', nativeFlagStart);
-    const nativeFlagBlock = codecovConfig.slice(nativeFlagStart, nativeFlagEnd);
 
-    expect(nativeFlagStart).toBeGreaterThan(-1);
-    expect(nativeFlagBlock).toContain('      - scripts/');
-    expect(nativeFlagBlock).toContain('      - pages/');
-    expect(nativeFlagBlock).toContain('    carryforward: false');
-    expect(nativeFlagBlock).not.toContain('statuses:');
+    expect(codecovConfig).not.toContain('  native-esm-parity:');
+    expect(codecovConfig).not.toContain('carryforward: false # Phase 3 diagnostic flag');
   });
 
   test('native ESM Codecov single upload rehearsal is active in Coverage Gate workflow', () => {
