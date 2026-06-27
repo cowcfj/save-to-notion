@@ -1,4 +1,4 @@
-import { buildSavedPageData } from '../../../helpers/status-fixtures.js';
+import { buildSavedPageData } from './serviceTestSupport.js';
 import { resolveSaveStatus } from '../../../../scripts/background/services/SaveStatusCoordinator.js';
 
 describe('SaveStatusCoordinator', () => {

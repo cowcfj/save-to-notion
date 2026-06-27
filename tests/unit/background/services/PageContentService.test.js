@@ -1,4 +1,6 @@
 /**
+ * @jest-environment jsdom
+ *
  * PageContentService 單元測試
  */
 import {

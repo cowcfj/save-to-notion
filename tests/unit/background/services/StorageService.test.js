@@ -2,24 +2,108 @@
  * StorageService 單元測試 - 核心行為
  */
 
-import {
-  StorageService,
-  normalizeUrl,
-  URL_TRACKING_PARAMS,
-  SAVED_PREFIX,
-  HIGHLIGHTS_PREFIX,
-  PAGE_PREFIX,
-  URL_ALIAS_PREFIX,
-  STORAGE_ERROR,
-} from '../../../../scripts/background/services/StorageService.js';
-import { createStorageServiceHarness } from '../../../helpers/storageServiceTestHarness.js';
+import { jest } from '@jest/globals';
+import { createStorageServiceHarness } from './serviceTestSupport.js';
 
-jest.mock('../../../../scripts/utils/urlUtils.js', () => {
-  const original = jest.requireActual('../../../../scripts/utils/urlUtils.js');
-  return {
-    ...original,
-    computeStableUrl: jest.fn(url => `${url}_stable`),
-  };
+const TRACKING_PARAMS = [
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_term',
+  'utm_content',
+  'gclid',
+  'fbclid',
+  'mc_cid',
+  'mc_eid',
+  'igshid',
+  'vero_id',
+];
+
+const normalizeMockUrl = rawUrl => {
+  if (!rawUrl) {
+    return '';
+  }
+
+  if (typeof rawUrl !== 'string') {
+    rawUrl = String(rawUrl);
+  }
+
+  if (!rawUrl.includes('://')) {
+    return rawUrl;
+  }
+
+  try {
+    const urlObj = new URL(rawUrl);
+    urlObj.hash = '';
+    TRACKING_PARAMS.forEach(param => urlObj.searchParams.delete(param));
+    while (urlObj.pathname.length > 1 && urlObj.pathname.endsWith('/')) {
+      urlObj.pathname = urlObj.pathname.slice(0, -1);
+    }
+    return urlObj.toString();
+  } catch {
+    return rawUrl;
+  }
+};
+
+const mockUrlUtils = {
+  __esModule: true,
+  TRACKING_PARAMS,
+  STABLE_URL_RULES: [],
+  normalizeUrl: jest.fn(normalizeMockUrl),
+  computeStableUrl: jest.fn(url => `${url}_stable`),
+  buildStableUrlFromNextData: jest.fn(() => null),
+  hasSameOrigin: jest.fn((url1, url2) => {
+    try {
+      return new URL(url1).origin === new URL(url2).origin;
+    } catch {
+      return false;
+    }
+  }),
+  isRootUrl: jest.fn(url => {
+    try {
+      const parsedUrl = new URL(url);
+      return parsedUrl.pathname === '/' || parsedUrl.pathname === '';
+    } catch {
+      return false;
+    }
+  }),
+  isSafeStableUrl: jest.fn(url => {
+    try {
+      const parsedUrl = new URL(url);
+      return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }),
+  resolveStorageUrl: jest.fn(rawUrl => normalizeMockUrl(rawUrl)),
+};
+
+if (process.env.NODE_OPTIONS?.includes('--experimental-vm-modules')) {
+  jest.unstable_mockModule('../../../../scripts/utils/urlUtils.js', () => mockUrlUtils);
+} else {
+  jest.mock('../../../../scripts/utils/urlUtils.js', () => mockUrlUtils);
+}
+
+let StorageService;
+let normalizeUrl;
+let URL_TRACKING_PARAMS;
+let SAVED_PREFIX;
+let HIGHLIGHTS_PREFIX;
+let PAGE_PREFIX;
+let URL_ALIAS_PREFIX;
+let STORAGE_ERROR;
+
+beforeAll(async () => {
+  ({
+    StorageService,
+    normalizeUrl,
+    URL_TRACKING_PARAMS,
+    SAVED_PREFIX,
+    HIGHLIGHTS_PREFIX,
+    PAGE_PREFIX,
+    URL_ALIAS_PREFIX,
+    STORAGE_ERROR,
+  } = await import('../../../../scripts/background/services/StorageService.js'));
 });
 
 describe('normalizeUrl', () => {
