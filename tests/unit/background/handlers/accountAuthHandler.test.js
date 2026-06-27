@@ -2,7 +2,12 @@
  * @jest-environment jsdom
  */
 
+import { jest } from '@jest/globals';
 import { createAccountAuthHandler } from '../../../../scripts/background/handlers/accountAuthHandler.js';
+
+globalThis.Logger = {
+  warn: jest.fn(),
+};
 
 describe('accountAuthHandler', () => {
   let runtime;
