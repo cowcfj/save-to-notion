@@ -2,28 +2,56 @@
  * @jest-environment jsdom
  */
 
-import {
-  serializeRange,
-  deserializeRange,
-  restoreRangeWithRetry,
-  findRangeByTextContent,
-  validateRange,
-} from '../../../../scripts/highlighter/core/Range.js';
+import { jest } from '@jest/globals';
 
 // Mock dependencies
-jest.mock('../../../../scripts/highlighter/utils/path.js', () => ({
+const mockPathUtils = {
   getNodePath: jest.fn(),
   getNodeByPath: jest.fn(),
-}));
-
-jest.mock('../../../../scripts/highlighter/utils/textSearch.js', () => ({
-  ...jest.requireActual('../../../../scripts/highlighter/utils/textSearch.js'),
+};
+const mockTextSearchUtils = {
+  HIGHLIGHT_ANCHORING: {
+    CONTEXT_LENGTH: 32,
+  },
   findTextInPage: jest.fn(),
-}));
-
-jest.mock('../../../../scripts/highlighter/utils/domStability.js', () => ({
+};
+const mockDomStabilityUtils = {
   waitForDOMStability: jest.fn(),
-}));
+};
+
+jest.mock('../../../../scripts/highlighter/utils/path.js', () => mockPathUtils);
+
+jest.mock('../../../../scripts/highlighter/utils/textSearch.js', () => mockTextSearchUtils);
+
+jest.mock('../../../../scripts/highlighter/utils/domStability.js', () => mockDomStabilityUtils);
+
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('../../../../scripts/highlighter/utils/path.js', () => mockPathUtils);
+  jest.unstable_mockModule(
+    '../../../../scripts/highlighter/utils/textSearch.js',
+    () => mockTextSearchUtils
+  );
+  jest.unstable_mockModule(
+    '../../../../scripts/highlighter/utils/domStability.js',
+    () => mockDomStabilityUtils
+  );
+}
+
+let serializeRange;
+let deserializeRange;
+let restoreRangeWithRetry;
+let findRangeByTextContent;
+let validateRange;
+
+beforeAll(async () => {
+  ({
+    serializeRange,
+    deserializeRange,
+    restoreRangeWithRetry,
+    findRangeByTextContent,
+    validateRange,
+  } = await import('../../../../scripts/highlighter/core/Range.js'));
+});
 
 function createElementContainerFallbackFixture() {
   const article = document.createElement('article');
@@ -40,8 +68,7 @@ function createElementContainerFallbackFixture() {
   selectedRange.setStart(article, 2);
   selectedRange.setEnd(article, 3);
 
-  const pathUtilsMock = require('../../../../scripts/highlighter/utils/path.js');
-  pathUtilsMock.getNodePath
+  mockPathUtils.getNodePath
     .mockReturnValueOnce([{ type: 'element', tag: 'article', index: 0 }])
     .mockReturnValueOnce([{ type: 'element', tag: 'article', index: 0 }]);
 
@@ -84,9 +111,9 @@ describe('Range Module Coverage Tests', () => {
 
   beforeEach(() => {
     document.body.innerHTML = '';
-    pathUtils = require('../../../../scripts/highlighter/utils/path.js');
-    textSearchUtils = require('../../../../scripts/highlighter/utils/textSearch.js');
-    domStabilityUtils = require('../../../../scripts/highlighter/utils/domStability.js');
+    pathUtils = mockPathUtils;
+    textSearchUtils = mockTextSearchUtils;
+    domStabilityUtils = mockDomStabilityUtils;
   });
 
   afterEach(() => {

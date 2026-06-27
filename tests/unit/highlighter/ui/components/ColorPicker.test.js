@@ -1,4 +1,6 @@
 /**
+ * @jest-environment jsdom
+ *
  * ColorPicker.js 單元測試
  */
 

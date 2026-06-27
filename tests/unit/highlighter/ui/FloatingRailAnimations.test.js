@@ -1,4 +1,6 @@
 /**
+ * @jest-environment jsdom
+ *
  * FloatingRailAnimations.js 單元測試
  */
 
@@ -8,7 +10,12 @@ import {
   playFailAnimation,
 } from '../../../../scripts/highlighter/ui/FloatingRailAnimations.js';
 
+let originalAnimate;
+let originalMatchMedia;
+
 beforeAll(() => {
+  originalAnimate = Element.prototype.animate;
+  originalMatchMedia = globalThis.matchMedia;
   Element.prototype.animate = jest.fn(() => ({
     cancel: jest.fn(function () {
       this.playState = 'idle';
@@ -16,6 +23,22 @@ beforeAll(() => {
     playState: 'running',
     finished: Promise.resolve(),
   }));
+});
+
+afterEach(() => {
+  if (originalMatchMedia === undefined) {
+    delete globalThis.matchMedia;
+  } else {
+    globalThis.matchMedia = originalMatchMedia;
+  }
+});
+
+afterAll(() => {
+  if (originalAnimate === undefined) {
+    delete Element.prototype.animate;
+  } else {
+    Element.prototype.animate = originalAnimate;
+  }
 });
 
 describe('FloatingRailAnimations', () => {
@@ -116,7 +139,6 @@ describe('FloatingRailAnimations', () => {
       expect(particles).toHaveLength(0);
       const rings = button.querySelectorAll('.rail-ring');
       expect(rings).toHaveLength(0);
-      delete globalThis.matchMedia;
     });
   });
 

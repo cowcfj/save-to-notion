@@ -1,16 +1,33 @@
 /**
+ * @jest-environment jsdom
+ *
  * FloatingRailUI.js 單元測試
  */
 
-import {
-  getRailElements,
-  applyRailState,
-  applySaveActionVisibility,
-  applySelectedColor,
-  applyHighlightActive,
-  showColorPalette,
-  hideColorPalette,
-} from '../../../../scripts/highlighter/ui/FloatingRailUI.js';
+import { jest } from '@jest/globals';
+import { registerUiTokenConstantsMock } from './uiTokenConstantsMock.js';
+
+registerUiTokenConstantsMock(jest, '../../../../styles/ui-token-constants.js');
+
+let getRailElements;
+let applyRailState;
+let applySaveActionVisibility;
+let applySelectedColor;
+let applyHighlightActive;
+let showColorPalette;
+let hideColorPalette;
+
+beforeAll(async () => {
+  ({
+    getRailElements,
+    applyRailState,
+    applySaveActionVisibility,
+    applySelectedColor,
+    applyHighlightActive,
+    showColorPalette,
+    hideColorPalette,
+  } = await import('../../../../scripts/highlighter/ui/FloatingRailUI.js'));
+});
 
 function createMockContainer() {
   const container = document.createElement('div');

@@ -1,14 +1,40 @@
+import { jest } from '@jest/globals';
+
+const mockLogger = {
+  debugEnabled: false,
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+  info: jest.fn(),
+  debug: jest.fn(),
+  log: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  getBuffer: jest.fn(() => []),
+  addLogToBuffer: jest.fn(),
+};
+const Logger = mockLogger;
+
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
-  default: require('../../../helpers/loggerMock.js').createLoggerMock(),
+  default: mockLogger,
   __esModule: true,
 }));
 
-const Logger = require('../../../../scripts/utils/Logger.js').default;
-const {
-  fetchHighlighterSettings,
-  fetchPageStatus,
-  resolveStyleMode,
-} = require('../../../../scripts/highlighter/autoInit/initializationInputs.js');
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('../../../../scripts/utils/Logger.js', () => ({
+    default: mockLogger,
+    __esModule: true,
+  }));
+}
+
+let fetchHighlighterSettings;
+let fetchPageStatus;
+let resolveStyleMode;
+
+beforeAll(async () => {
+  ({ fetchHighlighterSettings, fetchPageStatus, resolveStyleMode } =
+    await import('../../../../scripts/highlighter/autoInit/initializationInputs.js'));
+});
 
 describe('autoInit/initializationInputs', () => {
   beforeEach(() => {

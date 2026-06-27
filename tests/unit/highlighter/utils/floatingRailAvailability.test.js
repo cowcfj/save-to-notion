@@ -2,14 +2,13 @@
  * @jest-environment jsdom
  */
 
-import {
-  formatRuntimeErrorMessage,
-  withAvailableFloatingRail,
-} from '../../../../scripts/highlighter/utils/floatingRailAvailability.js';
+import { jest } from '@jest/globals';
 import { RUNTIME_ERROR_MESSAGES } from '../../../../scripts/config/messages/runtimeErrorMessages.js';
 
 let mockFloatingRailInstance;
 const mockInitialize = jest.fn();
+let formatRuntimeErrorMessage;
+let withAvailableFloatingRail;
 
 function setHighlighterManager() {
   globalThis.HighlighterV2 = {
@@ -55,6 +54,25 @@ jest.mock('../../../../scripts/highlighter/ui/FloatingRail.js', () => {
       return mockFloatingRailInstance;
     }),
   };
+});
+
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('../../../../scripts/highlighter/ui/FloatingRail.js', () => ({
+    FloatingRail: jest.fn().mockImplementation(manager => {
+      mockFloatingRailInstance = {
+        manager,
+        initialize: mockInitialize,
+        show: jest.fn().mockResolvedValue(true),
+        activateHighlighting: jest.fn(),
+      };
+      return mockFloatingRailInstance;
+    }),
+  }));
+}
+
+beforeAll(async () => {
+  ({ formatRuntimeErrorMessage, withAvailableFloatingRail } =
+    await import('../../../../scripts/highlighter/utils/floatingRailAvailability.js'));
 });
 
 describe('floatingRailAvailability', () => {
