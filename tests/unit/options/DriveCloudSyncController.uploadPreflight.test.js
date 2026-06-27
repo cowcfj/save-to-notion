@@ -2,12 +2,7 @@
  * @jest-environment jsdom
  */
 
-jest.mock('../../../pages/options/confirmDialog.js', () => ({
-  confirmDialog: jest.fn().mockResolvedValue(true),
-}));
-
-import { initCloudSyncController } from '../../../pages/options/DriveCloudSyncController.js';
-import * as driveClient from '../../../scripts/auth/driveClient.js';
+import { jest } from '@jest/globals';
 import { RUNTIME_ACTIONS } from '../../../scripts/config/shared/runtimeActions.js';
 import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 import Logger from '../../../scripts/utils/Logger.js';
@@ -24,10 +19,19 @@ import {
   getConfirmDialogMock,
 } from './DriveCloudSyncController.shared.js';
 
+let initCloudSyncController;
+let driveClient;
+
 describe('DriveCloudSyncController', () => {
   let mockSendMessage;
   let loggerErrorSpy;
   let loggerWarnSpy;
+
+  beforeAll(async () => {
+    const controllerModule = await import('../../../pages/options/DriveCloudSyncController.js');
+    initCloudSyncController = controllerModule.initCloudSyncController;
+    driveClient = await import('../../../scripts/auth/driveClient.js');
+  });
 
   beforeEach(() => {
     jest.useFakeTimers();

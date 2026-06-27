@@ -1,12 +1,12 @@
 /**
+ * @jest-environment jsdom
+ */
+/**
  * optionsAccountUI.test.js
  *
  * Tests for Account UI (initAccountUI / renderAccountUI).
  */
 
-import { initOptions } from '../../../pages/options/options.js';
-import { BUILD_ENV } from '../../../scripts/config/env/index.js';
-import Logger from '../../../scripts/utils/Logger.js';
 import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 import { ACCOUNT_API } from '../../../scripts/config/extension/accountApi.js';
 import {
@@ -14,51 +14,26 @@ import {
   buildChromeMock,
   flushAsyncClick,
   mockSignedInAccountProfile,
-} from '../../helpers/optionsTestHarness.js';
+} from './optionsTestHarness.js';
+import {
+  mockBuildEnv as BUILD_ENV,
+  mockClearAccountSession as clearAccountSession,
+  mockGetAccountAccessToken as getAccountAccessToken,
+  mockGetAccountProfile as getAccountProfile,
+  mockLogger as Logger,
+  resetOptionsBootstrapMocks,
+} from './optionsBootstrapTestSetup.js';
 
-// Mocks for dependencies
-jest.mock('../../../scripts/config/env/index.js', () => ({
-  BUILD_ENV: {
-    ENABLE_OAUTH: true,
-    ENABLE_ACCOUNT: true,
-    OAUTH_SERVER_URL: 'https://worker.test',
-    OAUTH_CLIENT_ID: '',
-    EXTENSION_API_KEY: '',
-  },
-}));
-jest.mock('../../../pages/options/UIManager.js');
-jest.mock('../../../pages/options/AuthManager.js');
-jest.mock('../../../pages/options/DataSourceManager.js');
-jest.mock('../../../pages/options/StorageManager.js');
-jest.mock('../../../pages/options/MigrationTool.js');
-jest.mock('../../../scripts/utils/Logger.js', () => ({
-  __esModule: true,
-  default: require('../../helpers/loggerMock.js').createLoggerMock(),
-}));
-jest.mock('../../../scripts/auth/accountSession.js', () => ({
-  getAccountProfile: jest.fn(),
-  getAccountAccessToken: jest.fn(),
-  clearAccountSession: jest.fn().mockResolvedValue(),
-}));
+let initOptions;
 
-jest.mock('../../../scripts/destinations/ProfileManager.js', () => ({
-  ProfileManager: jest.fn().mockImplementation(() => ({
-    listProfiles: jest.fn().mockResolvedValue([{ id: 'default' }]),
-    getDestinationEntitlement: jest
-      .fn()
-      .mockResolvedValue({ maxProfiles: 2, accountSignedIn: true, source: 'test' }),
-    ensureMigratedDefaultProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
-  })),
-}));
+beforeAll(async () => {
+  const optionsModule = await import('../../../pages/options/options.js');
+  initOptions = optionsModule.initOptions;
+});
 
 describe('Account UI (initAccountUI / renderAccountUI)', () => {
-  const {
-    getAccountProfile,
-    getAccountAccessToken,
-    clearAccountSession,
-  } = require('../../../scripts/auth/accountSession.js');
-
   beforeEach(() => {
+    resetOptionsBootstrapMocks();
     jest.useFakeTimers();
     buildAccountCardDOM();
     globalThis.chrome = buildChromeMock();

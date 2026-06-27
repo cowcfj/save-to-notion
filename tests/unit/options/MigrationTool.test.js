@@ -1,34 +1,50 @@
-// @jest-environment jsdom
+/**
+ * @jest-environment jsdom
+ */
 /* global document */
-import { MigrationTool } from '../../../pages/options/MigrationTool.js';
-import { UIManager } from '../../../pages/options/UIManager.js';
-import { MigrationScanner } from '../../../pages/options/MigrationScanner.js';
+import { jest } from '@jest/globals';
 import { RUNTIME_ACTIONS } from '../../../scripts/config/shared/runtimeActions.js';
 import { ERROR_MESSAGES, UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 
-jest.mock('../../../pages/options/confirmDialog.js', () => ({
-  confirmDialog: jest.fn().mockResolvedValue(true),
+const mockConfirmDialog = jest.fn().mockResolvedValue(true);
+
+const getConfirmDialogMock = () => mockConfirmDialog;
+
+const mockScannerInstance = {
+  scanStorage: jest.fn(),
+};
+
+const truncateMigrationUrl = (url, maxLength = 50) => {
+  if (!url || typeof url !== 'string') {
+    return '';
+  }
+  if (url.length <= maxLength) {
+    return url;
+  }
+  return `${url.slice(0, Math.max(0, maxLength - 3))}...`;
+};
+
+const MockMigrationScanner = jest.fn().mockImplementation(() => mockScannerInstance);
+MockMigrationScanner.truncateUrl = truncateMigrationUrl;
+MockMigrationScanner.requestBatchMigration = jest.fn();
+
+jest.unstable_mockModule('../../../pages/options/confirmDialog.js', () => ({
+  confirmDialog: mockConfirmDialog,
+}));
+jest.unstable_mockModule('../../../pages/options/MigrationScanner.js', () => ({
+  MigrationScanner: MockMigrationScanner,
 }));
 
-const getConfirmDialogMock = () => require('../../../pages/options/confirmDialog.js').confirmDialog;
+jest.mock('../../../pages/options/confirmDialog.js', () => ({
+  confirmDialog: mockConfirmDialog,
+}));
+jest.mock('../../../pages/options/MigrationScanner.js', () => ({
+  MigrationScanner: MockMigrationScanner,
+}));
 
-jest.mock('../../../pages/options/MigrationScanner.js', () => {
-  const actualObj = jest.requireActual('../../../pages/options/MigrationScanner.js');
-
-  const mockScannerInstance = {
-    scanStorage: jest.fn(),
-  };
-
-  const MockClass = jest.fn().mockImplementation(() => mockScannerInstance);
-  MockClass.truncateUrl = actualObj.MigrationScanner.truncateUrl;
-  MockClass.requestBatchMigration = jest.fn();
-
-  return {
-    ...actualObj,
-    MigrationScanner: MockClass,
-    mockScannerInstance, // Export it so tests can access it
-  };
-});
+let MigrationTool;
+let UIManager;
+let MigrationScanner;
 
 const renderMigrationToolDom = () => {
   document.body.innerHTML = `
@@ -61,15 +77,30 @@ const renderMigrationToolDom = () => {
   `;
 };
 
+const installChromeRuntimeMock = () => {
+  globalThis.chrome = {
+    ...globalThis.chrome,
+    runtime: {
+      ...globalThis.chrome?.runtime,
+      sendMessage: jest.fn().mockResolvedValue({
+        success: true,
+        items: [],
+        failedItems: [],
+      }),
+    },
+  };
+};
+
 const setupMigrationTool = () => {
   getConfirmDialogMock().mockReset();
   getConfirmDialogMock().mockResolvedValue(true);
+  installChromeRuntimeMock();
   renderMigrationToolDom();
 
   const mockUiManager = new UIManager();
   mockUiManager.showStatus = jest.fn();
 
-  const { mockScannerInstance } = require('../../../pages/options/MigrationScanner.js');
+  mockScannerInstance.scanStorage.mockReset();
   MigrationScanner.requestBatchMigration = jest.fn();
 
   const migrationTool = new MigrationTool(mockUiManager);
@@ -91,6 +122,15 @@ const expectDeleteConfirmation = count => {
   });
 };
 
+beforeAll(async () => {
+  const migrationToolModule = await import('../../../pages/options/MigrationTool.js');
+  MigrationTool = migrationToolModule.MigrationTool;
+  const uiManagerModule = await import('../../../pages/options/UIManager.js');
+  UIManager = uiManagerModule.UIManager;
+  const migrationScannerModule = await import('../../../pages/options/MigrationScanner.js');
+  MigrationScanner = migrationScannerModule.MigrationScanner;
+});
+
 describe('MigrationTool', () => {
   let migrationTool = null;
   let mockScanner = null;
@@ -103,6 +143,7 @@ describe('MigrationTool', () => {
     document.body.innerHTML = '';
     jest.useRealTimers();
     jest.clearAllMocks();
+    delete globalThis.chrome;
   });
 
   describe('scanForLegacyHighlights', () => {
@@ -211,6 +252,7 @@ describe('MigrationTool Extended', () => {
   afterEach(() => {
     document.body.innerHTML = '';
     jest.clearAllMocks();
+    delete globalThis.chrome;
   });
 
   describe('init extended', () => {

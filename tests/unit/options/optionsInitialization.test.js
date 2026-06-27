@@ -1,17 +1,12 @@
 /**
+ * @jest-environment jsdom
+ */
+/**
  * optionsInitialization.test.js
  *
  * Tests for options initialization, sidebar navigation, and URL routing logic.
  */
 
-import { initOptions } from '../../../pages/options/options.js';
-import { UIManager } from '../../../pages/options/UIManager.js';
-import { AuthManager } from '../../../pages/options/AuthManager.js';
-import { DataSourceManager } from '../../../pages/options/DataSourceManager.js';
-import { StorageManager } from '../../../pages/options/StorageManager.js';
-import { MigrationTool } from '../../../pages/options/MigrationTool.js';
-import { BUILD_ENV } from '../../../scripts/config/env/index.js';
-import Logger from '../../../scripts/utils/Logger.js';
 import { sanitizeApiError } from '../../../scripts/utils/ApiErrorSanitizer.js';
 import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 import {
@@ -21,51 +16,25 @@ import {
   buildChromeMock,
   buildProfileManagerMock,
   buildOptionsPreferenceDOM,
-} from '../../helpers/optionsTestHarness.js';
+} from './optionsTestHarness.js';
+import {
+  mockAuthManager as AuthManager,
+  mockBuildEnv as BUILD_ENV,
+  mockDataSourceManager as DataSourceManager,
+  mockLogger as Logger,
+  mockMigrationTool as MigrationTool,
+  mockProfileManager as ProfileManager,
+  mockStorageManager as StorageManager,
+  mockUIManager as UIManager,
+  resetOptionsBootstrapMocks,
+} from './optionsBootstrapTestSetup.js';
 
-// Mocks for dependencies
-jest.mock('../../../scripts/config/env/index.js', () => ({
-  BUILD_ENV: {
-    ENABLE_OAUTH: true,
-    ENABLE_ACCOUNT: true,
-    OAUTH_SERVER_URL: 'https://worker.test',
-    OAUTH_CLIENT_ID: '',
-    EXTENSION_API_KEY: '',
-  },
-}));
-jest.mock('../../../pages/options/UIManager.js');
-jest.mock('../../../pages/options/AuthManager.js');
-jest.mock('../../../pages/options/DataSourceManager.js');
-jest.mock('../../../pages/options/StorageManager.js');
-jest.mock('../../../pages/options/MigrationTool.js');
-jest.mock('../../../scripts/utils/Logger.js', () => ({
-  __esModule: true,
-  default: require('../../helpers/loggerMock.js').createLoggerMock(),
-}));
-jest.mock('../../../scripts/auth/accountSession.js', () => ({
-  getAccountProfile: jest.fn(),
-  getAccountAccessToken: jest.fn(),
-  clearAccountSession: jest.fn().mockResolvedValue(),
-}));
+let initOptions;
 
-jest.mock('../../../scripts/destinations/ProfileManager.js', () => ({
-  ProfileManager: jest.fn().mockImplementation(() => ({
-    listProfiles: jest.fn().mockResolvedValue([{ id: 'default' }]),
-    getDestinationEntitlement: jest
-      .fn()
-      .mockResolvedValue({ maxProfiles: 2, accountSignedIn: true, source: 'test' }),
-    ensureMigratedDefaultProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
-    createProfile: jest.fn().mockResolvedValue({ id: 'profile-2' }),
-    getProfile: jest.fn().mockResolvedValue({
-      id: 'default',
-      name: 'Default',
-      notionDataSourceId: 'source-1',
-      notionDataSourceType: 'database',
-    }),
-    updateProfile: jest.fn().mockResolvedValue({ id: 'default' }),
-    deleteProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
-  })),
-}));
+beforeAll(async () => {
+  const optionsModule = await import('../../../pages/options/options.js');
+  initOptions = optionsModule.initOptions;
+});
 
 describe('optionsInitialization', () => {
   describe('Initialization (initOptions)', () => {
@@ -78,6 +47,7 @@ describe('optionsInitialization', () => {
     const originalHref = globalThis.location.href;
 
     beforeEach(() => {
+      resetOptionsBootstrapMocks();
       jest.clearAllMocks();
       BUILD_ENV.ENABLE_OAUTH = originalEnableOauth;
 
@@ -163,7 +133,6 @@ describe('optionsInitialization', () => {
     });
 
     it('初始化保存目標 UI 失敗時應只記錄脫敏後錯誤', async () => {
-      const { ProfileManager } = require('../../../scripts/destinations/ProfileManager.js');
       document.body.innerHTML += `
         <div id="destination-profile-list"></div>
         <button id="add-destination-profile"></button>
@@ -199,7 +168,6 @@ describe('optionsInitialization', () => {
 
     it('account session 更新後應重新初始化保存目標 UI', async () => {
       const service = buildProfileManagerMock();
-      const { ProfileManager } = require('../../../scripts/destinations/ProfileManager.js');
       ProfileManager.mockImplementationOnce(() => service);
       document.body.innerHTML += `
         <div id="destination-profile-list"></div>

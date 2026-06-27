@@ -1,10 +1,13 @@
+/**
+ * @jest-environment jsdom
+ */
 import fs from 'node:fs';
 import path from 'node:path';
 import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 
-const OPTIONS_HTML_PATH = path.resolve(__dirname, '../../../pages/options/options.html');
-const OPTIONS_CSS_PATH = path.resolve(__dirname, '../../../pages/options/options.css');
-const UI_PRIMITIVES_CSS_PATH = path.resolve(__dirname, '../../../styles/ui-primitives.css');
+const OPTIONS_HTML_PATH = path.resolve(process.cwd(), 'pages/options/options.html');
+const OPTIONS_CSS_PATH = path.resolve(process.cwd(), 'pages/options/options.css');
+const UI_PRIMITIVES_CSS_PATH = path.resolve(process.cwd(), 'styles/ui-primitives.css');
 
 const readOptionsHtml = () => fs.readFileSync(OPTIONS_HTML_PATH, 'utf8');
 
@@ -90,8 +93,7 @@ const expectRadioGroupControl = (doc, { groupSelector, inputName, values }) => {
 
 describe('options.html 結構', () => {
   test('health-status 應為 polite live region 的 output 標籤', () => {
-    const htmlPath = path.resolve(__dirname, '../../../pages/options/options.html');
-    const html = fs.readFileSync(htmlPath, 'utf8');
+    const html = readOptionsHtml();
 
     expect(html).toMatch(/<output[^>]*id="health-status"/);
     expect(html).toContain('aria-live="polite"');
@@ -99,8 +101,7 @@ describe('options.html 結構', () => {
   });
 
   test('cleanup-status 應保留既有 class 並提供 polite status live region', () => {
-    const htmlPath = path.resolve(__dirname, '../../../pages/options/options.html');
-    const html = fs.readFileSync(htmlPath, 'utf8');
+    const html = readOptionsHtml();
 
     expect(html).toMatch(/<output[^>]*id="cleanup-status"/);
     expect(html).toMatch(/<output[^>]*id="cleanup-status"[^>]*class="status-message mt-sm"/);
@@ -109,8 +110,7 @@ describe('options.html 結構', () => {
   });
 
   test('destination-profile-status 應使用 output 標籤而非 status role', () => {
-    const htmlPath = path.resolve(__dirname, '../../../pages/options/options.html');
-    const html = fs.readFileSync(htmlPath, 'utf8');
+    const html = readOptionsHtml();
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const status = doc.querySelector('#destination-profile-status');
 
@@ -122,16 +122,14 @@ describe('options.html 結構', () => {
   });
 
   test('Google Drive 雲端同步卡片應僅保留單一說明文案，描述備份與同步本地資料到雲端', () => {
-    const htmlPath = path.resolve(__dirname, '../../../pages/options/options.html');
-    const html = fs.readFileSync(htmlPath, 'utf8');
+    const html = readOptionsHtml();
 
     expect(html).toContain('連接 Google Drive 後，可備份和同步你的本地資料到雲端。');
     expect(html).not.toContain('此登入用於 Google Drive 授權，用於備份和同步你的本地資料。');
   });
 
   test('Google Drive 自動備份 UI 應標示測試版，避免暗示完整背景雙向同步', () => {
-    const htmlPath = path.resolve(__dirname, '../../../pages/options/options.html');
-    const html = fs.readFileSync(htmlPath, 'utf8');
+    const html = readOptionsHtml();
 
     expect(html).toContain('測試版');
     expect(html).toContain('自動備份頻率');
@@ -139,8 +137,7 @@ describe('options.html 結構', () => {
   });
 
   test('保存目標選擇器應位於手動 ID 輸入框之前', () => {
-    const htmlPath = path.resolve(__dirname, '../../../pages/options/options.html');
-    const html = fs.readFileSync(htmlPath, 'utf8');
+    const html = readOptionsHtml();
     const doc = new DOMParser().parseFromString(html, 'text/html');
 
     const selectorContainer = doc.querySelector('#database-selector-container');
@@ -176,8 +173,7 @@ describe('options.html 結構', () => {
   });
 
   test('表單 label 在初始 HTML 中應關聯控制項並提供可讀文字', () => {
-    const htmlPath = path.resolve(__dirname, '../../../pages/options/options.html');
-    const html = fs.readFileSync(htmlPath, 'utf8');
+    const html = readOptionsHtml();
     const doc = new DOMParser().parseFromString(html, 'text/html');
 
     [
@@ -225,10 +221,8 @@ describe('options.html 結構', () => {
   });
 
   test('一般設定 UI 應保留精簡文案與連接操作列', () => {
-    const htmlPath = path.resolve(__dirname, '../../../pages/options/options.html');
-    const cssPath = path.resolve(__dirname, '../../../pages/options/options.css');
-    const html = fs.readFileSync(htmlPath, 'utf8');
-    const css = fs.readFileSync(cssPath, 'utf8');
+    const html = readOptionsHtml();
+    const css = readOptionsCss();
     const doc = new DOMParser().parseFromString(html, 'text/html');
 
     const oauthRow = doc.querySelector('.connection-row #oauth-status')?.closest('.connection-row');
@@ -252,8 +246,7 @@ describe('options.html 結構', () => {
   });
 
   test('保存目標 profile row 應保留 switch、內容與 actions 三欄 layout', () => {
-    const cssPath = path.resolve(__dirname, '../../../pages/options/options.css');
-    const css = fs.readFileSync(cssPath, 'utf8');
+    const css = readOptionsCss();
 
     expect(css).toMatch(
       /\.destination-profile-row\s*\{[^}]*grid-template-columns:\s*auto\s+minmax\(0,\s*1fr\)\s+auto;/

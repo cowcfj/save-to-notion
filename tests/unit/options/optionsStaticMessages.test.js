@@ -1,38 +1,30 @@
 /**
+ * @jest-environment jsdom
+ */
+/**
  * optionsStaticMessages.test.js
  *
  * Tests for applyStaticOptionMessages and resolveUiMessage static option messages.
  * Verifies i18n bindings and options.html static message compliance.
  */
 
-import { applyStaticOptionMessages } from '../../../pages/options/options.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { jest } from '@jest/globals';
 import { resolveUiMessage } from '../../../pages/options/staticOptionMessages.js';
 import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
+import './optionsBootstrapTestSetup.js';
 
-// Mocks for dependencies
-jest.mock('../../../scripts/config/env/index.js', () => ({
-  BUILD_ENV: {
-    ENABLE_OAUTH: true,
-    ENABLE_ACCOUNT: true,
-    OAUTH_SERVER_URL: 'https://worker.test',
-    OAUTH_CLIENT_ID: '',
-    EXTENSION_API_KEY: '',
-  },
-}));
-jest.mock('../../../pages/options/UIManager.js');
-jest.mock('../../../pages/options/AuthManager.js');
-jest.mock('../../../pages/options/DataSourceManager.js');
-jest.mock('../../../pages/options/StorageManager.js');
-jest.mock('../../../pages/options/MigrationTool.js');
-jest.mock('../../../scripts/utils/Logger.js', () => ({
-  __esModule: true,
-  default: require('../../helpers/loggerMock.js').createLoggerMock(),
-}));
-jest.mock('../../../scripts/auth/accountSession.js', () => ({
-  getAccountProfile: jest.fn(),
-  getAccountAccessToken: jest.fn(),
-  clearAccountSession: jest.fn().mockResolvedValue(),
-}));
+let applyStaticOptionMessages;
+
+const readProjectFile = (...segments) =>
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- test helper reads fixed repo fixtures from call sites.
+  fs.readFileSync(path.resolve(process.cwd(), ...segments), 'utf8');
+
+beforeAll(async () => {
+  const optionsModule = await import('../../../pages/options/options.js');
+  applyStaticOptionMessages = optionsModule.applyStaticOptionMessages;
+});
 
 describe('optionsStaticMessages', () => {
   describe('applyStaticOptionMessages', () => {
@@ -113,12 +105,7 @@ describe('optionsStaticMessages', () => {
     });
 
     it('options.html 內所有 data-ui-* 綁定 key 皆能解析為非空字串', () => {
-      const fs = require('node:fs');
-      const path = require('node:path');
-      const html = fs.readFileSync(
-        path.join(__dirname, '../../../pages/options/options.html'),
-        'utf8'
-      );
+      const html = readProjectFile('pages/options/options.html');
       const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
       expect(bodyMatch).not.toBeNull();
       document.body.innerHTML = bodyMatch[1];
@@ -160,12 +147,7 @@ describe('optionsStaticMessages', () => {
     });
 
     it('debug logs 開關標籤應透過 UI_MESSAGES 綁定', () => {
-      const fs = require('node:fs');
-      const path = require('node:path');
-      const html = fs.readFileSync(
-        path.join(__dirname, '../../../pages/options/options.html'),
-        'utf8'
-      );
+      const html = readProjectFile('pages/options/options.html');
       const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
       expect(bodyMatch).not.toBeNull();
       document.body.innerHTML = bodyMatch[1];
@@ -183,12 +165,7 @@ describe('optionsStaticMessages', () => {
     });
 
     it('destination help link 應提供靜態 accessible name 並保留 runtime i18n 綁定', () => {
-      const fs = require('node:fs');
-      const path = require('node:path');
-      const html = fs.readFileSync(
-        path.join(__dirname, '../../../pages/options/options.html'),
-        'utf8'
-      );
+      const html = readProjectFile('pages/options/options.html');
       const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
       expect(bodyMatch).not.toBeNull();
       document.body.innerHTML = bodyMatch[1];
@@ -247,8 +224,20 @@ describe('optionsStaticMessages', () => {
       expect(code.textContent).toBe('X');
     });
 
-    it('guide-shortcut-desc 經 resolver 取值，缺失文案時不應注入 undefined', () => {
-      jest.isolateModules(() => {
+    it('guide-shortcut-desc 經 resolver 取值，缺失文案時不應注入 undefined', async () => {
+      await jest.isolateModulesAsync(async () => {
+        jest.unstable_mockModule('../../../scripts/config/shared/messages.js', () => ({
+          UI_MESSAGES: {
+            OPTIONS: {
+              GUIDE: {
+                FEATURES_SHORTCUT_CTRL_KEY: 'Ctrl',
+                FEATURES_SHORTCUT_CMD_KEY: 'Cmd',
+                FEATURES_SHORTCUT_DESC_PREFIX: 'Use ',
+                FEATURES_SHORTCUT_DESC_SUFFIX: ' to save.',
+              },
+            },
+          },
+        }));
         jest.doMock('../../../scripts/config/shared/messages.js', () => ({
           UI_MESSAGES: {
             OPTIONS: {
@@ -261,9 +250,8 @@ describe('optionsStaticMessages', () => {
             },
           },
         }));
-        const {
-          applyStaticOptionMessages: applyWithMissingMessage,
-        } = require('../../../pages/options/staticOptionMessages.js');
+        const { applyStaticOptionMessages: applyWithMissingMessage } =
+          await import('../../../pages/options/staticOptionMessages.js');
 
         document.body.innerHTML = `
           <div data-ui-composite="guide-shortcut-desc">
@@ -337,12 +325,7 @@ describe('optionsStaticMessages', () => {
     });
 
     it('options.js 不應直接硬編碼 destination profile 與 template preview UI 文案', () => {
-      const fs = require('node:fs');
-      const path = require('node:path');
-      const source = fs.readFileSync(
-        path.join(__dirname, '../../../pages/options/options.js'),
-        'utf8'
-      );
+      const source = readProjectFile('pages/options/options.js');
       const hardcodedUserFacingCopy = [
         '保存目標名稱不可為空白。',
         '保存目標名稱',
