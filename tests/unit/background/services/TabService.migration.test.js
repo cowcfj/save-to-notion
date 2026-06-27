@@ -8,6 +8,7 @@
  * - 在各測試中直接用 localStorage.setItem/clear 操作真實 JSDOM localStorage
  * - 不使用 delete globalThis.location（會破壞 JSDOM window，導致 localStorage 失效）
  *
+ * @jest-environment jsdom
  * @jest-environment-options {"url": "https://example.com/page"}
  */
 

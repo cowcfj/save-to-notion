@@ -1,7 +1,27 @@
 // NotionService.test.js
 // 1. Mocks MUST be at the very top
+import { jest } from '@jest/globals';
+
+const createTestLoggerMock = (overrides = {}) => ({
+  debugEnabled: false,
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+  info: jest.fn(),
+  debug: jest.fn(),
+  log: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  getBuffer: jest.fn(() => []),
+  addLogToBuffer: jest.fn(),
+  ...overrides,
+});
+
+const mockGetActiveNotionToken = jest.fn();
+const mockRefreshOAuthToken = jest.fn();
+
 jest.mock('../../../../scripts/utils/Logger.js', () => {
-  const loggerMock = require('../../../helpers/loggerMock.js').createLoggerMock({
+  const loggerMock = createTestLoggerMock({
     debugEnabled: true,
   });
   return {
@@ -12,16 +32,37 @@ jest.mock('../../../../scripts/utils/Logger.js', () => {
 });
 
 jest.mock('../../../../scripts/utils/notionAuth.js', () => ({
-  getActiveNotionToken: jest.fn(),
-  refreshOAuthToken: jest.fn(),
+  getActiveNotionToken: mockGetActiveNotionToken,
+  refreshOAuthToken: mockRefreshOAuthToken,
 }));
 
-// 2. Imports
-import { NotionService } from '../../../../scripts/background/services/NotionService.js';
-import { NOTION_API } from '../../../../scripts/config/extension/notionApi.js';
-import Logger from '../../../../scripts/utils/Logger.js';
-import { getActiveNotionToken, refreshOAuthToken } from '../../../../scripts/utils/notionAuth.js';
-import { HIGHLIGHT_ERROR_CODES } from '../../../../scripts/config/shared/messages.js';
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('../../../../scripts/utils/Logger.js', () => ({
+    default: createTestLoggerMock({
+      debugEnabled: true,
+    }),
+  }));
+  jest.unstable_mockModule('../../../../scripts/utils/notionAuth.js', () => ({
+    getActiveNotionToken: mockGetActiveNotionToken,
+    refreshOAuthToken: mockRefreshOAuthToken,
+  }));
+}
+
+let NotionService;
+let NOTION_API;
+let Logger;
+let getActiveNotionToken;
+let refreshOAuthToken;
+let HIGHLIGHT_ERROR_CODES;
+
+beforeAll(async () => {
+  ({ NotionService } = await import('../../../../scripts/background/services/NotionService.js'));
+  ({ NOTION_API } = await import('../../../../scripts/config/extension/notionApi.js'));
+  ({ default: Logger } = await import('../../../../scripts/utils/Logger.js'));
+  ({ getActiveNotionToken, refreshOAuthToken } =
+    await import('../../../../scripts/utils/notionAuth.js'));
+  ({ HIGHLIGHT_ERROR_CODES } = await import('../../../../scripts/config/shared/messages.js'));
+});
 
 const createMockResponse = (data, ok = true, status = 200) => ({
   ok,
@@ -46,7 +87,7 @@ describe('NotionService', () => {
     jest.clearAllMocks();
     getActiveNotionToken.mockResolvedValue({ token: 'test-api-key', mode: 'manual' });
     refreshOAuthToken.mockResolvedValue(null);
-    mockLogger = require('../../../helpers/loggerMock.js').createLoggerMock({
+    mockLogger = createTestLoggerMock({
       debugEnabled: true,
     });
     globalThis.fetch = jest.fn().mockResolvedValue(mockFetchResponse);

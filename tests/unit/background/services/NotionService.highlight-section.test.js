@@ -1,6 +1,6 @@
 // NotionService.highlight-section.test.js
 import { NotionService } from '../../../../scripts/background/services/NotionService.js';
-import { paragraphBlock, headingBlock } from '../../../helpers/notionServiceTestHarness.js';
+import { paragraphBlock, headingBlock } from './serviceTestSupport.js';
 
 describe('NotionService - _findHighlightSectionBlocks (靜態方法)', () => {
   const HEADER = '📝 頁面標記';

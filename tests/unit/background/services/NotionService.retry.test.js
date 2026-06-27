@@ -1,7 +1,24 @@
 // NotionService.retry.test.js
 // 1. Mocks MUST be at the very top
+import { jest } from '@jest/globals';
+
+const createTestLoggerMock = (overrides = {}) => ({
+  debugEnabled: false,
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+  info: jest.fn(),
+  debug: jest.fn(),
+  log: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  getBuffer: jest.fn(() => []),
+  addLogToBuffer: jest.fn(),
+  ...overrides,
+});
+
 jest.mock('../../../../scripts/utils/Logger.js', () => {
-  const loggerMock = require('../../../helpers/loggerMock.js').createLoggerMock({
+  const loggerMock = createTestLoggerMock({
     debugEnabled: true,
   });
   return {
@@ -11,7 +28,19 @@ jest.mock('../../../../scripts/utils/Logger.js', () => {
   };
 });
 
-import { fetchWithRetry } from '../../../../scripts/utils/RetryManager.js';
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('../../../../scripts/utils/Logger.js', () => ({
+    default: createTestLoggerMock({
+      debugEnabled: true,
+    }),
+  }));
+}
+
+let fetchWithRetry;
+
+beforeAll(async () => {
+  ({ fetchWithRetry } = await import('../../../../scripts/utils/RetryManager.js'));
+});
 
 const createMockResponse = (data, ok = true, status = 200) => ({
   ok,
