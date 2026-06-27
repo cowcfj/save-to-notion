@@ -138,6 +138,11 @@
     "rationale": "safeIcon sanitization, text fallback, namespace normalization, and DOM append paths must retain source-line hits."
   },
   {
+    "fileSuffix": "scripts/utils/LogBufferPersistence.js",
+    "lines": [15, 16, 29, 31, 49, 50, 58, 60],
+    "rationale": "Log buffer session persistence native ESM sibling must retain source-line hits for flush success, restore fallback, alarm registration, and reset cleanup."
+  },
+  {
     "fileSuffix": "scripts/utils/image/imageUrl.js",
     "lines": [
       75, 77, 112, 116, 119, 129, 137, 190, 193, 205, 223, 226, 236, 238, 242, 255, 256, 270, 275,

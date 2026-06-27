@@ -10,16 +10,39 @@
  * 重點測試安全性驗證邏輯 validatePrivilegedRequest
  */
 
-import { createMigrationHandlers } from '../../../../scripts/background/handlers/migrationHandlers.js';
+import { jest } from '@jest/globals';
 import { BACKGROUND_MESSAGES } from '../../../../scripts/config/messages/backgroundMessages.js';
 import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
-import { computeStableUrl } from '../../../../scripts/utils/urlUtils.js';
 
-jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
+const mockUrlUtils = {
   computeStableUrl: jest.fn(),
-}));
+};
+
+if (process.env.NODE_OPTIONS?.includes('--experimental-vm-modules')) {
+  jest.unstable_mockModule('../../../../scripts/utils/urlUtils.js', () => mockUrlUtils);
+} else {
+  jest.mock('../../../../scripts/utils/urlUtils.js', () => mockUrlUtils);
+}
+
+let createMigrationHandlers;
+let computeStableUrl;
+
+beforeAll(async () => {
+  ({ createMigrationHandlers } =
+    await import('../../../../scripts/background/handlers/migrationHandlers.js'));
+  ({ computeStableUrl } = await import('../../../../scripts/utils/urlUtils.js'));
+});
 
 // Mock Logger
+const Logger = (globalThis.Logger = {
+  start: jest.fn(),
+  success: jest.fn(),
+  ready: jest.fn(),
+  info: jest.fn(),
+  log: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+});
 
 // Mock chrome API
 
@@ -36,6 +59,11 @@ describe('migrationHandlers', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    globalThis.chrome = {
+      runtime: {
+        id: 'mock-extension-id',
+      },
+    };
     computeStableUrl.mockReturnValue(null); // 預設不返回穩定 URL
 
     // StorageService mock（Phase 1+2 後所有 handler 均使用此服務）
@@ -63,6 +91,10 @@ describe('migrationHandlers', () => {
       migrationScanner: mockMigrationScanner,
     };
     handlers = createMigrationHandlers(mockServices);
+  });
+
+  afterEach(() => {
+    delete globalThis.chrome;
   });
 
   describe('validatePrivilegedRequest Security Checks', () => {
