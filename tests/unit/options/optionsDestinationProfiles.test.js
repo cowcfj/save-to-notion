@@ -51,6 +51,12 @@ async function changeProfileSwitch(profileId, checked) {
   return input;
 }
 
+async function renderDestinationProfilesWithService(service) {
+  ProfileManager.mockImplementationOnce(() => service);
+  initOptions();
+  await flushAsyncClick();
+}
+
 describe('Destination profile options UI', () => {
   let mockUiInstance = null;
 
@@ -80,12 +86,6 @@ describe('Destination profile options UI', () => {
     BUILD_ENV.ENABLE_ACCOUNT = true;
     jest.clearAllMocks();
   });
-
-  async function renderDestinationProfilesWithService(service) {
-    ProfileManager.mockImplementationOnce(() => service);
-    initOptions();
-    await flushAsyncClick();
-  }
 
   async function renderDestinationProfileRenameEditor(service) {
     await renderDestinationProfilesWithService(service);
