@@ -99,13 +99,13 @@ let createSaveHandlers;
 let createSaveHandlersHarness;
 let setCreateSaveHandlersFactory;
 let sharedChromeMock;
-export let ensureNotionApiKey;
-export let getActiveNotionToken;
-export let isRestrictedInjectionUrl;
-export let isValidNotionUrl;
-export let normalizeUrl;
-export let resolveStorageUrl;
-export let validateInternalRequest;
+export const ensureNotionApiKey = mockNotionAuth.ensureNotionApiKey;
+export const getActiveNotionToken = mockNotionAuth.getActiveNotionToken;
+export const isRestrictedInjectionUrl = mockInjectionService.isRestrictedInjectionUrl;
+export const isValidNotionUrl = mockSecurityUtils.isValidNotionUrl;
+export const normalizeUrl = mockUrlUtils.normalizeUrl;
+export const resolveStorageUrl = mockUrlUtils.resolveStorageUrl;
+export const validateInternalRequest = mockSecurityUtils.validateInternalRequest;
 
 beforeAll(async () => {
   const chromeMockModule = await import('../../../mocks/chrome.js');
@@ -117,13 +117,6 @@ beforeAll(async () => {
   ({ createSaveHandlersHarness, setCreateSaveHandlersFactory } =
     await import('./saveHandlersTestHarness.js'));
   setCreateSaveHandlersFactory(createSaveHandlers);
-  ({ ensureNotionApiKey, getActiveNotionToken } =
-    await import('../../../../scripts/utils/notionAuth.js'));
-  ({ isRestrictedInjectionUrl } =
-    await import('../../../../scripts/background/services/InjectionService.js'));
-  ({ isValidNotionUrl, validateInternalRequest } =
-    await import('../../../../scripts/utils/securityUtils.js'));
-  ({ normalizeUrl, resolveStorageUrl } = await import('../../../../scripts/utils/urlUtils.js'));
 });
 
 function restoreChromeMock() {
