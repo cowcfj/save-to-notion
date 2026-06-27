@@ -17,6 +17,8 @@
  * Note: performSmartCleaning is tested in ReadabilityAdapter.smartCleaning.test.js
  */
 
+import { jest } from '@jest/globals';
+
 // Mock Logger
 const Logger = {
   log: jest.fn(),
@@ -40,24 +42,39 @@ if (typeof CSS === 'undefined') {
 // Mock PerformanceOptimizer（可選依賴）
 // Mock Readability（用於 parseArticleWithReadability）
 const mockReadabilityParse = jest.fn();
-const MockReadability = jest.fn().mockImplementation(() => ({
+const mockReadabilityConstructor = jest.fn().mockImplementation(() => ({
   parse: mockReadabilityParse,
 }));
 
 jest.mock('@mozilla/readability', () => ({
-  Readability: MockReadability,
+  Readability: mockReadabilityConstructor,
 }));
 
-// 引入模組
-const {
-  safeQueryElements,
-  expandCollapsibleElements,
-  cachedQuery,
-  findContentCmsFallback,
-  extractLargestListFallback,
-  parseArticleWithReadability,
-  detectCMS,
-} = require('../../../../scripts/content/extractors/ReadabilityAdapter.js');
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('@mozilla/readability', () => ({
+    Readability: mockReadabilityConstructor,
+  }));
+}
+
+let safeQueryElements;
+let expandCollapsibleElements;
+let cachedQuery;
+let findContentCmsFallback;
+let extractLargestListFallback;
+let parseArticleWithReadability;
+let detectCMS;
+
+beforeAll(async () => {
+  ({
+    safeQueryElements,
+    expandCollapsibleElements,
+    cachedQuery,
+    findContentCmsFallback,
+    extractLargestListFallback,
+    parseArticleWithReadability,
+    detectCMS,
+  } = await import('../../../../scripts/content/extractors/ReadabilityAdapter.js'));
+});
 
 describe('ReadabilityAdapter - 額外函數測試', () => {
   beforeEach(() => {

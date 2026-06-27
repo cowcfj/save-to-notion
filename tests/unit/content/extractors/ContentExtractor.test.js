@@ -2,84 +2,121 @@
  * @jest-environment jsdom
  */
 
-// Mock dependencies before require
-jest.mock('../../../../scripts/content/extractors/ReadabilityAdapter', () => {
-  const parseArticleWithReadability = jest.fn();
-  const isContentGood = jest.fn();
-  const findContentCmsFallback = jest.fn();
-  const extractLargestListFallback = jest.fn();
+import { jest } from '@jest/globals';
 
-  return {
-    parseArticleWithReadability,
-    isContentGood,
-    findContentCmsFallback,
-    extractLargestListFallback,
-    readabilityAdapter: {
-      parseArticleWithReadability,
-      isContentGood,
-      findContentCmsFallback,
-      extractLargestListFallback,
-    },
-    __esModule: true,
-  };
-});
+const parseArticleWithReadability = jest.fn();
+const isContentGood = jest.fn();
+const findContentCmsFallback = jest.fn();
+const extractLargestListFallback = jest.fn();
 
-jest.mock('../../../../scripts/content/extractors/MetadataExtractor', () => ({
-  MetadataExtractor: {
-    extract: jest.fn(),
-  },
-}));
-
-jest.mock('../../../../scripts/content/extractors/NextJsExtractor', () => ({
-  NextJsExtractor: {
-    detect: jest.fn(),
-    extract: jest.fn(),
-    extractAsync: jest.fn(),
-  },
-}));
-
-// Mock pageComplexityDetector
-jest.mock(
-  '../../../../scripts/utils/pageComplexityDetector',
-  () => ({
-    detectPageComplexity: jest.fn(),
-    selectExtractor: jest.fn(),
-  }),
-  { virtual: true }
-);
-
-jest.mock('../../../../scripts/highlighter/utils/domStability.js', () => ({
-  waitForDOMStability: jest.fn().mockResolvedValue(true),
-}));
-
-const { ContentExtractor } = require('../../../../scripts/content/extractors/ContentExtractor');
-const {
+const mockReadabilityAdapterModule = {
   parseArticleWithReadability,
   isContentGood,
   findContentCmsFallback,
   extractLargestListFallback,
-} = require('../../../../scripts/content/extractors/ReadabilityAdapter');
-const { MetadataExtractor } = require('../../../../scripts/content/extractors/MetadataExtractor');
-const pageComplexityDetector = require('../../../../scripts/utils/pageComplexityDetector');
-const domStability = require('../../../../scripts/highlighter/utils/domStability.js');
-const { DOM_STABILITY } = require('../../../../scripts/config/shared/content.js');
-
-jest.mock('../../../../scripts/utils/Logger.js', () => ({
-  __esModule: true,
-  default: {
-    debug: jest.fn(),
-    success: jest.fn(),
-    start: jest.fn(),
-    ready: jest.fn(),
-    info: jest.fn(),
-    log: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
+  readabilityAdapter: {
+    parseArticleWithReadability,
+    isContentGood,
+    findContentCmsFallback,
+    extractLargestListFallback,
   },
-}));
+  __esModule: true,
+};
 
-const Logger = require('../../../../scripts/utils/Logger.js').default;
+const MetadataExtractor = {
+  extract: jest.fn(),
+};
+const mockMetadataExtractorModule = { MetadataExtractor };
+
+const NextJsExtractor = {
+  detect: jest.fn(),
+  extract: jest.fn(),
+  extractAsync: jest.fn(),
+};
+const mockNextJsExtractorModule = { NextJsExtractor };
+
+const { detectPageComplexity, selectExtractor } = {
+  detectPageComplexity: jest.fn(),
+  selectExtractor: jest.fn(),
+};
+const pageComplexityDetector = { detectPageComplexity, selectExtractor };
+const mockPageComplexityDetectorModule = { detectPageComplexity, selectExtractor };
+
+const domStability = {
+  waitForDOMStability: jest.fn().mockResolvedValue(true),
+};
+const mockDomStabilityModule = domStability;
+
+const Logger = {
+  debug: jest.fn(),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+  info: jest.fn(),
+  log: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+};
+const mockLoggerModule = {
+  __esModule: true,
+  default: Logger,
+};
+
+const isNativeJestEsm = process.env.NODE_OPTIONS?.includes('--experimental-vm-modules');
+
+if (isNativeJestEsm) {
+  jest.unstable_mockModule(
+    '../../../../scripts/content/extractors/ReadabilityAdapter.js',
+    () => mockReadabilityAdapterModule
+  );
+  jest.unstable_mockModule(
+    '../../../../scripts/content/extractors/MetadataExtractor.js',
+    () => mockMetadataExtractorModule
+  );
+  jest.unstable_mockModule(
+    '../../../../scripts/content/extractors/NextJsExtractor.js',
+    () => mockNextJsExtractorModule
+  );
+  jest.unstable_mockModule(
+    '../../../../scripts/utils/pageComplexityDetector.js',
+    () => mockPageComplexityDetectorModule
+  );
+  jest.unstable_mockModule(
+    '../../../../scripts/highlighter/utils/domStability.js',
+    () => mockDomStabilityModule
+  );
+  jest.unstable_mockModule('../../../../scripts/utils/Logger.js', () => mockLoggerModule);
+} else {
+  jest.mock(
+    '../../../../scripts/content/extractors/ReadabilityAdapter',
+    () => mockReadabilityAdapterModule
+  );
+  jest.mock(
+    '../../../../scripts/content/extractors/MetadataExtractor',
+    () => mockMetadataExtractorModule
+  );
+  jest.mock(
+    '../../../../scripts/content/extractors/NextJsExtractor',
+    () => mockNextJsExtractorModule
+  );
+  jest.mock(
+    '../../../../scripts/utils/pageComplexityDetector',
+    () => mockPageComplexityDetectorModule
+  );
+  jest.mock('../../../../scripts/highlighter/utils/domStability.js', () => mockDomStabilityModule);
+  jest.mock('../../../../scripts/utils/Logger.js', () => mockLoggerModule);
+}
+
 globalThis.Logger = Logger;
+
+let ContentExtractor;
+let DOM_STABILITY;
+
+beforeAll(async () => {
+  ({ ContentExtractor } =
+    await import('../../../../scripts/content/extractors/ContentExtractor.js'));
+  ({ DOM_STABILITY } = await import('../../../../scripts/config/shared/content.js'));
+});
 
 describe('ContentExtractor', () => {
   beforeEach(() => {
@@ -175,7 +212,6 @@ describe('ContentExtractor', () => {
 
     test('should handle Next.js detection errors gracefully', () => {
       // Mock NextJsExtractor to throw
-      const { NextJsExtractor } = require('../../../../scripts/content/extractors/NextJsExtractor');
       NextJsExtractor.detect.mockImplementationOnce(() => {
         throw new Error('Next.js Error');
       });
@@ -222,7 +258,6 @@ describe('ContentExtractor', () => {
 
   describe('extractAsync', () => {
     test('stale 時等待 DOM 穩定後回退 Readability', async () => {
-      const { NextJsExtractor } = require('../../../../scripts/content/extractors/NextJsExtractor');
       NextJsExtractor.detect.mockReturnValue(true);
       NextJsExtractor.extractAsync.mockResolvedValue(null);
 
