@@ -57,6 +57,29 @@ async function renderDestinationProfilesWithService(service) {
   await flushAsyncClick();
 }
 
+async function renderDestinationProfileRenameEditor(service) {
+  await renderDestinationProfilesWithService(service);
+  document.querySelector('button[data-action="rename"]').click();
+  await flushAsyncClick();
+  return document.querySelector('input[data-role="destination-profile-name-edit"]');
+}
+
+async function expectDestinationProfilesReadFailure({
+  methodName,
+  error,
+  renderAssertion,
+  warningMessage,
+  warningContext,
+}) {
+  const service = buildProfileManagerMock({
+    [methodName]: jest.fn().mockRejectedValue(error),
+  });
+  await renderDestinationProfilesWithService(service);
+
+  renderAssertion();
+  expectDestinationProfileRenderWarning(warningMessage, error, warningContext);
+}
+
 describe('Destination profile options UI', () => {
   let mockUiInstance = null;
 
@@ -86,29 +109,6 @@ describe('Destination profile options UI', () => {
     BUILD_ENV.ENABLE_ACCOUNT = true;
     jest.clearAllMocks();
   });
-
-  async function renderDestinationProfileRenameEditor(service) {
-    await renderDestinationProfilesWithService(service);
-    document.querySelector('button[data-action="rename"]').click();
-    await flushAsyncClick();
-    return document.querySelector('input[data-role="destination-profile-name-edit"]');
-  }
-
-  async function expectDestinationProfilesReadFailure({
-    methodName,
-    error,
-    renderAssertion,
-    warningMessage,
-    warningContext,
-  }) {
-    const service = buildProfileManagerMock({
-      [methodName]: jest.fn().mockRejectedValue(error),
-    });
-    await renderDestinationProfilesWithService(service);
-
-    renderAssertion();
-    expectDestinationProfileRenderWarning(warningMessage, error, warningContext);
-  }
 
   async function expectCreateProfileValidationFailure({
     name,
