@@ -112,6 +112,19 @@ globalThis.Logger = Logger;
 let ContentExtractor;
 let DOM_STABILITY;
 
+function setupFailingReadabilityExtraction({ cmsContent, listContent }) {
+  pageComplexityDetector.detectPageComplexity.mockReturnValue({});
+  pageComplexityDetector.selectExtractor.mockReturnValue({ extractor: 'readability' });
+
+  parseArticleWithReadability.mockReturnValue({});
+  isContentGood.mockReturnValue(false);
+  findContentCmsFallback.mockReturnValue(cmsContent);
+
+  if (listContent !== undefined) {
+    extractLargestListFallback.mockReturnValue(listContent);
+  }
+}
+
 beforeAll(async () => {
   ({ ContentExtractor } =
     await import('../../../../scripts/content/extractors/ContentExtractor.js'));
@@ -148,33 +161,28 @@ describe('ContentExtractor', () => {
       expect(parseArticleWithReadability).toHaveBeenCalled();
     });
 
-    test('should fallback to CMS content if Readability fails', () => {
-      pageComplexityDetector.detectPageComplexity.mockReturnValue({});
-      pageComplexityDetector.selectExtractor.mockReturnValue({ extractor: 'readability' });
-
-      parseArticleWithReadability.mockReturnValue({});
-      isContentGood.mockReturnValue(false);
-      findContentCmsFallback.mockReturnValue('<div>CMS Content</div>');
-
-      const result = ContentExtractor.extract(document);
-
-      expect(result.content).toBe('<div>CMS Content</div>');
-      expect(findContentCmsFallback).toHaveBeenCalled();
-    });
-
-    test('should fallback to List content if CMS fallback fails', () => {
-      pageComplexityDetector.detectPageComplexity.mockReturnValue({});
-      pageComplexityDetector.selectExtractor.mockReturnValue({ extractor: 'readability' });
-
-      parseArticleWithReadability.mockReturnValue({});
-      isContentGood.mockReturnValue(false);
-      findContentCmsFallback.mockReturnValue(null);
-      extractLargestListFallback.mockReturnValue('<ul><li>List Content</li></ul>');
+    test.each([
+      {
+        name: 'should fallback to CMS content if Readability fails',
+        cmsContent: '<div>CMS Content</div>',
+        listContent: undefined,
+        expectedContent: '<div>CMS Content</div>',
+        expectedFallback: findContentCmsFallback,
+      },
+      {
+        name: 'should fallback to List content if CMS fallback fails',
+        cmsContent: null,
+        listContent: '<ul><li>List Content</li></ul>',
+        expectedContent: '<ul><li>List Content</li></ul>',
+        expectedFallback: extractLargestListFallback,
+      },
+    ])('$name', ({ cmsContent, listContent, expectedContent, expectedFallback }) => {
+      setupFailingReadabilityExtraction({ cmsContent, listContent });
 
       const result = ContentExtractor.extract(document);
 
-      expect(result.content).toBe('<ul><li>List Content</li></ul>');
-      expect(extractLargestListFallback).toHaveBeenCalled();
+      expect(result.content).toBe(expectedContent);
+      expect(expectedFallback).toHaveBeenCalled();
     });
 
     test('should use Technical extraction when selected (markdown)', () => {
