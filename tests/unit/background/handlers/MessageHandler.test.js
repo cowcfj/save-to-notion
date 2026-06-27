@@ -169,7 +169,7 @@ describe('MessageHandler', () => {
     });
 
     it('AppError 帶 code 時 envelope 應透傳 errorCode (ADR 0007)', async () => {
-      const { Errors } = jest.requireActual('../../../../scripts/utils/ErrorHandler.js');
+      const { Errors } = await import('../../../../scripts/utils/ErrorHandler.js');
       const errorHandler = jest.fn(() => {
         throw Errors.notionApi('Page not saved', { phase: 'createPage' }, 'PAGE_NOT_SAVED');
       });
