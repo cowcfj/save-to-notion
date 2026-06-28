@@ -80,13 +80,14 @@ module.exports = {
     '!**/node_modules/**'
   ],
 
-  // 覆蓋率門檼 (已根據目前測試結果大幅提升)
+  // Incumbent Jest/Babel coverage is retained as fallback and contract evidence.
+  // Official local threshold ownership lives in jest.native-esm.config.cjs.
   coverageThreshold: {
     global: {
-      branches: 70,
-      functions: 80,
-      lines: 80,
-      statements: 80
+      branches: 0,
+      functions: 0,
+      lines: 0,
+      statements: 0
     }
   },
 

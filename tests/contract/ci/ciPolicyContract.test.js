@@ -42,7 +42,11 @@ function getWorkflowStepBlock(workflowSource, stepName) {
   );
 }
 
-describe('workflow policy contract', () => {
+function countTrimmedLines(source, expectedLine) {
+  return source.split('\n').filter(line => line.trim() === expectedLine).length;
+}
+
+describe('CI policy contract', () => {
   test('SonarCloud GitHub Action stays out of the active workflow directory', () => {
     expect(fs.existsSync(activeSonarWorkflow)).toBe(false);
 
@@ -119,22 +123,47 @@ describe('workflow policy contract', () => {
     });
   });
 
-  test('native ESM threshold simulation regenerates required coverage artifacts before reporting', () => {
+  test('native ESM threshold comparison regenerates fallback and official artifacts before reporting', () => {
     const script =
       readRootJson('package.json').scripts['test:coverage:native-esm:threshold-simulation'];
 
     expect(script).toMatch(
-      /^npm run test:coverage && npm run test:coverage:native-esm && node tools\/report-native-esm-threshold-simulation\.mjs/
+      /^npm run test:coverage:incumbent && npm run test:coverage:native-esm && node tools\/report-native-esm-threshold-simulation\.mjs/
     );
   });
 
-  test('native ESM coverage emits LCOV only in the diagnostic output directory', () => {
+  test('native ESM coverage owns official local thresholds and emits LCOV in the official V8 directory', () => {
+    const scripts = readRootJson('package.json').scripts;
     const nativeConfig = require('../../../jest.native-esm.config.cjs');
 
+    expect(scripts['test:coverage:native-esm']).toMatch(/(?:^| )--ci(?: |$)/);
+    expect(scripts['test:coverage:native-esm']).not.toMatch(/(?:^| )--runInBand(?: |$)/);
+    expect(nativeConfig.maxWorkers).toBe(4);
     expect(nativeConfig.coverageDirectory).toBe('<rootDir>/coverage/native-esm');
     expect(nativeConfig.coverageReporters).toEqual(
       expect.arrayContaining(['json', 'text', 'lcov'])
     );
+    expect(nativeConfig.coverageThreshold.global).toEqual({
+      branches: 70,
+      functions: 80,
+      lines: 80,
+      statements: 80,
+    });
+  });
+
+  test('incumbent Jest coverage is retained as a fallback but no longer owns local thresholds', () => {
+    const scripts = readRootJson('package.json').scripts;
+    const incumbentConfig = require('../../../jest.config.js');
+
+    expect(scripts['test:coverage']).toBe('npm run test:coverage:native-esm:assert');
+    expect(scripts['test:ci']).toBe('npm run test:coverage:native-esm:assert');
+    expect(scripts['test:coverage:incumbent']).toBe('jest --config jest.config.js --coverage');
+    expect(incumbentConfig.coverageThreshold.global).toEqual({
+      branches: 0,
+      functions: 0,
+      lines: 0,
+      statements: 0,
+    });
   });
 
   test('native ESM parity flag is retired after single-upload cutover', () => {
@@ -144,14 +173,25 @@ describe('workflow policy contract', () => {
     expect(codecovConfig).not.toContain('carryforward: false # Phase 3 diagnostic flag');
   });
 
-  test('native ESM Codecov single upload rehearsal is active in Coverage Gate workflow', () => {
+  test('Coverage Gate runs the official V8 coverage route once and uploads only native LCOV', () => {
     const workflowSource = readWorkflow('coverage-gate.yml');
     const validationStep = getWorkflowStepBlock(workflowSource, '驗證覆蓋率檔案');
-    const officialUploadStep = getWorkflowStepBlock(workflowSource, 'Upload coverage to Codecov');
-    const nativeDiagnosticArtifactStep = getWorkflowStepBlock(
-      workflowSource,
-      '上傳 native ESM 診斷 artifact'
-    );
+    const officialUploadStep = getWorkflowStepBlock(workflowSource, '上傳覆蓋率到 Codecov');
+
+    expect(workflowSource).toContain('name: Coverage Gate');
+    expect(workflowSource).toContain('run-name: Coverage Gate @');
+    expect(workflowSource).toContain('name: Coverage Gate Classifier');
+    expect(workflowSource).toContain('name: Jest Full Coverage');
+    expect(workflowSource).toContain('name: 執行 V8 覆蓋率閘門');
+    expect(countTrimmedLines(workflowSource, 'run: npm run test:ci')).toBe(1);
+    expect(workflowSource).not.toContain('npm run test:coverage:native-esm:assert');
+    expect(workflowSource).not.toContain('npm run test:coverage:native-esm:scope-parity');
+    expect(workflowSource).not.toContain('coverage/native-esm/line-hit-summary.md');
+    expect(workflowSource).not.toContain('coverage/native-esm/scope-parity-summary.md');
+    expect(workflowSource).not.toContain('native-esm-diagnostic-${{ github.sha }}');
+    expect(workflowSource).not.toContain('coverage/jest/lcov.info');
+    expect(workflowSource).toContain('path: .tmp/jest-cache-native-esm');
+    expect(workflowSource).not.toContain('path: .jest-cache');
 
     expect(validationStep).toContain('EXPECTED_CODECOV_LCOV_FILE="coverage/native-esm/lcov.info"');
     expect(validationStep).toContain('LCOV_FILE="coverage/native-esm/lcov.info"');
@@ -161,12 +201,17 @@ describe('workflow policy contract', () => {
     expect(officialUploadStep).toContain('disable_search: true');
     expect(officialUploadStep).toContain('use_oidc: true');
     expect(officialUploadStep).not.toContain('native-esm-parity');
-
-    expect(nativeDiagnosticArtifactStep).toContain('coverage/native-esm/lcov.info');
     expect(workflowSource).not.toContain('- name: Validate native ESM coverage');
     expect(workflowSource).not.toContain(
       '- name: Upload native ESM coverage to Codecov parity flag'
     );
     expect(workflowSource).not.toMatch(/codecov\/codecov-action@[\s\S]*flags:\s+native-esm-parity/);
+  });
+
+  test('Coverage Gate classifier treats native Jest ESM config as coverage-relevant', () => {
+    const workflowSource = readWorkflow('coverage-gate.yml');
+    const classifierStep = getWorkflowStepBlock(workflowSource, '偵測覆蓋率相關變更');
+
+    expect(classifierStep).toContain("- 'jest.native-esm.config.cjs'");
   });
 });

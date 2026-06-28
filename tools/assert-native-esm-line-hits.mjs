@@ -230,7 +230,29 @@ function normalizeReportPath(filePath) {
   return normalizeToPosixPath(path.relative(projectRoot, path.resolve(projectRoot, filePath)));
 }
 
-function createGateRecords({ failedLines, checkedLineCount }) {
+function createThresholdParityGate(thresholdSourceOwnershipCheck) {
+  if (thresholdSourceOwnershipCheck?.status === 'pass') {
+    return {
+      id: 'threshold-parity',
+      label: '門檻對齊',
+      status: 'pass',
+      blocking: false,
+      evidence: thresholdSourceOwnershipCheck.evidence,
+    };
+  }
+
+  return {
+    id: 'threshold-parity',
+    label: '門檻對齊',
+    status: thresholdSourceOwnershipCheck?.status === 'fail' ? 'fail' : 'not_evaluated',
+    blocking: false,
+    evidence:
+      thresholdSourceOwnershipCheck?.evidence ||
+      '缺少明確的 coverageThreshold 來源所有權檢查，行命中診斷不判定門檻對齊。',
+  };
+}
+
+function createGateRecords({ failedLines, checkedLineCount, thresholdSourceOwnershipCheck }) {
   return [
     {
       id: 'source-line-correctness',
@@ -263,17 +285,18 @@ function createGateRecords({ failedLines, checkedLineCount }) {
       blocking: false,
       evidence: 'coverage-gate.yml 在本次演練中會上傳 coverage/native-esm/lcov.info 到 Codecov。',
     },
-    {
-      id: 'threshold-parity',
-      label: '門檻對齊',
-      status: 'not_evaluated',
-      blocking: false,
-      evidence: '正式 coverageThreshold 仍由 npm run test:coverage / npm run test:ci 負責。',
-    },
+    createThresholdParityGate(thresholdSourceOwnershipCheck),
   ];
 }
 
-function buildSummary({ coveragePath, manifestPath, fileResults, checkedLineCount, failedLines }) {
+function buildSummary({
+  coveragePath,
+  manifestPath,
+  fileResults,
+  checkedLineCount,
+  failedLines,
+  thresholdSourceOwnershipCheck,
+}) {
   return {
     schemaVersion: 1,
     diagnosticOnly: true,
@@ -286,7 +309,7 @@ function buildSummary({ coveragePath, manifestPath, fileResults, checkedLineCoun
       failedLines,
     },
     files: fileResults,
-    gates: createGateRecords({ failedLines, checkedLineCount }),
+    gates: createGateRecords({ failedLines, checkedLineCount, thresholdSourceOwnershipCheck }),
   };
 }
 

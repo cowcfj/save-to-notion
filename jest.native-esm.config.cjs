@@ -198,6 +198,7 @@ module.exports = {
   ],
   setupFiles: ['<rootDir>/tests/native-esm/incumbent-parity.setup.mjs'],
   cacheDirectory: '<rootDir>/.tmp/jest-cache-native-esm',
+  maxWorkers: 4,
   coverageProvider: 'v8',
   coverageDirectory: '<rootDir>/coverage/native-esm',
   coverageReporters: ['json', 'text', 'lcov'],
@@ -392,10 +393,10 @@ module.exports = {
   ],
   coverageThreshold: {
     global: {
-      branches: 0,
-      functions: 0,
-      lines: 0,
-      statements: 0,
+      branches: 70,
+      functions: 80,
+      lines: 80,
+      statements: 80,
     },
   },
   verbose: false,
