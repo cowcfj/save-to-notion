@@ -2,14 +2,36 @@
  * @jest-environment jsdom
  */
 
+import { jest } from '@jest/globals';
+
 import { CONTENT_BRIDGE_ACTIONS } from '../../../../scripts/config/runtimeActions/contentBridgeActions.js';
 import { HIGHLIGHTER_ACTIONS } from '../../../../scripts/config/runtimeActions/highlighterActions.js';
-import { createPersistentListeners } from '../../../../scripts/highlighter/autoInit/persistentListeners.js';
-import Logger from '../../../../scripts/utils/Logger.js';
+
+const mockLogger = {
+  warn: jest.fn(),
+};
+const Logger = mockLogger;
 
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
-  warn: jest.fn(),
+  __esModule: true,
+  default: mockLogger,
+  ...mockLogger,
 }));
+
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('../../../../scripts/utils/Logger.js', () => ({
+    __esModule: true,
+    default: mockLogger,
+    ...mockLogger,
+  }));
+}
+
+let createPersistentListeners;
+
+beforeAll(async () => {
+  ({ createPersistentListeners } =
+    await import('../../../../scripts/highlighter/autoInit/persistentListeners.js'));
+});
 
 function createListenerTarget(overrides = {}) {
   return {

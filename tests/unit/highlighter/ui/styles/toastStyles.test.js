@@ -1,10 +1,23 @@
-import {
-  getToastCSS,
-  injectToastStylesIntoShadowRoot,
-} from '../../../../../scripts/highlighter/ui/styles/toastStyles.js';
-import { UI_TOKENS } from '../../../../../styles/ui-token-constants.js';
+/**
+ * @jest-environment jsdom
+ */
 
-const { status } = UI_TOKENS;
+import { jest } from '@jest/globals';
+import { registerUiTokenConstantsMock } from '../uiTokenConstantsMock.js';
+
+registerUiTokenConstantsMock(jest, '../../../../../styles/ui-token-constants.js');
+
+let getToastCSS;
+let injectToastStylesIntoShadowRoot;
+let UI_TOKENS;
+
+beforeAll(async () => {
+  ({ UI_TOKENS } = await import('../../../../../styles/ui-token-constants.js'));
+  ({ getToastCSS, injectToastStylesIntoShadowRoot } =
+    await import('../../../../../scripts/highlighter/ui/styles/toastStyles.js'));
+});
+
+let status;
 
 function normalizeToastCSS(cssString) {
   return cssString.replaceAll(/\s+/g, ' ').trim();
@@ -105,7 +118,12 @@ const toastStatusCases = [
 
 describe('toastStyles', () => {
   describe('getToastCSS', () => {
-    const css = getToastCSS();
+    let css;
+
+    beforeAll(() => {
+      status = UI_TOKENS.status;
+      css = getToastCSS();
+    });
 
     test(':host 應為 fixed 定位且使用最高 z-index', () => {
       expect(css).toMatch(/:host\s*\{[\s\S]*?all:\s*initial/);

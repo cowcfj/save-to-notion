@@ -14,7 +14,7 @@ import {
   MIGRATION_LEFTOVER_PREFIXES,
   sanitizeBackupData,
 } from '../../../pages/options/storageDataUtils';
-import { buildChromeMock } from '../../helpers/storageManagerTestHarness.js';
+import { buildChromeMock } from './storageManagerTestHarness.js';
 
 describe('storageDataUtils — getAllLocalStorage', () => {
   let mockGet = null;

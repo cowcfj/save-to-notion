@@ -1,8 +1,11 @@
-import { createSaveHandlers } from '../../scripts/background/handlers/saveHandlers.js';
-
 const DELETION_CONFIRMED = { shouldDelete: true, deletionPending: false };
 const DELETION_NOT_PENDING = { shouldDelete: false, deletionPending: false };
 const DELETION_PENDING = { shouldDelete: false, deletionPending: true };
+let createSaveHandlersFactory;
+
+export function setCreateSaveHandlersFactory(factory) {
+  createSaveHandlersFactory = factory;
+}
 
 function normalizePageId(notionPageId) {
   return notionPageId ? String(notionPageId) : null;
@@ -58,9 +61,6 @@ function createDeletionPendingTracker() {
   };
 }
 
-/**
- * 建立刪除確認的內部狀態機 (對應原本 test 的 Map 邏輯)
- */
 export function createDeletionConfirmationState() {
   const deletionTracker = createDeletionPendingTracker();
   return {
@@ -72,9 +72,6 @@ export function createDeletionConfirmationState() {
   };
 }
 
-/**
- * 建立所有背景服務的 Mock
- */
 export function createMockServices() {
   const deletionState = createDeletionConfirmationState();
   return {
@@ -130,18 +127,15 @@ export function createMockServices() {
   };
 }
 
-/**
- * 建立 Save Handlers 測試 harness 實例
- */
 export function createSaveHandlersHarness() {
+  if (typeof createSaveHandlersFactory !== 'function') {
+    throw new TypeError('createSaveHandlers factory must be set before creating the harness');
+  }
+
   const mockServices = createMockServices();
-  const handlers = createSaveHandlers(mockServices);
+  const handlers = createSaveHandlersFactory(mockServices);
   return { handlers, mockServices };
 }
-
-/**
- * Fixture Builders / Overriders
- */
 
 export function buildExtensionSender(overrides = {}) {
   return {
@@ -196,9 +190,16 @@ export function buildSavedPageState(overrides = {}) {
   };
 }
 
-/**
- * Sequence Mock Helpers
- */
+export function buildSavedPageData(overrides = {}) {
+  return {
+    notionPageId: 'page-123',
+    notionUrl: 'https://www.notion.so/page-123',
+    title: 'Test Page',
+    savedAt: 12_345,
+    lastVerifiedAt: 12_345,
+    ...overrides,
+  };
+}
 
 export function mockResolvedTabUrlSequence(tabService, entries) {
   let mock = tabService.resolveTabUrl;

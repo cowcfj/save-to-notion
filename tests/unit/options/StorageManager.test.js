@@ -1,3 +1,8 @@
+/**
+ * @jest-environment jsdom
+ */
+
+import { jest } from '@jest/globals';
 import { StorageManager } from '../../../pages/options/StorageManager';
 import Logger from '../../../scripts/utils/Logger';
 import {
@@ -6,18 +11,7 @@ import {
   buildChromeMock,
   buildFileEvent,
   getModeButton,
-} from '../../helpers/storageManagerTestHarness.js';
-
-// Mock Logger
-jest.mock('../../../scripts/utils/Logger', () => ({
-  info: jest.fn(),
-  error: jest.fn(),
-  warn: jest.fn(),
-  debug: jest.fn(),
-  start: jest.fn(),
-  finish: jest.fn(),
-  success: jest.fn(),
-}));
+} from './storageManagerTestHarness.js';
 
 // Blob Polyfill for JSDOM
 installBlobPolyfill();
@@ -44,15 +38,57 @@ describe('StorageManager', () => {
     globalThis.URL.createObjectURL = jest.fn(() => 'blob:url');
     globalThis.URL.revokeObjectURL = jest.fn();
 
+    jest.spyOn(Logger, 'info').mockImplementation(() => {});
+    jest.spyOn(Logger, 'error').mockImplementation(() => {});
+    jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+    jest.spyOn(Logger, 'debug').mockImplementation(() => {});
+    jest.spyOn(Logger, 'start').mockImplementation(() => {});
+    jest.spyOn(Logger, 'success').mockImplementation(() => {});
+
     storageManager = new StorageManager({ showStatus: jest.fn() });
     storageManager.init();
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
     jest.restoreAllMocks();
     delete globalThis.chrome;
   });
+
+  const buildBackupEnvelopeEvent = data => ({
+    target: {
+      files: [{ text: jest.fn().mockResolvedValue(JSON.stringify({ data })) }],
+    },
+  });
+
+  const buildOverlappingImportBackup = () => ({
+    page_same: { highlights: [{ id: '1' }] },
+    page_conflict: { highlights: [{ id: '2' }] },
+    page_new: { highlights: [] },
+  });
+
+  const buildOverlappingLocalData = () => ({
+    page_same: { highlights: [{ id: '1' }] },
+    page_conflict: { highlights: [{ id: '1' }] },
+  });
+
+  const flushImportModePromises = async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  };
+
+  const executeImportMode = async (
+    mode,
+    backupData = buildOverlappingImportBackup(),
+    localData = buildOverlappingLocalData()
+  ) => {
+    mockGet.mockImplementation((_keys, cb) => cb(localData));
+
+    await storageManager.importData(buildFileEvent(backupData));
+    getModeButton(storageManager, mode).click();
+    await flushImportModePromises();
+
+    return backupData;
+  };
 
   // ── 初始化 ────────────────────────────────────────────────────────────
 
@@ -212,27 +248,17 @@ describe('StorageManager', () => {
       expect(mockSet.mock.calls[0][0]).not.toHaveProperty('migration_old');
     });
 
-    it('應拒絕備份數據為陣列格式', async () => {
-      const event = {
-        target: {
-          files: [{ text: jest.fn().mockResolvedValue(JSON.stringify({ data: [] })) }],
-        },
-      };
-      await storageManager.importData(event);
-      expect(mockSet).not.toHaveBeenCalled();
-      expect(storageManager.elements.dataStatus.className).toContain('error');
-      expect(storageManager.elements.importFile.value).toBe('');
-    });
+    it.each([
+      { label: '陣列格式', backupData: [] },
+      { label: 'null', backupData: null },
+    ])('應拒絕備份數據為 $label', async ({ backupData }) => {
+      const event = buildBackupEnvelopeEvent(backupData);
 
-    it('應拒絕備份數據為 null', async () => {
-      const event = {
-        target: {
-          files: [{ text: jest.fn().mockResolvedValue(JSON.stringify({ data: null })) }],
-        },
-      };
       await storageManager.importData(event);
+
       expect(mockSet).not.toHaveBeenCalled();
       expect(Logger.error).toHaveBeenCalled();
+      expect(storageManager.elements.dataStatus.className).toContain('error');
       expect(storageManager.elements.importFile.value).toBe('');
     });
 
@@ -308,43 +334,13 @@ describe('StorageManager', () => {
       });
 
       it('「new-only」模式應只寫入 newKeys', async () => {
-        const backupData = {
-          page_same: { highlights: [{ id: '1' }] },
-          page_conflict: { highlights: [{ id: '2' }] },
-          page_new: { highlights: [] },
-        };
-        mockGet.mockImplementation((_keys, cb) =>
-          cb({
-            page_same: { highlights: [{ id: '1' }] },
-            page_conflict: { highlights: [{ id: '1' }] },
-          })
-        );
+        const backupData = await executeImportMode('new-only');
 
-        await storageManager.importData(buildFileEvent(backupData));
-        getModeButton(storageManager, 'new-only').click();
-        await Promise.resolve();
-        await Promise.resolve();
-
-        expect(mockSet).toHaveBeenCalledWith({ page_new: { highlights: [] } });
+        expect(mockSet).toHaveBeenCalledWith({ page_new: backupData.page_new });
       });
 
       it('「new-only」模式的成功訊息應將覆蓋數顯示為 0', async () => {
-        const backupData = {
-          page_same: { highlights: [{ id: '1' }] },
-          page_conflict: { highlights: [{ id: '2' }] },
-          page_new: { highlights: [] },
-        };
-        mockGet.mockImplementation((_keys, cb) =>
-          cb({
-            page_same: { highlights: [{ id: '1' }] },
-            page_conflict: { highlights: [{ id: '1' }] },
-          })
-        );
-
-        await storageManager.importData(buildFileEvent(backupData));
-        getModeButton(storageManager, 'new-only').click();
-        await Promise.resolve();
-        await Promise.resolve();
+        await executeImportMode('new-only');
 
         expect(storageManager.elements.dataStatus.textContent).toContain('新增 1 項');
         expect(storageManager.elements.dataStatus.textContent).toContain('覆蓋 0 項');
@@ -374,37 +370,17 @@ describe('StorageManager', () => {
       });
 
       it('「new-and-overwrite」模式應寫入 newKeys + conflictKeys', async () => {
-        const backupData = {
-          page_same: { highlights: [{ id: '1' }] },
-          page_conflict: { highlights: [{ id: '2' }] },
-          page_new: { highlights: [] },
-        };
-        mockGet.mockImplementation((_keys, cb) =>
-          cb({
-            page_same: { highlights: [{ id: '1' }] },
-            page_conflict: { highlights: [{ id: '1' }] },
-          })
-        );
-
-        await storageManager.importData(buildFileEvent(backupData));
-        getModeButton(storageManager, 'new-and-overwrite').click();
-        await Promise.resolve();
-        await Promise.resolve();
+        const backupData = await executeImportMode('new-and-overwrite');
 
         expect(mockSet).toHaveBeenCalledWith({
-          page_new: { highlights: [] },
-          page_conflict: { highlights: [{ id: '2' }] },
+          page_new: backupData.page_new,
+          page_conflict: backupData.page_conflict,
         });
       });
 
       it('備份與本地完全一致時應顯示 IMPORT_NOTHING_TO_DO、不寫入、不 reload', async () => {
         const backupData = { page_same: { highlights: [{ id: '1' }] } };
-        mockGet.mockImplementation((_keys, cb) => cb({ page_same: { highlights: [{ id: '1' }] } }));
-
-        await storageManager.importData(buildFileEvent(backupData));
-        getModeButton(storageManager, 'new-and-overwrite').click();
-        await Promise.resolve();
-        await Promise.resolve();
+        await executeImportMode('new-and-overwrite', backupData, backupData);
 
         expect(mockSet).not.toHaveBeenCalled();
         expect(storageManager.elements.dataStatus.textContent).toContain('無需匯入');
@@ -414,22 +390,7 @@ describe('StorageManager', () => {
       });
 
       it('成功訊息應包含新增/覆蓋/跳過數字', async () => {
-        const backupData = {
-          page_same: { highlights: [{ id: '1' }] },
-          page_conflict: { highlights: [{ id: '2' }] },
-          page_new: { highlights: [] },
-        };
-        mockGet.mockImplementation((_keys, cb) =>
-          cb({
-            page_same: { highlights: [{ id: '1' }] },
-            page_conflict: { highlights: [{ id: '1' }] },
-          })
-        );
-
-        await storageManager.importData(buildFileEvent(backupData));
-        getModeButton(storageManager, 'new-and-overwrite').click();
-        await Promise.resolve();
-        await Promise.resolve();
+        await executeImportMode('new-and-overwrite');
 
         const status = storageManager.elements.dataStatus.textContent;
         expect(status).toContain('新增');

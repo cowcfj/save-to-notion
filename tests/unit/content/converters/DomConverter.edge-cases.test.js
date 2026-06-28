@@ -8,22 +8,15 @@
  * 針對未覆蓋的分支和邊界情況
  */
 
-jest.mock('../../../../scripts/utils/Logger.js', () => ({
-  __esModule: true,
-  default: {
-    debug: jest.fn(),
-    success: jest.fn(),
-    start: jest.fn(),
-    ready: jest.fn(),
-    info: jest.fn(),
-    log: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-  },
-}));
-
 import Logger from '../../../../scripts/utils/Logger.js';
 import { DomConverter, domConverter } from '../../../../scripts/content/converters/DomConverter.js';
+
+globalThis.ImageUtils = {
+  extractImageSrc: jest.fn(node => node?.getAttribute('src') || node?.src || ''),
+  cleanImageUrl: jest.fn(url => url),
+  isNotionCompatibleImageUrl: jest.fn(() => true),
+  isValidCleanedImageUrl: jest.fn(() => true),
+};
 
 describe('DomConverter 覆蓋率補強', () => {
   let converter = null;
@@ -32,9 +25,18 @@ describe('DomConverter 覆蓋率補強', () => {
   beforeEach(() => {
     originalChrome = globalThis.chrome;
     converter = new DomConverter();
+    jest.spyOn(Logger, 'debug').mockImplementation(() => {});
+    jest.spyOn(Logger, 'success').mockImplementation(() => {});
+    jest.spyOn(Logger, 'start').mockImplementation(() => {});
+    jest.spyOn(Logger, 'ready').mockImplementation(() => {});
+    jest.spyOn(Logger, 'info').mockImplementation(() => {});
+    jest.spyOn(Logger, 'log').mockImplementation(() => {});
+    jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+    jest.spyOn(Logger, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
+    jest.restoreAllMocks();
     jest.clearAllMocks();
     if (originalChrome === undefined) {
       delete globalThis.chrome;

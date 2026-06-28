@@ -1,20 +1,9 @@
-import { createHighlightHandlers } from '../../../../scripts/background/handlers/highlightHandlers.js';
-import { ERROR_MESSAGES } from '../../../../scripts/config/shared/messages.js';
-import { RUNTIME_ACTIONS } from '../../../../scripts/config/shared/runtimeActions.js';
-import { CONTENT_BRIDGE_ACTIONS } from '../../../../scripts/config/runtimeActions/contentBridgeActions.js';
-import { isRestrictedInjectionUrl } from '../../../../scripts/background/services/InjectionService.js';
-import {
-  validateContentScriptRequest,
-  validateInternalRequest,
-} from '../../../../scripts/utils/securityUtils.js';
-import { sanitizeApiError } from '../../../../scripts/utils/ApiErrorSanitizer.js';
-import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
-const { ErrorHandler: ActualErrorHandler } = jest.requireActual(
-  '../../../../scripts/utils/ErrorHandler.js'
-);
-import { normalizeUrl } from '../../../../scripts/utils/urlUtils.js';
-import { getActiveNotionToken, ensureNotionApiKey } from '../../../../scripts/utils/notionAuth.js';
-import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
+import { jest } from '@jest/globals';
+
+let createHighlightHandlers;
+let ERROR_MESSAGES;
+let RUNTIME_ACTIONS;
+let CONTENT_BRIDGE_ACTIONS;
 
 const TEST_EXTENSION_ID = 'test-id';
 const TEST_TAB_ID = 1;
@@ -35,13 +24,91 @@ const createDefaultSender = ({
 } = {}) => ({ id, tab });
 const createInternalSender = (id = TEST_EXTENSION_ID) => ({ id });
 
-jest.mock('../../../../scripts/utils/Logger.js');
-jest.mock('../../../../scripts/background/services/InjectionService.js');
-jest.mock('../../../../scripts/utils/securityUtils.js');
-jest.mock('../../../../scripts/utils/ApiErrorSanitizer.js');
-jest.mock('../../../../scripts/utils/ErrorHandler.js');
-jest.mock('../../../../scripts/utils/urlUtils.js');
-jest.mock('../../../../scripts/utils/notionAuth.js');
+const mockInjectionService = {
+  __esModule: true,
+  isRestrictedInjectionUrl: jest.fn(),
+};
+
+const mockSecurityUtils = {
+  __esModule: true,
+  validateContentScriptRequest: jest.fn(),
+  validateInternalRequest: jest.fn(),
+  isValidUrl: jest.fn(url => typeof url === 'string' && url.startsWith('https://')),
+};
+
+const mockApiErrorSanitizer = {
+  __esModule: true,
+  sanitizeApiError: jest.fn(),
+};
+
+const mockErrorHandler = {
+  __esModule: true,
+  ErrorHandler: {
+    formatUserMessage: jest.fn(),
+  },
+};
+
+const mockUrlUtils = {
+  __esModule: true,
+  normalizeUrl: jest.fn(url => url),
+  computeStableUrl: jest.fn(url => url),
+  resolveStorageUrl: jest.fn(url => url),
+};
+
+const mockNotionAuth = {
+  __esModule: true,
+  getActiveNotionToken: jest.fn(),
+  ensureNotionApiKey: jest.fn(),
+};
+
+const mockLogSanitizer = {
+  __esModule: true,
+  sanitizeUrlForLogging: jest.fn(url => url),
+};
+
+const { isRestrictedInjectionUrl } = mockInjectionService;
+const { validateContentScriptRequest, validateInternalRequest } = mockSecurityUtils;
+const { sanitizeApiError } = mockApiErrorSanitizer;
+const { ErrorHandler } = mockErrorHandler;
+const { normalizeUrl } = mockUrlUtils;
+const { getActiveNotionToken, ensureNotionApiKey } = mockNotionAuth;
+const { sanitizeUrlForLogging } = mockLogSanitizer;
+
+if (process.env.NODE_OPTIONS?.includes('--experimental-vm-modules')) {
+  jest.unstable_mockModule(
+    '../../../../scripts/background/services/InjectionService.js',
+    () => mockInjectionService
+  );
+  jest.unstable_mockModule('../../../../scripts/utils/securityUtils.js', () => mockSecurityUtils);
+  jest.unstable_mockModule(
+    '../../../../scripts/utils/ApiErrorSanitizer.js',
+    () => mockApiErrorSanitizer
+  );
+  jest.unstable_mockModule('../../../../scripts/utils/ErrorHandler.js', () => mockErrorHandler);
+  jest.unstable_mockModule('../../../../scripts/utils/urlUtils.js', () => mockUrlUtils);
+  jest.unstable_mockModule('../../../../scripts/utils/notionAuth.js', () => mockNotionAuth);
+  jest.unstable_mockModule('../../../../scripts/utils/LogSanitizer.js', () => mockLogSanitizer);
+} else {
+  jest.mock(
+    '../../../../scripts/background/services/InjectionService.js',
+    () => mockInjectionService
+  );
+  jest.mock('../../../../scripts/utils/securityUtils.js', () => mockSecurityUtils);
+  jest.mock('../../../../scripts/utils/ApiErrorSanitizer.js', () => mockApiErrorSanitizer);
+  jest.mock('../../../../scripts/utils/ErrorHandler.js', () => mockErrorHandler);
+  jest.mock('../../../../scripts/utils/urlUtils.js', () => mockUrlUtils);
+  jest.mock('../../../../scripts/utils/notionAuth.js', () => mockNotionAuth);
+  jest.mock('../../../../scripts/utils/LogSanitizer.js', () => mockLogSanitizer);
+}
+
+beforeAll(async () => {
+  ({ createHighlightHandlers } =
+    await import('../../../../scripts/background/handlers/highlightHandlers.js'));
+  ({ ERROR_MESSAGES } = await import('../../../../scripts/config/shared/messages.js'));
+  ({ RUNTIME_ACTIONS } = await import('../../../../scripts/config/shared/runtimeActions.js'));
+  ({ CONTENT_BRIDGE_ACTIONS } =
+    await import('../../../../scripts/config/runtimeActions/contentBridgeActions.js'));
+});
 
 describe('highlightHandlers', () => {
   let handlers;
@@ -197,9 +264,22 @@ describe('highlightHandlers', () => {
     validateInternalRequest.mockReturnValue(null);
     isRestrictedInjectionUrl.mockReturnValue(false);
     normalizeUrl.mockImplementation(url => url);
+    mockSecurityUtils.isValidUrl.mockImplementation(
+      url => typeof url === 'string' && url.startsWith('https://')
+    );
+    sanitizeUrlForLogging.mockImplementation(url => {
+      try {
+        return new URL(url).toString();
+      } catch {
+        return url;
+      }
+    });
 
-    // Fix ErrorHandler mock
-    ErrorHandler.formatUserMessage.mockImplementation(ActualErrorHandler.formatUserMessage);
+    // Keep the user-message mapping behavior that the handler assertions depend on.
+    ErrorHandler.formatUserMessage.mockImplementation(error => {
+      const key = error?.message ?? error;
+      return ERROR_MESSAGES.PATTERNS[key] ?? ERROR_MESSAGES.USER_MESSAGES[key] ?? key;
+    });
 
     // Fix sanitizeApiError mock
     sanitizeApiError.mockImplementation(err =>
@@ -260,12 +340,23 @@ describe('highlightHandlers', () => {
       },
       action: { setBadgeText: jest.fn() },
     };
+    globalThis.Logger = {
+      log: jest.fn(),
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      success: jest.fn(),
+      start: jest.fn(),
+      ready: jest.fn(),
+    };
 
     handlers = createHighlightHandlers(mockServices);
   });
 
   afterEach(() => {
     delete globalThis.chrome;
+    delete globalThis.Logger;
     jest.restoreAllMocks();
   });
 

@@ -1,14 +1,30 @@
-import { createSidepanelHandlers } from '../../../../scripts/background/handlers/sidepanelHandlers.js';
-import Logger from '../../../../scripts/utils/Logger.js';
+import { jest } from '@jest/globals';
 
-jest.mock('../../../../scripts/utils/Logger.js', () => ({
+const mockLogger = {
+  warn: jest.fn(),
+  info: jest.fn(),
+  error: jest.fn(),
+};
+
+const mockLoggerModule = {
   __esModule: true,
-  default: {
-    warn: jest.fn(),
-    info: jest.fn(),
-    error: jest.fn(),
-  },
-}));
+  default: mockLogger,
+};
+
+if (process.env.NODE_OPTIONS?.includes('--experimental-vm-modules')) {
+  jest.unstable_mockModule('../../../../scripts/utils/Logger.js', () => mockLoggerModule);
+} else {
+  jest.mock('../../../../scripts/utils/Logger.js', () => mockLoggerModule);
+}
+
+let createSidepanelHandlers;
+let Logger;
+
+beforeAll(async () => {
+  ({ createSidepanelHandlers } =
+    await import('../../../../scripts/background/handlers/sidepanelHandlers.js'));
+  ({ default: Logger } = await import('../../../../scripts/utils/Logger.js'));
+});
 
 describe('SidepanelHandlers', () => {
   let handlers;

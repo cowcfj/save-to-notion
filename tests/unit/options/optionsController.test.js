@@ -1,70 +1,25 @@
 /**
+ * @jest-environment jsdom
+ */
+/**
  * optionsController.test.js
  *
  * Tests for pure helper functions in the main options controller.
  */
 
-import {
-  formatTitle,
-  setupTemplatePreview,
-  cleanDatabaseId,
-} from '../../../pages/options/options.js';
 import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
+import './optionsBootstrapTestSetup.js';
 
-// Mocks for dependencies
-jest.mock('../../../scripts/config/env/index.js', () => ({
-  BUILD_ENV: {
-    ENABLE_OAUTH: true,
-    ENABLE_ACCOUNT: true,
-    OAUTH_SERVER_URL: 'https://worker.test',
-    OAUTH_CLIENT_ID: '',
-    EXTENSION_API_KEY: '',
-  },
-}));
-jest.mock('../../../pages/options/UIManager.js');
-jest.mock('../../../pages/options/AuthManager.js');
-jest.mock('../../../pages/options/DataSourceManager.js');
-jest.mock('../../../pages/options/StorageManager.js');
-jest.mock('../../../pages/options/MigrationTool.js');
-jest.mock('../../../scripts/utils/Logger.js', () => ({
-  __esModule: true,
-  default: require('../../helpers/loggerMock.js').createLoggerMock(),
-}));
-jest.mock('../../../scripts/auth/accountSession.js', () => ({
-  getAccountProfile: jest.fn(),
-  getAccountAccessToken: jest.fn(),
-  clearAccountSession: jest.fn().mockResolvedValue(),
-}));
+let formatTitle;
+let setupTemplatePreview;
+let cleanDatabaseId;
 
-jest.mock('../../../scripts/destinations/ProfileManager.js', () => ({
-  ProfileManager: jest.fn().mockImplementation(() => ({
-    listProfiles: jest.fn().mockResolvedValue([{ id: 'default' }]),
-    getDestinationEntitlement: jest
-      .fn()
-      .mockResolvedValue({ maxProfiles: 2, accountSignedIn: true, source: 'test' }),
-    ensureMigratedDefaultProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
-    createProfile: jest.fn().mockResolvedValue({ id: 'profile-2' }),
-    getProfile: jest.fn().mockResolvedValue({
-      id: 'default',
-      name: 'Default',
-      notionDataSourceId: 'source-1',
-      notionDataSourceType: 'database',
-    }),
-    updateProfile: jest.fn().mockResolvedValue({ id: 'default' }),
-    deleteProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
-  })),
-}));
-
-jest.mock('../../../scripts/destinations/ProfileStore.js', () => ({
-  LocalDestinationProfileRepository: jest.fn(),
-  AccountGatedDestinationEntitlementProvider: jest.fn(),
-  DESTINATION_PROFILE_ERRORS: {
-    LIMIT_REACHED: '已達目的地數量上限',
-  },
-  DESTINATION_PROFILE_ERROR_CODES: {
-    LIMIT_REACHED: 'DESTINATION_LIMIT_REACHED',
-  },
-}));
+beforeAll(async () => {
+  const optionsModule = await import('../../../pages/options/options.js');
+  formatTitle = optionsModule.formatTitle;
+  setupTemplatePreview = optionsModule.setupTemplatePreview;
+  cleanDatabaseId = optionsModule.cleanDatabaseId;
+});
 
 describe('optionsController', () => {
   describe('formatTitle', () => {

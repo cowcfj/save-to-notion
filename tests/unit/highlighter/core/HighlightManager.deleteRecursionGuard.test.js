@@ -6,23 +6,40 @@
  * 修復後：clearPageHighlights() 走 skipStorage: true，sendMessage 計數固定 = 1。
  */
 
+import { jest } from '@jest/globals';
+
+const mockLogger = {
+  log: jest.fn(),
+  debug: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+};
+
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
-  default: {
-    log: jest.fn(),
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    success: jest.fn(),
-    start: jest.fn(),
-    ready: jest.fn(),
-  },
+  default: mockLogger,
 }));
 
-import { HighlightManager } from '../../../../scripts/highlighter/core/HighlightManager.js';
-import { HighlightStorage } from '../../../../scripts/highlighter/core/HighlightStorage.js';
-import { mountWindowAPI } from '../../../../scripts/highlighter/windowAPI.js';
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('../../../../scripts/utils/Logger.js', () => ({
+    __esModule: true,
+    default: mockLogger,
+  }));
+}
+
+let HighlightManager;
+let HighlightStorage;
+let mountWindowAPI;
+
+beforeAll(async () => {
+  ({ HighlightManager } = await import('../../../../scripts/highlighter/core/HighlightManager.js'));
+  ({ HighlightStorage } = await import('../../../../scripts/highlighter/core/HighlightStorage.js'));
+  ({ mountWindowAPI } = await import('../../../../scripts/highlighter/windowAPI.js'));
+});
 
 describe('HighlightManager delete recursion guard', () => {
   let manager;

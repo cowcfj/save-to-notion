@@ -30,12 +30,12 @@ describe('background utility native ESM diagnostics', () => {
 
     const result = mergeHighlightsWithStyle(blocks, highlights, HIGHLIGHT_STYLE_OPTIONS.COLOR_SYNC);
     const highlightedText = result[0].paragraph.rich_text
-      .filter((part) => part.annotations?.color === 'blue_background')
-      .map((part) => part.text.content)
+      .filter(part => part.annotations?.color === 'blue_background')
+      .map(part => part.text.content)
       .join('');
 
     expect(highlightedText).toBe('重要概念');
-    expect(result[0].paragraph.rich_text.map((part) => part.text.content).join('')).toBe(
+    expect(result[0].paragraph.rich_text.map(part => part.text.content).join('')).toBe(
       '前文重要概念後文'
     );
     expect(resolveStyle(HIGHLIGHT_STYLE_OPTIONS.COLOR_TEXT, { color: 'purple' })).toEqual({

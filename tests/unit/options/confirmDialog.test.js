@@ -1,4 +1,6 @@
-// @jest-environment jsdom
+/**
+ * @jest-environment jsdom
+ */
 /* global document, HTMLDialogElement, MouseEvent */
 import { confirmDialog } from '../../../pages/options/confirmDialog.js';
 

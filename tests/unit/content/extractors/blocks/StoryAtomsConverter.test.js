@@ -2,23 +2,36 @@
  * @jest-environment jsdom
  */
 
-import Logger from '../../../../../scripts/utils/Logger.js';
-import {
-  convertStoryAtoms,
-  createBlockFromImageAtom,
-  createBlockFromTextAtom,
-} from '../../../../../scripts/content/extractors/blocks/StoryAtomsConverter.js';
+import { jest } from '@jest/globals';
 
-jest.mock('../../../../../scripts/utils/Logger.js', () => ({
+const loggerMock = {
+  debug: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  log: jest.fn(),
+};
+const mockLoggerModule = {
   __esModule: true,
-  default: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    log: jest.fn(),
-  },
-}));
+  default: loggerMock,
+};
+
+if (process.env.NODE_OPTIONS?.includes('--experimental-vm-modules')) {
+  jest.unstable_mockModule('../../../../../scripts/utils/Logger.js', () => mockLoggerModule);
+} else {
+  jest.mock('../../../../../scripts/utils/Logger.js', () => mockLoggerModule);
+}
+
+let Logger;
+let convertStoryAtoms;
+let createBlockFromImageAtom;
+let createBlockFromTextAtom;
+
+beforeAll(async () => {
+  ({ default: Logger } = await import('../../../../../scripts/utils/Logger.js'));
+  ({ convertStoryAtoms, createBlockFromImageAtom, createBlockFromTextAtom } =
+    await import('../../../../../scripts/content/extractors/blocks/StoryAtomsConverter.js'));
+});
 
 function makeDeps() {
   return {

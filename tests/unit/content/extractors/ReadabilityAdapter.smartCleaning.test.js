@@ -2,6 +2,8 @@
  * @jest-environment jsdom
  */
 
+import { jest } from '@jest/globals';
+
 // Mock Logger
 const Logger = {
   log: jest.fn(),
@@ -21,27 +23,37 @@ globalThis.PerformanceOptimizer = {
 };
 
 // Mock @mozilla/readability
-jest.mock('@mozilla/readability', () => {
-  const mockCapture = { doc: null };
-  return {
-    __getMockCapture: () => mockCapture,
-    Readability: class MockReadability {
-      constructor(clonedDoc, _options) {
-        mockCapture.doc = clonedDoc;
-      }
-      parse() {
-        return { content: '<div class="main-article">正文內容</div>', title: 'Mock' };
-      }
-    },
-  };
-});
+const mockCapture = { doc: null };
+const mockReadabilityModule = {
+  __getMockCapture: () => mockCapture,
+  Readability: class MockReadability {
+    constructor(clonedDoc, _options) {
+      mockCapture.doc = clonedDoc;
+    }
+    parse() {
+      return { content: '<div class="main-article">正文內容</div>', title: 'Mock' };
+    }
+  },
+};
 
 // Mock Config to ensure stable test environment
-jest.mock('../../../../scripts/config/shared/content.js', () => ({
+const mockContentConfigModule = {
+  EMBEDDED_URL_ENCODED_HTTP_PROTOCOL_REGEX: /https?%3A%2F%2F/i,
   CONTENT_QUALITY: {
     MIN_CONTENT_LENGTH: 250,
     MAX_LINK_DENSITY: 0.25,
     LIST_EXCEPTION_THRESHOLD: 8,
+  },
+  IMAGE_VALIDATION: {
+    MAX_URL_LENGTH: 2000,
+    URL_LENGTH_SAFETY_MARGIN: 500,
+    URL_LENGTH_INLINE_SAFETY_MARGIN: 100,
+    MAX_QUERY_PARAMS: 10,
+    SRCSET_WIDTH_MULTIPLIER: 1000,
+    MAX_BACKGROUND_URL_LENGTH: 2000,
+    MIN_IMAGE_WIDTH: 550,
+    MIN_IMAGE_HEIGHT: 300,
+    MAX_RECURSION_DEPTH: 5,
   },
   GENERIC_CLEANING_RULES: ['.ad', '.promo', '#remove-me'],
   CMS_CLEANING_RULES: {
@@ -66,17 +78,35 @@ jest.mock('../../../../scripts/config/shared/content.js', () => ({
   },
   CMS_CONTENT_SELECTORS: [],
   ARTICLE_STRUCTURE_SELECTORS: [],
-}));
+};
+
+const isNativeJestEsm = process.env.NODE_OPTIONS?.includes('--experimental-vm-modules');
+
+if (isNativeJestEsm) {
+  jest.unstable_mockModule('@mozilla/readability', () => mockReadabilityModule);
+  jest.unstable_mockModule(
+    '../../../../scripts/config/shared/content.js',
+    () => mockContentConfigModule
+  );
+} else {
+  jest.mock('@mozilla/readability', () => mockReadabilityModule);
+  jest.mock('../../../../scripts/config/shared/content.js', () => mockContentConfigModule);
+}
 
 // Mock ReadabilityAdapter dependencies if needed, but we want to test the function itself.
 // Since performSmartCleaning is exported, we can just require it.
 // The config mock above needs to be hoisted, which jest.mock does automatically.
 
-const {
-  performSmartCleaning,
-  getDomainRules,
-  parseArticleWithReadability,
-} = require('../../../../scripts/content/extractors/ReadabilityAdapter.js');
+let performSmartCleaning;
+let getDomainRules;
+let parseArticleWithReadability;
+let readabilityMockModule;
+
+beforeAll(async () => {
+  ({ performSmartCleaning, getDomainRules, parseArticleWithReadability } =
+    await import('../../../../scripts/content/extractors/ReadabilityAdapter.js'));
+  readabilityMockModule = await import('@mozilla/readability');
+});
 
 describe('ReadabilityAdapter - performSmartCleaning', () => {
   beforeEach(() => {
@@ -326,15 +356,14 @@ describe('ReadabilityAdapter - performSmartCleaning', () => {
       });
 
       // 清除之前的 mock 狀態
-      const { __getMockCapture } = require('@mozilla/readability');
-      const mockCapture = __getMockCapture();
-      mockCapture.doc = null;
+      const capture = readabilityMockModule.__getMockCapture();
+      capture.doc = null;
 
       // 3. 執行
       const result = parseArticleWithReadability(fakeDoc);
 
       // 4. 驗證 capturedDoc 的 body 只包含 container 的內容，不包含 sidebar 和 footer
-      const capturedDoc = mockCapture.doc;
+      const capturedDoc = capture.doc;
       expect(capturedDoc).not.toBeNull();
       const bodyHtml = capturedDoc.body.innerHTML;
       expect(bodyHtml).toContain('正文內容');
@@ -365,15 +394,14 @@ describe('ReadabilityAdapter - performSmartCleaning', () => {
       });
 
       // 清除之前的 mock 狀態
-      const { __getMockCapture } = require('@mozilla/readability');
-      const mockCapture = __getMockCapture();
-      mockCapture.doc = null;
+      const capture = readabilityMockModule.__getMockCapture();
+      capture.doc = null;
 
       // 3. 執行
       const result = parseArticleWithReadability(fakeDoc);
 
       // 4. 驗證 capturedDoc 的 body 包含了完整的內容（未被窄化）
-      const capturedDoc = mockCapture.doc;
+      const capturedDoc = capture.doc;
       expect(capturedDoc).not.toBeNull();
       const bodyHtml = capturedDoc.body.innerHTML;
       expect(bodyHtml).toContain('沒有目標容器');
@@ -398,14 +426,13 @@ describe('ReadabilityAdapter - performSmartCleaning', () => {
         cloneNode: jest.fn(() => clonedDocWithoutBody),
       };
 
-      const { __getMockCapture } = require('@mozilla/readability');
-      const mockCapture = __getMockCapture();
-      mockCapture.doc = null;
+      const capture = readabilityMockModule.__getMockCapture();
+      capture.doc = null;
 
       const result = parseArticleWithReadability(fakeDoc);
 
       expect(result.content).toBe('<div>正文內容</div>');
-      expect(mockCapture.doc).toBe(clonedDocWithoutBody);
+      expect(capture.doc).toBe(clonedDocWithoutBody);
       expect(Logger.warn).toHaveBeenCalledWith(
         '克隆文檔缺少 body，跳過網域容器聚焦',
         expect.objectContaining({

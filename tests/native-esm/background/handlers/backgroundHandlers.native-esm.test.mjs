@@ -78,9 +78,12 @@ await jest.unstable_mockModule(
   })
 );
 
-await jest.unstable_mockModule('../../../../scripts/background/services/InjectionService.js', () => ({
-  isRestrictedInjectionUrl: jest.fn(() => false),
-}));
+await jest.unstable_mockModule(
+  '../../../../scripts/background/services/InjectionService.js',
+  () => ({
+    isRestrictedInjectionUrl: jest.fn(() => false),
+  })
+);
 
 await jest.unstable_mockModule(
   '../../../../scripts/background/services/SaveStatusCoordinator.js',
@@ -111,15 +114,12 @@ await jest.unstable_mockModule('../../../../scripts/background/handlers/toastUti
 }));
 
 const { RUNTIME_ACTIONS } = await import('../../../../scripts/config/shared/runtimeActions.js');
-const { MessageHandler } = await import(
-  '../../../../scripts/background/handlers/MessageHandler.js'
-);
-const { processContentResult } = await import(
-  '../../../../scripts/background/handlers/saveHandlers.js'
-);
-const { createNotionHandlers } = await import(
-  '../../../../scripts/background/handlers/notionHandlers.js'
-);
+const { MessageHandler } =
+  await import('../../../../scripts/background/handlers/MessageHandler.js');
+const { processContentResult } =
+  await import('../../../../scripts/background/handlers/saveHandlers.js');
+const { createNotionHandlers } =
+  await import('../../../../scripts/background/handlers/notionHandlers.js');
 
 describe('background handlers native ESM diagnostics', () => {
   test('MessageHandler dispatches async results and rejects unknown actions', async () => {

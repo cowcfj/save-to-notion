@@ -2,7 +2,12 @@
  * @jest-environment jsdom
  */
 
+import { jest } from '@jest/globals';
 import { createAccountAuthHandler } from '../../../../scripts/background/handlers/accountAuthHandler.js';
+
+globalThis.Logger = {
+  warn: jest.fn(),
+};
 
 describe('accountAuthHandler', () => {
   let runtime;
@@ -64,31 +69,31 @@ describe('accountAuthHandler', () => {
     ).not.toThrow();
   });
 
-  test('符合 callback bridge 條件時應導向 canonical auth page 並帶 account_ticket', async () => {
+  test.each([
+    {
+      name: '符合 callback bridge 條件時應導向 canonical auth page 並帶 account_ticket',
+      bridgeUrl:
+        'https://worker.test/v1/account/callback-bridge?account_ticket=ticket_123&ext_id=ext_id_123&mode=bridge',
+      expectedAuthPath: 'pages/auth/auth.html?account_ticket=ticket_123',
+      expectedAuthUrl:
+        'chrome-extension://ext_id_123/pages/auth/auth.html?account_ticket=ticket_123',
+    },
+    {
+      name: 'account_ticket 含特殊字元時應重新編碼後再導向 canonical auth page',
+      bridgeUrl:
+        'https://worker.test/v1/account/callback-bridge?account_ticket=ticket%26with%23parts%3Fx%3D1&ext_id=ext_id_123',
+      expectedAuthPath: 'pages/auth/auth.html?account_ticket=ticket%26with%23parts%3Fx%3D1',
+      expectedAuthUrl:
+        'chrome-extension://ext_id_123/pages/auth/auth.html?account_ticket=ticket%26with%23parts%3Fx%3D1',
+    },
+  ])('$name', async ({ bridgeUrl, expectedAuthPath, expectedAuthUrl }) => {
     handler.setupListeners();
 
-    await onUpdatedListener(12, {
-      url: 'https://worker.test/v1/account/callback-bridge?account_ticket=ticket_123&ext_id=ext_id_123&mode=bridge',
-    });
+    await onUpdatedListener(12, { url: bridgeUrl });
 
-    expect(runtime.getURL).toHaveBeenCalledWith('pages/auth/auth.html?account_ticket=ticket_123');
+    expect(runtime.getURL).toHaveBeenCalledWith(expectedAuthPath);
     expect(tabs.update).toHaveBeenCalledWith(12, {
-      url: 'chrome-extension://ext_id_123/pages/auth/auth.html?account_ticket=ticket_123',
-    });
-  });
-
-  test('account_ticket 含特殊字元時應重新編碼後再導向 canonical auth page', async () => {
-    handler.setupListeners();
-
-    await onUpdatedListener(12, {
-      url: 'https://worker.test/v1/account/callback-bridge?account_ticket=ticket%26with%23parts%3Fx%3D1&ext_id=ext_id_123',
-    });
-
-    expect(runtime.getURL).toHaveBeenCalledWith(
-      'pages/auth/auth.html?account_ticket=ticket%26with%23parts%3Fx%3D1'
-    );
-    expect(tabs.update).toHaveBeenCalledWith(12, {
-      url: 'chrome-extension://ext_id_123/pages/auth/auth.html?account_ticket=ticket%26with%23parts%3Fx%3D1',
+      url: expectedAuthUrl,
     });
   });
 

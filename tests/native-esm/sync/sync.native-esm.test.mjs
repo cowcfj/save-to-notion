@@ -3,9 +3,7 @@ import {
   buildUnifiedPageStateFromLocalStorage,
   buildDriveSnapshot,
 } from '../../../scripts/sync/driveSnapshot.js';
-import {
-  computeDriveSnapshotHash,
-} from '../../../scripts/sync/driveSnapshotHash.js';
+import { computeDriveSnapshotHash } from '../../../scripts/sync/driveSnapshotHash.js';
 
 let storageData;
 
@@ -57,9 +55,7 @@ describe('Sync native ESM diagnostics', () => {
         pageId: 'legacy-page',
         title: 'Legacy Title',
       },
-      'highlights_https://example.com/legacy': [
-        { id: 'hl-2', text: 'legacy hl' },
-      ],
+      'highlights_https://example.com/legacy': [{ id: 'hl-2', text: 'legacy hl' }],
       'url_alias:https://example.com/alias': 'https://example.com',
     };
 
@@ -71,7 +67,9 @@ describe('Sync native ESM diagnostics', () => {
 
     expect(pages.has('https://example.com/legacy')).toBe(true);
     expect(pages.get('https://example.com/legacy').notion.pageId).toBe('legacy-page');
-    expect(pages.get('https://example.com/legacy').highlights).toEqual([{ id: 'hl-2', text: 'legacy hl' }]);
+    expect(pages.get('https://example.com/legacy').highlights).toEqual([
+      { id: 'hl-2', text: 'legacy hl' },
+    ]);
 
     expect(urlAliases.get('https://example.com/alias')).toBe('https://example.com');
   });
@@ -82,7 +80,12 @@ describe('Sync native ESM diagnostics', () => {
         'https://example.com',
         {
           url: 'https://example.com',
-          notion: { pageId: 'page-1', url: 'https://notion.so/page-1', title: 'Example', savedAt: 1000 },
+          notion: {
+            pageId: 'page-1',
+            url: 'https://notion.so/page-1',
+            title: 'Example',
+            savedAt: 1000,
+          },
           highlights: [{ id: 'hl-1', text: 'hello', color: 'yellow', timestamp: 2000 }],
         },
       ],
@@ -109,7 +112,9 @@ describe('Sync native ESM diagnostics', () => {
     expect(snapshot.metadata.snapshot_version).toBe(1);
     expect(snapshot.metadata.source_installation_id).toBe('inst-1');
     expect(snapshot.metadata.source_profile_id).toBe('prof-1');
-    expect(snapshot.metadata.payload_hash).toBe('0707070707070707070707070707070707070707070707070707070707070707');
+    expect(snapshot.metadata.payload_hash).toBe(
+      '0707070707070707070707070707070707070707070707070707070707070707'
+    );
 
     expect(snapshot.payload.saved_states.length).toBe(1);
     expect(snapshot.payload.saved_states[0]).toEqual({

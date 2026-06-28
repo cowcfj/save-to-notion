@@ -2,47 +2,77 @@
  * @jest-environment jsdom
  */
 
-import { HighlightMigration } from '../../../../scripts/highlighter/core/HighlightMigration.js';
-import Logger from '../../../../scripts/utils/Logger.js';
-import { HighlightStorageGateway } from '../../../../scripts/highlighter/core/HighlightStorageGateway.js';
+import { jest } from '@jest/globals';
+
 import { normalizeUrl } from '../../../../scripts/utils/urlUtils.js';
 
 // Mock dependencies
-jest.mock('../../../../scripts/highlighter/core/Range.js', () => ({
+const mockRangeModule = {
   serializeRange: jest.fn(() => ({
     startPath: 'mock',
     startOffset: 0,
     endPath: 'mock',
     endOffset: 5,
   })),
-}));
-
-jest.mock('../../../../scripts/highlighter/utils/textSearch.js', () => ({
+  restoreRangeWithRetry: jest.fn(),
+};
+const mockTextSearchModule = {
   findTextInPage: jest.fn(),
-}));
-
-jest.mock('../../../../scripts/utils/Logger.js', () => {
-  const mockLogger = {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
-    success: jest.fn(),
-    start: jest.fn(),
-    ready: jest.fn(),
-  };
-  return {
-    __esModule: true,
-    default: mockLogger,
-  };
-});
-
-jest.mock('../../../../scripts/highlighter/core/HighlightStorageGateway.js', () => ({
+};
+const mockLogger = {
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  debug: jest.fn(),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+};
+const mockHighlightStorageGatewayModule = {
   HighlightStorageGateway: {
     saveHighlights: jest.fn(),
     clearHighlights: jest.fn(),
   },
+};
+let HighlightMigration;
+const Logger = mockLogger;
+const { HighlightStorageGateway } = mockHighlightStorageGatewayModule;
+
+jest.mock('../../../../scripts/highlighter/core/Range.js', () => mockRangeModule);
+
+jest.mock('../../../../scripts/highlighter/utils/textSearch.js', () => mockTextSearchModule);
+
+jest.mock('../../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: mockLogger,
+  ...mockLogger,
 }));
+
+jest.mock('../../../../scripts/highlighter/core/HighlightStorageGateway.js', () => ({
+  ...mockHighlightStorageGatewayModule,
+}));
+
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('../../../../scripts/highlighter/core/Range.js', () => mockRangeModule);
+  jest.unstable_mockModule(
+    '../../../../scripts/highlighter/utils/textSearch.js',
+    () => mockTextSearchModule
+  );
+  jest.unstable_mockModule('../../../../scripts/utils/Logger.js', () => ({
+    __esModule: true,
+    default: mockLogger,
+    ...mockLogger,
+  }));
+  jest.unstable_mockModule(
+    '../../../../scripts/highlighter/core/HighlightStorageGateway.js',
+    () => mockHighlightStorageGatewayModule
+  );
+}
+
+beforeAll(async () => {
+  ({ HighlightMigration } =
+    await import('../../../../scripts/highlighter/core/HighlightMigration.js'));
+});
 
 describe('core/HighlightMigration', () => {
   let migration = null;
@@ -95,7 +125,7 @@ describe('core/HighlightMigration', () => {
         },
       };
 
-      const { findTextInPage } = require('../../../../scripts/highlighter/utils/textSearch.js');
+      const { findTextInPage } = mockTextSearchModule;
       findTextInPage.mockReturnValue(document.createRange());
 
       await migration.checkAndMigrate();
@@ -163,7 +193,7 @@ describe('core/HighlightMigration', () => {
         },
       };
 
-      const { findTextInPage } = require('../../../../scripts/highlighter/utils/textSearch.js');
+      const { findTextInPage } = mockTextSearchModule;
       findTextInPage.mockReturnValue(document.createRange());
 
       await migration.checkAndMigrate();
@@ -191,7 +221,7 @@ describe('core/HighlightMigration', () => {
         },
       };
 
-      const { findTextInPage } = require('../../../../scripts/highlighter/utils/textSearch.js');
+      const { findTextInPage } = mockTextSearchModule;
       findTextInPage.mockReturnValue(document.createRange());
 
       await migration.checkAndMigrate();
@@ -247,7 +277,7 @@ describe('core/HighlightMigration', () => {
     });
 
     test('should migrate object items with text property', async () => {
-      const { findTextInPage } = require('../../../../scripts/highlighter/utils/textSearch.js');
+      const { findTextInPage } = mockTextSearchModule;
       findTextInPage.mockReturnValue(document.createRange());
 
       const legacyData = [{ text: 'test content', color: 'green' }];
@@ -262,7 +292,7 @@ describe('core/HighlightMigration', () => {
     });
 
     test('should migrate string items', async () => {
-      const { findTextInPage } = require('../../../../scripts/highlighter/utils/textSearch.js');
+      const { findTextInPage } = mockTextSearchModule;
       findTextInPage.mockReturnValue(document.createRange());
 
       const legacyData = ['simple text'];
@@ -273,7 +303,7 @@ describe('core/HighlightMigration', () => {
     });
 
     test('should convert bgColor to color name', async () => {
-      const { findTextInPage } = require('../../../../scripts/highlighter/utils/textSearch.js');
+      const { findTextInPage } = mockTextSearchModule;
       findTextInPage.mockReturnValue(document.createRange());
 
       const legacyData = [{ text: 'test', bgColor: '#d4edda' }];
@@ -286,7 +316,7 @@ describe('core/HighlightMigration', () => {
     });
 
     test('should skip empty text items', async () => {
-      const { findTextInPage } = require('../../../../scripts/highlighter/utils/textSearch.js');
+      const { findTextInPage } = mockTextSearchModule;
 
       const legacyData = [{ text: '' }, { text: '   ' }];
 
@@ -296,7 +326,7 @@ describe('core/HighlightMigration', () => {
     });
 
     test('should handle failed text search gracefully', async () => {
-      const { findTextInPage } = require('../../../../scripts/highlighter/utils/textSearch.js');
+      const { findTextInPage } = mockTextSearchModule;
       findTextInPage.mockReturnValue(null); // Text not found
 
       const legacyData = [{ text: 'not found' }];
@@ -307,7 +337,7 @@ describe('core/HighlightMigration', () => {
     });
 
     test('should remove old key after successful migration', async () => {
-      const { findTextInPage } = require('../../../../scripts/highlighter/utils/textSearch.js');
+      const { findTextInPage } = mockTextSearchModule;
       findTextInPage.mockReturnValue(document.createRange());
 
       localStorage.setItem('old_key', JSON.stringify([{ text: 'test' }]));
@@ -320,7 +350,7 @@ describe('core/HighlightMigration', () => {
     });
 
     test('should increment nextId for each migrated item', async () => {
-      const { findTextInPage } = require('../../../../scripts/highlighter/utils/textSearch.js');
+      const { findTextInPage } = mockTextSearchModule;
       findTextInPage.mockReturnValue(document.createRange());
 
       mockManager.nextId = 5;
@@ -333,7 +363,7 @@ describe('core/HighlightMigration', () => {
 
     test('should not remove old key when saveHighlights throws', async () => {
       HighlightStorageGateway.saveHighlights.mockRejectedValue(new Error('storage full'));
-      const { findTextInPage } = require('../../../../scripts/highlighter/utils/textSearch.js');
+      const { findTextInPage } = mockTextSearchModule;
       findTextInPage.mockReturnValue(document.createRange());
 
       localStorage.setItem('old_key', JSON.stringify([{ text: 'test' }]));
@@ -348,7 +378,7 @@ describe('core/HighlightMigration', () => {
     });
 
     test('should only save successfully migrated items in mixed batch', async () => {
-      const { findTextInPage } = require('../../../../scripts/highlighter/utils/textSearch.js');
+      const { findTextInPage } = mockTextSearchModule;
       findTextInPage
         .mockReturnValueOnce(document.createRange()) // 第一個找到
         .mockReturnValueOnce(null); // 第二個找不到
@@ -362,7 +392,7 @@ describe('core/HighlightMigration', () => {
     });
 
     test('should skip migration when normalizedUrl is not a safe http(s) URL', async () => {
-      const { findTextInPage } = require('../../../../scripts/highlighter/utils/textSearch.js');
+      const { findTextInPage } = mockTextSearchModule;
       findTextInPage.mockReturnValue(document.createRange());
 
       localStorage.setItem('old_key', JSON.stringify([{ text: 'test' }]));
@@ -378,7 +408,7 @@ describe('core/HighlightMigration', () => {
     });
 
     test('should log warning when _markMigrationComplete fails', async () => {
-      const { findTextInPage } = require('../../../../scripts/highlighter/utils/textSearch.js');
+      const { findTextInPage } = mockTextSearchModule;
       findTextInPage.mockReturnValue(document.createRange());
 
       globalThis.chrome.storage.local.set.mockRejectedValue(new Error('quota exceeded'));

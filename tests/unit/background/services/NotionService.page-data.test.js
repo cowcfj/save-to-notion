@@ -1,22 +1,70 @@
 // NotionService.page-data.test.js
 // 1. Mocks MUST be at the very top
+import { jest } from '@jest/globals';
+
+const createTestLoggerMock = (overrides = {}) => ({
+  debugEnabled: false,
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+  info: jest.fn(),
+  debug: jest.fn(),
+  log: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  getBuffer: jest.fn(() => []),
+  addLogToBuffer: jest.fn(),
+  ...overrides,
+});
+
+const mockGetActiveNotionToken = jest.fn();
+const mockRefreshOAuthToken = jest.fn();
+
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
-  default: require('../../../helpers/loggerMock.js').createLoggerMock({
+  default: createTestLoggerMock({
     debugEnabled: true,
   }),
 }));
 
 jest.mock('../../../../scripts/utils/notionAuth.js', () => ({
-  getActiveNotionToken: jest.fn(),
-  refreshOAuthToken: jest.fn(),
+  getActiveNotionToken: mockGetActiveNotionToken,
+  refreshOAuthToken: mockRefreshOAuthToken,
 }));
 
-import { NotionService } from '../../../../scripts/background/services/NotionService.js';
-import { CONTENT_QUALITY } from '../../../../scripts/config/index.js';
-import { NOTION_API } from '../../../../scripts/config/extension/notionApi.js';
-import { getActiveNotionToken, refreshOAuthToken } from '../../../../scripts/utils/notionAuth.js';
-import { buildPageDataOptions } from '../../../helpers/notionServiceTestHarness.js';
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('../../../../scripts/utils/Logger.js', () => ({
+    default: createTestLoggerMock({
+      debugEnabled: true,
+    }),
+  }));
+  jest.unstable_mockModule('../../../../scripts/utils/notionAuth.js', () => ({
+    getActiveNotionToken: mockGetActiveNotionToken,
+    refreshOAuthToken: mockRefreshOAuthToken,
+  }));
+}
+
+let NotionService;
+let CONTENT_QUALITY;
+let NOTION_API;
+let getActiveNotionToken;
+let refreshOAuthToken;
+
+beforeAll(async () => {
+  ({ NotionService } = await import('../../../../scripts/background/services/NotionService.js'));
+  ({ CONTENT_QUALITY } = await import('../../../../scripts/config/index.js'));
+  ({ NOTION_API } = await import('../../../../scripts/config/extension/notionApi.js'));
+  ({ getActiveNotionToken, refreshOAuthToken } =
+    await import('../../../../scripts/utils/notionAuth.js'));
+});
+
+const buildPageDataOptions = (overrides = {}) => ({
+  title: 'Test Title',
+  pageUrl: 'https://example.com/test',
+  dataSourceId: 'ds-123',
+  blocks: [],
+  ...overrides,
+});
 
 const createMockResponse = (data, ok = true, status = 200) => ({
   ok,
@@ -41,7 +89,7 @@ describe('NotionService - Page Data and Request Body', () => {
     jest.clearAllMocks();
     getActiveNotionToken.mockResolvedValue({ token: 'test-api-key', mode: 'manual' });
     refreshOAuthToken.mockResolvedValue(null);
-    mockLogger = require('../../../helpers/loggerMock.js').createLoggerMock({
+    mockLogger = createTestLoggerMock({
       debugEnabled: true,
     });
     globalThis.fetch = jest.fn().mockResolvedValue(mockFetchResponse);

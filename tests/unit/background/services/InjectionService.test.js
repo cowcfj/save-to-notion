@@ -1,12 +1,6 @@
-import {
-  InjectionService,
-  isRestrictedInjectionUrl,
-  isRecoverableInjectionError,
-  getRuntimeErrorMessage,
-} from '../../../../scripts/background/services/InjectionService.js';
-import { RUNTIME_ACTIONS } from '../../../../scripts/config/shared/runtimeActions.js';
+import { jest } from '@jest/globals';
 
-jest.mock('../../../../scripts/utils/Logger.js', () => ({
+const mockLoggerModule = {
   __esModule: true,
   default: {
     info: jest.fn(),
@@ -17,9 +11,31 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
     start: jest.fn(),
     ready: jest.fn(),
   },
-}));
+};
 
-import Logger from '../../../../scripts/utils/Logger.js';
+if (process.env.NODE_OPTIONS?.includes('--experimental-vm-modules')) {
+  jest.unstable_mockModule('../../../../scripts/utils/Logger.js', () => mockLoggerModule);
+} else {
+  jest.mock('../../../../scripts/utils/Logger.js', () => mockLoggerModule);
+}
+
+let InjectionService;
+let isRestrictedInjectionUrl;
+let isRecoverableInjectionError;
+let getRuntimeErrorMessage;
+let RUNTIME_ACTIONS;
+let Logger;
+
+beforeAll(async () => {
+  ({
+    InjectionService,
+    isRestrictedInjectionUrl,
+    isRecoverableInjectionError,
+    getRuntimeErrorMessage,
+  } = await import('../../../../scripts/background/services/InjectionService.js'));
+  ({ RUNTIME_ACTIONS } = await import('../../../../scripts/config/shared/runtimeActions.js'));
+  ({ default: Logger } = await import('../../../../scripts/utils/Logger.js'));
+});
 
 function recreateInjectedFunction(func) {
   const source = func.toString();
@@ -392,6 +408,15 @@ describe('InjectionService', () => {
   });
 
   describe('ensureBundleInjected', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    });
+
     it('應在 Bundle 已存在時不重複注入', async () => {
       // Arrange: Bundle 已存在（返回 bundle_ready）
       chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
@@ -524,31 +549,26 @@ describe('InjectionService', () => {
     });
 
     it('應在 PING 超時時執行注入 (Timeout path)', async () => {
-      jest.useFakeTimers();
-      try {
-        // Arrange: sendMessage 不回應
-        chrome.tabs.sendMessage.mockImplementation(() => {});
-        chrome.scripting.executeScript.mockImplementation((opts, cb) => {
-          chrome.runtime.lastError = null;
-          cb();
-        });
+      // Arrange: sendMessage 不回應
+      chrome.tabs.sendMessage.mockImplementation(() => {});
+      chrome.scripting.executeScript.mockImplementation((opts, cb) => {
+        chrome.runtime.lastError = null;
+        cb();
+      });
 
-        const promise = service.ensureBundleInjected(1);
+      const promise = service.ensureBundleInjected(1);
 
-        // Fast-forward PING timeout
-        jest.advanceTimersByTime(2500);
+      // Fast-forward PING timeout
+      jest.advanceTimersByTime(2500);
 
-        const result = await promise;
-        expect(result).toBe(true);
-        expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
-          1,
-          { action: RUNTIME_ACTIONS.PING },
-          expect.any(Function)
-        );
-        expect(chrome.scripting.executeScript).toHaveBeenCalled();
-      } finally {
-        jest.useRealTimers();
-      }
+      const result = await promise;
+      expect(result).toBe(true);
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        1,
+        { action: RUNTIME_ACTIONS.PING },
+        expect.any(Function)
+      );
+      expect(chrome.scripting.executeScript).toHaveBeenCalled();
     });
 
     it('應在 PING 觸發 receiving end does not exist 時返回 false (可恢復錯誤)', async () => {

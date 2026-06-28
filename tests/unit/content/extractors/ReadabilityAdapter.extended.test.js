@@ -17,6 +17,8 @@
  * Note: performSmartCleaning is tested in ReadabilityAdapter.smartCleaning.test.js
  */
 
+import { jest } from '@jest/globals';
+
 // Mock Logger
 const Logger = {
   log: jest.fn(),
@@ -40,24 +42,52 @@ if (typeof CSS === 'undefined') {
 // Mock PerformanceOptimizer（可選依賴）
 // Mock Readability（用於 parseArticleWithReadability）
 const mockReadabilityParse = jest.fn();
-const MockReadability = jest.fn().mockImplementation(() => ({
+const mockReadabilityConstructor = jest.fn().mockImplementation(() => ({
   parse: mockReadabilityParse,
 }));
 
 jest.mock('@mozilla/readability', () => ({
-  Readability: MockReadability,
+  Readability: mockReadabilityConstructor,
 }));
 
-// 引入模組
-const {
-  safeQueryElements,
-  expandCollapsibleElements,
-  cachedQuery,
-  findContentCmsFallback,
-  extractLargestListFallback,
-  parseArticleWithReadability,
-  detectCMS,
-} = require('../../../../scripts/content/extractors/ReadabilityAdapter.js');
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('@mozilla/readability', () => ({
+    Readability: mockReadabilityConstructor,
+  }));
+}
+
+let safeQueryElements;
+let expandCollapsibleElements;
+let cachedQuery;
+let findContentCmsFallback;
+let extractLargestListFallback;
+let parseArticleWithReadability;
+let detectCMS;
+
+beforeAll(async () => {
+  ({
+    safeQueryElements,
+    expandCollapsibleElements,
+    cachedQuery,
+    findContentCmsFallback,
+    extractLargestListFallback,
+    parseArticleWithReadability,
+    detectCMS,
+  } = await import('../../../../scripts/content/extractors/ReadabilityAdapter.js'));
+});
+
+async function withFailingDocumentQuerySelectorAll(action) {
+  const originalQuerySelectorAll = document.querySelectorAll;
+  document.querySelectorAll = jest.fn().mockImplementation(() => {
+    throw new Error('Query failed');
+  });
+
+  try {
+    return await action();
+  } finally {
+    document.querySelectorAll = originalQuerySelectorAll;
+  }
+}
 
 describe('ReadabilityAdapter - 額外函數測試', () => {
   beforeEach(() => {
@@ -174,18 +204,10 @@ describe('ReadabilityAdapter - 額外函數測試', () => {
     });
 
     test('當發生錯誤時應該返回空數組', async () => {
-      // Mock 一個會拋出錯誤的 querySelectorAll
-      const originalQuerySelectorAll = document.querySelectorAll;
-      document.querySelectorAll = jest.fn().mockImplementation(() => {
-        throw new Error('Query failed');
-      });
-
-      const result = await expandCollapsibleElements(50);
+      const result = await withFailingDocumentQuerySelectorAll(() => expandCollapsibleElements(50));
 
       expect(result).toEqual([]);
       expect(Logger.warn).toHaveBeenCalled();
-
-      document.querySelectorAll = originalQuerySelectorAll;
     });
   });
 
@@ -239,73 +261,69 @@ describe('ReadabilityAdapter - 額外函數測試', () => {
   });
 
   describe('extractLargestListFallback', () => {
-    test('應該找到最大的列表', () => {
-      document.body.innerHTML = `
-        <ul>
-          <li>Item 1</li>
-          <li>Item 2</li>
-          <li>Item 3</li>
-          <li>Item 4</li>
-          <li>Item 5</li>
-        </ul>
-      `;
+    test.each([
+      {
+        name: '應該找到最大的列表',
+        html: `
+          <ul>
+            <li>Item 1</li>
+            <li>Item 2</li>
+            <li>Item 3</li>
+            <li>Item 4</li>
+            <li>Item 5</li>
+          </ul>
+        `,
+        expectedContent: 'Item 1',
+      },
+      {
+        name: '應該包含前面的標題',
+        html: `
+          <h2>List Title</h2>
+          <ul>
+            <li>Item 1</li>
+            <li>Item 2</li>
+            <li>Item 3</li>
+            <li>Item 4</li>
+          </ul>
+        `,
+        expectedContent: 'List Title',
+      },
+    ])('$name', ({ html, expectedContent }) => {
+      document.body.innerHTML = html;
 
       const result = extractLargestListFallback();
 
       expect(result).toBeTruthy();
-      expect(result).toContain('Item 1');
+      expect(result).toContain(expectedContent);
     });
 
-    test('應該包含前面的標題', () => {
-      document.body.innerHTML = `
-        <h2>List Title</h2>
-        <ul>
-          <li>Item 1</li>
-          <li>Item 2</li>
-          <li>Item 3</li>
-          <li>Item 4</li>
-        </ul>
-      `;
-
-      const result = extractLargestListFallback();
-
-      expect(result).toBeTruthy();
-      expect(result).toContain('List Title');
-    });
-
-    test('當無列表時應該返回 null', () => {
-      document.body.innerHTML = '<p>No lists here</p>';
+    test.each([
+      {
+        name: '當無列表時應該返回 null',
+        html: '<p>No lists here</p>',
+      },
+      {
+        name: '應該過濾太短的列表',
+        html: `
+          <ul>
+            <li>Item 1</li>
+            <li>Item 2</li>
+          </ul>
+        `,
+      },
+    ])('$name', ({ html }) => {
+      document.body.innerHTML = html;
 
       const result = extractLargestListFallback();
 
       expect(result).toBeNull();
     });
 
-    test('應該過濾太短的列表', () => {
-      document.body.innerHTML = `
-        <ul>
-          <li>Item 1</li>
-          <li>Item 2</li>
-        </ul>
-      `;
-
-      const result = extractLargestListFallback();
-
-      expect(result).toBeNull();
-    });
-
-    test('當發生錯誤時應該返回 null', () => {
-      const originalQuerySelectorAll = document.querySelectorAll;
-      document.querySelectorAll = jest.fn().mockImplementation(() => {
-        throw new Error('Query failed');
-      });
-
-      const result = extractLargestListFallback();
+    test('當發生錯誤時應該返回 null', async () => {
+      const result = await withFailingDocumentQuerySelectorAll(() => extractLargestListFallback());
 
       expect(result).toBeNull();
       expect(Logger.warn).toHaveBeenCalled();
-
-      document.querySelectorAll = originalQuerySelectorAll;
     });
   });
 

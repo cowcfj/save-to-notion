@@ -1,48 +1,94 @@
-import {
-  buildContentScriptGuardMeta,
-  buildInternalGuardMeta,
-  buildMigrationGuardMeta,
-  buildSimpleGuardMeta,
-  clearLegacyKeysWithStable,
-  sendGuardFailure,
-  sendStandardHandlerError,
-  validateBatchUrls,
-  validatePrivilegedRequest,
-} from '../../../../scripts/background/handlers/handlerGuard.js';
-import { ERROR_MESSAGES } from '../../../../scripts/config/shared/messages.js';
-import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
-import { isValidUrl, validateInternalRequest } from '../../../../scripts/utils/securityUtils.js';
-import { sanitizeApiError } from '../../../../scripts/utils/ApiErrorSanitizer.js';
-import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
-import { computeStableUrl } from '../../../../scripts/utils/urlUtils.js';
+import { jest } from '@jest/globals';
 
-jest.mock('../../../../scripts/utils/securityUtils.js', () => ({
+let buildContentScriptGuardMeta;
+let buildInternalGuardMeta;
+let buildMigrationGuardMeta;
+let buildSimpleGuardMeta;
+let clearLegacyKeysWithStable;
+let sendGuardFailure;
+let sendStandardHandlerError;
+let validateBatchUrls;
+let validatePrivilegedRequest;
+let ERROR_MESSAGES;
+
+const mockSecurityUtils = {
+  __esModule: true,
   validateInternalRequest: jest.fn(),
   isValidUrl: jest.fn(url => typeof url === 'string' && url.startsWith('https://')),
-}));
+};
 
-jest.mock('../../../../scripts/utils/ApiErrorSanitizer.js', () => ({
+const mockApiErrorSanitizer = {
+  __esModule: true,
   sanitizeApiError: jest.fn(),
-}));
+};
 
-jest.mock('../../../../scripts/utils/LogSanitizer.js', () => ({
+const mockLogSanitizer = {
+  __esModule: true,
   sanitizeUrlForLogging: jest.fn(url => `safe:${url}`),
-}));
+};
 
-jest.mock('../../../../scripts/utils/ErrorHandler.js', () => ({
+const mockErrorHandler = {
+  __esModule: true,
   ErrorHandler: {
     formatUserMessage: jest.fn(),
   },
-}));
+};
 
-jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
+const mockUrlUtils = {
+  __esModule: true,
   computeStableUrl: jest.fn(),
-}));
+};
+
+const { isValidUrl, validateInternalRequest } = mockSecurityUtils;
+const { sanitizeApiError } = mockApiErrorSanitizer;
+const { sanitizeUrlForLogging } = mockLogSanitizer;
+const { ErrorHandler } = mockErrorHandler;
+const { computeStableUrl } = mockUrlUtils;
+
+if (process.env.NODE_OPTIONS?.includes('--experimental-vm-modules')) {
+  jest.unstable_mockModule('../../../../scripts/utils/securityUtils.js', () => mockSecurityUtils);
+  jest.unstable_mockModule(
+    '../../../../scripts/utils/ApiErrorSanitizer.js',
+    () => mockApiErrorSanitizer
+  );
+  jest.unstable_mockModule('../../../../scripts/utils/LogSanitizer.js', () => mockLogSanitizer);
+  jest.unstable_mockModule('../../../../scripts/utils/ErrorHandler.js', () => mockErrorHandler);
+  jest.unstable_mockModule('../../../../scripts/utils/urlUtils.js', () => mockUrlUtils);
+} else {
+  jest.mock('../../../../scripts/utils/securityUtils.js', () => mockSecurityUtils);
+  jest.mock('../../../../scripts/utils/ApiErrorSanitizer.js', () => mockApiErrorSanitizer);
+  jest.mock('../../../../scripts/utils/LogSanitizer.js', () => mockLogSanitizer);
+  jest.mock('../../../../scripts/utils/ErrorHandler.js', () => mockErrorHandler);
+  jest.mock('../../../../scripts/utils/urlUtils.js', () => mockUrlUtils);
+}
+
+beforeAll(async () => {
+  ({
+    buildContentScriptGuardMeta,
+    buildInternalGuardMeta,
+    buildMigrationGuardMeta,
+    buildSimpleGuardMeta,
+    clearLegacyKeysWithStable,
+    sendGuardFailure,
+    sendStandardHandlerError,
+    validateBatchUrls,
+    validatePrivilegedRequest,
+  } = await import('../../../../scripts/background/handlers/handlerGuard.js'));
+  ({ ERROR_MESSAGES } = await import('../../../../scripts/config/shared/messages.js'));
+});
 
 describe('handlerGuard', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    globalThis.Logger = {
+      warn: jest.fn(),
+      error: jest.fn(),
+    };
     computeStableUrl.mockReturnValue(null);
+  });
+
+  afterEach(() => {
+    delete globalThis.Logger;
   });
 
   describe('validatePrivilegedRequest', () => {

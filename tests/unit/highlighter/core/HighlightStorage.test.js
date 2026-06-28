@@ -2,25 +2,60 @@
  * @jest-environment jsdom
  */
 
-import Logger from '../../../../scripts/utils/Logger.js';
-import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
-import {
-  HighlightStorage,
-  RestoreManager,
-} from '../../../../scripts/highlighter/core/HighlightStorage.js';
-import { HighlightStorageGateway } from '../../../../scripts/highlighter/core/HighlightStorageGateway.js';
+import { jest } from '@jest/globals';
 
-jest.mock('../../../../scripts/highlighter/core/HighlightStorageGateway.js', () => ({
+import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
+
+const mockLogger = {
+  debugEnabled: false,
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+  info: jest.fn(),
+  debug: jest.fn(),
+  log: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  getBuffer: jest.fn(() => []),
+  addLogToBuffer: jest.fn(),
+};
+const mockHighlightStorageGatewayModule = {
   HighlightStorageGateway: {
     saveHighlights: jest.fn(),
     loadHighlights: jest.fn(),
     clearHighlights: jest.fn(),
   },
+};
+let HighlightStorage;
+let RestoreManager;
+const Logger = mockLogger;
+const { HighlightStorageGateway } = mockHighlightStorageGatewayModule;
+
+jest.mock('../../../../scripts/highlighter/core/HighlightStorageGateway.js', () => ({
+  ...mockHighlightStorageGatewayModule,
 }));
 
-jest.mock('../../../../scripts/utils/Logger.js', () => {
-  const { createLoggerMock } = require('../../../helpers/loggerMock.js');
-  return createLoggerMock();
+jest.mock('../../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: mockLogger,
+  ...mockLogger,
+}));
+
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule(
+    '../../../../scripts/highlighter/core/HighlightStorageGateway.js',
+    () => mockHighlightStorageGatewayModule
+  );
+  jest.unstable_mockModule('../../../../scripts/utils/Logger.js', () => ({
+    __esModule: true,
+    default: mockLogger,
+    ...mockLogger,
+  }));
+}
+
+beforeAll(async () => {
+  ({ HighlightStorage, RestoreManager } =
+    await import('../../../../scripts/highlighter/core/HighlightStorage.js'));
 });
 
 describe('core/HighlightStorage', () => {

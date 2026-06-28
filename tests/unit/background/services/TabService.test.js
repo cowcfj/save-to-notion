@@ -5,21 +5,10 @@
  * TabService 單元測試
  */
 
-import {
-  TabService,
-  _migrationScript,
-} from '../../../../scripts/background/services/TabService.js';
-import {
-  URL_ALIAS_PREFIX,
-  PAGE_PREFIX,
-  HIGHLIGHTS_PREFIX,
-} from '../../../../scripts/config/shared/storage.js';
-import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
-import Logger from '../../../../scripts/utils/Logger.js';
-import * as urlUtils from '../../../../scripts/utils/urlUtils.js';
-import { buildHighlight, buildPageRecord } from '../../../helpers/status-fixtures.js';
+import { jest } from '@jest/globals';
+import { buildHighlight, buildPageRecord } from './serviceTestSupport.js';
 
-jest.mock('../../../../scripts/utils/Logger.js', () => ({
+const mockLoggerModule = {
   log: jest.fn(),
   start: jest.fn(),
   ready: jest.fn(),
@@ -28,9 +17,9 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
   error: jest.fn(),
   debug: jest.fn(),
   success: jest.fn(),
-}));
+};
 
-jest.mock('../../../../scripts/config/shared/core.js', () => ({
+const mockCoreConfig = {
   TAB_SERVICE: {
     LOADING_TIMEOUT_MS: 1000,
     STATUS_UPDATE_DELAY_MS: 100,
@@ -48,15 +37,15 @@ jest.mock('../../../../scripts/config/shared/core.js', () => ({
     'view-source:',
     'file:',
   ],
-}));
+};
 
-jest.mock('../../../../scripts/config/shared/content.js', () => ({
+const mockContentConfig = {
   URL_NORMALIZATION: {
     TRACKING_PARAMS: ['utm_source'],
   },
-}));
+};
 
-jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
+const mockUrlUtils = {
   resolveStorageUrl: jest.fn(url => url),
   buildStableUrlFromNextData: jest.fn(),
   hasSameOrigin: jest.fn(),
@@ -71,7 +60,48 @@ jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
   }),
   // isRootUrl 預設回傳 false（非根 URL），避免防護邏輯意外攔截正常 URL
   isRootUrl: jest.fn(() => false),
+};
+
+jest.mock('../../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: mockLoggerModule,
+  ...mockLoggerModule,
 }));
+
+jest.mock('../../../../scripts/config/shared/core.js', () => mockCoreConfig);
+
+jest.mock('../../../../scripts/config/shared/content.js', () => mockContentConfig);
+
+jest.mock('../../../../scripts/utils/urlUtils.js', () => mockUrlUtils);
+
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('../../../../scripts/utils/Logger.js', () => ({
+    default: mockLoggerModule,
+    ...mockLoggerModule,
+  }));
+  jest.unstable_mockModule('../../../../scripts/config/shared/core.js', () => mockCoreConfig);
+  jest.unstable_mockModule('../../../../scripts/config/shared/content.js', () => mockContentConfig);
+  jest.unstable_mockModule('../../../../scripts/utils/urlUtils.js', () => mockUrlUtils);
+}
+
+let TabService;
+let _migrationScript;
+let URL_ALIAS_PREFIX;
+let PAGE_PREFIX;
+let HIGHLIGHTS_PREFIX;
+let sanitizeUrlForLogging;
+let Logger;
+let urlUtils;
+
+beforeAll(async () => {
+  ({ TabService, _migrationScript } =
+    await import('../../../../scripts/background/services/TabService.js'));
+  ({ URL_ALIAS_PREFIX, PAGE_PREFIX, HIGHLIGHTS_PREFIX } =
+    await import('../../../../scripts/config/shared/storage.js'));
+  ({ sanitizeUrlForLogging } = await import('../../../../scripts/utils/LogSanitizer.js'));
+  ({ default: Logger } = await import('../../../../scripts/utils/Logger.js'));
+  urlUtils = await import('../../../../scripts/utils/urlUtils.js');
+});
 
 // Mock chrome API
 globalThis.chrome = {
@@ -83,6 +113,9 @@ globalThis.chrome = {
     local: {
       get: jest.fn(),
       set: jest.fn(),
+    },
+    sync: {
+      get: jest.fn(),
     },
   },
   tabs: {

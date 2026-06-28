@@ -2,6 +2,7 @@
  * @jest-environment jsdom
  */
 
+import { jest } from '@jest/globals';
 import { createNotionHandlers } from '../../../../scripts/background/handlers/notionHandlers.js';
 
 // Mock Logger
@@ -14,6 +15,12 @@ globalThis.Logger = {
   log: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
+};
+
+globalThis.chrome = {
+  runtime: {
+    id: 'mock-extension-id',
+  },
 };
 
 describe('notionHandlers - Search Params Filtering', () => {

@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { describe, expect, it } from '@jest/globals';
 
 describe('popup.html accessibility fallbacks', () => {
   it('應提供可被 screen reader 讀取的靜態 popup heading 與 document title', () => {

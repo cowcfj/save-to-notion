@@ -1,19 +1,15 @@
 /**
+ * @jest-environment jsdom
+ */
+/**
  * SearchableDatabaseSelector Unit Tests
  *
  * Tests for the searchable dropdown component for selecting Notion databases
  */
 
-import { SearchableDatabaseSelector } from '../../../pages/options/SearchableDatabaseSelector';
-// Mock Logger
-jest.mock('../../../scripts/utils/Logger', () => ({
-  info: jest.fn(),
-  error: jest.fn(),
-  warn: jest.fn(),
-  debug: jest.fn(),
-}));
-
-import Logger from '../../../scripts/utils/Logger';
+import { jest } from '@jest/globals';
+import { SearchableDatabaseSelector } from '../../../pages/options/SearchableDatabaseSelector.js';
+import Logger from '../../../scripts/utils/Logger.js';
 
 describe('SearchableDatabaseSelector', () => {
   let selector = null;
@@ -22,6 +18,10 @@ describe('SearchableDatabaseSelector', () => {
   let mockGetApiKey = null;
 
   beforeEach(() => {
+    jest.spyOn(Logger, 'info').mockImplementation(() => {});
+    jest.spyOn(Logger, 'error').mockImplementation(() => {});
+    jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+    jest.spyOn(Logger, 'debug').mockImplementation(() => {});
     // Mock scrollIntoView (jsdom 不支援此方法)
     Element.prototype.scrollIntoView = jest.fn();
 
@@ -54,7 +54,7 @@ describe('SearchableDatabaseSelector', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    jest.restoreAllMocks();
   });
 
   describe('constructor', () => {

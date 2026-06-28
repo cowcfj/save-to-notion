@@ -3,12 +3,21 @@
  */
 
 import {
-  imageCollectorTestModules,
+  importImageCollectorTestModules,
   setupImageCollectorTestLifecycle,
   trackSpy,
 } from './ImageCollectorTestSetup.js';
 
-const { ImageCollector, Logger, extractImageSrc } = imageCollectorTestModules;
+let ImageCollector;
+let Logger;
+let extractImageSrc;
+
+beforeAll(async () => {
+  const modules = await importImageCollectorTestModules();
+  ImageCollector = modules.ImageCollector;
+  Logger = modules.Logger;
+  extractImageSrc = modules.extractImageSrc;
+});
 
 describe('ImageCollector size resolution', () => {
   setupImageCollectorTestLifecycle();

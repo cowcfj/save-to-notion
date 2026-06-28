@@ -16,7 +16,7 @@ import {
   buildDestinationProfile,
   buildCreatePageResult,
   buildSavedPageState,
-} from '../../../helpers/saveHandlersTestHarness.js';
+} from './saveHandlersTestHarness.js';
 
 describe('saveHandlers savePage', () => {
   const context = createSaveHandlersTestContext();

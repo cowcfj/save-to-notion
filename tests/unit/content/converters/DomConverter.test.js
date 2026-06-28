@@ -7,23 +7,7 @@ import { domConverter } from '../../../../scripts/content/converters/DomConverte
 // Mock dependencies
 import Logger from '../../../../scripts/utils/Logger.js';
 
-jest.mock('../../../../scripts/utils/Logger.js', () => {
-  return {
-    __esModule: true,
-    default: {
-      debug: jest.fn(),
-      success: jest.fn(),
-      start: jest.fn(),
-      ready: jest.fn(),
-      info: jest.fn(),
-      log: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-    },
-  };
-});
-
-// Sync global Logger with the mocked module for consistency
+// Sync global Logger with the imported module for consistency
 globalThis.Logger = Logger;
 
 globalThis.ImageUtils = {
@@ -40,6 +24,18 @@ globalThis.ErrorHandler = {
 describe('DomConverter', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(Logger, 'debug').mockImplementation(() => {});
+    jest.spyOn(Logger, 'success').mockImplementation(() => {});
+    jest.spyOn(Logger, 'start').mockImplementation(() => {});
+    jest.spyOn(Logger, 'ready').mockImplementation(() => {});
+    jest.spyOn(Logger, 'info').mockImplementation(() => {});
+    jest.spyOn(Logger, 'log').mockImplementation(() => {});
+    jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+    jest.spyOn(Logger, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   describe('Headings', () => {

@@ -1,4 +1,6 @@
 /**
+ * @jest-environment jsdom
+ *
  * FloatingRail lifecycle unit tests.
  */
 

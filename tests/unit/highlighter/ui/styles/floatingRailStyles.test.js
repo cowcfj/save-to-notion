@@ -1,8 +1,21 @@
-import {
-  getFloatingRailCSS,
-  injectRailStylesIntoShadowRoot,
-} from '../../../../../scripts/highlighter/ui/styles/floatingRailStyles.js';
-import { UI_TOKENS } from '../../../../../styles/ui-token-constants.js';
+/**
+ * @jest-environment jsdom
+ */
+
+import { jest } from '@jest/globals';
+import { registerUiTokenConstantsMock } from '../uiTokenConstantsMock.js';
+
+registerUiTokenConstantsMock(jest, '../../../../../styles/ui-token-constants.js');
+
+let getFloatingRailCSS;
+let injectRailStylesIntoShadowRoot;
+let UI_TOKENS;
+
+beforeAll(async () => {
+  ({ UI_TOKENS } = await import('../../../../../styles/ui-token-constants.js'));
+  ({ getFloatingRailCSS, injectRailStylesIntoShadowRoot } =
+    await import('../../../../../scripts/highlighter/ui/styles/floatingRailStyles.js'));
+});
 
 function normalizeRailCSS(cssString) {
   return cssString.replaceAll(/\s+/g, ' ').trim();
@@ -84,7 +97,11 @@ const EXPECTED_FLOATING_RAIL_CSS_NORMALIZED =
 
 describe('floatingRailStyles', () => {
   describe('getFloatingRailCSS', () => {
-    const css = getFloatingRailCSS();
+    let css;
+
+    beforeAll(() => {
+      css = getFloatingRailCSS();
+    });
 
     test('應為容器套用玻璃化容器（surface + backdrop-filter）', () => {
       expect(css).toMatch(/\.rail-container\s*\{[\s\S]*?backdrop-filter:\s*blur\(12px\)/);

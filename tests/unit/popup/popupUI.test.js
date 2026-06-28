@@ -4,6 +4,7 @@
  * 測試 popup/popupUI.js 中的 UI 更新函數
  */
 
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import {
   initializePopupStaticText,
   setStatus,

@@ -8,6 +8,15 @@ import { ERROR_MESSAGES } from '../../../../scripts/config/shared/messages.js';
 describe('handlerUtils.getActiveTab', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    globalThis.chrome = {
+      tabs: {
+        query: jest.fn(),
+      },
+    };
+  });
+
+  afterEach(() => {
+    delete globalThis.chrome;
   });
 
   test('應返回當前活動標籤頁', async () => {

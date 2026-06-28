@@ -65,44 +65,31 @@ await jest.unstable_mockModule('../../../scripts/performance/PerformanceOptimize
 
 globalThis.Logger = loggerMock;
 
-const { ConverterFactory } = await import('../../../scripts/content/converters/ConverterFactory.js');
+const { ConverterFactory } =
+  await import('../../../scripts/content/converters/ConverterFactory.js');
 const { ImageCollector } = await import('../../../scripts/content/extractors/ImageCollector.js');
-const { MarkdownExtractor } = await import('../../../scripts/content/extractors/MarkdownExtractor.js');
-const { MetadataExtractor } = await import('../../../scripts/content/extractors/MetadataExtractor.js');
-const {
-  cachedQuery,
-  isContentGood,
-} = await import('../../../scripts/content/extractors/ReadabilityAdapter.js');
-const {
-  findArticleData,
-  getAppRouterData,
-  getPagesRouterData,
-  parseAppRouterScript,
-} = await import('../../../scripts/content/extractors/NextJsDataResolver.js');
-const { convertBbcBlocks, isBbcFormat } = await import(
-  '../../../scripts/content/extractors/blocks/BbcBlockConverter.js'
-);
-const { convertStoryAtoms } = await import(
-  '../../../scripts/content/extractors/blocks/StoryAtomsConverter.js'
-);
-const { buildTemporaryImagePlaceholderBlock } = await import(
-  '../../../scripts/content/extractors/temporaryImagePlaceholder.js'
-);
-const {
-  sanitizeAiOutputHtml,
-  sanitizeArticleHtml,
-  sanitizeHtmlToText,
-} = await import('../../../scripts/content/sanitizers/htmlSanitizer.js');
-const { CONTENT_BRIDGE_ACTIONS } = await import(
-  '../../../scripts/config/runtimeActions/contentBridgeActions.js'
-);
-const { HIGHLIGHTER_ACTIONS } = await import(
-  '../../../scripts/config/runtimeActions/highlighterActions.js'
-);
-const {
-  activateFloatingRailHighlighting,
-  createContentRuntimeMessageHandler,
-} = await import('../../../scripts/content/runtimeMessageHandlers.js');
+const { MarkdownExtractor } =
+  await import('../../../scripts/content/extractors/MarkdownExtractor.js');
+const { MetadataExtractor } =
+  await import('../../../scripts/content/extractors/MetadataExtractor.js');
+const { cachedQuery, isContentGood } =
+  await import('../../../scripts/content/extractors/ReadabilityAdapter.js');
+const { findArticleData, getAppRouterData, getPagesRouterData, parseAppRouterScript } =
+  await import('../../../scripts/content/extractors/NextJsDataResolver.js');
+const { convertBbcBlocks, isBbcFormat } =
+  await import('../../../scripts/content/extractors/blocks/BbcBlockConverter.js');
+const { convertStoryAtoms } =
+  await import('../../../scripts/content/extractors/blocks/StoryAtomsConverter.js');
+const { buildTemporaryImagePlaceholderBlock } =
+  await import('../../../scripts/content/extractors/temporaryImagePlaceholder.js');
+const { sanitizeAiOutputHtml, sanitizeArticleHtml, sanitizeHtmlToText } =
+  await import('../../../scripts/content/sanitizers/htmlSanitizer.js');
+const { CONTENT_BRIDGE_ACTIONS } =
+  await import('../../../scripts/config/runtimeActions/contentBridgeActions.js');
+const { HIGHLIGHTER_ACTIONS } =
+  await import('../../../scripts/config/runtimeActions/highlighterActions.js');
+const { activateFloatingRailHighlighting, createContentRuntimeMessageHandler } =
+  await import('../../../scripts/content/runtimeMessageHandlers.js');
 
 const richTextChunkBuilder = text => [{ type: 'text', text: { content: text } }];
 const stripHtml = html => String(html || '').replaceAll(/<[^>]+>/g, '');
@@ -155,7 +142,7 @@ describe('remaining content native ESM diagnostics', () => {
     expect(sanitizeHtmlToText('<p>Tom &amp; Jerry</p>')).toBe('Tom & Jerry');
   });
 
-  test('metadata, featured image, BBC, StoryAtoms, and placeholder helpers execute', () => {
+  test('metadata, featured image, BBC, StoryAtoms, and temporary image helpers execute', () => {
     document.head.innerHTML = `
       <title>Native ESM Content</title>
       <meta name="author" content="Reporter">
@@ -190,9 +177,10 @@ describe('remaining content native ESM diagnostics', () => {
       },
     ];
     expect(isBbcFormat(bbcBlocks)).toBe(true);
-    expect(convertBbcBlocks(bbcBlocks, { richTextChunkBuilder }).map(block => block.type)).toEqual(
-      ['heading_1', 'paragraph']
-    );
+    expect(convertBbcBlocks(bbcBlocks, { richTextChunkBuilder }).map(block => block.type)).toEqual([
+      'heading_1',
+      'paragraph',
+    ]);
 
     const storyBlocks = convertStoryAtoms(
       [
@@ -202,8 +190,9 @@ describe('remaining content native ESM diagnostics', () => {
       { richTextChunkBuilder, stripHtml }
     );
     expect(storyBlocks.map(block => block.type)).toEqual(['heading_2', 'image']);
-    expect(buildTemporaryImagePlaceholderBlock('blob:https://example.com/id', { alt: 'Cover' }))
-      .toEqual(expect.objectContaining({ type: 'paragraph' }));
+    expect(
+      buildTemporaryImagePlaceholderBlock('blob:https://example.com/id', { alt: 'Cover' })
+    ).toEqual(expect.objectContaining({ type: 'paragraph' }));
   });
 
   test('Next.js data resolver and Readability helper paths execute under jsdom', () => {
@@ -242,7 +231,10 @@ describe('remaining content native ESM diagnostics', () => {
     const toast = { show: jest.fn() };
     const handler = createContentRuntimeMessageHandler({
       getHighlighterRuntime: () => ({ manager, toast }),
-      getPreloaderCache: () => ({ nextRouteInfo: { path: '/article' }, shortlink: 'https://ex.am/p' }),
+      getPreloaderCache: () => ({
+        nextRouteInfo: { path: '/article' },
+        shortlink: 'https://ex.am/p',
+      }),
       getStableUrl: () => stableUrl,
       isBundleReady: () => true,
       logger: loggerMock,
@@ -284,7 +276,11 @@ describe('remaining content native ESM diagnostics', () => {
     expect(removeResponse).toHaveBeenCalledWith({ success: true });
 
     expect(
-      handler({ action: CONTENT_BRIDGE_ACTIONS.SHOW_TOAST, level: 'error', messageKey: 'X' }, {}, jest.fn())
+      handler(
+        { action: CONTENT_BRIDGE_ACTIONS.SHOW_TOAST, level: 'error', messageKey: 'X' },
+        {},
+        jest.fn()
+      )
     ).toBe(false);
     expect(toast.show).toHaveBeenCalledWith('X', { level: 'error' });
   });

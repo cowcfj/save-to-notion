@@ -3,13 +3,23 @@
  */
 
 import {
-  imageCollectorTestModules,
+  importImageCollectorTestModules,
   setupImageCollectorTestLifecycle,
   trackSpy,
 } from './ImageCollectorTestSetup.js';
 
-const { ImageCollector, cachedQuery, extractImageSrc, isTemporaryImageUrl } =
-  imageCollectorTestModules;
+let ImageCollector;
+let cachedQuery;
+let extractImageSrc;
+let isTemporaryImageUrl;
+
+beforeAll(async () => {
+  const modules = await importImageCollectorTestModules();
+  ImageCollector = modules.ImageCollector;
+  cachedQuery = modules.cachedQuery;
+  extractImageSrc = modules.extractImageSrc;
+  isTemporaryImageUrl = modules.isTemporaryImageUrl;
+});
 
 const extractElementSrc = img => img?.src ?? null;
 const isPatreonImageUrl = url => typeof url === 'string' && url.includes('patreonusercontent.com');

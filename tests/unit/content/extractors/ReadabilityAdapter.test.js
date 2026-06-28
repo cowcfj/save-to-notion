@@ -2,6 +2,8 @@
  * @jest-environment jsdom
  */
 
+import { jest } from '@jest/globals';
+
 // Mock Logger before importing the module
 const Logger = {
   log: jest.fn(),
@@ -26,19 +28,37 @@ jest.mock('@mozilla/readability', () => ({
   })),
 }));
 
-const { Readability } = require('@mozilla/readability');
-const { DOMAIN_CLEANING_RULES } = require('../../../../scripts/config/shared/content.js');
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('@mozilla/readability', () => ({
+    Readability: jest.fn().mockImplementation(() => ({
+      parse: mockParse,
+    })),
+  }));
+}
 
-// 引用 ReadabilityAdapter 模組
-const {
-  isContentGood,
-  expandCollapsibleElements,
-  performSmartCleaning,
-  safeQueryElements,
-  parseArticleWithReadability,
-  detectCMS,
-  prepareLazyImages,
-} = require('../../../../scripts/content/extractors/ReadabilityAdapter.js');
+let Readability;
+let DOMAIN_CLEANING_RULES;
+let isContentGood;
+let expandCollapsibleElements;
+let performSmartCleaning;
+let safeQueryElements;
+let parseArticleWithReadability;
+let detectCMS;
+let prepareLazyImages;
+
+beforeAll(async () => {
+  ({ Readability } = await import('@mozilla/readability'));
+  ({ DOMAIN_CLEANING_RULES } = await import('../../../../scripts/config/shared/content.js'));
+  ({
+    isContentGood,
+    expandCollapsibleElements,
+    performSmartCleaning,
+    safeQueryElements,
+    parseArticleWithReadability,
+    detectCMS,
+    prepareLazyImages,
+  } = await import('../../../../scripts/content/extractors/ReadabilityAdapter.js'));
+});
 
 // ... (existing code)
 

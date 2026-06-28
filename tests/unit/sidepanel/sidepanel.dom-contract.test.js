@@ -1,5 +1,5 @@
-import { jest } from '@jest/globals';
-import { setupRequiredDomContractTest } from './sidepanel.shared.js';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { importSidepanelEntrypoint, setupRequiredDomContractTest } from './sidepanel.shared.js';
 
 describe('Required DOM contract', () => {
   beforeEach(() => {
@@ -25,9 +25,7 @@ describe('Required DOM contract', () => {
       });
 
     try {
-      jest.isolateModules(() => {
-        require('../../../pages/sidepanel/sidepanel.js');
-      });
+      await importSidepanelEntrypoint();
 
       expect(typeof domContentLoadedHandler).toBe('function');
       await expect(domContentLoadedHandler()).rejects.toThrow(

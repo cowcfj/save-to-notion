@@ -138,6 +138,11 @@
     "rationale": "safeIcon sanitization, text fallback, namespace normalization, and DOM append paths must retain source-line hits."
   },
   {
+    "fileSuffix": "scripts/utils/LogBufferPersistence.js",
+    "lines": [15, 16, 29, 31, 49, 50, 58, 60],
+    "rationale": "Log buffer session persistence native ESM sibling must retain source-line hits for flush success, restore fallback, alarm registration, and reset cleanup."
+  },
+  {
     "fileSuffix": "scripts/utils/image/imageUrl.js",
     "lines": [
       75, 77, 112, 116, 119, 129, 137, 190, 193, 205, 223, 226, 236, 238, 242, 255, 256, 270, 275,
@@ -251,9 +256,9 @@
     "fileSuffix": "scripts/background/services/NotionService.js",
     "lines": [
       164, 165, 166, 170, 172, 173, 182, 187, 188, 204, 205, 206, 218, 220, 225, 227, 232, 270, 271,
-      272, 275, 276, 277, 278, 279, 280, 281, 316, 317
+      272, 275, 276, 277, 278, 279, 280, 281, 316, 317, 417, 422, 1030, 1054, 1060, 1106, 1123, 1132
     ],
-    "rationale": "Background services native ESM cohort must retain source-line hits for NotionService client initialization, scoped client resolution, retryable Notion error classification, and unauthorized error classification."
+    "rationale": "Background services native ESM cohort must retain source-line hits for NotionService client initialization, scoped client resolution, retryable Notion error classification, unauthorized error classification, raw API request body handling, page data construction, cover assignment, temporary cover rejection, and external cover creation."
   },
   {
     "fileSuffix": "scripts/background/services/StorageService.js",
@@ -599,8 +604,8 @@
   },
   {
     "fileSuffix": "scripts/content/extractors/ReadabilityAdapter.js",
-    "lines": [81, 91, 104, 105, 110, 118, 121, 143],
-    "rationale": "Second content breadth cohort must retain source-line hits for readability content quality checks, DOM parsing, link density calculation, and valid-content return."
+    "lines": [55, 81, 86, 91, 95, 104, 105, 110, 118, 121, 126, 136, 143, 155, 179],
+    "rationale": "Second content breadth cohort and incumbent ReadabilityAdapter suite must retain source-line hits for readability content quality checks, safe query fallback, DOM parsing, link density calculation, list exception, high-link-density rejection, valid-content return, details expansion, and click-error logging."
   },
   {
     "fileSuffix": "scripts/content/extractors/NextJsDataResolver.js",
@@ -728,5 +733,41 @@
     "fileSuffix": "scripts/utils/image/imageSourceExtractor.js",
     "lines": [20, 23, 24, 25, 27, 28, 31, 32, 33, 34, 36],
     "rationale": "Utils image native ESM cohort must retain source-line hits for image source facade ordering across anchor, srcset, attributes, picture, background, and noscript sources."
+  },
+  {
+    "fileSuffix": "pages/options/storageDataUtils.js",
+    "lines": [89, 94, 161, 196, 263, 325, 346, 360, 418, 461, 503],
+    "rationale": "Options native ESM parity cohort must retain source-line hits for backup sanitization, import planning, storage health routing, and cleanup classification."
+  },
+  {
+    "fileSuffix": "pages/options/staticOptionMessages.js",
+    "lines": [10, 23, 35, 51, 65, 78, 86, 93, 100, 120, 126],
+    "rationale": "Options native ESM parity cohort must retain source-line hits for static UI message resolution, attribute bindings, and composite message handlers."
+  },
+  {
+    "fileSuffix": "pages/options/MigrationTool.js",
+    "lines": [
+      50, 57, 85, 106, 126, 149, 186, 242, 273, 313, 332, 358, 416, 456, 465, 486, 511, 530, 543,
+      566, 581, 598, 626, 652, 668, 827, 903, 934, 974, 1007, 1031, 1063, 1095
+    ],
+    "rationale": "Options native ESM parity cohort must retain source-line hits for MigrationTool initialization, scan rendering, selection state, batch migration/delete result handling, pending lists, failed-list deletion, and storage update dispatch."
+  },
+  {
+    "fileSuffix": "pages/options/debugLogExportUI.js",
+    "lines": [
+      16, 17, 29, 35, 40, 44, 47, 60, 61, 63, 67, 69, 78, 83, 95, 96, 97, 104, 107, 109, 113, 122,
+      126, 127, 129, 131, 134, 135, 137, 139
+    ],
+    "rationale": "Options native ESM parity cohort must retain source-line hits for debug log export request validation, blob download, success and error status rendering, cleanup timers, and disabled button restoration."
+  },
+  {
+    "fileSuffix": "pages/options/DriveCloudSyncController.js",
+    "lines": [315, 318, 401, 408, 443, 457, 489, 510],
+    "rationale": "DriveCloudSyncController incumbent render suite must retain source-line hits under the V8/native runner for card visibility, panel rendering, last-upload fallback, error state, conflict timestamp, and frequency UI behavior."
+  },
+  {
+    "fileSuffix": "pages/options/MigrationScanner.js",
+    "lines": [48, 105, 138],
+    "rationale": "MigrationScanner incumbent suite must execute under V8/native and retain source-line hits for storage scanning, format validation, and batch migration requests."
   }
 ]

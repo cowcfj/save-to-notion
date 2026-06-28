@@ -21,6 +21,7 @@ const allowedSourcePrefixes = [
   'scripts/destinations/',
   'scripts/background/utils/',
   'scripts/highlighter/',
+  'scripts/utils/LogBufferPersistence.js',
   'scripts/utils/image/',
   'scripts/sync/',
   'scripts/performance/',
@@ -304,7 +305,9 @@ function formatGateName(gate) {
 }
 
 function escapeMarkdownTableCell(value) {
-  return String(value).replace(/\r?\n/g, ' ').replaceAll('|', String.raw`\|`);
+  return String(value)
+    .replace(/\r?\n/g, ' ')
+    .replaceAll('|', String.raw`\|`);
 }
 
 function renderMarkdownSummary(summary) {
