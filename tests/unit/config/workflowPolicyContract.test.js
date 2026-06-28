@@ -197,4 +197,11 @@ describe('workflow policy contract', () => {
     );
     expect(workflowSource).not.toMatch(/codecov\/codecov-action@[\s\S]*flags:\s+native-esm-parity/);
   });
+
+  test('Coverage Gate classifier treats native Jest ESM config as coverage-relevant', () => {
+    const workflowSource = readWorkflow('coverage-gate.yml');
+    const classifierStep = getWorkflowStepBlock(workflowSource, 'Detect coverage-relevant changes');
+
+    expect(classifierStep).toContain("- 'jest.native-esm.config.cjs'");
+  });
 });

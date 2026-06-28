@@ -286,6 +286,11 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
           status: 'pass',
           blocking: false,
         }),
+        expect.objectContaining({
+          id: 'threshold-parity',
+          status: 'not_evaluated',
+          blocking: false,
+        }),
       ])
     );
   });

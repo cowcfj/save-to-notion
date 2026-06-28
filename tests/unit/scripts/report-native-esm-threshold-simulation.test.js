@@ -307,7 +307,7 @@ describe('tools/report-native-esm-threshold-simulation', () => {
     expect(diagnosticThresholdAdapter).toEqual(
       expect.objectContaining({
         blocking: false,
-        diagnosticOnly: false,
+        diagnosticOnly: true,
         status: 'fail',
       })
     );
@@ -369,15 +369,18 @@ describe('tools/report-native-esm-threshold-simulation', () => {
 
     const markdown = reporter.renderThresholdSimulationMarkdown(summary);
 
-    expect(markdown).toContain('official V8 local threshold owner');
-    expect(markdown).toContain('non-blocking');
+    expect(markdown).toContain('正式 V8 本機門檻擁有者');
+    expect(markdown).toContain('非阻擋');
     expect(markdown).toContain('jest.native-esm.config.cjs');
     expect(markdown).toContain('threshold-parity');
-    expect(markdown).toContain('## V8 Threshold Adapter');
+    expect(markdown).toContain('## V8 門檻 adapter');
     expect(markdown).toContain('official-scope-parity');
-    expect(markdown).toContain('native nonzero official 檔案數');
-    expect(markdown).toContain('## Native Zero / Incumbent Nonzero');
-    expect(markdown).toContain('## Blocker Ledger');
+    expect(markdown).toContain('native 正式非零檔案數');
+    expect(markdown).toContain('## Native 零命中 / Incumbent 非零命中');
+    expect(markdown).toContain('## 阻礙台帳');
+    expect(markdown).not.toContain('official V8 local threshold owner');
+    expect(markdown).not.toContain('non-blocking');
+    expect(markdown).not.toContain('## V8 Threshold Adapter');
     expect(markdown).toContain('scripts/background.js');
     expect(markdown).toContain('entrypoint-side-effect-boundary');
   });
@@ -415,10 +418,10 @@ describe('tools/report-native-esm-threshold-simulation', () => {
       diagnosticThresholdAdapter: undefined,
     });
 
-    expect(markdown).toContain('- native nonzero official 檔案數：不適用');
-    expect(markdown).toContain('- native zero official 檔案數：不適用');
-    expect(markdown).toContain('- material drift 檔案數：不適用');
-    expect(markdown).toContain('- native zero / incumbent nonzero 檔案數：不適用');
+    expect(markdown).toContain('- native 正式非零檔案數：不適用');
+    expect(markdown).toContain('- native 正式零命中檔案數：不適用');
+    expect(markdown).toContain('- 重大漂移檔案數：不適用');
+    expect(markdown).toContain('- native 零命中 / incumbent 非零命中檔案數：不適用');
     expect(markdown).toContain('- adapter 狀態：不適用');
   });
 
@@ -498,7 +501,7 @@ describe('tools/report-native-esm-threshold-simulation', () => {
     expect(adapter).toEqual(
       expect.objectContaining({
         blocking: false,
-        diagnosticOnly: false,
+        diagnosticOnly: true,
         status: 'pass',
       })
     );
@@ -512,22 +515,22 @@ describe('tools/report-native-esm-threshold-simulation', () => {
         expect.objectContaining({
           id: 'source-line-correctness',
           status: 'pass',
-          evidence: 'required lines 通過 4/4；失敗 0。',
+          evidence: '必要行通過 4/4；失敗 0。',
         }),
         expect.objectContaining({
           id: 'required-line-manifest-count',
           status: 'pass',
-          evidence: 'required-line manifest count 4；baseline 3。',
+          evidence: '必要行 manifest 數量 4；baseline 3。',
         }),
         expect.objectContaining({
           id: 'native-nonzero-official-files',
           status: 'pass',
-          evidence: 'native nonzero official 檔案數 2；baseline 1。',
+          evidence: 'native 正式非零檔案數 2；baseline 1。',
         }),
         expect.objectContaining({
           id: 'native-zero-incumbent-nonzero-files',
           status: 'pass',
-          evidence: 'native zero / incumbent nonzero 檔案數 0；baseline 1。',
+          evidence: 'native 零命中 / incumbent 非零命中檔案數 0；baseline 1。',
         }),
         expect.objectContaining({
           id: 'residual-group:scripts/a.js',
@@ -570,7 +573,7 @@ describe('tools/report-native-esm-threshold-simulation', () => {
         expect.objectContaining({
           id: 'source-line-correctness',
           status: 'fail',
-          evidence: 'required lines 通過 3/4；失敗 1。',
+          evidence: '必要行通過 3/4；失敗 1。',
         }),
         expect.objectContaining({
           id: 'residual-group:scripts/a.js',
@@ -604,12 +607,12 @@ describe('tools/report-native-esm-threshold-simulation', () => {
         expect.objectContaining({
           id: 'source-line-correctness',
           status: 'not_evaluated',
-          evidence: '缺少 source-line correctness summary。',
+          evidence: '缺少來源行正確性摘要。',
         }),
         expect.objectContaining({
           id: 'required-line-manifest-count',
           status: 'not_evaluated',
-          evidence: '缺少 source-line correctness summary。',
+          evidence: '缺少來源行正確性摘要。',
         }),
       ])
     );
@@ -708,9 +711,9 @@ describe('tools/report-native-esm-threshold-simulation', () => {
     ]);
 
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain('Native ESM threshold simulation 報告已寫入');
+    expect(result.stdout).toContain('Native ESM 門檻模擬報告已寫入');
     const summary = JSON.parse(fs.readFileSync(summaryJsonPath, 'utf8'));
-    expect(summary.diagnosticOnly).toBe(false);
+    expect(summary.diagnosticOnly).toBe(true);
     expect(summary.breadth).toEqual(
       expect.objectContaining({
         nativeNonzeroOfficialFiles: 1,

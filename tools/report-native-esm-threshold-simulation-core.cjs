@@ -180,7 +180,7 @@ function createThresholdParityGate({ incumbentThreshold, nativeThreshold, scopeP
       id: 'threshold-parity',
       status: 'pass',
       blocking: false,
-      evidence: 'incumbent fallback 與 native ESM coverage 都通過目前 V8 coverageThreshold.global。',
+      evidence: 'incumbent fallback 覆蓋率與 native ESM 覆蓋率都通過目前 V8 coverageThreshold.global。',
     };
   }
 
@@ -189,7 +189,7 @@ function createThresholdParityGate({ incumbentThreshold, nativeThreshold, scopeP
       id: 'threshold-parity',
       status: 'fail',
       blocking: false,
-      evidence: 'incumbent coverage 通過門檻，但 native ESM coverage 未通過門檻。',
+      evidence: 'incumbent 覆蓋率通過門檻，但 native ESM 覆蓋率未通過門檻。',
     };
   }
 
@@ -206,7 +206,7 @@ function createThresholdGate(id, thresholdResult, producerName) {
     id,
     status: thresholdResult.pass ? 'pass' : 'fail',
     blocking: false,
-    evidence: `${producerName} coverage ${thresholdResult.pass ? '通過' : '未通過'} V8 coverageThreshold.global。`,
+    evidence: `${producerName} 覆蓋率${thresholdResult.pass ? '通過' : '未通過'} V8 coverageThreshold.global。`,
   };
 }
 
@@ -337,12 +337,12 @@ function createSourceLineAdapterChecks(sourceLineSummary, adapterBaseline) {
       createAdapterCheck(
         'source-line-correctness',
         sourceLineTotals.failedLines === 0 ? 'pass' : 'fail',
-        `required lines 通過 ${sourceLineTotals.passedLines}/${sourceLineTotals.requiredLines}；失敗 ${sourceLineTotals.failedLines}。`
+        `必要行通過 ${sourceLineTotals.passedLines}/${sourceLineTotals.requiredLines}；失敗 ${sourceLineTotals.failedLines}。`
       ),
       createAdapterCheck(
         'required-line-manifest-count',
         sourceLineTotals.requiredLines >= adapterBaseline.requiredLines ? 'pass' : 'fail',
-        `required-line manifest count ${sourceLineTotals.requiredLines}；baseline ${adapterBaseline.requiredLines}。`
+        `必要行 manifest 數量 ${sourceLineTotals.requiredLines}；baseline ${adapterBaseline.requiredLines}。`
       ),
     ];
   }
@@ -351,12 +351,12 @@ function createSourceLineAdapterChecks(sourceLineSummary, adapterBaseline) {
     createAdapterCheck(
       'source-line-correctness',
       'not_evaluated',
-      '缺少 source-line correctness summary。'
+      '缺少來源行正確性摘要。'
     ),
     createAdapterCheck(
       'required-line-manifest-count',
       'not_evaluated',
-      '缺少 source-line correctness summary。'
+      '缺少來源行正確性摘要。'
     ),
   ];
 }
@@ -368,14 +368,14 @@ function createBreadthAdapterChecks(breadth, adapterBaseline) {
       breadth.nativeNonzeroOfficialFiles >= adapterBaseline.nativeNonzeroOfficialFiles
         ? 'pass'
         : 'fail',
-      `native nonzero official 檔案數 ${breadth.nativeNonzeroOfficialFiles}；baseline ${adapterBaseline.nativeNonzeroOfficialFiles}。`
+      `native 正式非零檔案數 ${breadth.nativeNonzeroOfficialFiles}；baseline ${adapterBaseline.nativeNonzeroOfficialFiles}。`
     ),
     createAdapterCheck(
       'native-zero-incumbent-nonzero-files',
       breadth.nativeZeroIncumbentNonzeroFiles <= adapterBaseline.nativeZeroIncumbentNonzeroFiles
         ? 'pass'
         : 'fail',
-      `native zero / incumbent nonzero 檔案數 ${breadth.nativeZeroIncumbentNonzeroFiles}；baseline ${adapterBaseline.nativeZeroIncumbentNonzeroFiles}。`
+      `native 零命中 / incumbent 非零命中檔案數 ${breadth.nativeZeroIncumbentNonzeroFiles}；baseline ${adapterBaseline.nativeZeroIncumbentNonzeroFiles}。`
     ),
   ];
 }
@@ -404,7 +404,7 @@ function evaluateDiagnosticThresholdAdapter({
   ];
 
   return {
-    diagnosticOnly: false,
+    diagnosticOnly: true,
     status: resolveAdapterStatus(checks),
     blocking: false,
     baseline: adapterBaseline,
@@ -441,7 +441,7 @@ function compareCoverageSummaries({
 
   return {
     schemaVersion: 1,
-    diagnosticOnly: false,
+    diagnosticOnly: true,
     incumbentCoveragePath,
     nativeCoveragePath,
     thresholdSource: 'jest.native-esm.config.cjs coverageThreshold.global',
@@ -465,14 +465,14 @@ function compareCoverageSummaries({
     },
     gates: [
       createThresholdParityGate({ incumbentThreshold, nativeThreshold, scopeParitySummary }),
-      createThresholdGate('incumbent-threshold', incumbentThreshold, 'incumbent'),
+      createThresholdGate('incumbent-threshold', incumbentThreshold, 'incumbent fallback'),
       createThresholdGate('native-threshold', nativeThreshold, 'native ESM'),
       {
         id: 'report-integrity',
         status: 'pass',
         blocking: false,
         evidence:
-          'threshold simulation 只讀取 repo root 內 coverage inputs，並只寫入 coverage/native-esm comparison artifacts。',
+          '門檻模擬只讀取 repo root 內的 coverage 輸入，並只寫入 coverage/native-esm 比較產物。',
       },
     ],
     breadth,
@@ -627,74 +627,74 @@ function renderThresholdSimulationMarkdown(summary) {
           .join('\n')
       : REPORT_MESSAGES.NO_DRIFT_ROW;
 
-  return `# Native ESM threshold comparison 摘要
+  return `# Native ESM 門檻比較摘要
 
-> 比較 incumbent fallback 與 official V8 local threshold owner。比較 gates 仍是 non-blocking；official threshold gate 由 \`jest.native-esm.config.cjs\` 在 native coverage run 中執行。
+> 比較 incumbent fallback 與正式 V8 本機門檻擁有者。比較檢查項仍是非阻擋；正式門檻檢查由 \`jest.native-esm.config.cjs\` 在 native coverage 執行中負責。
 
 ## 總計
 
 - incumbent 檔案數：${summary.totals.incumbentFiles}
 - native ESM 檔案數：${summary.totals.nativeFiles}
 - shared 檔案數：${summary.totals.sharedFiles}
-- incumbent-only 檔案數：${summary.totals.incumbentOnlyFiles}
-- native-only 檔案數：${summary.totals.nativeOnlyFiles}
-- native nonzero official 檔案數：${summary.breadth?.nativeNonzeroOfficialFiles ?? REPORT_MESSAGES.NOT_APPLICABLE}
-- native zero official 檔案數：${summary.breadth?.nativeZeroOfficialFiles ?? REPORT_MESSAGES.NOT_APPLICABLE}
-- material drift 檔案數：${summary.breadth?.materialDriftFiles ?? REPORT_MESSAGES.NOT_APPLICABLE}
-- native zero / incumbent nonzero 檔案數：${summary.breadth?.nativeZeroIncumbentNonzeroFiles ?? REPORT_MESSAGES.NOT_APPLICABLE}
+- 僅 incumbent 檔案數：${summary.totals.incumbentOnlyFiles}
+- 僅 native 檔案數：${summary.totals.nativeOnlyFiles}
+- native 正式非零檔案數：${summary.breadth?.nativeNonzeroOfficialFiles ?? REPORT_MESSAGES.NOT_APPLICABLE}
+- native 正式零命中檔案數：${summary.breadth?.nativeZeroOfficialFiles ?? REPORT_MESSAGES.NOT_APPLICABLE}
+- 重大漂移檔案數：${summary.breadth?.materialDriftFiles ?? REPORT_MESSAGES.NOT_APPLICABLE}
+- native 零命中 / incumbent 非零命中檔案數：${summary.breadth?.nativeZeroIncumbentNonzeroFiles ?? REPORT_MESSAGES.NOT_APPLICABLE}
 
-## Global Metrics
+## 全域指標
 
-| Metric | Incumbent | Native ESM | Delta | Threshold |
+| 指標 | incumbent | native ESM | 差異 | 門檻 |
 | --- | ---: | ---: | ---: | ---: |
 ${renderMetricRows(summary)}
 
-## Gates
+## 檢查項
 
-| Gate | 狀態 | 阻擋 | 證據 |
+| 檢查項 | 狀態 | 阻擋 | 證據 |
 | --- | --- | --- | --- |
 ${gateRows}
 
-## V8 Threshold Adapter
+## V8 門檻 adapter
 
-> non-blocking adapter check，用來約束 V8 breadth 與 source-line correctness；official \`coverageThreshold.global\` 已由 native Jest ESM config 負責。
+> 非阻擋 adapter 檢查，用來約束 V8 廣度與來源行正確性；正式 \`coverageThreshold.global\` 已由 native Jest ESM config 負責。
 
 - adapter 狀態：${adapterStatus}
-- baseline native nonzero official 檔案數：${adapter?.baseline?.nativeNonzeroOfficialFiles ?? REPORT_MESSAGES.NOT_APPLICABLE}
-- baseline native zero / incumbent nonzero 檔案數：${adapter?.baseline?.nativeZeroIncumbentNonzeroFiles ?? REPORT_MESSAGES.NOT_APPLICABLE}
-- baseline required-line manifest count：${adapter?.baseline?.requiredLines ?? REPORT_MESSAGES.NOT_APPLICABLE}
+- baseline native 正式非零檔案數：${adapter?.baseline?.nativeNonzeroOfficialFiles ?? REPORT_MESSAGES.NOT_APPLICABLE}
+- baseline native 零命中 / incumbent 非零命中檔案數：${adapter?.baseline?.nativeZeroIncumbentNonzeroFiles ?? REPORT_MESSAGES.NOT_APPLICABLE}
+- baseline 必要行 manifest 數量：${adapter?.baseline?.requiredLines ?? REPORT_MESSAGES.NOT_APPLICABLE}
 
-| Check | 狀態 | 證據 |
+| 檢查 | 狀態 | 證據 |
 | --- | --- | --- |
 ${adapterCheckRows}
 
-## Material Drift Files
+## 重大漂移檔案
 
-### Drift Groups
+### 漂移群組
 
-| Group | Files | Worst Delta | Sample Files |
+| 群組 | 檔案數 | 最嚴重差異 | 範例檔案 |
 | --- | ---: | ---: | --- |
 ${materialGroupRows}
 
-### Files
+### 檔案
 
-| 檔案 | Incumbent lines | Native lines | Delta |
+| 檔案 | incumbent 行覆蓋率 | native 行覆蓋率 | 差異 |
 | --- | ---: | ---: | ---: |
 ${driftRows}
 
-## Native Zero / Incumbent Nonzero
+## Native 零命中 / Incumbent 非零命中
 
-### Zero Groups
+### 零命中群組
 
-| Group | Files | Worst Delta | Sample Files |
+| 群組 | 檔案數 | 最嚴重差異 | 範例檔案 |
 | --- | ---: | ---: | --- |
 ${zeroGroupRows}
 
-### Files
+### 檔案
 
 ${zeroRows}
 
-## Blocker Ledger
+## 阻礙台帳
 
 | 檔案路徑 | 阻礙類別 | 排除理由 | 預期所有權者 | 移除條件 |
 | --- | --- | --- | --- | --- |

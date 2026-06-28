@@ -169,7 +169,7 @@ async function runCli() {
   writeOutputFiles(summary, options);
   const thresholdGate = summary.gates.find(gate => gate.id === 'threshold-parity');
   console.log(
-    `Native ESM threshold simulation 報告已寫入：threshold-parity=${thresholdGate?.status || 'unknown'}, shared files=${summary.totals.sharedFiles}`
+    `Native ESM 門檻模擬報告已寫入：threshold-parity=${thresholdGate?.status || 'unknown'}, shared 檔案數=${summary.totals.sharedFiles}`
   );
 }
 
