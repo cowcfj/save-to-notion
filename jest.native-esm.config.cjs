@@ -5,6 +5,10 @@ module.exports = {
   testEnvironment: 'node',
   testMatch: [
     '<rootDir>/tests/native-esm/**/*.test.mjs',
+    '<rootDir>/tests/native-esm/highlighter/windowAPI.lifecycle.native-esm.test.mjs',
+    '<rootDir>/tests/native-esm/highlighter/highlighterIndex.lifecycle.native-esm.test.mjs',
+    '<rootDir>/tests/native-esm/highlighter/entryAutoInit.lifecycle.native-esm.test.mjs',
+    '<rootDir>/tests/native-esm/highlighter/rootSupport.native-esm.test.mjs',
     '<rootDir>/tests/unit/highlighter/autoInit/initializationInputs.test.js',
     '<rootDir>/tests/unit/highlighter/autoInit/lateStableUrlRestore.test.js',
     '<rootDir>/tests/unit/highlighter/autoInit/persistentListeners.test.js',
