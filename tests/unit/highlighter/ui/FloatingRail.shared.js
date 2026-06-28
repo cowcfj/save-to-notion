@@ -103,16 +103,68 @@ const moduleLoaders = {
 const loadModule = async path => {
   const load = moduleLoaders[path];
   if (!load) {
-    throw new Error(`Unexpected module path: ${path}`);
+    throw new TypeError(`Unexpected module path: ${path}`);
   }
 
   return load();
 };
 
-export let FloatingRail;
-export let ErrorHandler;
-export let sanitizeApiError;
-export let Logger;
+const loadedExports = {
+  FloatingRail: null,
+  ErrorHandler: null,
+  sanitizeApiError: null,
+  Logger: null,
+};
+
+function getLoadedExport(exportName) {
+  const loadedExport = loadedExports[exportName];
+  if (!loadedExport) {
+    throw new TypeError(`${exportName} has not been loaded yet.`);
+  }
+  return loadedExport;
+}
+
+function getFloatingRailConstructor() {
+  return getLoadedExport('FloatingRail');
+}
+
+function FloatingRailProxy(...args) {
+  return Reflect.construct(getFloatingRailConstructor(), args);
+}
+
+export const FloatingRail = new Proxy(FloatingRailProxy, {
+  construct(_target, args) {
+    return Reflect.construct(getFloatingRailConstructor(), args);
+  },
+  get(_target, property) {
+    return getFloatingRailConstructor()[property];
+  },
+  set(_target, property, value) {
+    getFloatingRailConstructor()[property] = value;
+    return true;
+  },
+});
+
+function createLoadedObjectProxy(exportName) {
+  return new Proxy(
+    {},
+    {
+      get(_target, property) {
+        return getLoadedExport(exportName)[property];
+      },
+      set(_target, property, value) {
+        getLoadedExport(exportName)[property] = value;
+        return true;
+      },
+    }
+  );
+}
+
+export const ErrorHandler = createLoadedObjectProxy('ErrorHandler');
+export const Logger = createLoadedObjectProxy('Logger');
+export function sanitizeApiError(...args) {
+  return getLoadedExport('sanitizeApiError')(...args);
+}
 
 export const { checkPageStatus, savePageFromRail, syncHighlights, openSidePanel } = mockRuntime;
 export const { createFloatingRailContainer } = mockContainer;
@@ -128,22 +180,27 @@ const activeRails = new Set();
 let originalInitialize;
 
 beforeAll(async () => {
-  ({ FloatingRail } = await loadModule('../../../../scripts/highlighter/ui/FloatingRail.js'));
-  ({ ErrorHandler } = await loadModule('../../../../scripts/utils/ErrorHandler.js'));
-  ({ sanitizeApiError } = await loadModule('../../../../scripts/utils/ApiErrorSanitizer.js'));
+  const floatingRailModule = await loadModule('../../../../scripts/highlighter/ui/FloatingRail.js');
+  const errorHandlerModule = await loadModule('../../../../scripts/utils/ErrorHandler.js');
+  const apiErrorSanitizerModule = await loadModule(
+    '../../../../scripts/utils/ApiErrorSanitizer.js'
+  );
   const LoggerModule = await loadModule('../../../../scripts/utils/Logger.js');
-  Logger = LoggerModule.default || LoggerModule;
+  loadedExports.FloatingRail = floatingRailModule.FloatingRail;
+  loadedExports.ErrorHandler = errorHandlerModule.ErrorHandler;
+  loadedExports.sanitizeApiError = apiErrorSanitizerModule.sanitizeApiError;
+  loadedExports.Logger = LoggerModule.default || LoggerModule;
 
-  originalInitialize = FloatingRail.prototype.initialize;
-  FloatingRail.prototype.initialize = function trackInitializedRail(...args) {
+  originalInitialize = loadedExports.FloatingRail.prototype.initialize;
+  loadedExports.FloatingRail.prototype.initialize = function trackInitializedRail(...args) {
     activeRails.add(this);
     return originalInitialize.apply(this, args);
   };
 });
 
 afterAll(() => {
-  if (FloatingRail && originalInitialize) {
-    FloatingRail.prototype.initialize = originalInitialize;
+  if (loadedExports.FloatingRail && originalInitialize) {
+    loadedExports.FloatingRail.prototype.initialize = originalInitialize;
   }
 });
 

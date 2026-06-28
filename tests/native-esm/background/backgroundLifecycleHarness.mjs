@@ -49,7 +49,7 @@ async function importLinkedModule(specifier, referencingModule) {
 
 async function importBackgroundEntrypoint() {
   if (typeof vm.SourceTextModule !== 'function' || typeof vm.SyntheticModule !== 'function') {
-    throw new Error('Native ESM background import requires VM Modules support.');
+    throw new TypeError('Native ESM background import requires VM Modules support.');
   }
 
   const source = await fs.readFile(backgroundEntrypointPath, 'utf8');
@@ -143,24 +143,33 @@ function unwrapTestExports(moduleNamespace) {
   return moduleNamespace;
 }
 
-function clearListenerRegistries(chromeLike) {
-  const runtime = chromeLike?.runtime;
-  const alarms = chromeLike?.alarms;
-  const tabs = chromeLike?.tabs;
-  const storage = chromeLike?.storage;
+const CHROME_MOCK_CLEAR_PATHS = [
+  ['runtime', 'onInstalled', 'removeListener'],
+  ['runtime', 'onMessage', 'removeListener'],
+  ['runtime', 'onStartup', 'removeListener'],
+  ['alarms', 'onAlarm', 'removeListener'],
+  ['tabs', 'onUpdated', 'removeListener'],
+  ['tabs', 'onRemoved', 'removeListener'],
+  ['tabs', 'onActivated', 'removeListener'],
+  ['storage', 'local', 'get'],
+  ['storage', 'local', 'set'],
+  ['storage', 'local', 'remove'],
+  ['storage', 'sync', 'get'],
+  ['storage', 'sync', 'set'],
+];
 
-  runtime?.onInstalled?.removeListener?.mockClear();
-  runtime?.onMessage?.removeListener?.mockClear();
-  runtime?.onStartup?.removeListener?.mockClear();
-  alarms?.onAlarm?.removeListener?.mockClear();
-  tabs?.onUpdated?.removeListener?.mockClear();
-  tabs?.onRemoved?.removeListener?.mockClear();
-  tabs?.onActivated?.removeListener?.mockClear();
-  storage?.local?.get?.mockClear();
-  storage?.local?.set?.mockClear();
-  storage?.local?.remove?.mockClear();
-  storage?.sync?.get?.mockClear();
-  storage?.sync?.set?.mockClear();
+function readPath(source, pathParts) {
+  return pathParts.reduce((value, key) => value?.[key], source);
+}
+
+function clearMockByPath(source, pathParts) {
+  readPath(source, pathParts)?.mockClear?.();
+}
+
+function clearListenerRegistries(chromeLike) {
+  for (const pathParts of CHROME_MOCK_CLEAR_PATHS) {
+    clearMockByPath(chromeLike, pathParts);
+  }
 }
 
 function cleanup(chromeLike) {

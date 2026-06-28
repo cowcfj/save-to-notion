@@ -53,11 +53,24 @@ function cleanupGlobals() {
   document.body.innerHTML = '';
 }
 
+const RUNTIME_MOCK_CLEAR_PATHS = [
+  ['runtime', 'onMessage', 'addListener'],
+  ['runtime', 'onMessage', 'removeListener'],
+  ['runtime', 'sendMessage'],
+];
+
+function readPath(source, pathParts) {
+  return pathParts.reduce((value, key) => value?.[key], source);
+}
+
+function clearMockByPath(source, pathParts) {
+  readPath(source, pathParts)?.mockClear?.();
+}
+
 function resetRuntimeListeners(chromeLike = globalThis.chrome) {
-  const onMessage = chromeLike?.runtime?.onMessage;
-  onMessage?.addListener?.mockClear();
-  onMessage?.removeListener?.mockClear();
-  chromeLike?.runtime?.sendMessage?.mockClear?.();
+  for (const pathParts of RUNTIME_MOCK_CLEAR_PATHS) {
+    clearMockByPath(chromeLike, pathParts);
+  }
 }
 
 export {

@@ -21,27 +21,23 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
 }));
 
 await jest.unstable_mockModule('../../../scripts/background/services/StorageService.js', () => ({
-  StorageService: class {
-    setupListeners() {}
-  },
+  StorageService: jest.fn(() => ({ setupListeners: jest.fn() })),
 }));
 
 await jest.unstable_mockModule('../../../scripts/background/services/TabService.js', () => ({
-  TabService: class {
-    constructor() {
-      this.setupListeners = jest.fn(() => {
-        globalThis.chrome.tabs.onUpdated.addListener(jest.fn());
-        globalThis.chrome.tabs.onActivated.addListener(jest.fn());
-        globalThis.chrome.tabs.onRemoved.addListener(jest.fn());
-      });
-      this.consumeDeletionConfirmation = jest.fn();
-      this.confirmRemotePageMissing = jest.fn();
-      this.resetRemotePageMissingState = jest.fn();
-      this._applyMigration = jest.fn();
-      this._isHttpOrHttpsUrl = jest.fn(() => true);
-      this.updateTabStatus = jest.fn(async () => undefined);
-    }
-  },
+  TabService: jest.fn(() => ({
+    setupListeners: jest.fn(() => {
+      globalThis.chrome.tabs.onUpdated.addListener(jest.fn());
+      globalThis.chrome.tabs.onActivated.addListener(jest.fn());
+      globalThis.chrome.tabs.onRemoved.addListener(jest.fn());
+    }),
+    consumeDeletionConfirmation: jest.fn(),
+    confirmRemotePageMissing: jest.fn(),
+    resetRemotePageMissingState: jest.fn(),
+    _applyMigration: jest.fn(),
+    _isHttpOrHttpsUrl: jest.fn(() => true),
+    updateTabStatus: jest.fn(async () => undefined),
+  })),
 }));
 
 await jest.unstable_mockModule('../../../scripts/background/handlers/MessageHandler.js', () => ({
@@ -52,15 +48,11 @@ await jest.unstable_mockModule('../../../scripts/background/handlers/MessageHand
 }));
 
 await jest.unstable_mockModule('../../../scripts/background/services/NotionService.js', () => ({
-  NotionService: class {
-    setupListeners() {}
-  },
+  NotionService: jest.fn(() => ({ setupListeners: jest.fn() })),
 }));
 
 await jest.unstable_mockModule('../../../scripts/background/services/InjectionService.js', () => ({
-  InjectionService: class {
-    setupListeners() {}
-  },
+  InjectionService: jest.fn(() => ({ setupListeners: jest.fn() })),
   isRestrictedInjectionUrl: jest.fn(() => false),
   isRecoverableInjectionError: jest.fn(() => false),
 }));
@@ -68,22 +60,18 @@ await jest.unstable_mockModule('../../../scripts/background/services/InjectionSe
 await jest.unstable_mockModule(
   '../../../scripts/background/services/PageContentService.js',
   () => ({
-    PageContentService: class {
-      setupListeners() {}
-    },
+    PageContentService: jest.fn(() => ({ setupListeners: jest.fn() })),
   })
 );
 
 await jest.unstable_mockModule('../../../scripts/background/services/MigrationService.js', () => ({
-  MigrationService: class {
-    constructor() {}
-  },
+  MigrationService: jest.fn(() => ({})),
 }));
 
 await jest.unstable_mockModule(
   '../../../scripts/background/services/StorageMigrationScanner.js',
   () => ({
-    StorageMigrationScanner: class {},
+    StorageMigrationScanner: jest.fn(() => ({})),
   })
 );
 
@@ -144,16 +132,14 @@ await jest.unstable_mockModule(
 );
 
 await jest.unstable_mockModule('../../../scripts/destinations/ProfileStore.js', () => ({
-  AccountGatedDestinationEntitlementProvider: class {},
-  LocalDestinationProfileRepository: class {},
+  AccountGatedDestinationEntitlementProvider: jest.fn(),
+  LocalDestinationProfileRepository: jest.fn(),
 }));
 
 await jest.unstable_mockModule('../../../scripts/destinations/ProfileResolver.js', () => ({
-  ProfileResolver: class {
-    resolve() {
-      return Promise.resolve({ id: 'default' });
-    }
-  },
+  ProfileResolver: jest.fn().mockImplementation(() => ({
+    resolve: jest.fn(async () => ({ id: 'default' })),
+  })),
 }));
 
 await jest.unstable_mockModule('../../../scripts/auth/driveClient.js', () => ({

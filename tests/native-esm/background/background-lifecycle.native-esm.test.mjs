@@ -120,15 +120,13 @@ await jest.unstable_mockModule('../../../scripts/auth/driveClient.js', () => ({
   markDriveDirty: jest.fn(),
 }));
 await jest.unstable_mockModule('../../../scripts/destinations/ProfileStore.js', () => ({
-  AccountGatedDestinationEntitlementProvider: class {},
-  LocalDestinationProfileRepository: class {},
+  AccountGatedDestinationEntitlementProvider: jest.fn(),
+  LocalDestinationProfileRepository: jest.fn(),
 }));
 await jest.unstable_mockModule('../../../scripts/destinations/ProfileResolver.js', () => ({
-  ProfileResolver: class {
-    constructor() {
-      this.resolve = jest.fn(async () => ({ id: 'default' }));
-    }
-  },
+  ProfileResolver: jest.fn().mockImplementation(() => ({
+    resolve: jest.fn(async () => ({ id: 'default' })),
+  })),
 }));
 
 let background;

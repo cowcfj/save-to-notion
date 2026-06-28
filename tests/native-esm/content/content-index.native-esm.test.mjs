@@ -78,7 +78,6 @@ beforeEach(() => {
   globalThis.chrome.sendMessage = globalThis.chrome.runtime.sendMessage;
   globalThis.__UNIT_TESTING__ = false;
   installNoOpDOMParser();
-  globalThis.document = window.document;
   resetRuntimeListeners();
   jest.spyOn(document, 'querySelector').mockReturnValue(null);
   jest.spyOn(document, 'addEventListener');

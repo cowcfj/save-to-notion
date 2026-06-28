@@ -79,9 +79,7 @@ afterEach(() => {
 
 describe('content script require native ESM', () => {
   test('native ESM require-like import can run extraction auto-execution', async () => {
-    const preloaderHandler = event => {
-      event?.detail;
-    };
+    const preloaderHandler = jest.fn();
     document.addEventListener('notion-preloader-response', preloaderHandler);
 
     const ContentExtractor =
@@ -119,6 +117,9 @@ describe('content script require native ESM', () => {
     );
 
     const result = await globalThis.__notion_extraction_promise;
+    expect(preloaderHandler.mock.calls[0]?.[0]?.detail).toEqual(
+      expect.objectContaining({ shortlink: 'https://x' })
+    );
     expect(result).toBeDefined();
     expect(module.extractPageContent).toBeDefined();
     expect(result).toEqual(expect.objectContaining({ extractionStatus: 'success' }));
