@@ -111,7 +111,7 @@ jobs:
       - name: 快取 Jest V8 覆蓋率 runtime 輸出
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae
         with:
-          path: .jest-cache
+          path: .tmp/jest-cache-native-esm
           key: ${{ runner.os }}-jest-v8-${{ hashFiles('jest.config.js', 'jest.config.*.js', 'jest.native-esm.config.cjs', 'package-lock.json') }}
           restore-keys: ${{ runner.os }}-jest-
 

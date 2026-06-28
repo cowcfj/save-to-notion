@@ -137,6 +137,8 @@ describe('workflow policy contract', () => {
     const nativeConfig = require('../../../jest.native-esm.config.cjs');
 
     expect(scripts['test:coverage:native-esm']).toMatch(/(?:^| )--ci(?: |$)/);
+    expect(scripts['test:coverage:native-esm']).not.toMatch(/(?:^| )--runInBand(?: |$)/);
+    expect(nativeConfig.maxWorkers).toBe(4);
     expect(nativeConfig.coverageDirectory).toBe('<rootDir>/coverage/native-esm');
     expect(nativeConfig.coverageReporters).toEqual(
       expect.arrayContaining(['json', 'text', 'lcov'])
@@ -188,6 +190,8 @@ describe('workflow policy contract', () => {
     expect(workflowSource).not.toContain('coverage/native-esm/scope-parity-summary.md');
     expect(workflowSource).not.toContain('native-esm-diagnostic-${{ github.sha }}');
     expect(workflowSource).not.toContain('coverage/jest/lcov.info');
+    expect(workflowSource).toContain('path: .tmp/jest-cache-native-esm');
+    expect(workflowSource).not.toContain('path: .jest-cache');
 
     expect(validationStep).toContain('EXPECTED_CODECOV_LCOV_FILE="coverage/native-esm/lcov.info"');
     expect(validationStep).toContain('LCOV_FILE="coverage/native-esm/lcov.info"');
