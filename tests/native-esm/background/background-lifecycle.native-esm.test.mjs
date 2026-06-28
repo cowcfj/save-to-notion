@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { fileURLToPath } from 'node:url';
 import {
+  assertTrustedBackgroundEntrypointPath,
   cleanup,
   importBackgroundEntrypoint,
   makeDefaultChrome,
@@ -147,6 +149,20 @@ afterEach(() => {
   cleanup();
   delete globalThis.chrome;
   delete globalThis.Logger;
+});
+
+describe('background lifecycle harness source guard', () => {
+  test('rejects non-background source paths before VM evaluation', async () => {
+    const trustedPath = fileURLToPath(new URL('../../../scripts/background.js', import.meta.url));
+    const untrustedPath = fileURLToPath(
+      new URL('../../../scripts/config/shared/content.js', import.meta.url)
+    );
+
+    await expect(assertTrustedBackgroundEntrypointPath(trustedPath)).resolves.toBeUndefined();
+    await expect(assertTrustedBackgroundEntrypointPath(untrustedPath)).rejects.toThrow(
+      'Refusing to evaluate untrusted background entrypoint'
+    );
+  });
 });
 
 describe('background lifecycle native ESM', () => {

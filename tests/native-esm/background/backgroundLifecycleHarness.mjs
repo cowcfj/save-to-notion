@@ -8,6 +8,10 @@ const harnessDirectory = path.dirname(fileURLToPath(import.meta.url));
 const backgroundEntrypointPath = fileURLToPath(
   new URL('../../../scripts/background.js', import.meta.url)
 );
+const trustedBackgroundEntrypointPath = path.resolve(
+  harnessDirectory,
+  '../../../scripts/background.js'
+);
 
 function toHarnessImportSpecifier(absolutePath) {
   const relativePath = path.relative(harnessDirectory, absolutePath).replaceAll(path.sep, '/');
@@ -47,16 +51,44 @@ async function importLinkedModule(specifier, referencingModule) {
   );
 }
 
+async function resolveTrustedBackgroundEntrypointPath(candidatePath) {
+  const [candidateRealPath, trustedRealPath] = await Promise.all([
+    fs.realpath(candidatePath),
+    fs.realpath(trustedBackgroundEntrypointPath),
+  ]);
+
+  if (candidateRealPath !== trustedRealPath) {
+    throw new TypeError(
+      `Refusing to evaluate untrusted background entrypoint: ${candidatePath}`
+    );
+  }
+
+  return candidateRealPath;
+}
+
+async function assertTrustedBackgroundEntrypointPath(candidatePath) {
+  await resolveTrustedBackgroundEntrypointPath(candidatePath);
+}
+
+async function readTrustedBackgroundEntrypointSource() {
+  const trustedPath = await resolveTrustedBackgroundEntrypointPath(backgroundEntrypointPath);
+  return {
+    identifier: pathToFileURL(trustedPath).href,
+    source: await fs.readFile(trustedPath, 'utf8'),
+  };
+}
+
 async function importBackgroundEntrypoint() {
   if (typeof vm.SourceTextModule !== 'function' || typeof vm.SyntheticModule !== 'function') {
     throw new TypeError('Native ESM background import requires VM Modules support.');
   }
 
-  const source = await fs.readFile(backgroundEntrypointPath, 'utf8');
+  const { identifier, source } = await readTrustedBackgroundEntrypointSource();
   const context = vm.createContext(globalThis);
+  // Test-only VM execution of realpath-verified repo-local background.js for native ESM lifecycle parity.
   const backgroundModule = new vm.SourceTextModule(source, {
     context,
-    identifier: pathToFileURL(backgroundEntrypointPath).href,
+    identifier,
   });
 
   await backgroundModule.link(importLinkedModule);
@@ -179,6 +211,7 @@ function cleanup(chromeLike = globalThis.chrome) {
 }
 
 export {
+  assertTrustedBackgroundEntrypointPath,
   cleanup,
   clearListenerRegistries,
   importBackgroundEntrypoint,
