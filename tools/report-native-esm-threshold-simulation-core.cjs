@@ -189,7 +189,8 @@ function createThresholdParityGate({ incumbentThreshold, nativeThreshold, scopeP
       id: 'threshold-parity',
       status: 'fail',
       blocking: false,
-      evidence: 'incumbent 覆蓋率通過門檻，但 native ESM 覆蓋率未通過門檻。',
+      evidence:
+        'incumbent fallback 覆蓋率通過 V8 coverageThreshold.global，但 native ESM 覆蓋率未通過 V8 coverageThreshold.global。',
     };
   }
 

@@ -174,9 +174,13 @@ describe('workflow policy contract', () => {
   test('Coverage Gate runs the official V8 coverage route once and uploads only native LCOV', () => {
     const workflowSource = readWorkflow('coverage-gate.yml');
     const validationStep = getWorkflowStepBlock(workflowSource, '驗證覆蓋率檔案');
-    const officialUploadStep = getWorkflowStepBlock(workflowSource, 'Upload coverage to Codecov');
+    const officialUploadStep = getWorkflowStepBlock(workflowSource, '上傳覆蓋率到 Codecov');
 
-    expect(workflowSource).toContain('name: V8 Coverage Gate');
+    expect(workflowSource).toContain('name: Coverage Gate');
+    expect(workflowSource).toContain('run-name: Coverage Gate @');
+    expect(workflowSource).toContain('name: 覆蓋率閘門分類器');
+    expect(workflowSource).toContain('name: V8 覆蓋率閘門');
+    expect(workflowSource).toContain('name: 執行 V8 覆蓋率閘門');
     expect(countTrimmedLines(workflowSource, 'run: npm run test:ci')).toBe(1);
     expect(workflowSource).not.toContain('npm run test:coverage:native-esm:assert');
     expect(workflowSource).not.toContain('npm run test:coverage:native-esm:scope-parity');
@@ -202,7 +206,7 @@ describe('workflow policy contract', () => {
 
   test('Coverage Gate classifier treats native Jest ESM config as coverage-relevant', () => {
     const workflowSource = readWorkflow('coverage-gate.yml');
-    const classifierStep = getWorkflowStepBlock(workflowSource, 'Detect coverage-relevant changes');
+    const classifierStep = getWorkflowStepBlock(workflowSource, '偵測覆蓋率相關變更');
 
     expect(classifierStep).toContain("- 'jest.native-esm.config.cjs'");
   });

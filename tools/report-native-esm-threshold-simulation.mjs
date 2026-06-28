@@ -168,8 +168,13 @@ async function runCli() {
   const summary = await buildCurrentRepoSummary(options);
   writeOutputFiles(summary, options);
   const thresholdGate = summary.gates.find(gate => gate.id === 'threshold-parity');
+  const thresholdGateStatusLabels = {
+    pass: '通過',
+    fail: '失敗',
+    inconclusive: '未定論',
+  };
   console.log(
-    `Native ESM 門檻模擬報告已寫入：threshold-parity=${thresholdGate?.status || 'unknown'}, shared 檔案數=${summary.totals.sharedFiles}`
+    `原生模組門檻模擬報告已寫入：門檻對齊狀態=${thresholdGateStatusLabels[thresholdGate?.status] || '未知'}，共用檔案數=${summary.totals.sharedFiles}`
   );
 }
 

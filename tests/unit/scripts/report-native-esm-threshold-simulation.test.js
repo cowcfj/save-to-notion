@@ -252,6 +252,7 @@ describe('tools/report-native-esm-threshold-simulation', () => {
   test('compareCoverageSummaries reports threshold parity and material native drift', () => {
     const result = compareMaterialDriftCoverage(reporter, projectRoot);
     const { gates, drift } = result;
+    const thresholdParityGate = gates.find(gate => gate.id === 'threshold-parity');
 
     expect(result.blockerLedger).toBeInstanceOf(Array);
     expect(result.blockerLedger).toHaveLength(4);
@@ -265,6 +266,9 @@ describe('tools/report-native-esm-threshold-simulation', () => {
           blocking: false,
         }),
       ])
+    );
+    expect(thresholdParityGate.evidence).toBe(
+      'incumbent fallback 覆蓋率通過 V8 coverageThreshold.global，但 native ESM 覆蓋率未通過 V8 coverageThreshold.global。'
     );
     expect(drift.materialFiles).toEqual(
       expect.arrayContaining([
@@ -711,7 +715,12 @@ describe('tools/report-native-esm-threshold-simulation', () => {
     ]);
 
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain('Native ESM 門檻模擬報告已寫入');
+    expect(result.stdout).toContain('原生模組門檻模擬報告已寫入');
+    expect(result.stdout).toContain('門檻對齊狀態=通過');
+    expect(result.stdout).toContain('共用檔案數=1');
+    expect(result.stdout).not.toContain('threshold-parity');
+    expect(result.stdout).not.toContain('unknown');
+    expect(result.stdout).not.toContain('shared');
     const summary = JSON.parse(fs.readFileSync(summaryJsonPath, 'utf8'));
     expect(summary.diagnosticOnly).toBe(true);
     expect(summary.breadth).toEqual(

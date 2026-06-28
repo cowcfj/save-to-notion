@@ -18,20 +18,20 @@ env:
 
 jobs:
   coverage-classifier:
-    name: Coverage Gate Classifier
+    name: 覆蓋率閘門分類器
     runs-on: ubuntu-latest
     permissions:
       contents: read
     outputs:
       should-run: ${{ steps.decision.outputs.should-run }}
     steps:
-      - name: Checkout repository
+      - name: 簽出 repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Detect coverage-relevant changes
+      - name: 偵測覆蓋率相關變更
         id: changes
         if: github.event_name == 'pull_request'
         uses: dorny/paths-filter@6852f92c20ea7fd3b0c25de3b5112db3a98da050
@@ -52,7 +52,7 @@ jobs:
               - '.github/workflows/ci.yml'
               - '.github/workflows/coverage-gate.yml'
 
-      - name: Decide whether full coverage is required
+      - name: 判斷是否需要完整覆蓋率
         id: decision
         run: |
           SHOULD_RUN=false
@@ -66,10 +66,10 @@ jobs:
           fi
 
           echo "should-run=$SHOULD_RUN" >> "$GITHUB_OUTPUT"
-          echo "Coverage required: $SHOULD_RUN"
+          echo "覆蓋率檢查需求：$SHOULD_RUN"
 
   jest-coverage:
-    name: V8 Coverage Gate
+    name: V8 覆蓋率閘門
     needs: coverage-classifier
     if: needs.coverage-classifier.outputs.should-run == 'true'
     runs-on: ubuntu-latest
@@ -80,42 +80,42 @@ jobs:
       contents: read
 
     steps:
-      - name: Checkout repository
+      - name: 簽出 repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Setup Node.js
+      - name: 設定 Node.js
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238
         with:
           node-version: 20.x
           cache: npm
 
-      - name: Upgrade npm
+      - name: 升級 npm
         run: npm install -g npm@11.8.0 --ignore-scripts
 
-      - name: Install dependencies
+      - name: 安裝依賴
         env:
           PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: 'true'
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
         run: npm ci --ignore-scripts
 
-      - name: Prepare build env for tests
+      - name: 準備測試建置環境
         run: |
           if [ ! -f "scripts/config/env/build.js" ] && [ -f "scripts/config/env/build.example.js" ]; then
             cp scripts/config/env/build.example.js scripts/config/env/build.js
             echo "已從範本建立 scripts/config/env/build.js 供測試使用"
           fi
 
-      - name: Cache Jest V8 coverage runtime output
+      - name: 快取 Jest V8 覆蓋率 runtime 輸出
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae
         with:
           path: .jest-cache
           key: ${{ runner.os }}-jest-v8-${{ hashFiles('jest.config.js', 'jest.config.*.js', 'jest.native-esm.config.cjs', 'package-lock.json') }}
           restore-keys: ${{ runner.os }}-jest-
 
-      - name: V8 coverage gate
+      - name: 執行 V8 覆蓋率閘門
         run: npm run test:ci
 
       - name: 驗證覆蓋率檔案
@@ -138,7 +138,7 @@ jobs:
             exit 1
           fi
 
-      - name: Upload coverage to Codecov
+      - name: 上傳覆蓋率到 Codecov
         uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2
         with:
           files: ${{ steps.validate-coverage.outputs.file }}
