@@ -66,7 +66,7 @@ describe('highlighter root support native ESM coverage', () => {
     const path = getNodePath(spanTextNode);
 
     expect(typeof path).toBe('string');
-    expect(path).toMatch(/main\[[0-9]+\]\/p\[[0-9]+\]\/span\[[0-9]+\]\/text\[[0-9]+\]/);
+    expect(path).toMatch(/main\[\d+\]\/p\[\d+\]\/span\[\d+\]\/text\[\d+\]/);
     expect(parsePathFromString(path)).toEqual([
       { type: 'element', tag: 'main', index: 0 },
       { type: 'element', tag: 'p', index: 0 },

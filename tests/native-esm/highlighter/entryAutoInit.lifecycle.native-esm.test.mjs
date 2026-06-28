@@ -3,7 +3,6 @@
  */
 
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
-import { HIGHLIGHTER_ACTIONS } from '../../../scripts/config/runtimeActions/highlighterActions.js';
 import {
   cleanupHighlighterGlobals,
   createChromeMock,
@@ -119,10 +118,10 @@ async function bootstrap({
 
   fetchPageStatus = jest.fn().mockResolvedValue(pageStatus);
   fetchHighlighterSettings = jest.fn().mockResolvedValue(settings);
-  resolveStyleMode = jest.fn(({ }) => pageStatus.styleMode || 'background');
+  resolveStyleMode = jest.fn(() => pageStatus.styleMode || 'background');
   resolveStableUrlForInit = jest.fn(({ pageStatus: remote }) => ({
     resolvedStableUrl: pageStatus.stableUrl || remote?.stableUrl || 'https://runtime.example/stable',
-    stableUrlSource: pageStatus.stableUrl ? 'checkPageStatus' : 'checkPageStatus',
+    stableUrlSource: 'checkPageStatus',
   }));
   applyResolvedStableUrl = jest.fn(({ resolvedStableUrl }) => {
     if (resolvedStableUrl) {

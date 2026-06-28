@@ -69,12 +69,44 @@ if (typeof jest.unstable_mockModule === 'function') {
 
 registerUiTokenConstantsMock(jest, '../../../../styles/ui-token-constants.js');
 
+const moduleLoaders = {
+  '../../../../scripts/highlighter/ui/FloatingRail.js': () => {
+    if (typeof require === 'function') {
+      return require('../../../../scripts/highlighter/ui/FloatingRail.js');
+    }
+
+    return import('../../../../scripts/highlighter/ui/FloatingRail.js');
+  },
+  '../../../../scripts/utils/ErrorHandler.js': () => {
+    if (typeof require === 'function') {
+      return require('../../../../scripts/utils/ErrorHandler.js');
+    }
+
+    return import('../../../../scripts/utils/ErrorHandler.js');
+  },
+  '../../../../scripts/utils/ApiErrorSanitizer.js': () => {
+    if (typeof require === 'function') {
+      return require('../../../../scripts/utils/ApiErrorSanitizer.js');
+    }
+
+    return import('../../../../scripts/utils/ApiErrorSanitizer.js');
+  },
+  '../../../../scripts/utils/Logger.js': () => {
+    if (typeof require === 'function') {
+      return require('../../../../scripts/utils/Logger.js');
+    }
+
+    return import('../../../../scripts/utils/Logger.js');
+  },
+};
+
 const loadModule = async path => {
-  if (typeof require === 'function') {
-    return require(path);
+  const load = moduleLoaders[path];
+  if (!load) {
+    throw new Error(`Unexpected module path: ${path}`);
   }
 
-  return import(path);
+  return load();
 };
 
 const { FloatingRail } = await loadModule('../../../../scripts/highlighter/ui/FloatingRail.js');
