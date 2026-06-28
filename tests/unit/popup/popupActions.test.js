@@ -1,43 +1,172 @@
-import {
-  checkSettings,
-  checkPageStatus,
-  savePage,
-  startHighlight,
-  openNotionPage,
-  getActiveTab,
-  getDestinationState,
-  getPopupAccountState,
-  startAccountLogin,
-  openAccountManagement,
-  setPopupTempProfile,
-} from '../../../pages/popup/popupActions.js';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { ERROR_MESSAGES } from '../../../scripts/config/shared/messages.js';
-import { BUILD_ENV } from '../../../scripts/config/env/index.js';
-import Logger from '../../../scripts/utils/Logger.js';
-import { ProfileManager } from '../../../scripts/destinations/ProfileManager.js';
 
-jest.mock('../../../scripts/config/env/index.js', () => ({
+const mockEnvModule = {
   BUILD_ENV: {
     ENABLE_ACCOUNT: true,
     OAUTH_SERVER_URL: 'https://worker.test',
   },
-}));
+};
 
-jest.mock('../../../scripts/auth/accountSession.js', () => ({
+const mockAccountSessionModule = {
   getAccountProfile: jest.fn(),
   getAccountAccessToken: jest.fn(),
   getAccountSession: jest.fn(),
   isAccountSessionExpired: jest.fn(),
-}));
+};
+
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('../../../scripts/config/env/index.js', () => mockEnvModule);
+  jest.unstable_mockModule(
+    '../../../scripts/auth/accountSession.js',
+    () => mockAccountSessionModule
+  );
+}
+
+jest.mock('../../../scripts/config/env/index.js', () => mockEnvModule);
+jest.mock('../../../scripts/auth/accountSession.js', () => mockAccountSessionModule);
+
+let checkSettings;
+let checkPageStatus;
+let savePage;
+let startHighlight;
+let openNotionPage;
+let getActiveTab;
+let getDestinationState;
+let getPopupAccountState;
+let startAccountLogin;
+let openAccountManagement;
+let setPopupTempProfile;
+let BUILD_ENV;
+let Logger;
+let ProfileManager;
+let getAccountProfile;
+let getAccountAccessToken;
+let getAccountSession;
+let isAccountSessionExpired;
+
+beforeAll(async () => {
+  ({
+    checkSettings,
+    checkPageStatus,
+    savePage,
+    startHighlight,
+    openNotionPage,
+    getActiveTab,
+    getDestinationState,
+    getPopupAccountState,
+    startAccountLogin,
+    openAccountManagement,
+    setPopupTempProfile,
+  } = await import('../../../pages/popup/popupActions.js'));
+  ({ BUILD_ENV } = await import('../../../scripts/config/env/index.js'));
+  ({ default: Logger } = await import('../../../scripts/utils/Logger.js'));
+  ({ ProfileManager } = await import('../../../scripts/destinations/ProfileManager.js'));
+  ({ getAccountProfile, getAccountAccessToken, getAccountSession, isAccountSessionExpired } =
+    await import('../../../scripts/auth/accountSession.js'));
+});
+
+function selectDefinedStorageKeys(storageData, keys) {
+  return Object.fromEntries(
+    keys.filter(key => storageData[key] !== undefined).map(key => [key, storageData[key]])
+  );
+}
+
+function selectStorageDefaults(storageData, defaults) {
+  return Object.fromEntries(
+    Object.entries(defaults).map(([key, defaultValue]) => [
+      key,
+      storageData[key] === undefined ? defaultValue : storageData[key],
+    ])
+  );
+}
+
+function selectStorageKeys(storageData, keys) {
+  if (typeof keys === 'string') {
+    return selectDefinedStorageKeys(storageData, [keys]);
+  }
+  if (Array.isArray(keys)) {
+    return selectDefinedStorageKeys(storageData, keys);
+  }
+  if (keys === null || keys === undefined) {
+    return { ...storageData };
+  }
+  return selectStorageDefaults(storageData, keys);
+}
+
+function createStorageArea(storageData) {
+  return {
+    get: jest.fn((keys, callback) => {
+      const result = selectStorageKeys(storageData, keys);
+      callback?.(result);
+      return Promise.resolve(result);
+    }),
+    set: jest.fn((items, callback) => {
+      Object.assign(storageData, items);
+      callback?.();
+      return Promise.resolve();
+    }),
+    remove: jest.fn((keys, callback) => {
+      const keysArray = Array.isArray(keys) ? keys : [keys];
+      keysArray.forEach(key => {
+        delete storageData[key];
+      });
+      callback?.();
+      return Promise.resolve();
+    }),
+    clear: jest.fn(callback => {
+      Object.keys(storageData).forEach(key => {
+        delete storageData[key];
+      });
+      callback?.();
+      return Promise.resolve();
+    }),
+  };
+}
+
+function installNativeChromeMockIfNeeded() {
+  if (globalThis.chrome?._clearStorage) {
+    return;
+  }
+
+  const localStorageData = {};
+  const syncStorageData = {};
+  const sessionStorageData = {};
+
+  globalThis.chrome = {
+    storage: {
+      local: createStorageArea(localStorageData),
+      sync: createStorageArea(syncStorageData),
+      session: createStorageArea(sessionStorageData),
+    },
+    runtime: {
+      id: 'mock-extension-id',
+      getURL: jest.fn(path => `chrome-extension://mock-extension-id/${path}`),
+      sendMessage: jest.fn(() => Promise.resolve({ success: true })),
+    },
+    tabs: {
+      query: jest.fn(() => Promise.resolve([{ id: 1, url: 'https://example.com' }])),
+      create: jest.fn(createProperties => Promise.resolve({ id: 1000, ...createProperties })),
+      sendMessage: jest.fn(() => Promise.resolve({ success: true })),
+    },
+    sidePanel: {
+      open: jest.fn(() => Promise.resolve()),
+    },
+    _clearStorage: () => {
+      Object.keys(localStorageData).forEach(key => {
+        delete localStorageData[key];
+      });
+      Object.keys(syncStorageData).forEach(key => {
+        delete syncStorageData[key];
+      });
+      Object.keys(sessionStorageData).forEach(key => {
+        delete sessionStorageData[key];
+      });
+    },
+  };
+}
 
 describe('popupActions.js', () => {
-  const {
-    getAccountProfile,
-    getAccountAccessToken,
-    getAccountSession,
-    isAccountSessionExpired,
-  } = require('../../../scripts/auth/accountSession.js');
-
   const TEST_API_KEY = 'test-key';
 
   const setManualApiKey = (overrides = {}) =>
@@ -130,6 +259,7 @@ describe('popupActions.js', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    installNativeChromeMockIfNeeded();
     jest.spyOn(Logger, 'warn').mockImplementation(() => {});
     getAccountSession.mockResolvedValue(null);
     isAccountSessionExpired.mockReturnValue(true);
@@ -687,7 +817,7 @@ describe('popupActions.js', () => {
     it.each([
       {
         name: 'startAccountLogin 開啟 tab 失敗時應以 structured error context 記錄',
-        actionFn: startAccountLogin,
+        actionFn: () => startAccountLogin(),
         logMessage: 'startAccountLogin failed',
         logContext: {
           action: 'startAccountLogin',
@@ -696,7 +826,7 @@ describe('popupActions.js', () => {
       },
       {
         name: 'openAccountManagement 開啟 tab 失敗時應以 structured error context 記錄',
-        actionFn: openAccountManagement,
+        actionFn: () => openAccountManagement(),
         logMessage: 'openAccountManagement failed',
         logContext: {
           action: 'openAccountManagement',

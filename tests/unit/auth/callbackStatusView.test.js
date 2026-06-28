@@ -2,6 +2,7 @@
  * @jest-environment jsdom
  */
 
+import { beforeEach, describe, expect, it } from '@jest/globals';
 import { showError, showLoading, showSuccess } from '../../../scripts/auth/callbackStatusView.js';
 
 function buildDom() {

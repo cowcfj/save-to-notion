@@ -1,29 +1,31 @@
 import { jest } from '@jest/globals';
 
-jest.mock('../../../scripts/utils/urlUtils.js', () => ({
-  normalizeUrl: jest.fn(url => url),
-  computeStableUrl: jest.fn(),
-  isSafeStableUrl: jest.fn(url => {
-    try {
-      const parsedUrl = new URL(url);
-      return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
-    } catch {
-      return false;
-    }
-  }),
-  isRootUrl: jest.fn(url => {
-    try {
-      const u = new URL(url);
-      return (u.pathname === '/' || u.pathname === '') && u.search.length === 0;
-    } catch {
-      return false;
-    }
-  }),
-}));
+function mockGetSidepanelUrlUtils() {
+  globalThis.__sidepanelUrlUtilsMock ??= {
+    normalizeUrl: jest.fn(url => url),
+    computeStableUrl: jest.fn(),
+    isSafeStableUrl: jest.fn(url => {
+      try {
+        const parsedUrl = new URL(url);
+        return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
+      } catch {
+        return false;
+      }
+    }),
+    isRootUrl: jest.fn(url => {
+      try {
+        const u = new URL(url);
+        return (u.pathname === '/' || u.pathname === '') && u.search.length === 0;
+      } catch {
+        return false;
+      }
+    }),
+  };
+  return globalThis.__sidepanelUrlUtilsMock;
+}
 
-jest.mock('../../../scripts/utils/Logger.js', () => ({
-  __esModule: true,
-  default: {
+function mockGetSidepanelLogger() {
+  globalThis.__sidepanelLoggerMock ??= {
     success: jest.fn(),
     start: jest.fn(),
     ready: jest.fn(),
@@ -31,19 +33,38 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
     debug: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
-  },
+  };
+  return globalThis.__sidepanelLoggerMock;
+}
+
+export const normalizeUrl = mockGetSidepanelUrlUtils().normalizeUrl;
+export const computeStableUrl = mockGetSidepanelUrlUtils().computeStableUrl;
+export const Logger = mockGetSidepanelLogger();
+
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('../../../scripts/utils/urlUtils.js', () => mockGetSidepanelUrlUtils());
+  jest.unstable_mockModule('../../../scripts/utils/Logger.js', () => ({
+    __esModule: true,
+    default: mockGetSidepanelLogger(),
+  }));
+}
+
+jest.mock('../../../scripts/utils/urlUtils.js', () => mockGetSidepanelUrlUtils());
+jest.mock('../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: mockGetSidepanelLogger(),
 }));
 
-export { normalizeUrl, computeStableUrl } from '../../../scripts/utils/urlUtils.js';
 export { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 export { RUNTIME_ACTIONS } from '../../../scripts/config/shared/runtimeActions.js';
 export { sanitizeApiError } from '../../../scripts/utils/ApiErrorSanitizer.js';
 export { sanitizeUrlForLogging } from '../../../scripts/utils/LogSanitizer.js';
-export { default as Logger } from '../../../scripts/utils/Logger.js';
 export {
   SYNC_BUTTON_DEBOUNCE_MS,
   OPEN_BUTTON_DEBOUNCE_MS,
 } from '../../../pages/sidepanel/sidepanelUI.js';
+
+const IS_NATIVE_ESM = process.env.NODE_OPTIONS?.includes('--experimental-vm-modules');
 
 export function createDeferred() {
   let resolve;
@@ -198,11 +219,20 @@ export function setupDefaultChromeMocks({ stableUrl = 'https://example.js/stable
 }
 
 async function loadSidepanelModule({ flushCount = 6 } = {}) {
+  await importSidepanelEntrypoint();
+  document.dispatchEvent(new Event('DOMContentLoaded'));
+  await flushMicrotasks(flushCount);
+}
+
+export async function importSidepanelEntrypoint() {
+  if (IS_NATIVE_ESM) {
+    await import('../../../pages/sidepanel/sidepanel.js');
+    return;
+  }
+
   jest.isolateModules(() => {
     require('../../../pages/sidepanel/sidepanel.js');
   });
-  document.dispatchEvent(new Event('DOMContentLoaded'));
-  await flushMicrotasks(flushCount);
 }
 
 export async function loadSidepanelForCurrentView() {

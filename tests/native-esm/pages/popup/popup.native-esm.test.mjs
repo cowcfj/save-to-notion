@@ -17,7 +17,9 @@ const injectIconsMock = jest.fn();
 const migrateDataSourceKeysMock = jest.fn(async () => {});
 const getAccountAccessTokenMock = jest.fn(async () => 'account-token');
 const getAccountProfileMock = jest.fn(async () => ({ email: 'user@example.test' }));
-const getOptionsAdvancedUrlMock = jest.fn(() => 'chrome-extension://id/pages/options/options.html?section=advanced');
+const getOptionsAdvancedUrlMock = jest.fn(
+  () => 'chrome-extension://id/pages/options/options.html?section=advanced'
+);
 const profileManagerInstance = {
   getActiveProfile: jest.fn(async () => ({ id: 'profile-1', notionDataSourceId: 'ds-profile' })),
   getDestinationEntitlement: jest.fn(async () => ({ maxProfiles: 2 })),
@@ -240,7 +242,9 @@ describe('popup native ESM diagnostics', () => {
       selectedProfileId: 'profile-2',
     });
     await expect(popupActions.startHighlight()).resolves.toEqual({ success: true });
-    await expect(popupActions.openNotionPage('https://www.notion.so/native-esm')).resolves.toMatchObject({
+    await expect(
+      popupActions.openNotionPage('https://www.notion.so/native-esm')
+    ).resolves.toMatchObject({
       success: true,
     });
     await expect(popupActions.getActiveTab()).resolves.toMatchObject({ id: 7 });

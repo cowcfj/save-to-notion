@@ -2,21 +2,35 @@
  * @jest-environment jsdom
  */
 
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+
 const mockSetAccountSession = jest.fn();
 const mockSetAccountProfile = jest.fn();
 const mockClearAccountSession = jest.fn();
 
-jest.mock('../../../scripts/config/env/index.js', () => ({
+const mockEnvModule = {
   BUILD_ENV: {
     OAUTH_SERVER_URL: 'https://worker.test',
   },
-}));
+};
 
-jest.mock('../../../scripts/auth/accountSession.js', () => ({
+const mockAccountSessionModule = {
   setAccountSession: mockSetAccountSession,
   setAccountProfile: mockSetAccountProfile,
   clearAccountSession: mockClearAccountSession,
-}));
+};
+
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('../../../scripts/config/env/index.js', () => mockEnvModule);
+  jest.unstable_mockModule(
+    '../../../scripts/auth/accountSession.js',
+    () => mockAccountSessionModule
+  );
+}
+
+jest.mock('../../../scripts/config/env/index.js', () => mockEnvModule);
+
+jest.mock('../../../scripts/auth/accountSession.js', () => mockAccountSessionModule);
 
 function buildAuthDom() {
   document.body.innerHTML = `
@@ -113,6 +127,7 @@ describe('auth.js', () => {
   beforeEach(() => {
     jest.resetModules();
     jest.useFakeTimers();
+    mockEnvModule.BUILD_ENV.OAUTH_SERVER_URL = 'https://worker.test';
     buildAuthDom();
     globalThis.fetch = jest.fn();
     originalClose = globalThis.close;
