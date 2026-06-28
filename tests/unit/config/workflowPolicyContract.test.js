@@ -180,8 +180,8 @@ describe('workflow policy contract', () => {
 
     expect(workflowSource).toContain('name: Coverage Gate');
     expect(workflowSource).toContain('run-name: Coverage Gate @');
-    expect(workflowSource).toContain('name: 覆蓋率閘門分類器');
-    expect(workflowSource).toContain('name: V8 覆蓋率閘門');
+    expect(workflowSource).toContain('name: Coverage Gate Classifier');
+    expect(workflowSource).toContain('name: Jest Full Coverage');
     expect(workflowSource).toContain('name: 執行 V8 覆蓋率閘門');
     expect(countTrimmedLines(workflowSource, 'run: npm run test:ci')).toBe(1);
     expect(workflowSource).not.toContain('npm run test:coverage:native-esm:assert');
