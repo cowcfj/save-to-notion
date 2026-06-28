@@ -16,7 +16,7 @@ export async function importImageCollectorTestModules() {
   if (isESM) {
     // Register ESM mocks asynchronously
     // Under Native ESM, since there is no local package.json with "type": "module" in this folder,
-    // Jest falls back to 'tests/native-esm/incumbent-parity.setup.mjs' as the module resolution origin.
+    // Jest falls back to 'tests/native-esm/native-runner.setup.mjs' as the module resolution origin.
     // Hence we use "../../" to step back from tests/native-esm/ to project root.
     jest.unstable_mockModule('../../scripts/content/extractors/ReadabilityAdapter.js', () => ({
       cachedQuery: jest.fn(),
