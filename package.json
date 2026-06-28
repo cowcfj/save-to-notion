@@ -11,7 +11,7 @@
     "test:watch": "jest --config jest.config.js --watch",
     "test:coverage": "npm run test:coverage:native-esm:assert",
     "test:coverage:incumbent": "jest --config jest.config.js --coverage",
-    "test:coverage:native-esm": "NODE_OPTIONS=--experimental-vm-modules jest --config jest.native-esm.config.cjs --coverage --runInBand",
+    "test:coverage:native-esm": "NODE_OPTIONS=--experimental-vm-modules jest --config jest.native-esm.config.cjs --ci --coverage --runInBand",
     "test:coverage:native-esm:assert": "npm run test:coverage:native-esm && node tools/assert-native-esm-line-hits.mjs --summary-json coverage/native-esm/line-hit-summary.json --summary-md coverage/native-esm/line-hit-summary.md",
     "test:coverage:native-esm:scope-parity": "node tools/report-native-esm-scope-parity.mjs --summary-json coverage/native-esm/scope-parity-summary.json --summary-md coverage/native-esm/scope-parity-summary.md",
     "test:coverage:native-esm:threshold-simulation": "npm run test:coverage:incumbent && npm run test:coverage:native-esm && node tools/report-native-esm-threshold-simulation.mjs --summary-json coverage/native-esm/threshold-simulation-summary.json --summary-md coverage/native-esm/threshold-simulation-summary.md",

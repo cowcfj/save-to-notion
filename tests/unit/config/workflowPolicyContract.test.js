@@ -133,8 +133,10 @@ describe('workflow policy contract', () => {
   });
 
   test('native ESM coverage owns official local thresholds and emits LCOV in the official V8 directory', () => {
+    const scripts = readRootJson('package.json').scripts;
     const nativeConfig = require('../../../jest.native-esm.config.cjs');
 
+    expect(scripts['test:coverage:native-esm']).toMatch(/(?:^| )--ci(?: |$)/);
     expect(nativeConfig.coverageDirectory).toBe('<rootDir>/coverage/native-esm');
     expect(nativeConfig.coverageReporters).toEqual(
       expect.arrayContaining(['json', 'text', 'lcov'])
