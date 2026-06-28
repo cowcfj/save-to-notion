@@ -19,26 +19,21 @@ await jest.unstable_mockModule('../../../../scripts/utils/LogSanitizer.js', () =
 }));
 
 const imageUrl = await import('../../../../scripts/utils/image/imageUrl.js');
-const { parseBestCandidateSrcsetUrl } = await import(
-  '../../../../scripts/utils/image/srcsetCandidateParser.js'
-);
+const { parseBestCandidateSrcsetUrl } =
+  await import('../../../../scripts/utils/image/srcsetCandidateParser.js');
 const srcsetExtractor = await import('../../../../scripts/utils/image/srcsetExtractor.js');
-const { parseWithSrcsetParser } = await import(
-  '../../../../scripts/utils/image/srcsetParserAdapter.js'
-);
+const { parseWithSrcsetParser } =
+  await import('../../../../scripts/utils/image/srcsetParserAdapter.js');
 const { validateSrcsetUrl } = await import('../../../../scripts/utils/image/srcsetUrlValidator.js');
 const attributeSource = await import('../../../../scripts/utils/image/imageAttributeSource.js');
-const { extractFromAnchor } = await import(
-  '../../../../scripts/utils/image/imageAnchorSource.js'
-);
-const { extractImageSrc } = await import(
-  '../../../../scripts/utils/image/imageSourceExtractor.js'
-);
-const { extractFromPicture } = await import('../../../../scripts/utils/image/imagePictureSource.js');
-const { extractFromNoscript } = await import('../../../../scripts/utils/image/imageNoscriptSource.js');
-const { extractFromBackgroundImage } = await import(
-  '../../../../scripts/utils/image/imageBackgroundSource.js'
-);
+const { extractFromAnchor } = await import('../../../../scripts/utils/image/imageAnchorSource.js');
+const { extractImageSrc } = await import('../../../../scripts/utils/image/imageSourceExtractor.js');
+const { extractFromPicture } =
+  await import('../../../../scripts/utils/image/imagePictureSource.js');
+const { extractFromNoscript } =
+  await import('../../../../scripts/utils/image/imageNoscriptSource.js');
+const { extractFromBackgroundImage } =
+  await import('../../../../scripts/utils/image/imageBackgroundSource.js');
 const { mergeUniqueImages } = await import('../../../../scripts/utils/image/imageBlockMerge.js');
 
 function makeImageBlock(url) {
