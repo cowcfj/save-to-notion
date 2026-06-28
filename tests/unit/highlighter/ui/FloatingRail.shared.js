@@ -69,10 +69,18 @@ if (typeof jest.unstable_mockModule === 'function') {
 
 registerUiTokenConstantsMock(jest, '../../../../styles/ui-token-constants.js');
 
-const { FloatingRail } = require('../../../../scripts/highlighter/ui/FloatingRail.js');
-const { ErrorHandler } = require('../../../../scripts/utils/ErrorHandler.js');
-const { sanitizeApiError } = require('../../../../scripts/utils/ApiErrorSanitizer.js');
-const LoggerModule = require('../../../../scripts/utils/Logger.js');
+const loadModule = async path => {
+  if (typeof require === 'function') {
+    return require(path);
+  }
+
+  return import(path);
+};
+
+const { FloatingRail } = await loadModule('../../../../scripts/highlighter/ui/FloatingRail.js');
+const { ErrorHandler } = await loadModule('../../../../scripts/utils/ErrorHandler.js');
+const { sanitizeApiError } = await loadModule('../../../../scripts/utils/ApiErrorSanitizer.js');
+const LoggerModule = await loadModule('../../../../scripts/utils/Logger.js');
 const Logger = LoggerModule.default || LoggerModule;
 
 export { FloatingRail, ErrorHandler, sanitizeApiError, Logger };
