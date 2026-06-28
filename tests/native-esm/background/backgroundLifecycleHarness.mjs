@@ -86,7 +86,7 @@ async function importBackgroundEntrypoint() {
   const { identifier, source } = await readTrustedBackgroundEntrypointSource();
   const context = vm.createContext(globalThis);
   // Test-only VM execution of realpath-verified repo-local background.js for native ESM lifecycle parity.
-  const backgroundModule = new vm.SourceTextModule(source, {
+  const backgroundModule = new vm.SourceTextModule(source, { // NOSONAR - S1523: test-only realpath-verified repo-local background.js.
     context,
     identifier,
   });
