@@ -69,10 +69,14 @@ if (typeof jest.unstable_mockModule === 'function') {
 
 registerUiTokenConstantsMock(jest, '../../../../styles/ui-token-constants.js');
 
-export let FloatingRail;
-export let ErrorHandler;
-export let sanitizeApiError;
-export let Logger;
+const { FloatingRail } = require('../../../../scripts/highlighter/ui/FloatingRail.js');
+const { ErrorHandler } = require('../../../../scripts/utils/ErrorHandler.js');
+const { sanitizeApiError } = require('../../../../scripts/utils/ApiErrorSanitizer.js');
+const LoggerModule = require('../../../../scripts/utils/Logger.js');
+const Logger = LoggerModule.default || LoggerModule;
+
+export { FloatingRail, ErrorHandler, sanitizeApiError, Logger };
+
 export const { checkPageStatus, savePageFromRail, syncHighlights, openSidePanel } = mockRuntime;
 export const { createFloatingRailContainer } = mockContainer;
 export const { injectRailStylesIntoShadowRoot } = mockStyles;
@@ -87,11 +91,6 @@ const activeRails = new Set();
 let originalInitialize;
 
 beforeAll(async () => {
-  ({ FloatingRail } = await import('../../../../scripts/highlighter/ui/FloatingRail.js'));
-  ({ ErrorHandler } = await import('../../../../scripts/utils/ErrorHandler.js'));
-  ({ sanitizeApiError } = await import('../../../../scripts/utils/ApiErrorSanitizer.js'));
-  ({ default: Logger } = await import('../../../../scripts/utils/Logger.js'));
-
   originalInitialize = FloatingRail.prototype.initialize;
   FloatingRail.prototype.initialize = function trackInitializedRail(...args) {
     activeRails.add(this);
