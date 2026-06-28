@@ -46,7 +46,7 @@ function countTrimmedLines(source, expectedLine) {
   return source.split('\n').filter(line => line.trim() === expectedLine).length;
 }
 
-describe('workflow policy contract', () => {
+describe('CI policy contract', () => {
   test('SonarCloud GitHub Action stays out of the active workflow directory', () => {
     expect(fs.existsSync(activeSonarWorkflow)).toBe(false);
 
