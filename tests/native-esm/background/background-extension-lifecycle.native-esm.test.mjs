@@ -179,7 +179,7 @@ describe('background extension lifecycle native ESM', () => {
   test('onStartup listener invokes startup recovery', async () => {
     const onStartupListener = globalThis.chrome.runtime.onStartup.addListener.mock.calls[0]?.[0];
     expect(typeof onStartupListener).toBe('function');
-    chrome.storage.local.get.mockResolvedValue({ frequency: 'daily' });
+    globalThis.chrome.storage.local.get.mockResolvedValue({ frequency: 'daily' });
 
     onStartupListener();
     await new Promise(resolve => setTimeout(resolve, 0));

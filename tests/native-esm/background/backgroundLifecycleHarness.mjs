@@ -172,7 +172,7 @@ function clearListenerRegistries(chromeLike) {
   }
 }
 
-function cleanup(chromeLike) {
+function cleanup(chromeLike = globalThis.chrome) {
   clearListenerRegistries(chromeLike);
   jest.clearAllMocks();
   jest.resetModules();
