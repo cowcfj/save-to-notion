@@ -79,7 +79,8 @@ const {
   isRestrictedInjectionUrl,
 } = await import('../../../../scripts/background/services/InjectionService.js');
 const { NotionService } = await import('../../../../scripts/background/services/NotionService.js');
-const { StorageService } = await import('../../../../scripts/background/services/StorageService.js');
+const { StorageService } =
+  await import('../../../../scripts/background/services/StorageService.js');
 const { TabService } = await import('../../../../scripts/background/services/TabService.js');
 
 afterEach(() => {
@@ -112,14 +113,14 @@ describe('background services native ESM diagnostics', () => {
       pageKey: 'page_https://example.com/article',
       savedKey: 'saved_https://example.com/article',
     });
-    expect(service._buildLegacyPageState('saved_url', { title: 'Old' }, 'https://stable.test')).toEqual(
-      {
-        format: 'legacy',
-        savedKey: 'saved_url',
-        savedData: { title: 'Old' },
-        resolvedUrl: 'https://stable.test',
-      }
-    );
+    expect(
+      service._buildLegacyPageState('saved_url', { title: 'Old' }, 'https://stable.test')
+    ).toEqual({
+      format: 'legacy',
+      savedKey: 'saved_url',
+      savedData: { title: 'Old' },
+      resolvedUrl: 'https://stable.test',
+    });
     expect(service._buildPageHighlights([{ id: 'h1' }])).toEqual([{ id: 'h1' }]);
     expect(service._buildPageHighlights({ highlights: [{ id: 'h2' }] })).toEqual([{ id: 'h2' }]);
 

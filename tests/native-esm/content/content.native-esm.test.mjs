@@ -71,7 +71,8 @@ await jest.unstable_mockModule('../../../scripts/highlighter/utils/domStability.
   waitForDOMStability: waitForDOMStabilityMock,
 }));
 
-const { ContentExtractor } = await import('../../../scripts/content/extractors/ContentExtractor.js');
+const { ContentExtractor } =
+  await import('../../../scripts/content/extractors/ContentExtractor.js');
 const { NextJsExtractor } = await import('../../../scripts/content/extractors/NextJsExtractor.js');
 const { domConverter } = await import('../../../scripts/content/converters/DomConverter.js');
 

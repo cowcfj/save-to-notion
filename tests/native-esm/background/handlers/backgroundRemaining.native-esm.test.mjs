@@ -125,25 +125,17 @@ await jest.unstable_mockModule(
 );
 
 const { RUNTIME_ACTIONS } = await import('../../../../scripts/config/shared/runtimeActions.js');
-const { CONTENT_BRIDGE_ACTIONS } = await import(
-  '../../../../scripts/config/runtimeActions/contentBridgeActions.js'
-);
-const { createAccountAuthHandler } = await import(
-  '../../../../scripts/background/handlers/accountAuthHandler.js'
-);
-const {
-  DRIVE_AUTO_SYNC_ALARM,
-  setupDriveAlarm,
-} = await import('../../../../scripts/background/handlers/driveAlarmScheduler.js');
-const { runAutoUpload, shouldRunAutoSync } = await import(
-  '../../../../scripts/background/handlers/driveAutoSync.js'
-);
-const { createDriveSyncHandlers } = await import(
-  '../../../../scripts/background/handlers/driveSyncHandlers.js'
-);
-const { getActiveTab } = await import(
-  '../../../../scripts/background/handlers/handlerUtils.js'
-);
+const { CONTENT_BRIDGE_ACTIONS } =
+  await import('../../../../scripts/config/runtimeActions/contentBridgeActions.js');
+const { createAccountAuthHandler } =
+  await import('../../../../scripts/background/handlers/accountAuthHandler.js');
+const { DRIVE_AUTO_SYNC_ALARM, setupDriveAlarm } =
+  await import('../../../../scripts/background/handlers/driveAlarmScheduler.js');
+const { runAutoUpload, shouldRunAutoSync } =
+  await import('../../../../scripts/background/handlers/driveAutoSync.js');
+const { createDriveSyncHandlers } =
+  await import('../../../../scripts/background/handlers/driveSyncHandlers.js');
+const { getActiveTab } = await import('../../../../scripts/background/handlers/handlerUtils.js');
 const {
   buildMigrationGuardMeta,
   clearLegacyKeysWithStable,
@@ -151,21 +143,16 @@ const {
   validateBatchUrls,
   validatePrivilegedRequest,
 } = await import('../../../../scripts/background/handlers/handlerGuard.js');
-const { createHighlightHandlers } = await import(
-  '../../../../scripts/background/handlers/highlightHandlers.js'
-);
-const { createLogHandlers } = await import(
-  '../../../../scripts/background/handlers/logHandlers.js'
-);
-const { createMigrationHandlers } = await import(
-  '../../../../scripts/background/handlers/migrationHandlers.js'
-);
-const { createSidepanelHandlers } = await import(
-  '../../../../scripts/background/handlers/sidepanelHandlers.js'
-);
-const { classifyErrorForToast, sendToastToTab } = await import(
-  '../../../../scripts/background/handlers/toastUtils.js'
-);
+const { createHighlightHandlers } =
+  await import('../../../../scripts/background/handlers/highlightHandlers.js');
+const { createLogHandlers } =
+  await import('../../../../scripts/background/handlers/logHandlers.js');
+const { createMigrationHandlers } =
+  await import('../../../../scripts/background/handlers/migrationHandlers.js');
+const { createSidepanelHandlers } =
+  await import('../../../../scripts/background/handlers/sidepanelHandlers.js');
+const { classifyErrorForToast, sendToastToTab } =
+  await import('../../../../scripts/background/handlers/toastUtils.js');
 
 const originalChrome = globalThis.chrome;
 const originalLogger = globalThis.Logger;
@@ -264,7 +251,9 @@ describe('remaining background handlers native ESM diagnostics', () => {
     const activeTab = await getActiveTab();
     expect(activeTab).toEqual({ id: 7, url: 'https://example.com/article', windowId: 9 });
 
-    expect(validatePrivilegedRequest({ id: 'options-page' }, 'https://example.com/article')).toBeNull();
+    expect(
+      validatePrivilegedRequest({ id: 'options-page' }, 'https://example.com/article')
+    ).toBeNull();
     expect(validateBatchUrls(['https://example.com/a', 'https://example.com/b'])).toBeNull();
 
     const validationError = { success: false, error: 'blocked' };
@@ -345,12 +334,8 @@ describe('remaining background handlers native ESM diagnostics', () => {
     });
 
     accountHandler.setupListeners();
-    expect(bridgeTabs.onUpdated.addListener).toHaveBeenCalledWith(
-      accountHandler.handleTabUpdated
-    );
-    expect(bridgeTabs.onRemoved.addListener).toHaveBeenCalledWith(
-      accountHandler.handleTabRemoved
-    );
+    expect(bridgeTabs.onUpdated.addListener).toHaveBeenCalledWith(accountHandler.handleTabUpdated);
+    expect(bridgeTabs.onRemoved.addListener).toHaveBeenCalledWith(accountHandler.handleTabRemoved);
 
     await accountHandler.handleTabUpdated(12, {
       url: 'https://auth.example.test/account/callback?account_ticket=ticket%201&ext_id=ext-1',
@@ -442,7 +427,9 @@ describe('remaining background handlers native ESM diagnostics', () => {
       },
       storageService: {
         clearLegacyKeys: jest.fn(async () => {}),
-        getHighlights: jest.fn(async () => ({ highlights: [{ id: 'failed', migrationFailed: true }] })),
+        getHighlights: jest.fn(async () => ({
+          highlights: [{ id: 'failed', migrationFailed: true }],
+        })),
         getSavedPageData: jest.fn(async () => null),
         updateHighlights: jest.fn(async () => {}),
       },

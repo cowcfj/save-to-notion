@@ -29,21 +29,16 @@ await jest.unstable_mockModule('../../../../scripts/utils/imageUtils.js', () => 
   IMAGE_PATH_PATTERNS: [/\/image\//i, /\/photo/i],
 }));
 
-const { ImageService, ImageUrlValidationCache } = await import(
-  '../../../../scripts/background/services/ImageService.js'
-);
-const { MigrationService } = await import(
-  '../../../../scripts/background/services/MigrationService.js'
-);
-const { PageContentService } = await import(
-  '../../../../scripts/background/services/PageContentService.js'
-);
-const { resolveSaveStatus } = await import(
-  '../../../../scripts/background/services/SaveStatusCoordinator.js'
-);
-const { StorageMigrationScanner } = await import(
-  '../../../../scripts/background/services/StorageMigrationScanner.js'
-);
+const { ImageService, ImageUrlValidationCache } =
+  await import('../../../../scripts/background/services/ImageService.js');
+const { MigrationService } =
+  await import('../../../../scripts/background/services/MigrationService.js');
+const { PageContentService } =
+  await import('../../../../scripts/background/services/PageContentService.js');
+const { resolveSaveStatus } =
+  await import('../../../../scripts/background/services/SaveStatusCoordinator.js');
+const { StorageMigrationScanner } =
+  await import('../../../../scripts/background/services/StorageMigrationScanner.js');
 
 const originalChrome = globalThis.chrome;
 
@@ -238,7 +233,8 @@ describe('remaining background services native ESM diagnostics', () => {
     await expect(
       service._resolveMigratedHighlights({
         convertFormat: true,
-        formatConverter: async highlights => highlights.map(highlight => ({ ...highlight, ok: true })),
+        formatConverter: async highlights =>
+          highlights.map(highlight => ({ ...highlight, ok: true })),
         highlights: [{ id: 'h1' }],
         legacyUrl: 'https://example.com/article?utm=1',
         stableUrl: 'https://example.com/article#stable',

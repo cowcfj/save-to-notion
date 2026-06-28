@@ -109,13 +109,10 @@ const loadModule = async path => {
   return load();
 };
 
-const { FloatingRail } = await loadModule('../../../../scripts/highlighter/ui/FloatingRail.js');
-const { ErrorHandler } = await loadModule('../../../../scripts/utils/ErrorHandler.js');
-const { sanitizeApiError } = await loadModule('../../../../scripts/utils/ApiErrorSanitizer.js');
-const LoggerModule = await loadModule('../../../../scripts/utils/Logger.js');
-const Logger = LoggerModule.default || LoggerModule;
-
-export { FloatingRail, ErrorHandler, sanitizeApiError, Logger };
+export let FloatingRail;
+export let ErrorHandler;
+export let sanitizeApiError;
+export let Logger;
 
 export const { checkPageStatus, savePageFromRail, syncHighlights, openSidePanel } = mockRuntime;
 export const { createFloatingRailContainer } = mockContainer;
@@ -131,6 +128,12 @@ const activeRails = new Set();
 let originalInitialize;
 
 beforeAll(async () => {
+  ({ FloatingRail } = await loadModule('../../../../scripts/highlighter/ui/FloatingRail.js'));
+  ({ ErrorHandler } = await loadModule('../../../../scripts/utils/ErrorHandler.js'));
+  ({ sanitizeApiError } = await loadModule('../../../../scripts/utils/ApiErrorSanitizer.js'));
+  const LoggerModule = await loadModule('../../../../scripts/utils/Logger.js');
+  Logger = LoggerModule.default || LoggerModule;
+
   originalInitialize = FloatingRail.prototype.initialize;
   FloatingRail.prototype.initialize = function trackInitializedRail(...args) {
     activeRails.add(this);
