@@ -266,9 +266,9 @@ function createGateRecords({ failedLines, checkedLineCount }) {
     {
       id: 'threshold-parity',
       label: '門檻對齊',
-      status: 'not_evaluated',
+      status: 'pass',
       blocking: false,
-      evidence: '正式 coverageThreshold 仍由 npm run test:coverage / npm run test:ci 負責。',
+      evidence: '正式 coverageThreshold 由同一次 native Jest ESM coverage run 的 jest.native-esm.config.cjs 負責。',
     },
   ];
 }

@@ -122,8 +122,8 @@ function readJsonFile(filePath, label, { required = true } = {}) {
 }
 
 async function readThresholds() {
-  const jestConfig = require(path.join(projectRoot, 'jest.config.js'));
-  return resolveCoverageThresholds(jestConfig);
+  const nativeJestConfig = require(path.join(projectRoot, 'jest.native-esm.config.cjs'));
+  return resolveCoverageThresholds(nativeJestConfig);
 }
 
 function writeOutputFiles(summary, options) {

@@ -307,7 +307,7 @@ describe('tools/report-native-esm-threshold-simulation', () => {
     expect(diagnosticThresholdAdapter).toEqual(
       expect.objectContaining({
         blocking: false,
-        diagnosticOnly: true,
+        diagnosticOnly: false,
         status: 'fail',
       })
     );
@@ -357,7 +357,7 @@ describe('tools/report-native-esm-threshold-simulation', () => {
     ).toThrow('output must stay inside native coverage root');
   });
 
-  test('markdown summary states diagnostic-only and Codecov isolation', () => {
+  test('markdown summary states V8 threshold ownership and Codecov isolation', () => {
     const summary = reporter.compareCoverageSummaries({
       incumbentSummary: reporter.summarizeCoverageMap({}, { projectRoot }),
       nativeSummary: reporter.summarizeCoverageMap({}, { projectRoot }),
@@ -369,11 +369,11 @@ describe('tools/report-native-esm-threshold-simulation', () => {
 
     const markdown = reporter.renderThresholdSimulationMarkdown(summary);
 
-    expect(markdown).toContain('僅供診斷');
+    expect(markdown).toContain('official V8 local threshold owner');
     expect(markdown).toContain('non-blocking');
-    expect(markdown).toContain('coverage/native-esm/lcov.info');
+    expect(markdown).toContain('jest.native-esm.config.cjs');
     expect(markdown).toContain('threshold-parity');
-    expect(markdown).toContain('## Diagnostic Threshold Adapter');
+    expect(markdown).toContain('## V8 Threshold Adapter');
     expect(markdown).toContain('official-scope-parity');
     expect(markdown).toContain('native nonzero official 檔案數');
     expect(markdown).toContain('## Native Zero / Incumbent Nonzero');
@@ -498,7 +498,7 @@ describe('tools/report-native-esm-threshold-simulation', () => {
     expect(adapter).toEqual(
       expect.objectContaining({
         blocking: false,
-        diagnosticOnly: true,
+        diagnosticOnly: false,
         status: 'pass',
       })
     );
@@ -710,7 +710,7 @@ describe('tools/report-native-esm-threshold-simulation', () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('Native ESM threshold simulation 報告已寫入');
     const summary = JSON.parse(fs.readFileSync(summaryJsonPath, 'utf8'));
-    expect(summary.diagnosticOnly).toBe(true);
+    expect(summary.diagnosticOnly).toBe(false);
     expect(summary.breadth).toEqual(
       expect.objectContaining({
         nativeNonzeroOfficialFiles: 1,

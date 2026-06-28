@@ -180,7 +180,7 @@ function createThresholdParityGate({ incumbentThreshold, nativeThreshold, scopeP
       id: 'threshold-parity',
       status: 'pass',
       blocking: false,
-      evidence: 'incumbent 與 native ESM coverage 都通過目前 coverageThreshold.global。',
+      evidence: 'incumbent fallback 與 native ESM coverage 都通過目前 V8 coverageThreshold.global。',
     };
   }
 
@@ -206,7 +206,7 @@ function createThresholdGate(id, thresholdResult, producerName) {
     id,
     status: thresholdResult.pass ? 'pass' : 'fail',
     blocking: false,
-    evidence: `${producerName} coverage ${thresholdResult.pass ? '通過' : '未通過'} coverageThreshold.global。`,
+    evidence: `${producerName} coverage ${thresholdResult.pass ? '通過' : '未通過'} V8 coverageThreshold.global。`,
   };
 }
 
@@ -404,7 +404,7 @@ function evaluateDiagnosticThresholdAdapter({
   ];
 
   return {
-    diagnosticOnly: true,
+    diagnosticOnly: false,
     status: resolveAdapterStatus(checks),
     blocking: false,
     baseline: adapterBaseline,
@@ -441,10 +441,10 @@ function compareCoverageSummaries({
 
   return {
     schemaVersion: 1,
-    diagnosticOnly: true,
+    diagnosticOnly: false,
     incumbentCoveragePath,
     nativeCoveragePath,
-    thresholdSource: 'jest.config.js coverageThreshold.global',
+    thresholdSource: 'jest.native-esm.config.cjs coverageThreshold.global',
     thresholds,
     driftThreshold,
     totals: {
@@ -472,7 +472,7 @@ function compareCoverageSummaries({
         status: 'pass',
         blocking: false,
         evidence:
-          'threshold simulation 只讀取 repo root 內 coverage inputs，並只寫入 coverage/native-esm diagnostic artifacts。',
+          'threshold simulation 只讀取 repo root 內 coverage inputs，並只寫入 coverage/native-esm comparison artifacts。',
       },
     ],
     breadth,
@@ -627,9 +627,9 @@ function renderThresholdSimulationMarkdown(summary) {
           .join('\n')
       : REPORT_MESSAGES.NO_DRIFT_ROW;
 
-  return `# Native ESM threshold simulation 摘要
+  return `# Native ESM threshold comparison 摘要
 
-> 僅供診斷，所有 gates 都是 non-blocking。在本次單一上傳演練中，Codecov 已切換使用 \`coverage/native-esm/lcov.info\`。
+> 比較 incumbent fallback 與 official V8 local threshold owner。比較 gates 仍是 non-blocking；official threshold gate 由 \`jest.native-esm.config.cjs\` 在 native coverage run 中執行。
 
 ## 總計
 
@@ -655,9 +655,9 @@ ${renderMetricRows(summary)}
 | --- | --- | --- | --- |
 ${gateRows}
 
-## Diagnostic Threshold Adapter
+## V8 Threshold Adapter
 
-> non-blocking adapter simulation，用來約束 native diagnostic breadth 與 source-line correctness，不替代 official \`coverageThreshold.global\`。
+> non-blocking adapter check，用來約束 V8 breadth 與 source-line correctness；official \`coverageThreshold.global\` 已由 native Jest ESM config 負責。
 
 - adapter 狀態：${adapterStatus}
 - baseline native nonzero official 檔案數：${adapter?.baseline?.nativeNonzeroOfficialFiles ?? REPORT_MESSAGES.NOT_APPLICABLE}
