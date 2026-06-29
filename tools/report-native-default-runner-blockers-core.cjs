@@ -206,7 +206,7 @@ function classifyFile({ filePath, rootDir, nativeDefaultSet, nativeCoverageSet }
     packageBoundary,
     signals: [...new Set(signals)],
     primaryBlocker,
-    disposition: chooseDisposition(primaryBlocker, signals),
+    disposition: chooseDisposition(primaryBlocker),
   };
 }
 
