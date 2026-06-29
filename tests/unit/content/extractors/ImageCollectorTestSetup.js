@@ -1,4 +1,8 @@
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+
 const isESM = typeof jest.unstable_mockModule === 'function' && typeof require === 'undefined';
+const setupDirectory = path.resolve(process.cwd(), 'tests/unit/content/extractors');
 
 if (!isESM) {
   require('./ImageCollectorCjsMocks.js');
@@ -8,6 +12,31 @@ if (!isESM) {
 let isInitialized = false;
 export const imageCollectorTestModules = {};
 
+const resolveModuleFileUrl = relativePath =>
+  pathToFileURL(path.resolve(setupDirectory, relativePath)).href;
+
+const imageCollectorModuleUrls = {
+  ImageCollector: resolveModuleFileUrl('../../../../scripts/content/extractors/ImageCollector.js'),
+  ReadabilityAdapter: resolveModuleFileUrl(
+    '../../../../scripts/content/extractors/ReadabilityAdapter.js'
+  ),
+  PerformanceOptimizer: resolveModuleFileUrl(
+    '../../../../scripts/performance/PerformanceOptimizer.js'
+  ),
+  ErrorHandler: resolveModuleFileUrl('../../../../scripts/utils/ErrorHandler.js'),
+  NextJsExtractor: resolveModuleFileUrl(
+    '../../../../scripts/content/extractors/NextJsExtractor.js'
+  ),
+  Logger: resolveModuleFileUrl('../../../../scripts/utils/Logger.js'),
+  ContentConfig: resolveModuleFileUrl('../../../../scripts/config/shared/content.js'),
+  MessagesConfig: resolveModuleFileUrl('../../../../scripts/config/shared/messages.js'),
+  ImageUtils: resolveModuleFileUrl('../../../../scripts/utils/imageUtils.js'),
+  TemporaryImageUrl: resolveModuleFileUrl('../../../../scripts/utils/temporaryImageUrl.js'),
+  TemporaryImagePlaceholder: resolveModuleFileUrl(
+    '../../../../scripts/content/extractors/temporaryImagePlaceholder.js'
+  ),
+};
+
 export async function importImageCollectorTestModules() {
   if (isInitialized) {
     return imageCollectorTestModules;
@@ -15,32 +44,29 @@ export async function importImageCollectorTestModules() {
 
   if (isESM) {
     // Register ESM mocks asynchronously
-    // Under Native ESM, since there is no local package.json with "type": "module" in this folder,
-    // Jest falls back to 'tests/native-esm/native-runner.setup.mjs' as the module resolution origin.
-    // Hence we use "../../" to step back from tests/native-esm/ to project root.
-    jest.unstable_mockModule('../../scripts/content/extractors/ReadabilityAdapter.js', () => ({
+    jest.unstable_mockModule(imageCollectorModuleUrls.ReadabilityAdapter, () => ({
       cachedQuery: jest.fn(),
     }));
 
-    jest.unstable_mockModule('../../scripts/performance/PerformanceOptimizer.js', () => ({
+    jest.unstable_mockModule(imageCollectorModuleUrls.PerformanceOptimizer, () => ({
       batchProcess: jest.fn(),
       batchProcessWithRetry: jest.fn(),
     }));
 
-    jest.unstable_mockModule('../../scripts/utils/ErrorHandler.js', () => ({
+    jest.unstable_mockModule(imageCollectorModuleUrls.ErrorHandler, () => ({
       ErrorHandler: {
         logError: jest.fn(),
       },
     }));
 
-    jest.unstable_mockModule('../../scripts/content/extractors/NextJsExtractor.js', () => ({
+    jest.unstable_mockModule(imageCollectorModuleUrls.NextJsExtractor, () => ({
       NextJsExtractor: {
         detect: jest.fn(),
         extract: jest.fn(),
       },
     }));
 
-    jest.unstable_mockModule('../../scripts/utils/Logger.js', () => ({
+    jest.unstable_mockModule(imageCollectorModuleUrls.Logger, () => ({
       __esModule: true,
       default: {
         debug: jest.fn(),
@@ -54,7 +80,7 @@ export async function importImageCollectorTestModules() {
       },
     }));
 
-    jest.unstable_mockModule('../../scripts/config/shared/content.js', () => ({
+    jest.unstable_mockModule(imageCollectorModuleUrls.ContentConfig, () => ({
       IMAGE_VALIDATION_CONSTANTS: {
         MAX_URL_LENGTH: 2000,
         MIN_IMAGE_WIDTH: 550,
@@ -83,7 +109,7 @@ export async function importImageCollectorTestModules() {
       EXCLUSION_SELECTORS: ['.ad img'],
     }));
 
-    jest.unstable_mockModule('../../scripts/config/shared/messages.js', () => ({
+    jest.unstable_mockModule(imageCollectorModuleUrls.MessagesConfig, () => ({
       ERROR_TYPES: {
         EXTRACTION_FAILED: 'extraction_failed',
         INVALID_URL: 'invalid_url',
@@ -101,7 +127,7 @@ export async function importImageCollectorTestModules() {
       },
     }));
 
-    jest.unstable_mockModule('../../scripts/utils/imageUtils.js', () => ({
+    jest.unstable_mockModule(imageCollectorModuleUrls.ImageUtils, () => ({
       __esModule: true,
       extractImageSrc: jest.fn(),
       cleanImageUrl: jest.fn(url => url),
@@ -115,33 +141,30 @@ export async function importImageCollectorTestModules() {
       },
     }));
 
-    jest.unstable_mockModule('../../scripts/utils/temporaryImageUrl.js', () => ({
+    jest.unstable_mockModule(imageCollectorModuleUrls.TemporaryImageUrl, () => ({
       __esModule: true,
       isTemporaryImageUrl: jest.fn(() => false),
     }));
 
-    jest.unstable_mockModule(
-      '../../scripts/content/extractors/temporaryImagePlaceholder.js',
-      () => ({
-        __esModule: true,
-        buildTemporaryImagePlaceholderBlock: jest.fn((url, opts = {}) => ({
-          object: 'block',
-          type: 'paragraph',
-          paragraph: {
-            rich_text: [
-              { type: 'text', text: { content: 'Patreon temp:' } },
-              { type: 'text', text: { content: 'link', link: { url } } },
-            ],
-          },
-          _meta: {
-            placeholder: true,
-            placeholderReason: 'temporary_image_url',
-            originalSrc: url,
-            alt: opts.alt || '',
-          },
-        })),
-      })
-    );
+    jest.unstable_mockModule(imageCollectorModuleUrls.TemporaryImagePlaceholder, () => ({
+      __esModule: true,
+      buildTemporaryImagePlaceholderBlock: jest.fn((url, opts = {}) => ({
+        object: 'block',
+        type: 'paragraph',
+        paragraph: {
+          rich_text: [
+            { type: 'text', text: { content: 'Patreon temp:' } },
+            { type: 'text', text: { content: 'link', link: { url } } },
+          ],
+        },
+        _meta: {
+          placeholder: true,
+          placeholderReason: 'temporary_image_url',
+          originalSrc: url,
+          alt: opts.alt || '',
+        },
+      })),
+    }));
   }
 
   let ImageCollectorMod;
@@ -166,15 +189,15 @@ export async function importImageCollectorTestModules() {
       TemporaryImagePlaceholderMod,
       ErrorHandlerMod,
     ] = await Promise.all([
-      import('../../../../scripts/content/extractors/ImageCollector.js'),
-      import('../../../../scripts/content/extractors/ReadabilityAdapter.js'),
-      import('../../../../scripts/performance/PerformanceOptimizer.js'),
-      import('../../../../scripts/content/extractors/NextJsExtractor.js'),
-      import('../../../../scripts/utils/Logger.js'),
-      import('../../../../scripts/utils/imageUtils.js'),
-      import('../../../../scripts/utils/temporaryImageUrl.js'),
-      import('../../../../scripts/content/extractors/temporaryImagePlaceholder.js'),
-      import('../../../../scripts/utils/ErrorHandler.js'),
+      import(imageCollectorModuleUrls.ImageCollector),
+      import(imageCollectorModuleUrls.ReadabilityAdapter),
+      import(imageCollectorModuleUrls.PerformanceOptimizer),
+      import(imageCollectorModuleUrls.NextJsExtractor),
+      import(imageCollectorModuleUrls.Logger),
+      import(imageCollectorModuleUrls.ImageUtils),
+      import(imageCollectorModuleUrls.TemporaryImageUrl),
+      import(imageCollectorModuleUrls.TemporaryImagePlaceholder),
+      import(imageCollectorModuleUrls.ErrorHandler),
     ]);
   } else {
     [
