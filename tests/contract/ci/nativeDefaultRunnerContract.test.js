@@ -1,8 +1,10 @@
-const fs = require('node:fs');
-const path = require('node:path');
+import fs from 'node:fs';
+import path from 'node:path';
+import { createRequire } from 'node:module';
 
 const rootDir = path.resolve(__dirname, '../../..');
 const nativeDefaultConfigPath = path.join(rootDir, 'jest.native-default.config.cjs');
+const require = createRequire(__filename);
 
 function readPackageScripts() {
   const packageJson = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8'));
@@ -36,6 +38,21 @@ describe('native default Jest runner contract', () => {
     expect(scripts['test:coverage:native-esm']).toContain(
       'jest --config jest.native-esm.config.cjs --ci --coverage'
     );
+  });
+
+  test('native blocker classifier is diagnostic-only and writes under native-default coverage artifacts', () => {
+    const scripts = readPackageScripts();
+
+    expect(scripts['test:native:blockers']).toBe(
+      'node tools/report-native-default-runner-blockers.mjs --summary-json coverage/native-default/blocker-classification-summary.json --summary-md coverage/native-default/blocker-classification-summary.md'
+    );
+    expect(scripts['test:native:blockers']).toContain('coverage/native-default/');
+    expect(scripts['test:native:blockers']).not.toContain('coverage/native-esm/lcov.info');
+    expect(scripts['test:native:blockers']).not.toContain('jest ');
+    expect(scripts.test).toBe('jest --config jest.config.js');
+    expect(scripts['test:quick']).toBe('jest --config jest.config.js --onlyChanged');
+    expect(scripts['test:coverage']).toBe('npm run test:coverage:native-esm:assert');
+    expect(scripts['test:ci']).toBe('npm run test:coverage:native-esm:assert');
   });
 
   test('native default config exists and is not an official coverage owner', () => {
