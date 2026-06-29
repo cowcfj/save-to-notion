@@ -230,6 +230,6 @@ describe('CI policy contract', () => {
     [changedFilesStep, relatedTestsStep].forEach(step => {
       expect(step).toContain("jest.config.js 'jest.config.*.js'");
     });
-    expect(relatedTestsStep).toContain('jest\\.config(\\..*)?\\.js');
+    expect(relatedTestsStep).toContain(String.raw`jest\.config(\..*)?\.js`);
   });
 });
