@@ -26,6 +26,125 @@ const writeConfig = (rootDir, relativePath, testMatch) => {
   );
 };
 
+const writeClassificationFixtures = rootDir => {
+  writeFile(rootDir, 'tests/native-esm/ready.native-esm.test.mjs', 'test("ready", () => {});');
+  writeFile(
+    rootDir,
+    'tests/native-esm/coverage-only.native-esm.test.mjs',
+    'test("coverage", () => {});'
+  );
+  writeFile(rootDir, 'tests/unit/mock-hoist.test.js', 'jest.mock("../../scripts/foo.js");');
+  writeFile(
+    rootDir,
+    'tests/unit/require-actual.test.js',
+    'const actual = jest.requireActual("../../scripts/foo.js");'
+  );
+  writeFile(
+    rootDir,
+    'tests/unit/production-require.test.js',
+    'const tool = require("../../../scripts/background/utils/BlockBuilder.js");'
+  );
+  writeFile(
+    rootDir,
+    'tests/unit/root-import-boundary.test.js',
+    'import { tool } from "../../../scripts/tool.js";\ntest("tool", () => expect(tool).toBeDefined());'
+  );
+  writeFile(
+    rootDir,
+    'tests/unit/node-lifecycle.test.js',
+    'if (require.main === module) { module.exports = { argv: process.argv }; }'
+  );
+  writeFile(rootDir, 'tests/unit/storage.test.js', 'localStorage.setItem("key", "value");');
+  writeFile(rootDir, 'tests/unit/helper-package/package.json', JSON.stringify({ type: 'module' }));
+  writeFile(
+    rootDir,
+    'tests/unit/helper-package/package-boundary.test.js',
+    'test("esm", () => {});'
+  );
+  writeFile(rootDir, 'tests/contract/ci/native-contract.test.js', 'test("contract", () => {});');
+};
+
+const writeNativeRunnerConfigs = rootDir => {
+  writeConfig(rootDir, 'jest.native-default.config.cjs', [
+    '<rootDir>/tests/native-esm/ready.native-esm.test.mjs',
+  ]);
+  writeConfig(rootDir, 'jest.native-esm.config.cjs', [
+    '<rootDir>/tests/native-esm/ready.native-esm.test.mjs',
+    '<rootDir>/tests/native-esm/coverage-only.native-esm.test.mjs',
+  ]);
+};
+
+const buildClassificationReport = (reporter, rootDir) =>
+  reporter.buildClassificationReport({
+    rootDir,
+    roots: ['tests/unit', 'tests/contract', 'tests/native-esm'],
+    nativeDefaultConfigPath: path.join(rootDir, 'jest.native-default.config.cjs'),
+    nativeCoverageConfigPath: path.join(rootDir, 'jest.native-esm.config.cjs'),
+  });
+
+const expectRootTotals = report => {
+  expect(report.totals.byRoot).toEqual({
+    'tests/contract': 1,
+    'tests/native-esm': 2,
+    'tests/unit': 7,
+  });
+};
+
+const expectClassificationRows = report => {
+  expect(report.files).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        path: 'tests/native-esm/ready.native-esm.test.mjs',
+        primaryBlocker: 'already-native-default',
+        disposition: 'already-native-default',
+      }),
+      expect.objectContaining({
+        path: 'tests/native-esm/coverage-only.native-esm.test.mjs',
+        primaryBlocker: 'coverage-gate-only',
+        disposition: 'coverage-only-not-default-runner',
+      }),
+      expect.objectContaining({
+        path: 'tests/unit/mock-hoist.test.js',
+        primaryBlocker: 'babel-hoisted-mock',
+        disposition: 'requires-helper-refactor',
+      }),
+      expect.objectContaining({
+        path: 'tests/unit/require-actual.test.js',
+        primaryBlocker: 'jest-require-actual-esm',
+      }),
+      expect.objectContaining({
+        path: 'tests/unit/production-require.test.js',
+        primaryBlocker: 'commonjs-require-production-esm',
+      }),
+      expect.objectContaining({
+        path: 'tests/unit/root-import-boundary.test.js',
+        primaryBlocker: 'root-commonjs-test-boundary',
+        disposition: 'defer-to-default-cutover-decision',
+      }),
+      expect.objectContaining({
+        path: 'tests/unit/node-lifecycle.test.js',
+        primaryBlocker: 'node-lifecycle-contract',
+        disposition: 'retain-incumbent-contract',
+      }),
+      expect.objectContaining({
+        path: 'tests/unit/storage.test.js',
+        primaryBlocker: 'jsdom-origin-or-storage',
+        disposition: 'probe-for-native-default',
+      }),
+      expect.objectContaining({
+        path: 'tests/unit/helper-package/package-boundary.test.js',
+        primaryBlocker: 'test-helper-package-boundary',
+        disposition: 'requires-package-boundary-change',
+      }),
+      expect.objectContaining({
+        path: 'tests/contract/ci/native-contract.test.js',
+        primaryBlocker: 'incumbent-contract-retained',
+        disposition: 'retain-incumbent-contract',
+      }),
+    ])
+  );
+};
+
 describe('tools/report-native-default-runner-blockers', () => {
   const projectRoot = path.resolve(__dirname, '../../..');
   const tempRoot = path.join(projectRoot, '.tmp/test-native-default-blockers');
@@ -57,117 +176,15 @@ describe('tools/report-native-default-runner-blockers', () => {
   });
 
   test('classifies fixture suites with blocker signals and stable dispositions', () => {
-    writeFile(tempRoot, 'tests/native-esm/ready.native-esm.test.mjs', 'test("ready", () => {});');
-    writeFile(
-      tempRoot,
-      'tests/native-esm/coverage-only.native-esm.test.mjs',
-      'test("coverage", () => {});'
-    );
-    writeFile(tempRoot, 'tests/unit/mock-hoist.test.js', 'jest.mock("../../scripts/foo.js");');
-    writeFile(
-      tempRoot,
-      'tests/unit/require-actual.test.js',
-      'const actual = jest.requireActual("../../scripts/foo.js");'
-    );
-    writeFile(
-      tempRoot,
-      'tests/unit/production-require.test.js',
-      'const tool = require("../../../scripts/background/utils/BlockBuilder.js");'
-    );
-    writeFile(
-      tempRoot,
-      'tests/unit/root-import-boundary.test.js',
-      'import { tool } from "../../../scripts/tool.js";\ntest("tool", () => expect(tool).toBeDefined());'
-    );
-    writeFile(
-      tempRoot,
-      'tests/unit/node-lifecycle.test.js',
-      'if (require.main === module) { module.exports = { argv: process.argv }; }'
-    );
-    writeFile(tempRoot, 'tests/unit/storage.test.js', 'localStorage.setItem("key", "value");');
-    writeFile(
-      tempRoot,
-      'tests/unit/helper-package/package.json',
-      JSON.stringify({ type: 'module' })
-    );
-    writeFile(
-      tempRoot,
-      'tests/unit/helper-package/package-boundary.test.js',
-      'test("esm", () => {});'
-    );
-    writeFile(tempRoot, 'tests/contract/ci/native-contract.test.js', 'test("contract", () => {});');
-    writeConfig(tempRoot, 'jest.native-default.config.cjs', [
-      '<rootDir>/tests/native-esm/ready.native-esm.test.mjs',
-    ]);
-    writeConfig(tempRoot, 'jest.native-esm.config.cjs', [
-      '<rootDir>/tests/native-esm/ready.native-esm.test.mjs',
-      '<rootDir>/tests/native-esm/coverage-only.native-esm.test.mjs',
-    ]);
+    expect.hasAssertions();
 
-    const report = reporter.buildClassificationReport({
-      rootDir: tempRoot,
-      roots: ['tests/unit', 'tests/contract', 'tests/native-esm'],
-      nativeDefaultConfigPath: path.join(tempRoot, 'jest.native-default.config.cjs'),
-      nativeCoverageConfigPath: path.join(tempRoot, 'jest.native-esm.config.cjs'),
-    });
+    writeClassificationFixtures(tempRoot);
+    writeNativeRunnerConfigs(tempRoot);
 
-    expect(report.totals.byRoot).toEqual({
-      'tests/contract': 1,
-      'tests/native-esm': 2,
-      'tests/unit': 7,
-    });
-    expect(report.files).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          path: 'tests/native-esm/ready.native-esm.test.mjs',
-          primaryBlocker: 'already-native-default',
-          disposition: 'already-native-default',
-        }),
-        expect.objectContaining({
-          path: 'tests/native-esm/coverage-only.native-esm.test.mjs',
-          primaryBlocker: 'coverage-gate-only',
-          disposition: 'coverage-only-not-default-runner',
-        }),
-        expect.objectContaining({
-          path: 'tests/unit/mock-hoist.test.js',
-          primaryBlocker: 'babel-hoisted-mock',
-          disposition: 'requires-helper-refactor',
-        }),
-        expect.objectContaining({
-          path: 'tests/unit/require-actual.test.js',
-          primaryBlocker: 'jest-require-actual-esm',
-        }),
-        expect.objectContaining({
-          path: 'tests/unit/production-require.test.js',
-          primaryBlocker: 'commonjs-require-production-esm',
-        }),
-        expect.objectContaining({
-          path: 'tests/unit/root-import-boundary.test.js',
-          primaryBlocker: 'root-commonjs-test-boundary',
-          disposition: 'defer-to-default-cutover-decision',
-        }),
-        expect.objectContaining({
-          path: 'tests/unit/node-lifecycle.test.js',
-          primaryBlocker: 'node-lifecycle-contract',
-          disposition: 'retain-incumbent-contract',
-        }),
-        expect.objectContaining({
-          path: 'tests/unit/storage.test.js',
-          primaryBlocker: 'jsdom-origin-or-storage',
-          disposition: 'probe-for-native-default',
-        }),
-        expect.objectContaining({
-          path: 'tests/unit/helper-package/package-boundary.test.js',
-          primaryBlocker: 'test-helper-package-boundary',
-          disposition: 'requires-package-boundary-change',
-        }),
-        expect.objectContaining({
-          path: 'tests/contract/ci/native-contract.test.js',
-          primaryBlocker: 'incumbent-contract-retained',
-          disposition: 'retain-incumbent-contract',
-        }),
-      ])
-    );
+    const report = buildClassificationReport(reporter, tempRoot);
+
+    expectRootTotals(report);
+    expectClassificationRows(report);
   });
 
   test('renders Markdown with blocker counts and candidate rows', () => {
