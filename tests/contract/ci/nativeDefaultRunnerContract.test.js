@@ -89,11 +89,16 @@ describe('native default Jest runner contract', () => {
     );
   });
 
-  test('incumbent Jest config does not directly allowlist the native-only Phase 3 cohort', () => {
+  test('incumbent Jest config does not directly allowlist the native-only Phase 3 and Phase 3B cohorts', () => {
     const incumbentConfig = require(path.join(rootDir, 'jest.config.js'));
     const incumbentProjectMatches = incumbentConfig.projects.flatMap(project => project.testMatch);
 
-    expect(incumbentProjectMatches).toEqual(expect.not.arrayContaining(phase3NativeDefaultCohort));
+    for (const nativeOnlyCohortMatch of [
+      ...phase3NativeDefaultCohort,
+      ...phase3BNativeDefaultCohort,
+    ]) {
+      expect(incumbentProjectMatches).not.toContain(nativeOnlyCohortMatch);
+    }
     expect(incumbentConfig.testPathIgnorePatterns).toEqual(expect.arrayContaining(['/tests/e2e/']));
   });
 
