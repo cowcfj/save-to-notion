@@ -5,7 +5,7 @@
  */
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { UI_MESSAGES, ERROR_MESSAGES } from '../../../scripts/config/shared/messages.js';
+import { UI_MESSAGES, ERROR_MESSAGES } from '../../../../scripts/config/shared/messages.js';
 
 const mockPopupUiModule = {
   getElements: jest.fn(),
@@ -58,18 +58,10 @@ const mockEnvModule = {
   },
 };
 
-if (typeof jest.unstable_mockModule === 'function') {
-  jest.unstable_mockModule('../../../pages/popup/popupUI.js', () => mockPopupUiModule);
-  jest.unstable_mockModule('../../../pages/popup/popupActions.js', () => mockPopupActionsModule);
-  jest.unstable_mockModule('../../../scripts/utils/Logger.js', () => mockLoggerModule);
-  jest.unstable_mockModule('../../../scripts/config/env/index.js', () => mockEnvModule);
-}
-
-// Mock dependencies
-jest.mock('../../../pages/popup/popupUI.js', () => mockPopupUiModule);
-jest.mock('../../../pages/popup/popupActions.js', () => mockPopupActionsModule);
-jest.mock('../../../scripts/utils/Logger.js', () => mockLoggerModule);
-jest.mock('../../../scripts/config/env/index.js', () => mockEnvModule);
+await jest.unstable_mockModule('../../../../pages/popup/popupUI.js', () => mockPopupUiModule);
+await jest.unstable_mockModule('../../../../pages/popup/popupActions.js', () => mockPopupActionsModule);
+await jest.unstable_mockModule('../../../../scripts/utils/Logger.js', () => mockLoggerModule);
+await jest.unstable_mockModule('../../../../scripts/config/env/index.js', () => mockEnvModule);
 
 let initPopup;
 let getElements;
@@ -99,7 +91,7 @@ let Logger;
 let BUILD_ENV;
 
 beforeAll(async () => {
-  ({ initPopup } = await import('../../../pages/popup/popup.js'));
+  ({ initPopup } = await import('../../../../pages/popup/popup.js'));
   ({
     getElements,
     initializePopupStaticText,
@@ -113,7 +105,7 @@ beforeAll(async () => {
     setStatus,
     setButtonState,
     formatSaveSuccessMessage,
-  } = await import('../../../pages/popup/popupUI.js'));
+  } = await import('../../../../pages/popup/popupUI.js'));
   ({
     checkSettings,
     checkPageStatus,
@@ -126,9 +118,9 @@ beforeAll(async () => {
     startAccountLogin,
     openAccountManagement,
     setPopupTempProfile,
-  } = await import('../../../pages/popup/popupActions.js'));
-  ({ default: Logger } = await import('../../../scripts/utils/Logger.js'));
-  ({ BUILD_ENV } = await import('../../../scripts/config/env/index.js'));
+  } = await import('../../../../pages/popup/popupActions.js'));
+  ({ default: Logger } = await import('../../../../scripts/utils/Logger.js'));
+  ({ BUILD_ENV } = await import('../../../../scripts/config/env/index.js'));
 });
 
 beforeEach(() => {

@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { ERROR_MESSAGES } from '../../../scripts/config/shared/messages.js';
+import { ERROR_MESSAGES } from '../../../../scripts/config/shared/messages.js';
 
 const mockEnvModule = {
   BUILD_ENV: {
@@ -15,16 +15,11 @@ const mockAccountSessionModule = {
   isAccountSessionExpired: jest.fn(),
 };
 
-if (typeof jest.unstable_mockModule === 'function') {
-  jest.unstable_mockModule('../../../scripts/config/env/index.js', () => mockEnvModule);
-  jest.unstable_mockModule(
-    '../../../scripts/auth/accountSession.js',
-    () => mockAccountSessionModule
-  );
-}
-
-jest.mock('../../../scripts/config/env/index.js', () => mockEnvModule);
-jest.mock('../../../scripts/auth/accountSession.js', () => mockAccountSessionModule);
+await jest.unstable_mockModule('../../../../scripts/config/env/index.js', () => mockEnvModule);
+await jest.unstable_mockModule(
+  '../../../../scripts/auth/accountSession.js',
+  () => mockAccountSessionModule
+);
 
 let checkSettings;
 let checkPageStatus;
@@ -58,12 +53,12 @@ beforeAll(async () => {
     startAccountLogin,
     openAccountManagement,
     setPopupTempProfile,
-  } = await import('../../../pages/popup/popupActions.js'));
-  ({ BUILD_ENV } = await import('../../../scripts/config/env/index.js'));
-  ({ default: Logger } = await import('../../../scripts/utils/Logger.js'));
-  ({ ProfileManager } = await import('../../../scripts/destinations/ProfileManager.js'));
+  } = await import('../../../../pages/popup/popupActions.js'));
+  ({ BUILD_ENV } = await import('../../../../scripts/config/env/index.js'));
+  ({ default: Logger } = await import('../../../../scripts/utils/Logger.js'));
+  ({ ProfileManager } = await import('../../../../scripts/destinations/ProfileManager.js'));
   ({ getAccountProfile, getAccountAccessToken, getAccountSession, isAccountSessionExpired } =
-    await import('../../../scripts/auth/accountSession.js'));
+    await import('../../../../scripts/auth/accountSession.js'));
 });
 
 function selectDefinedStorageKeys(storageData, keys) {
