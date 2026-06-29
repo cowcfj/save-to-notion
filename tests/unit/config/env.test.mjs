@@ -21,6 +21,8 @@ const {
   BUILD_ENV,
 } = envModule;
 
+const EXTENSION_ID = 'extension-id';
+
 function setWindow(value) {
   if (value === undefined) {
     delete globalThis.window;
@@ -28,6 +30,32 @@ function setWindow(value) {
   }
 
   globalThis.window = value;
+}
+
+function installChromeRuntime(runtime = {}) {
+  globalThis.chrome = {
+    runtime: {
+      id: EXTENSION_ID,
+      ...runtime,
+    },
+  };
+
+  return globalThis.chrome.runtime;
+}
+
+function installChromeManifest(manifest, runtime = {}) {
+  return installChromeRuntime({
+    ...runtime,
+    getManifest: jest.fn(() => manifest),
+  });
+}
+
+function installContentLikeContext({ runtime = {}, location } = {}) {
+  installChromeRuntime(runtime);
+  setWindow({});
+  if (location !== undefined) {
+    globalThis.location = location;
+  }
 }
 
 describe('配置模組 - env/index.js', () => {
@@ -41,7 +69,7 @@ describe('配置模組 - env/index.js', () => {
 
   describe('isExtensionContext', () => {
     test('當 chrome.runtime.id 存在時應返回 true', () => {
-      globalThis.chrome = { runtime: { id: 'extension-id' } };
+      installChromeRuntime();
 
       expect(isExtensionContext()).toBe(true);
     });
@@ -57,7 +85,7 @@ describe('配置模組 - env/index.js', () => {
 
   describe('背景與內容腳本環境判斷', () => {
     test('extension 環境且 window 不存在時應視為 background context', () => {
-      globalThis.chrome = { runtime: { id: 'extension-id' } };
+      installChromeRuntime();
       setWindow(undefined);
 
       expect(isBackgroundContext()).toBe(true);
@@ -65,92 +93,66 @@ describe('配置模組 - env/index.js', () => {
     });
 
     test('extension 環境且 window 存在時應視為 content context', () => {
-      globalThis.chrome = { runtime: { id: 'extension-id' } };
-      setWindow({});
+      installContentLikeContext();
 
       expect(isBackgroundContext()).toBe(false);
       expect(isContentContext()).toBe(true);
     });
 
     test('extension 環境且 window 存在但 protocol 為 chrome-extension: 時不視為 content context', () => {
-      globalThis.chrome = { runtime: { id: 'extension-id' } };
-      setWindow({});
-      globalThis.location = { protocol: 'chrome-extension:' };
+      installContentLikeContext({
+        location: { protocol: 'chrome-extension:' },
+      });
 
       expect(isContentContext()).toBe(false);
     });
 
-    test('當沒有 extensionBaseUrl 時回退視為 content context', () => {
-      globalThis.chrome = {
-        runtime: { id: 'extension-id', getURL: () => '' },
-      };
-      setWindow({});
-      globalThis.location = { protocol: 'https:' };
-
-      expect(isContentContext()).toBe(true);
-    });
-
-    test('當 currentOrigin 等於 extensionOrigin 時不視為 content context', () => {
-      globalThis.chrome = {
-        runtime: {
-          id: 'extension-id',
-          getURL: () => 'https://extension-id/',
+    test.each([
+      {
+        name: '當沒有 extensionBaseUrl 時回退視為 content context',
+        runtime: { getURL: () => '' },
+        location: { protocol: 'https:' },
+        expected: true,
+      },
+      {
+        name: '當 currentOrigin 等於 extensionOrigin 時不視為 content context',
+        runtime: { getURL: () => 'https://extension-id/' },
+        location: {
+          protocol: 'https:',
+          origin: 'https://extension-id',
         },
-      };
-      setWindow({});
-      globalThis.location = {
-        protocol: 'https:',
-        origin: 'https://extension-id',
-      };
-
-      expect(isContentContext()).toBe(false);
-    });
-
-    test('當 currentOrigin 不等於 extensionOrigin 時視為 content context', () => {
-      globalThis.chrome = {
-        runtime: {
-          id: 'extension-id',
-          getURL: () => 'https://extension-id/',
+        expected: false,
+      },
+      {
+        name: '當 currentOrigin 不等於 extensionOrigin 時視為 content context',
+        runtime: { getURL: () => 'https://extension-id/' },
+        location: {
+          protocol: 'https:',
+          origin: 'https://example.com',
         },
-      };
-      setWindow({});
-      globalThis.location = {
-        protocol: 'https:',
-        origin: 'https://example.com',
-      };
-
-      expect(isContentContext()).toBe(true);
-    });
-
-    test('當 URL 解析失敗時，捕獲錯誤並回退視為 content context', () => {
-      globalThis.chrome = {
-        runtime: {
-          id: 'extension-id',
-          getURL: () => 'invalid-url',
+        expected: true,
+      },
+      {
+        name: '當 URL 解析失敗時，捕獲錯誤並回退視為 content context',
+        runtime: { getURL: () => 'invalid-url' },
+        location: {
+          protocol: 'https:',
         },
-      };
-      setWindow({});
-      globalThis.location = {
-        protocol: 'https:',
-      };
-
-      expect(isContentContext()).toBe(true);
-    });
-
-    test('當 currentOrigin 無效時回退視為 content context', () => {
-      globalThis.chrome = {
-        runtime: {
-          id: 'extension-id',
-          getURL: () => 'chrome-extension://extension-id/',
+        expected: true,
+      },
+      {
+        name: '當 currentOrigin 無效時回退視為 content context',
+        runtime: { getURL: () => 'chrome-extension://extension-id/' },
+        location: {
+          protocol: 'https:',
+          origin: '',
         },
-      };
-      setWindow({});
-      globalThis.location = {
-        protocol: 'https:',
-        origin: '',
-      };
+        expected: true,
+      },
+    ])('$name', ({ runtime, location, expected }) => {
+      installContentLikeContext({ runtime, location });
 
-      expect(isContentContext()).toBe(true);
+      expect(isContentContext()).toBe(expected);
     });
   });
 
@@ -177,49 +179,37 @@ describe('配置模組 - env/index.js', () => {
     });
 
     test('version_name 包含 dev 時應返回開發模式', () => {
-      globalThis.chrome = {
-        runtime: {
-          id: 'extension-id',
-          getManifest: jest.fn(() => ({ version_name: '2.0.0-dev' })),
-        },
-      };
+      installChromeManifest({ version_name: '2.0.0-dev' });
 
       expect(isDevelopment()).toBe(true);
       expect(isProduction()).toBe(false);
     });
 
-    test('version_name 缺失但 version 包含 dev 時仍應返回開發模式', () => {
-      globalThis.chrome = {
-        runtime: {
-          id: 'extension-id',
-          getManifest: jest.fn(() => ({ version: '2.0.0-dev' })),
-        },
-      };
+    test.each([
+      {
+        name: 'version_name 缺失但 version 包含 dev 時仍應返回開發模式',
+        manifest: { version: '2.0.0-dev' },
+        expected: true,
+      },
+      {
+        name: 'version_name 缺失且 version 缺失時應不報錯並返回非開發模式',
+        manifest: {},
+        expected: false,
+      },
+    ])('$name', ({ manifest, expected }) => {
+      installChromeManifest(manifest);
 
-      expect(isDevelopment()).toBe(true);
-    });
-
-    test('version_name 缺失且 version 缺失時應不報錯並返回非開發模式', () => {
-      globalThis.chrome = {
-        runtime: {
-          id: 'extension-id',
-          getManifest: jest.fn(() => ({})),
-        },
-      };
-
-      expect(isDevelopment()).toBe(false);
+      expect(isDevelopment()).toBe(expected);
     });
 
     test('getManifest 拋錯時應返回 false 並記錄錯誤', () => {
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      globalThis.chrome = {
-        runtime: {
-          id: 'extension-id-error-test',
-          getManifest: jest.fn(() => {
-            throw new Error('manifest unavailable');
-          }),
-        },
-      };
+      installChromeRuntime({
+        id: 'extension-id-error-test',
+        getManifest: jest.fn(() => {
+          throw new Error('manifest unavailable');
+        }),
+      });
 
       expect(isDevelopment()).toBe(false);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
@@ -231,12 +221,7 @@ describe('配置模組 - env/index.js', () => {
 
   describe('getEnvironment 與 selectByEnvironment', () => {
     test('應聚合所有環境旗標，且開發/生產模式互斥', () => {
-      globalThis.chrome = {
-        runtime: {
-          id: 'extension-id',
-          getManifest: jest.fn(() => ({ version_name: '2.0.0-dev' })),
-        },
-      };
+      installChromeManifest({ version_name: '2.0.0-dev' });
       setWindow({});
 
       expect(getEnvironment()).toEqual({
@@ -250,28 +235,18 @@ describe('配置模組 - env/index.js', () => {
     });
 
     test('應依據環境選擇對應值', () => {
-      globalThis.chrome = {
-        runtime: {
-          id: 'extension-id',
-          getManifest: jest.fn(() => ({ version_name: '2.0.0-dev' })),
-        },
-      };
+      const runtime = installChromeManifest({ version_name: '2.0.0-dev' });
 
       expect(selectByEnvironment('development', 'production')).toBe('development');
 
-      globalThis.chrome.runtime.getManifest = jest.fn(() => ({ version_name: '2.0.0' }));
+      runtime.getManifest = jest.fn(() => ({ version_name: '2.0.0' }));
       expect(selectByEnvironment('development', 'production')).toBe('production');
     });
   });
 
   describe('ENV 與 BUILD_ENV 常量', () => {
     test('ENV getter 應與對應函式返回一致', () => {
-      globalThis.chrome = {
-        runtime: {
-          id: 'extension-id',
-          getManifest: jest.fn(() => ({ version_name: '2.0.0-dev' })),
-        },
-      };
+      installChromeManifest({ version_name: '2.0.0-dev' });
       setWindow({});
 
       expect(ENV.IS_EXTENSION).toBe(isExtensionContext());
