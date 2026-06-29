@@ -10,7 +10,11 @@ module.exports = {
   transformIgnorePatterns: [],
   testMatch: [
     '<rootDir>/tests/native-esm/background/handlers/backgroundHandlers.native-esm.test.mjs',
+    '<rootDir>/tests/native-esm/background/services/backgroundServices.native-esm.test.mjs',
+    '<rootDir>/tests/native-esm/background/support/background-support-native-siblings.native-esm.test.mjs',
+    '<rootDir>/tests/native-esm/background/utils/backgroundUtils.native-esm.test.mjs',
     '<rootDir>/tests/native-esm/config/configConstants.native-esm.test.mjs',
+    '<rootDir>/tests/native-esm/destinations/destinations.native-esm.test.mjs',
     '<rootDir>/tests/native-esm/highlighter/utils/domText.native-esm.test.mjs',
     '<rootDir>/tests/native-esm/highlighter/utils/pureUtils.native-esm.test.mjs',
     '<rootDir>/tests/native-esm/utils/root-url-and-page-complexity.native-esm.test.mjs',
