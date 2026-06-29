@@ -37,29 +37,37 @@ const imageCollectorModuleUrls = {
   ),
 };
 
-function registerEsmMocks() {
+function registerReadabilityAdapterMock() {
   jest.unstable_mockModule(imageCollectorModuleUrls.ReadabilityAdapter, () => ({
     cachedQuery: jest.fn(),
   }));
+}
 
+function registerPerformanceOptimizerMock() {
   jest.unstable_mockModule(imageCollectorModuleUrls.PerformanceOptimizer, () => ({
     batchProcess: jest.fn(),
     batchProcessWithRetry: jest.fn(),
   }));
+}
 
+function registerErrorHandlerMock() {
   jest.unstable_mockModule(imageCollectorModuleUrls.ErrorHandler, () => ({
     ErrorHandler: {
       logError: jest.fn(),
     },
   }));
+}
 
+function registerNextJsExtractorMock() {
   jest.unstable_mockModule(imageCollectorModuleUrls.NextJsExtractor, () => ({
     NextJsExtractor: {
       detect: jest.fn(),
       extract: jest.fn(),
     },
   }));
+}
 
+function registerLoggerMock() {
   jest.unstable_mockModule(imageCollectorModuleUrls.Logger, () => ({
     __esModule: true,
     default: {
@@ -73,7 +81,9 @@ function registerEsmMocks() {
       error: jest.fn(),
     },
   }));
+}
 
+function registerContentConfigMock() {
   jest.unstable_mockModule(imageCollectorModuleUrls.ContentConfig, () => ({
     IMAGE_VALIDATION_CONSTANTS: {
       MAX_URL_LENGTH: 2000,
@@ -102,7 +112,9 @@ function registerEsmMocks() {
     GALLERY_SELECTORS: ['.gallery img'],
     EXCLUSION_SELECTORS: ['.ad img'],
   }));
+}
 
+function registerMessagesConfigMock() {
   jest.unstable_mockModule(imageCollectorModuleUrls.MessagesConfig, () => ({
     ERROR_TYPES: {
       EXTRACTION_FAILED: 'extraction_failed',
@@ -120,7 +132,9 @@ function registerEsmMocks() {
       INTERNAL: 'internal',
     },
   }));
+}
 
+function registerImageUtilsMock() {
   jest.unstable_mockModule(imageCollectorModuleUrls.ImageUtils, () => ({
     __esModule: true,
     extractImageSrc: jest.fn(),
@@ -134,12 +148,16 @@ function registerEsmMocks() {
       isValidCleanedImageUrl: jest.fn(() => true),
     },
   }));
+}
 
+function registerTemporaryImageUrlMock() {
   jest.unstable_mockModule(imageCollectorModuleUrls.TemporaryImageUrl, () => ({
     __esModule: true,
     isTemporaryImageUrl: jest.fn(() => false),
   }));
+}
 
+function registerTemporaryImagePlaceholderMock() {
   jest.unstable_mockModule(imageCollectorModuleUrls.TemporaryImagePlaceholder, () => ({
     __esModule: true,
     buildTemporaryImagePlaceholderBlock: jest.fn((url, opts = {}) => ({
@@ -159,6 +177,19 @@ function registerEsmMocks() {
       },
     })),
   }));
+}
+
+function registerEsmMocks() {
+  registerReadabilityAdapterMock();
+  registerPerformanceOptimizerMock();
+  registerErrorHandlerMock();
+  registerNextJsExtractorMock();
+  registerLoggerMock();
+  registerContentConfigMock();
+  registerMessagesConfigMock();
+  registerImageUtilsMock();
+  registerTemporaryImageUrlMock();
+  registerTemporaryImagePlaceholderMock();
 }
 
 async function importEsmModules() {
