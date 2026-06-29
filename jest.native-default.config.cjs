@@ -9,6 +9,7 @@ module.exports = {
   transform: {},
   transformIgnorePatterns: [],
   testMatch: [
+    '<rootDir>/tests/native-esm/background/handlers/backgroundHandlers.native-esm.test.mjs',
     '<rootDir>/tests/native-esm/config/configConstants.native-esm.test.mjs',
     '<rootDir>/tests/native-esm/highlighter/utils/domText.native-esm.test.mjs',
     '<rootDir>/tests/native-esm/highlighter/utils/pureUtils.native-esm.test.mjs',
