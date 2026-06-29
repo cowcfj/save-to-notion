@@ -48,6 +48,7 @@ module.exports = {
     '<rootDir>/tests/native-esm/pages/popup/popup.native-esm.test.mjs',
     '<rootDir>/tests/unit/popup/popupActions.test.js',
     '<rootDir>/tests/unit/popup/popupController.test.js',
+    '<rootDir>/tests/unit/popup/popupHtml.test.js',
     '<rootDir>/tests/unit/popup/popupUI.test.js',
     '<rootDir>/tests/native-esm/pages/sidepanel/sidepanel.native-esm.test.mjs',
     '<rootDir>/tests/unit/sidepanel/sidepanel.dom-contract.test.js',
