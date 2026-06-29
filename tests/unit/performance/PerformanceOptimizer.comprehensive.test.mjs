@@ -1,17 +1,23 @@
+import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import {
   PERFORMANCE_HTML_FIXTURE,
   createPerformanceLoggerMock,
   restorePerformanceGlobals,
   setupPerformanceEnvironment,
 } from '../../helpers/performanceOptimizerTestHarness.js';
+import loggerMock from '../../helpers/loggerMock.cjs';
 
-jest.mock('../../../scripts/utils/Logger.js', () => ({
-  __esModule: true,
-  default: require('../../helpers/loggerMock.js').createLoggerMock(),
-}));
+const { createLoggerMock } = loggerMock;
+
+async function loadPerformanceOptimizerModule() {
+  await jest.unstable_mockModule('../../../scripts/utils/Logger.js', () => ({
+    default: createLoggerMock(),
+  }));
+  return import('../../../scripts/performance/PerformanceOptimizer.js');
+}
 
 // =========================================
-// 合併自 PerformanceOptimizer.comprehensive.test.js
+// 合併自 PerformanceOptimizer.comprehensive.test.mjs
 // =========================================
 /**
  * PerformanceOptimizer 全面測試套件
@@ -20,11 +26,12 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
 
 describe('PerformanceOptimizer - 全面測試', () => {
   let PerformanceOptimizer = null;
+  let performanceOptimizerModule = null;
   let optimizer = null;
   let mockDocument = null;
   let originalGlobals = null;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     originalGlobals = setupPerformanceEnvironment({
       bodyHtml: PERFORMANCE_HTML_FIXTURE,
       useFakeTimers: true,
@@ -44,8 +51,8 @@ describe('PerformanceOptimizer - 全面測試', () => {
 
     // 重新加載模塊
     jest.resetModules();
-    const module = require('../../../scripts/performance/PerformanceOptimizer');
-    PerformanceOptimizer = module.PerformanceOptimizer;
+    performanceOptimizerModule = await loadPerformanceOptimizerModule();
+    PerformanceOptimizer = performanceOptimizerModule.PerformanceOptimizer;
 
     optimizer = new PerformanceOptimizer({
       enableCache: true,
@@ -492,17 +499,15 @@ describe('PerformanceOptimizer - 全面測試', () => {
 
   describe('便捷函數', () => {
     test('cachedQuery 函數應該使用默認實例', () => {
-      const { cachedQuery } = require('../../../scripts/performance/PerformanceOptimizer');
-      const result = cachedQuery('img', mockDocument);
+      const result = performanceOptimizerModule.cachedQuery('img', mockDocument);
       expect(result).toBeDefined();
     });
 
     test('batchProcess 函數應該使用默認實例', async () => {
-      const { batchProcess } = require('../../../scripts/performance/PerformanceOptimizer');
       const items = [{ id: 1 }];
       const processor = item => ({ ...item, processed: true });
 
-      const promise = batchProcess(items, processor);
+      const promise = performanceOptimizerModule.batchProcess(items, processor);
       jest.runAllTimers();
 
       const results = await promise;
@@ -511,13 +516,10 @@ describe('PerformanceOptimizer - 全面測試', () => {
   });
 
   describe('模塊導出', () => {
-    test('應該正確導出到 module.exports', () => {
-      // 驗證 module.exports 導出
-      const exported = require('../../../scripts/performance/PerformanceOptimizer');
-
-      expect(exported.PerformanceOptimizer).toBeDefined();
-      expect(exported.cachedQuery).toBeDefined();
-      expect(exported.batchProcess).toBeDefined();
+    test('應該正確導出公開 API', () => {
+      expect(performanceOptimizerModule.PerformanceOptimizer).toBeDefined();
+      expect(performanceOptimizerModule.cachedQuery).toBeDefined();
+      expect(performanceOptimizerModule.batchProcess).toBeDefined();
     });
   });
 
@@ -555,16 +557,19 @@ describe('PerformanceOptimizer - 全面測試', () => {
         },
       },
     ])('應該在$name', async scenario => {
-      const module = require('../../../scripts/performance/PerformanceOptimizer');
       const customBatchFn = scenario.createCustomBatchFn();
       const processor = value => ({ url: `${scenario.urlPrefix}-${value}` });
 
-      const { results, meta } = await module.batchProcessWithRetry(scenario.items, processor, {
-        customBatchFn,
-        captureFailedResults: true,
-        isResultSuccessful: result => Boolean(result?.url),
-        ...scenario.options,
-      });
+      const { results, meta } = await performanceOptimizerModule.batchProcessWithRetry(
+        scenario.items,
+        processor,
+        {
+          customBatchFn,
+          captureFailedResults: true,
+          isResultSuccessful: result => Boolean(result?.url),
+          ...scenario.options,
+        }
+      );
 
       expect(customBatchFn).toHaveBeenCalledTimes(scenario.expectedCalls);
       expect(results).toHaveLength(scenario.items.length);
@@ -573,15 +578,18 @@ describe('PerformanceOptimizer - 全面測試', () => {
     });
 
     test('當達到最大嘗試次數仍失敗時應返回 null', async () => {
-      const module = require('../../../scripts/performance/PerformanceOptimizer');
       const customBatchFn = jest.fn(() => Promise.reject(new Error('permanent failure')));
       const processor = value => ({ url: `img-${value}` });
 
-      const { results, meta } = await module.batchProcessWithRetry([1], processor, {
-        customBatchFn,
-        maxAttempts: 2,
-        baseDelay: 0,
-      });
+      const { results, meta } = await performanceOptimizerModule.batchProcessWithRetry(
+        [1],
+        processor,
+        {
+          customBatchFn,
+          maxAttempts: 2,
+          baseDelay: 0,
+        }
+      );
 
       expect(customBatchFn).toHaveBeenCalledTimes(2);
       expect(results).toBeNull();
@@ -590,30 +598,36 @@ describe('PerformanceOptimizer - 全面測試', () => {
     });
 
     test('應該在 captureFailedResults 時回報失敗索引', async () => {
-      const module = require('../../../scripts/performance/PerformanceOptimizer');
       const customBatchFn = jest.fn((items, processor) =>
         Promise.resolve(items.map(item => processor(item)))
       );
       const processor = value => (value % 2 === 0 ? null : { url: `valid-${value}` });
 
-      const { meta } = await module.batchProcessWithRetry([1, 2, 3], processor, {
-        customBatchFn,
-        captureFailedResults: true,
-        isResultSuccessful: result => Boolean(result?.url),
-      });
+      const { meta } = await performanceOptimizerModule.batchProcessWithRetry(
+        [1, 2, 3],
+        processor,
+        {
+          customBatchFn,
+          captureFailedResults: true,
+          isResultSuccessful: result => Boolean(result?.url),
+        }
+      );
 
       expect(meta.failedIndices).toEqual([1]);
     });
 
     test('當批次函數回傳非陣列時應標記全部索引為失敗', async () => {
-      const module = require('../../../scripts/performance/PerformanceOptimizer');
       const customBatchFn = jest.fn(() => Promise.resolve({ invalid: true }));
       const processor = value => ({ url: `img-${value}` });
 
-      const { results, meta } = await module.batchProcessWithRetry([1, 2, 3], processor, {
-        customBatchFn,
-        maxAttempts: 1,
-      });
+      const { results, meta } = await performanceOptimizerModule.batchProcessWithRetry(
+        [1, 2, 3],
+        processor,
+        {
+          customBatchFn,
+          maxAttempts: 1,
+        }
+      );
 
       expect(customBatchFn).toHaveBeenCalledTimes(1);
       expect(results).toBeNull();
@@ -624,18 +638,21 @@ describe('PerformanceOptimizer - 全面測試', () => {
     });
 
     test('當批次函數拋出含 failedIndices 的錯誤時應傳遞到 meta', async () => {
-      const module = require('../../../scripts/performance/PerformanceOptimizer');
       const batchError = Object.assign(new Error('partial failure'), {
         failedIndices: [0, 2],
       });
       const customBatchFn = jest.fn(() => Promise.reject(batchError));
       const processor = value => ({ url: `img-${value}` });
 
-      const { results, meta } = await module.batchProcessWithRetry([1, 2, 3], processor, {
-        customBatchFn,
-        maxAttempts: 2,
-        baseDelay: 0,
-      });
+      const { results, meta } = await performanceOptimizerModule.batchProcessWithRetry(
+        [1, 2, 3],
+        processor,
+        {
+          customBatchFn,
+          maxAttempts: 2,
+          baseDelay: 0,
+        }
+      );
 
       expect(customBatchFn).toHaveBeenCalledTimes(2);
       expect(results).toBeNull();

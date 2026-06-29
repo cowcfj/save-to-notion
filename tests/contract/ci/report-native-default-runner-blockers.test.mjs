@@ -5,17 +5,19 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import * as reporter from '../../../tools/report-native-default-runner-blockers-core.cjs';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const createDirectory = directoryPath => {
-  // eslint-disable-next-line security/detect-non-literal-fs-filename
   fs.mkdirSync(directoryPath, { recursive: true });
 };
 
 const writeFile = (rootDir, relativePath, content = '') => {
   const filePath = path.join(rootDir, relativePath);
   createDirectory(path.dirname(filePath));
-  // eslint-disable-next-line security/detect-non-literal-fs-filename
   fs.writeFileSync(filePath, content, 'utf8');
 };
 
@@ -28,12 +30,10 @@ const writeConfig = (rootDir, relativePath, testMatch) => {
 };
 
 const expectPathDoesNotExist = filePath => {
-  // eslint-disable-next-line security/detect-non-literal-fs-filename
   expect(fs.existsSync(filePath)).toBe(false);
 };
 
 const expectFileContents = (filePath, expectedContents) => {
-  // eslint-disable-next-line security/detect-non-literal-fs-filename
   expect(fs.readFileSync(filePath, 'utf8')).toBe(expectedContents);
 };
 
@@ -508,7 +508,6 @@ describe('tools/report-native-default-runner-blockers', () => {
       fileName: caseDefinition.fileName,
       symlinkTargetPath,
     });
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
     fs.symlinkSync(symlinkTargetPath, symlinkPath, caseDefinition.symlinkType);
 
     const result = runCliWithArgs([

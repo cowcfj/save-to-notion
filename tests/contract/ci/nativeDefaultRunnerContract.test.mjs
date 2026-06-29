@@ -1,10 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '../../..');
 const nativeDefaultConfigPath = path.join(rootDir, 'jest.native-default.config.cjs');
-const require = createRequire(__filename);
+const require = createRequire(import.meta.url);
 
 const phase3NativeDefaultCohort = [
   '<rootDir>/tests/native-esm/background/handlers/backgroundHandlers.native-esm.test.mjs',
@@ -15,6 +18,32 @@ const phase3BNativeDefaultCohort = [
   '<rootDir>/tests/native-esm/background/support/background-support-native-siblings.native-esm.test.mjs',
   '<rootDir>/tests/native-esm/background/utils/backgroundUtils.native-esm.test.mjs',
   '<rootDir>/tests/native-esm/destinations/destinations.native-esm.test.mjs',
+];
+
+const phase3DPolicyLifecycleCohort = [
+  '<rootDir>/tests/contract/ci/ciPolicyContract.test.mjs',
+  '<rootDir>/tests/contract/ci/nativeDefaultRunnerContract.test.mjs',
+  '<rootDir>/tests/contract/ci/report-native-default-runner-blockers.test.mjs',
+  '<rootDir>/tests/contract/module-surfaces/RetryManager.contract.test.mjs',
+  '<rootDir>/tests/integration/background/background-require.integration.test.mjs',
+  '<rootDir>/tests/integration/helpers/integration-test-helper.test.mjs',
+  '<rootDir>/tests/unit/config/auth.callback-page.test.js',
+  '<rootDir>/tests/unit/config/coverageExclusionsContract.test.js',
+  '<rootDir>/tests/unit/config/env.test.mjs',
+  '<rootDir>/tests/unit/config/manifest.auth.test.js',
+  '<rootDir>/tests/unit/config/manifest.permissions.test.js',
+  '<rootDir>/tests/unit/helpers/storageServiceTestHarness.test.mjs',
+  '<rootDir>/tests/unit/scripts/assert-native-esm-line-hits.test.mjs',
+  '<rootDir>/tests/unit/scripts/check-message-boundaries.test.js',
+  '<rootDir>/tests/unit/scripts/check-size-gates.test.mjs',
+  '<rootDir>/tests/unit/scripts/inject-manifest-key.test.mjs',
+  '<rootDir>/tests/unit/scripts/package-extension.test.mjs',
+  '<rootDir>/tests/unit/scripts/postinstall.test.js',
+  '<rootDir>/tests/unit/scripts/report-native-esm-scope-parity.test.mjs',
+  '<rootDir>/tests/unit/scripts/report-native-esm-threshold-simulation.test.mjs',
+  '<rootDir>/tests/unit/utils.dateFormat.test.js',
+  '<rootDir>/tests/unit/utils/chrome-mock.test.js',
+  '<rootDir>/tests/unit/utils/css-color-mock-shape.test.js',
 ];
 
 const rootCommonJsCandidateProbes = [
@@ -78,11 +107,15 @@ describe('native default Jest runner contract', () => {
     expect(scripts['test:ci']).toBe('npm run test:coverage:native-esm:assert');
   });
 
-  test('native default allowlist includes the Phase 3 and Phase 3B proven cohorts only', () => {
+  test('native default allowlist includes the proven native and no-Babel policy/lifecycle cohorts only', () => {
     const nativeDefaultConfig = require(nativeDefaultConfigPath);
 
     expect(nativeDefaultConfig.testMatch).toEqual(
-      expect.arrayContaining([...phase3NativeDefaultCohort, ...phase3BNativeDefaultCohort])
+      expect.arrayContaining([
+        ...phase3NativeDefaultCohort,
+        ...phase3BNativeDefaultCohort,
+        ...phase3DPolicyLifecycleCohort,
+      ])
     );
     expect(nativeDefaultConfig.testMatch).toEqual(
       expect.not.arrayContaining(rootCommonJsCandidateProbes)
@@ -116,6 +149,12 @@ describe('native default Jest runner contract', () => {
     expect(config.transformIgnorePatterns).toEqual([]);
     expect(config.cacheDirectory).toBe('<rootDir>/.tmp/jest-cache-native-default');
     expect(config.setupFiles).toEqual(['<rootDir>/tests/native-esm/native-runner.setup.mjs']);
+    expect(config.setupFilesAfterEnv).toEqual([
+      '<rootDir>/tests/native-esm/native-default.after-env.mjs',
+    ]);
+    expect(config.moduleNameMapper).toEqual({
+      '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.js',
+    });
     expect(config.testMatch).toEqual(
       expect.arrayContaining([
         '<rootDir>/tests/native-esm/config/configConstants.native-esm.test.mjs',

@@ -1,10 +1,15 @@
-import { PerformanceOptimizer } from '../../../scripts/performance/PerformanceOptimizer.js';
+import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { PERFORMANCE_HTML_FIXTURE } from '../../helpers/performanceOptimizerTestHarness.js';
+import loggerMock from '../../helpers/loggerMock.cjs';
 
-jest.mock('../../../scripts/utils/Logger.js', () => ({
-  __esModule: true,
-  default: require('../../helpers/loggerMock.js').createLoggerMock(),
+const { createLoggerMock } = loggerMock;
+
+await jest.unstable_mockModule('../../../scripts/utils/Logger.js', () => ({
+  default: createLoggerMock(),
 }));
+
+const { PerformanceOptimizer } =
+  await import('../../../scripts/performance/PerformanceOptimizer.js');
 
 describe('PerformanceOptimizer extended coverage', () => {
   let optimizer = null;

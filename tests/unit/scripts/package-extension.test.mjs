@@ -4,7 +4,10 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '../../..');
 
 describe('tools/package-extension.sh regressions', () => {
@@ -19,7 +22,6 @@ describe('tools/package-extension.sh regressions', () => {
     popupHtml = fs.readFileSync(path.join(rootDir, 'pages/popup/popup.html'), 'utf8');
     sidepanelHtml = fs.readFileSync(path.join(rootDir, 'pages/sidepanel/sidepanel.html'), 'utf8');
     authHtmlPath = path.relative(rootDir, path.join(rootDir, 'pages/auth/auth.html'));
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- fixture path is asserted below.
     authHtmlExists = fs.existsSync(path.join(rootDir, authHtmlPath));
   });
 

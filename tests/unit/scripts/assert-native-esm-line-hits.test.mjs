@@ -1,12 +1,15 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable sonarjs/no-os-command-from-path */
 
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const createExpandedNativeEsmCohortCoverage = projectRoot => ({
   [path.join(projectRoot, 'pages/options/confirmDialog.js')]: {
@@ -114,21 +117,18 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
 
   const writeCoverageFile = coverage => {
     const coveragePath = path.join(tempCoverageRoot, 'coverage-final.json');
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
     fs.writeFileSync(coveragePath, JSON.stringify(coverage), 'utf8');
     return coveragePath;
   };
 
   const writeManifestFile = manifest => {
     const manifestPath = path.join(tempManifestRoot, 'coverage-line-hits.json');
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
     fs.writeFileSync(manifestPath, JSON.stringify(manifest), 'utf8');
     return manifestPath;
   };
 
   const writeManifestOutsideAllowedRoot = manifest => {
     const manifestPath = path.join(tempCoverageRoot, 'coverage-line-hits.json');
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
     fs.writeFileSync(manifestPath, JSON.stringify(manifest), 'utf8');
     return manifestPath;
   };
@@ -165,7 +165,6 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
   test('[SECURITY] repo 外 coverage path 應被拒絕', () => {
     const externalTempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'native-esm-line-hits-'));
     const externalCoveragePath = path.join(externalTempRoot, 'coverage-final.json');
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
     fs.writeFileSync(externalCoveragePath, JSON.stringify(createPassingCoverage()), 'utf8');
 
     const result = runCli(externalCoveragePath);
@@ -181,9 +180,7 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
     const externalTempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'native-esm-line-hits-'));
     const externalManifestPath = path.join(externalTempRoot, 'coverage-line-hits.json');
     const linkedManifestPath = path.join(tempManifestRoot, 'linked-coverage-line-hits.json');
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
     fs.writeFileSync(externalManifestPath, JSON.stringify(createPassingManifest()), 'utf8');
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
     fs.symlinkSync(externalManifestPath, linkedManifestPath);
 
     const coveragePath = writeCoverageFile(createPassingCoverage());
@@ -265,7 +262,6 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
     const { result, summaryJsonPath } = runCliWithSummary(coveragePath, manifestPath);
 
     expect(result.status).toBe(0);
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
     const summary = JSON.parse(fs.readFileSync(summaryJsonPath, 'utf8'));
     expect(summary.diagnosticOnly).toBe(true);
     expect(summary.totals).toEqual({
@@ -302,7 +298,6 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
     const { result, summaryMarkdownPath } = runCliWithSummary(coveragePath, manifestPath);
 
     expect(result.status).toBe(0);
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
     const markdown = fs.readFileSync(summaryMarkdownPath, 'utf8');
     expect(markdown).toContain('coverage/native-esm/lcov.info');
     expect(markdown).toContain('| `scripts/background/utils/BlockBuilder.js` | 4 | 4 | 0 |');
@@ -325,7 +320,6 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
     const { result, summaryJsonPath } = runCliWithSummary(coveragePath, manifestPath);
 
     expect(result.status).toBe(1);
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
     const summary = JSON.parse(fs.readFileSync(summaryJsonPath, 'utf8'));
     expect(summary.totals.failedLines).toBe(1);
     expect(summary.files[0].failedLines).toEqual([54]);
@@ -446,7 +440,6 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
     const { result, summaryMarkdownPath } = runCliWithSummary(coveragePath, manifestPath);
 
     expect(result.status).toBe(0);
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
     const markdown = fs.readFileSync(summaryMarkdownPath, 'utf8');
     expect(markdown).toContain(String.raw`第一段 \| 第二段 第三段`);
   });
@@ -471,7 +464,6 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
     );
 
     expect(result.status).toBe(1);
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
     const summary = JSON.parse(fs.readFileSync(summaryJsonPath, 'utf8'));
     expect(summary.totals.failedLines).toBe(4);
     expect(summary.files).toEqual(
@@ -482,7 +474,6 @@ describe('tools/assert-native-esm-line-hits.mjs', () => {
         }),
       ])
     );
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
     expect(fs.readFileSync(summaryMarkdownPath, 'utf8')).toContain(
       'scripts/highlighter/autoInit/initializationInputs.js'
     );
