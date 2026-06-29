@@ -9,11 +9,6 @@ function readPackageScripts() {
   return packageJson.scripts;
 }
 
-function requireFresh(configPath) {
-  delete require.cache[require.resolve(configPath)];
-  return require(configPath);
-}
-
 describe('native default Jest runner contract', () => {
   test('incumbent default scripts remain on jest.config.js', () => {
     const scripts = readPackageScripts();
@@ -46,7 +41,7 @@ describe('native default Jest runner contract', () => {
   test('native default config exists and is not an official coverage owner', () => {
     expect(fs.existsSync(nativeDefaultConfigPath)).toBe(true);
 
-    const config = requireFresh(nativeDefaultConfigPath);
+    const config = require('../../../jest.native-default.config.cjs');
 
     expect(config.rootDir).toBe('.');
     expect(config.testEnvironment).toBe('jsdom');
@@ -71,10 +66,8 @@ describe('native default Jest runner contract', () => {
   });
 
   test('native ESM coverage config remains the only V8 threshold owner', () => {
-    const nativeDefaultConfig = fs.existsSync(nativeDefaultConfigPath)
-      ? requireFresh(nativeDefaultConfigPath)
-      : {};
-    const nativeCoverageConfig = requireFresh(path.join(rootDir, 'jest.native-esm.config.cjs'));
+    const nativeDefaultConfig = require('../../../jest.native-default.config.cjs');
+    const nativeCoverageConfig = require('../../../jest.native-esm.config.cjs');
 
     expect(nativeCoverageConfig.coverageProvider).toBe('v8');
     expect(nativeCoverageConfig.coverageThreshold).toEqual(
