@@ -96,7 +96,6 @@ describe('CI policy contract', () => {
         'tests/',
         'tools/',
         'rollup/',
-        'babel.config.js',
         'eslint.config.mjs',
         'jest.config.js',
         'jest.native-esm.config.cjs',

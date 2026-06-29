@@ -4,12 +4,6 @@
  * 測試 Notion 區塊構建工具函數
  */
 
-const fs = require('node:fs');
-const Module = require('node:module');
-const path = require('node:path');
-const vm = require('node:vm');
-const { transformSync } = require('@babel/core');
-
 const {
   MAX_TEXT_LENGTH,
   createRichText,
@@ -33,46 +27,6 @@ const {
 const {
   EXTRACTION_FALLBACK_MESSAGES,
 } = require('../../../../scripts/config/messages/extractionFallbackMessages.js');
-
-const blockBuilderPath = path.resolve(
-  __dirname,
-  '../../../../scripts/background/utils/BlockBuilder.js'
-);
-
-function loadBlockBuilderInVm() {
-  const source = fs.readFileSync(blockBuilderPath, 'utf8');
-  const transformed = transformSync(source, {
-    filename: blockBuilderPath,
-    sourceType: 'unambiguous',
-    presets: [['@babel/preset-env', { targets: { node: 'current' }, modules: 'commonjs' }]],
-  });
-
-  const module = { exports: {} };
-  const localRequire = Module.createRequire(blockBuilderPath);
-  const dirname = path.dirname(blockBuilderPath);
-  const context = vm.createContext({
-    console,
-    process,
-    globalThis: {},
-    exports: module.exports,
-    module,
-    require: localRequire,
-    __filename: blockBuilderPath,
-    __dirname: dirname,
-  });
-
-  // eslint-disable-next-line sonarjs/code-eval -- Intentional VM execution of transformed local module code for isolated NaN parameter testing.
-  const wrapper = new vm.Script(
-    `(function (exports, require, module, __filename, __dirname) { ${transformed.code}\n})`,
-    {
-      filename: blockBuilderPath,
-    }
-  ).runInContext(context, { timeout: 1000 });
-
-  wrapper(module.exports, localRequire, module, blockBuilderPath, dirname);
-
-  return { context, exports: module.exports };
-}
 
 describe('BlockBuilder', () => {
   describe('createRichText', () => {
@@ -275,18 +229,7 @@ describe('BlockBuilder', () => {
     });
 
     test('maxLength 為 NaN 時應安全回退並返回原文', () => {
-      const { context, exports } = loadBlockBuilderInVm();
-      context.__splitTextForHighlight = exports.splitTextForHighlight;
-
-      // Intentional VM-based execution for isolated NaN parameter testing (SonarQube: sonarjs/code-eval)
-
-      new vm.Script(
-        "globalThis.__result = __splitTextForHighlight('需要保留的文字', Number.NaN);"
-      ).runInContext(context, {
-        timeout: 1000,
-      });
-
-      expect(context.globalThis.__result).toEqual(['需要保留的文字']);
+      expect(splitTextForHighlight('需要保留的文字', Number.NaN)).toEqual(['需要保留的文字']);
     });
   });
 

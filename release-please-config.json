@@ -24,7 +24,6 @@
         ".serenaignore",
         "codecov.yml",
         "CODE_OF_CONDUCT.md",
-        "babel.config.js",
         "jest.config.js",
         "jest.native-esm.config.cjs",
         "playwright.config.js",
