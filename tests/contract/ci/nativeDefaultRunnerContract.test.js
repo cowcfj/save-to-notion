@@ -72,7 +72,7 @@ describe('native default Jest runner contract', () => {
   });
 
   test('native default allowlist includes the Phase 3 proven cohort only', () => {
-    const nativeDefaultConfig = require('../../../jest.native-default.config.cjs');
+    const nativeDefaultConfig = require(nativeDefaultConfigPath);
 
     expect(nativeDefaultConfig.testMatch).toEqual(
       expect.arrayContaining(phase3NativeDefaultCohort)
@@ -83,7 +83,7 @@ describe('native default Jest runner contract', () => {
   });
 
   test('incumbent Jest config does not directly allowlist the native-only Phase 3 cohort', () => {
-    const incumbentConfig = require('../../../jest.config.js');
+    const incumbentConfig = require(path.join(rootDir, 'jest.config.js'));
     const incumbentProjectMatches = incumbentConfig.projects.flatMap(project => project.testMatch);
 
     expect(incumbentProjectMatches).toEqual(expect.not.arrayContaining(phase3NativeDefaultCohort));
@@ -93,7 +93,7 @@ describe('native default Jest runner contract', () => {
   test('native default config exists and is not an official coverage owner', () => {
     expect(fs.existsSync(nativeDefaultConfigPath)).toBe(true);
 
-    const config = require('../../../jest.native-default.config.cjs');
+    const config = require(nativeDefaultConfigPath);
 
     expect(config.rootDir).toBe('.');
     expect(config.testEnvironment).toBe('jsdom');
@@ -118,7 +118,7 @@ describe('native default Jest runner contract', () => {
   });
 
   test('native ESM coverage config remains the only V8 threshold owner', () => {
-    const nativeDefaultConfig = require('../../../jest.native-default.config.cjs');
+    const nativeDefaultConfig = require(nativeDefaultConfigPath);
     const nativeCoverageConfig = require('../../../jest.native-esm.config.cjs');
 
     expect(nativeCoverageConfig.coverageProvider).toBe('v8');
