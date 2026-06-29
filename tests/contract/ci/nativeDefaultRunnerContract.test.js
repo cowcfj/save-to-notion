@@ -4,10 +4,6 @@ import { createRequire } from 'node:module';
 
 const rootDir = path.resolve(__dirname, '../../..');
 const nativeDefaultConfigPath = path.join(rootDir, 'jest.native-default.config.cjs');
-const phase2ReportPath = path.join(
-  rootDir,
-  'docs/reports/testing/coverage/20260629_NATIVE_JEST_DEFAULT_RUNNER_PHASE2_CLASSIFICATION.md'
-);
 const require = createRequire(__filename);
 
 const phase3NativeDefaultCohort = [
@@ -59,14 +55,20 @@ describe('native default Jest runner contract', () => {
     expect(scripts['test:native:blockers']).toBe(
       'node tools/report-native-default-runner-blockers.mjs --summary-json coverage/native-default/blocker-classification-summary.json --summary-md coverage/native-default/blocker-classification-summary.md'
     );
+    expect(scripts['test:native:blockers']).toContain(
+      '--summary-json coverage/native-default/blocker-classification-summary.json'
+    );
+    expect(scripts['test:native:blockers']).toContain(
+      '--summary-md coverage/native-default/blocker-classification-summary.md'
+    );
     expect(scripts['test:native:blockers']).toContain('coverage/native-default/');
+    expect(scripts['test:native:blockers']).not.toContain('docs/reports/');
     expect(scripts['test:native:blockers']).not.toContain('coverage/native-esm/lcov.info');
     expect(scripts['test:native:blockers']).not.toContain('jest ');
     expect(scripts.test).toBe('jest --config jest.config.js');
     expect(scripts['test:quick']).toBe('jest --config jest.config.js --onlyChanged');
     expect(scripts['test:coverage']).toBe('npm run test:coverage:native-esm:assert');
     expect(scripts['test:ci']).toBe('npm run test:coverage:native-esm:assert');
-    expect(fs.existsSync(phase2ReportPath)).toBe(true);
   });
 
   test('native default allowlist includes the Phase 3 proven cohort only', () => {
