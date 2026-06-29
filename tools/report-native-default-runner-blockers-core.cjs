@@ -133,6 +133,27 @@ function findPackageBoundary({ filePath, rootDir }) {
   return null;
 }
 
+function startsWithModuleKeyword(line, keyword) {
+  const trimmed = line.trimStart();
+  if (!trimmed.startsWith(keyword)) {
+    return false;
+  }
+  const nextCharacter = trimmed.at(keyword.length) || '';
+  return (
+    nextCharacter === '' ||
+    nextCharacter === ' ' ||
+    nextCharacter === '\t' ||
+    nextCharacter === '{' ||
+    nextCharacter === '*'
+  );
+}
+
+function hasRootEsmSyntax(source) {
+  return source
+    .split(/\r?\n/)
+    .some(line => startsWithModuleKeyword(line, 'import') || startsWithModuleKeyword(line, 'export'));
+}
+
 function detectSignals({ filePath, source, packageBoundary }) {
   const signals = [];
   const normalizedPath = normalizeRelativePath(filePath);
@@ -165,7 +186,7 @@ function detectSignals({ filePath, source, packageBoundary }) {
   }
   if (
     normalizedPath.endsWith('.js') &&
-    (/\brequire\s*\(/.test(source) || /^\s*(?:import|export)\s/m.test(source))
+    (/\brequire\s*\(/.test(source) || hasRootEsmSyntax(source))
   ) {
     signals.push('root-commonjs-test-boundary');
   }
@@ -357,6 +378,7 @@ module.exports = {
   defaultRoots,
   detectSignals,
   findMatchingRoot,
+  hasRootEsmSyntax,
   listTestFiles,
   loadConfigTestMatch,
   normalizeConfigPattern,

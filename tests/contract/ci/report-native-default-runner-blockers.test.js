@@ -178,6 +178,7 @@ describe('tools/report-native-default-runner-blockers', () => {
 
     const report = buildClassificationReport(reporter, tempRoot);
 
+    expect(report.files).toHaveLength(10);
     expectRootTotals(report);
     expectClassificationRows(report);
   });
@@ -201,6 +202,15 @@ describe('tools/report-native-default-runner-blockers', () => {
       }),
     ]);
     expect(report.totals.byRoot).toEqual({ 'tests/custom': 1 });
+  });
+
+  test('detects root ESM syntax without regex backtracking-prone line anchors', () => {
+    expect(reporter.hasRootEsmSyntax('const importable = true;\n  export { importable };\n')).toBe(
+      true
+    );
+    expect(reporter.hasRootEsmSyntax('const imported = "value";\nconst exported = true;\n')).toBe(
+      false
+    );
   });
 
   test('classifies malformed nearest package.json without falling back to a parent boundary', () => {
