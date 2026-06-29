@@ -6,6 +6,12 @@ import packageJson from '../../../package.json';
 const BABEL_PACKAGE_NAMES = ['babel-jest', '@babel/core', '@babel/preset-env'];
 const SWC_PACKAGE_NAMES = ['@swc/core', '@swc/jest'];
 const RETIRED_BABEL_CONFIG_FILE = 'babel.config.js';
+const JS_TS_TRANSFORM_FIXTURE_PATHS = [
+  'transform-fixture.js',
+  'transform-fixture.jsx',
+  'transform-fixture.ts',
+  'transform-fixture.tsx',
+];
 const ESM_TRANSFORM_IGNORE_PATTERNS = [
   String.raw`node_modules/(?!(jsdom|@exodus|html-encoding-sniffer|@notionhq|parse5|@jest|jest-environment-jsdom|whatwg-url|tr46|webidl-conversions|data-urls|decimal.js|punycode|entities|nwsapi|saxes|cssstyle|rrweb-cssom|symbol-tree|@asamuzakjp\/css-color)/)`,
 ];
@@ -20,6 +26,12 @@ function collectTransformIgnorePatterns(jestConfig) {
   const configs = [jestConfig, ...(jestConfig.projects || [])];
 
   return configs.map(config => config.transformIgnorePatterns);
+}
+
+function matchesJsTsTransformPattern(pattern) {
+  const transformPattern = new RegExp(pattern);
+
+  return JS_TS_TRANSFORM_FIXTURE_PATHS.every(filePath => transformPattern.test(filePath));
 }
 
 describe('Jest transformer contract', () => {
@@ -37,7 +49,9 @@ describe('Jest transformer contract', () => {
 
   test('default Jest JS and TS transforms are owned by @swc/jest', () => {
     const transformEntries = collectTransformEntries(jestConfig);
-    const jsTsTransforms = transformEntries.filter(([pattern]) => /\\\.\[?tj/.test(pattern));
+    const jsTsTransforms = transformEntries.filter(([pattern]) =>
+      matchesJsTsTransformPattern(pattern)
+    );
 
     expect(jsTsTransforms).toHaveLength(3);
     jsTsTransforms.forEach(([, transform]) => {
