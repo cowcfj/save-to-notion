@@ -217,4 +217,19 @@ describe('CI policy contract', () => {
 
     expect(classifierStep).toContain("- 'jest.native-esm.config.cjs'");
   });
+
+  test('CI related-test changed-file detection tracks secondary Jest config files', () => {
+    const workflowSource = readWorkflow('ci.yml');
+    const changedFilesStep = getWorkflowStepBlock(
+      workflowSource,
+      'Detect changed source files for related tests'
+    );
+    const relatedTestsStep = getWorkflowStepBlock(workflowSource, 'Jest related tests');
+
+    expect(workflowSource).toContain("- 'jest.config.*.js'");
+    [changedFilesStep, relatedTestsStep].forEach(step => {
+      expect(step).toContain("jest.config.js 'jest.config.*.js'");
+    });
+    expect(relatedTestsStep).toContain('jest\\.config(\\..*)?\\.js');
+  });
 });

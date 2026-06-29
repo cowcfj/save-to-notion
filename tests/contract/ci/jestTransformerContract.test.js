@@ -6,11 +6,20 @@ import packageJson from '../../../package.json';
 const BABEL_PACKAGE_NAMES = ['babel-jest', '@babel/core', '@babel/preset-env'];
 const SWC_PACKAGE_NAMES = ['@swc/core', '@swc/jest'];
 const RETIRED_BABEL_CONFIG_FILE = 'babel.config.js';
+const ESM_TRANSFORM_IGNORE_PATTERNS = [
+  String.raw`node_modules/(?!(jsdom|@exodus|html-encoding-sniffer|@notionhq|parse5|@jest|jest-environment-jsdom|whatwg-url|tr46|webidl-conversions|data-urls|decimal.js|punycode|entities|nwsapi|saxes|cssstyle|rrweb-cssom|symbol-tree|@asamuzakjp\/css-color)/)`,
+];
 
 function collectTransformEntries(jestConfig) {
   const configs = [jestConfig, ...(jestConfig.projects || [])];
 
   return configs.flatMap(config => Object.entries(config.transform || {}));
+}
+
+function collectTransformIgnorePatterns(jestConfig) {
+  const configs = [jestConfig, ...(jestConfig.projects || [])];
+
+  return configs.map(config => config.transformIgnorePatterns);
 }
 
 describe('Jest transformer contract', () => {
@@ -41,6 +50,15 @@ describe('Jest transformer contract', () => {
           module: expect.objectContaining({ type: 'commonjs' }),
         })
       );
+    });
+  });
+
+  test('default Jest ESM transform allowlist stays explicit', () => {
+    const transformIgnorePatternSets = collectTransformIgnorePatterns(jestConfig);
+
+    expect(transformIgnorePatternSets).toHaveLength(3);
+    transformIgnorePatternSets.forEach(patterns => {
+      expect(patterns).toEqual(ESM_TRANSFORM_IGNORE_PATTERNS);
     });
   });
 
