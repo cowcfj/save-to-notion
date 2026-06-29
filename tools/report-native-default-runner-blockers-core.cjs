@@ -105,12 +105,9 @@ function loadConfigTestMatch(configPath, rootDir = process.cwd()) {
 }
 
 function findPackageBoundary({ filePath, rootDir }) {
-  let currentDir = path.dirname(path.join(rootDir, filePath));
   const rootPath = path.resolve(rootDir);
-  while (currentDir.startsWith(rootPath)) {
-    if (currentDir === rootPath) {
-      break;
-    }
+  let currentDir = path.resolve(rootDir, path.dirname(filePath));
+  while (path.relative(rootPath, currentDir) && !path.relative(rootPath, currentDir).startsWith('..') && !path.isAbsolute(path.relative(rootPath, currentDir))) {
     const packagePath = path.join(currentDir, 'package.json');
     if (fs.existsSync(packagePath)) {
       try {

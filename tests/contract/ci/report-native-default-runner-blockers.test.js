@@ -354,6 +354,53 @@ describe('tools/report-native-default-runner-blockers', () => {
     );
   });
 
+  test('finds package boundaries when rootDir is passed as a relative path', () => {
+    writeFile(
+      tempRoot,
+      'tests/unit/helper-package/package.json',
+      JSON.stringify({ type: 'module' })
+    );
+    writeFile(
+      tempRoot,
+      'tests/unit/helper-package/package-boundary.test.js',
+      'test("esm", () => {});'
+    );
+    writeNativeRunnerConfigs(tempRoot);
+
+    const report = reporter.buildClassificationReport({
+      rootDir: path.relative(projectRoot, tempRoot),
+      roots: ['tests/unit'],
+      nativeDefaultConfigPath: path.join(tempRoot, 'jest.native-default.config.cjs'),
+      nativeCoverageConfigPath: path.join(tempRoot, 'jest.native-esm.config.cjs'),
+      files: ['tests/unit/helper-package/package-boundary.test.js'],
+    });
+
+    expect(report.files).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: 'tests/unit/helper-package/package-boundary.test.js',
+          packageBoundary: 'tests/unit/helper-package/package.json',
+          signals: expect.arrayContaining(['test-helper-package-boundary']),
+        }),
+      ])
+    );
+  });
+
+  test('does not cross into same-prefix sibling directories when resolving package boundaries', () => {
+    const nestedRootDir = path.join(tempRoot, 'tests/unit');
+    writeFile(tempRoot, 'tests/unitary/package.json', JSON.stringify({ type: 'module' }));
+    writeFile(tempRoot, 'tests/unitary/package-boundary.test.js', 'test("esm", () => {});');
+
+    const record = reporter.classifyFile({
+      filePath: '../unitary/package-boundary.test.js',
+      rootDir: nestedRootDir,
+      roots: ['tests/unit'],
+    });
+
+    expect(record.packageBoundary).toBeNull();
+    expect(record.signals).not.toContain('test-helper-package-boundary');
+  });
+
   test('classifies caller-provided file paths with the same record shape as discovered files', () => {
     setupNativeRunnerFixture(tempRoot);
 
