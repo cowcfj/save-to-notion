@@ -238,7 +238,102 @@ describe('tools/report-native-default-runner-blockers', () => {
     );
   });
 
+  test('uses the nearest valid package.json as the package boundary even when it is CommonJS', () => {
+    writeFile(tempRoot, 'tests/unit/package.json', JSON.stringify({ type: 'module' }));
+    writeFile(
+      tempRoot,
+      'tests/unit/commonjs-helper/package.json',
+      JSON.stringify({ type: 'commonjs' })
+    );
+    writeFile(
+      tempRoot,
+      'tests/unit/commonjs-helper/package-boundary.test.js',
+      'test("commonjs", () => {});'
+    );
+    writeNativeRunnerConfigs(tempRoot);
+
+    const report = buildClassificationReport(reporter, tempRoot);
+
+    expect(report.files).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: 'tests/unit/commonjs-helper/package-boundary.test.js',
+          packageBoundary: 'tests/unit/commonjs-helper/package.json',
+          signals: expect.arrayContaining(['test-helper-package-boundary']),
+          primaryBlocker: 'test-helper-package-boundary',
+          disposition: 'requires-package-boundary-change',
+        }),
+      ])
+    );
+  });
+
+  test('does not treat the project root package.json as a nested test-helper boundary', () => {
+    writeFile(tempRoot, 'package.json', JSON.stringify({ type: 'commonjs' }));
+    writeFile(tempRoot, 'tests/unit/root-package-only.test.js', 'test("root", () => {});');
+    writeNativeRunnerConfigs(tempRoot);
+
+    const report = buildClassificationReport(reporter, tempRoot);
+
+    expect(report.files).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: 'tests/unit/root-package-only.test.js',
+          packageBoundary: null,
+          signals: expect.not.arrayContaining(['test-helper-package-boundary']),
+        }),
+      ])
+    );
+  });
+
+  test('classifies caller-provided file paths with the same record shape as discovered files', () => {
+    writeFile(tempRoot, 'tests/unit/storage.test.js', 'sessionStorage.clear();');
+    writeConfig(tempRoot, 'jest.native-default.config.cjs', []);
+    writeConfig(tempRoot, 'jest.native-esm.config.cjs', []);
+
+    const report = reporter.buildClassificationReport({
+      rootDir: tempRoot,
+      roots: ['tests/unit'],
+      nativeDefaultConfigPath: path.join(tempRoot, 'jest.native-default.config.cjs'),
+      nativeCoverageConfigPath: path.join(tempRoot, 'jest.native-esm.config.cjs'),
+      files: ['tests/unit/storage.test.js'],
+    });
+
+    expect(report.files).toEqual([
+      expect.objectContaining({
+        path: 'tests/unit/storage.test.js',
+        root: 'tests/unit',
+        signals: expect.arrayContaining(['jsdom-origin-or-storage']),
+        primaryBlocker: 'jsdom-origin-or-storage',
+        disposition: 'probe-for-native-default',
+      }),
+    ]);
+    expect(report.totals.byRoot).toEqual({ 'tests/unit': 1 });
+    expect(report.totals.byBlocker).toEqual({ 'jsdom-origin-or-storage': 1 });
+    expect(report.candidateCohorts).toEqual([
+      expect.objectContaining({ path: 'tests/unit/storage.test.js' }),
+    ]);
+  });
+
+  test('classifies a single file when native runner sets are omitted', () => {
+    writeFile(tempRoot, 'tests/unit/storage.test.js', 'sessionStorage.clear();');
+
+    const record = reporter.classifyFile({
+      filePath: 'tests/unit/storage.test.js',
+      rootDir: tempRoot,
+      roots: ['tests/unit'],
+    });
+
+    expect(record).toEqual(
+      expect.objectContaining({
+        path: 'tests/unit/storage.test.js',
+        root: 'tests/unit',
+        primaryBlocker: 'jsdom-origin-or-storage',
+      })
+    );
+  });
+
   test('renders Markdown with blocker counts and candidate rows', () => {
+    writeFile(tempRoot, 'tests/unit/storage.test.js', 'sessionStorage.clear();');
     writeConfig(tempRoot, 'jest.native-default.config.cjs', []);
     writeConfig(tempRoot, 'jest.native-esm.config.cjs', []);
 
@@ -247,15 +342,7 @@ describe('tools/report-native-default-runner-blockers', () => {
       roots: ['tests/unit', 'tests/contract', 'tests/native-esm'],
       nativeDefaultConfigPath: path.join(tempRoot, 'jest.native-default.config.cjs'),
       nativeCoverageConfigPath: path.join(tempRoot, 'jest.native-esm.config.cjs'),
-      files: [
-        {
-          path: 'tests/unit/storage.test.js',
-          root: 'tests/unit',
-          signals: ['jsdom-origin-or-storage'],
-          primaryBlocker: 'jsdom-origin-or-storage',
-          disposition: 'probe-for-native-default',
-        },
-      ],
+      files: ['tests/unit/storage.test.js'],
     });
 
     const markdown = reporter.renderMarkdown(report);
@@ -328,7 +415,7 @@ describe('tools/report-native-default-runner-blockers', () => {
     ]);
 
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain('summary output path 必須位於 coverage/native-default 底下');
+    expect(result.stderr).toContain('摘要輸出路徑必須位於 coverage/native-default 底下');
     // eslint-disable-next-line security/detect-non-literal-fs-filename
     expect(fs.existsSync(path.join(escapedOutputRoot, fileName))).toBe(false);
   });
@@ -356,9 +443,49 @@ describe('tools/report-native-default-runner-blockers', () => {
     ]);
 
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain('summary output path 必須位於 coverage/native-default 底下');
+    expect(result.stderr).toContain('摘要輸出路徑必須位於 coverage/native-default 底下');
     expect(fs.existsSync(path.join(escapedOutputRoot, 'blocker-classification-summary.json'))).toBe(
       false
     );
+  });
+
+  test.each([
+    ['--summary-json', 'blocker-classification-summary.json'],
+    ['--summary-md', 'blocker-classification-summary.md'],
+  ])('CLI rejects symlinked final %s files under coverage/native-default', (flag, fileName) => {
+    writeFile(tempRoot, 'tests/unit/storage.test.js', 'sessionStorage.clear();');
+    writeConfig(tempRoot, 'jest.native-default.config.cjs', []);
+    writeConfig(tempRoot, 'jest.native-esm.config.cjs', []);
+    const escapedOutputFile = path.join(tempRoot, `escaped-${fileName}`);
+    writeFile(tempRoot, `escaped-${fileName}`, '');
+    const symlinkFile = path.join(allowedOutputRoot, `symlink-${fileName}`);
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    fs.symlinkSync(escapedOutputFile, symlinkFile, 'file');
+    const jsonPath =
+      flag === '--summary-json'
+        ? symlinkFile
+        : path.join(allowedOutputRoot, 'blocker-classification-summary.json');
+    const markdownPath =
+      flag === '--summary-md'
+        ? symlinkFile
+        : path.join(allowedOutputRoot, 'blocker-classification-summary.md');
+
+    const result = runCliWithArgs([
+      '--root-dir',
+      tempRoot,
+      '--native-default-config',
+      path.join(tempRoot, 'jest.native-default.config.cjs'),
+      '--native-coverage-config',
+      path.join(tempRoot, 'jest.native-esm.config.cjs'),
+      '--summary-json',
+      jsonPath,
+      '--summary-md',
+      markdownPath,
+    ]);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('摘要輸出路徑必須位於 coverage/native-default 底下');
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    expect(fs.readFileSync(escapedOutputFile, 'utf8')).toBe('');
   });
 });

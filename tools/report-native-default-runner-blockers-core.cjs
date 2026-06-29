@@ -108,25 +108,23 @@ function findPackageBoundary({ filePath, rootDir }) {
   let currentDir = path.dirname(path.join(rootDir, filePath));
   const rootPath = path.resolve(rootDir);
   while (currentDir.startsWith(rootPath)) {
+    if (currentDir === rootPath) {
+      break;
+    }
     const packagePath = path.join(currentDir, 'package.json');
     if (fs.existsSync(packagePath)) {
       try {
-        const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-        if (packageJson.type === 'module') {
-          return {
-            path: normalizeRelativePath(path.relative(rootDir, packagePath)),
-            malformed: false,
-          };
-        }
+        JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+        return {
+          path: normalizeRelativePath(path.relative(rootDir, packagePath)),
+          malformed: false,
+        };
       } catch {
         return {
           path: normalizeRelativePath(path.relative(rootDir, packagePath)),
           malformed: true,
         };
       }
-    }
-    if (currentDir === rootPath) {
-      break;
     }
     currentDir = path.dirname(currentDir);
   }
@@ -221,7 +219,13 @@ function findMatchingRoot(filePath, roots = defaultRoots) {
     .find(candidate => filePath === candidate || filePath.startsWith(`${candidate}/`));
 }
 
-function classifyFile({ filePath, rootDir, roots = defaultRoots, nativeDefaultSet, nativeCoverageSet }) {
+function classifyFile({
+  filePath,
+  rootDir,
+  roots = defaultRoots,
+  nativeDefaultSet = new Set(),
+  nativeCoverageSet = new Set(),
+}) {
   const absolutePath = path.join(rootDir, filePath);
   const source = fs.readFileSync(absolutePath, 'utf8');
   const packageBoundary = findPackageBoundary({ filePath, rootDir });
@@ -259,11 +263,9 @@ function buildClassificationReport(options) {
   const discoveredFiles = files || listTestFiles({ rootDir, roots });
   const nativeDefaultSet = new Set(loadConfigTestMatch(nativeDefaultConfigPath, rootDir));
   const nativeCoverageSet = new Set(loadConfigTestMatch(nativeCoverageConfigPath, rootDir));
-  const records = files
-    ? discoveredFiles
-    : discoveredFiles.map(filePath =>
-        classifyFile({ filePath, rootDir, roots, nativeDefaultSet, nativeCoverageSet })
-      );
+  const records = discoveredFiles.map(filePath =>
+    classifyFile({ filePath, rootDir, roots, nativeDefaultSet, nativeCoverageSet })
+  );
 
   return {
     schemaVersion: 1,
@@ -373,6 +375,7 @@ ${renderFileRows(report.files)}
 module.exports = {
   assertPathInsideDirectory,
   buildClassificationReport,
+  classifyFile,
   chooseDisposition,
   choosePrimaryBlocker,
   defaultRoots,

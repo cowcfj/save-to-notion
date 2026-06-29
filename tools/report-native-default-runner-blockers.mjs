@@ -8,6 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
 const allowedOutputRoot = path.join(projectRoot, 'coverage', 'native-default');
+const outputPathErrorMessage = '摘要輸出路徑必須位於 coverage/native-default 底下';
 
 const {
   assertPathInsideDirectory,
@@ -30,8 +31,12 @@ function assertNoSymlinkedSegment(filePath) {
       return;
     }
     if (fs.lstatSync(currentPath).isSymbolicLink()) {
-      throw new Error('summary output path 必須位於 coverage/native-default 底下');
+      throw new Error(outputPathErrorMessage);
     }
+  }
+
+  if (fs.existsSync(absoluteFilePath) && fs.lstatSync(absoluteFilePath).isSymbolicLink()) {
+    throw new Error(outputPathErrorMessage);
   }
 }
 
@@ -88,7 +93,7 @@ function assertOutputPath(filePath) {
   assertPathInsideDirectory(
     absolutePath,
     allowedOutputRoot,
-    'summary output path 必須位於 coverage/native-default 底下'
+    outputPathErrorMessage
   );
   assertNoSymlinkedSegment(absolutePath);
 }
