@@ -6,7 +6,7 @@
  * env/index.js 配置測試
  */
 
-const envModule = require('../../../scripts/config/env/index.js');
+import * as envModule from '../../../scripts/config/env/index.js';
 
 const {
   isExtensionContext,
@@ -155,10 +155,10 @@ describe('配置模組 - env/index.js', () => {
   });
 
   describe('isNodeEnvironment', () => {
-    test('當 module.exports 存在且 window 不存在時應返回 true', () => {
+    test('native ESM runner 不應合成 CommonJS module.exports 語意', () => {
       setWindow(undefined);
 
-      expect(isNodeEnvironment()).toBe(true);
+      expect(isNodeEnvironment()).toBe(false);
     });
 
     test('當 window 存在時應返回 false', () => {

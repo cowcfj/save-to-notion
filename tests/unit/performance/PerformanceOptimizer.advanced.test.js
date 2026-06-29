@@ -3,7 +3,7 @@ import { PERFORMANCE_HTML_FIXTURE } from '../../helpers/performanceOptimizerTest
 
 jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
-  default: require('../../helpers/loggerMock.js').createLoggerMock(),
+  default: require('../../helpers/loggerMock.cjs').createLoggerMock(),
 }));
 
 describe('PerformanceOptimizer extended coverage', () => {

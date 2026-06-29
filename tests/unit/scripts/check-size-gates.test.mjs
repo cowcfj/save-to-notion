@@ -1,26 +1,26 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable sonarjs/no-os-command-from-path */
 
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 describe('tools/check-size-gates.mjs', () => {
   const scriptPath = path.resolve(__dirname, '../../../tools/check-size-gates.mjs');
   let tempRoot;
 
   const writeSizedFile = (filePath, size) => {
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
     fs.writeFileSync(filePath, Buffer.alloc(size, 65));
   };
 
   const createZipFromDir = (sourceDir, zipPath) => {
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
     fs.mkdirSync(path.dirname(zipPath), { recursive: true });
     execFileSync('zip', ['-rq', zipPath, '.'], { cwd: sourceDir });
   };
@@ -82,8 +82,6 @@ describe('tools/check-size-gates.mjs', () => {
       `--unpacked-dir=${unpackedDir}`,
       `--report-file=${reportPath}`,
     ]);
-
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
     return JSON.parse(fs.readFileSync(reportPath, 'utf8'));
   };
 
@@ -138,8 +136,6 @@ describe('tools/check-size-gates.mjs', () => {
       `--unpacked-dir=${unpackedDir}`,
       `--report-file=${reportPath}`,
     ]);
-
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
     expect(report.mode).toBe('hard');
     expect(report.scope).toBe('all');
@@ -284,8 +280,6 @@ describe('tools/check-size-gates.mjs', () => {
       `--base-unpacked-dir=${baseUnpackedDir}`,
       `--report-file=${reportPath}`,
     ]);
-
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
     const contentCheck = report.checks.find(check => check.key === 'content_bundle');
 
@@ -311,7 +305,6 @@ describe('tools/check-size-gates.mjs', () => {
       migrationSize: 1000,
       unpackedSize: 1000,
     });
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
     fs.mkdirSync(baseRoot, { recursive: true });
 
     runCli([
@@ -322,8 +315,6 @@ describe('tools/check-size-gates.mjs', () => {
       `--unpacked-dir=${currentUnpackedDir}`,
       `--report-file=${reportPath}`,
     ]);
-
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
     const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
     expect(report.failed).toBe(false);
     expect(report.checks.some(check => check.status === 'skipped')).toBe(true);

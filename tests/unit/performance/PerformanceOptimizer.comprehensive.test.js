@@ -7,7 +7,7 @@ import {
 
 jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
-  default: require('../../helpers/loggerMock.js').createLoggerMock(),
+  default: require('../../helpers/loggerMock.cjs').createLoggerMock(),
 }));
 
 // =========================================

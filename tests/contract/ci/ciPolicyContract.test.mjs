@@ -1,7 +1,11 @@
-/* eslint-disable security/detect-non-literal-fs-filename */
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const require = createRequire(import.meta.url);
 const rootDir = path.resolve(__dirname, '../../..');
 const activeWorkflowDir = path.join(rootDir, '.github/workflows');
 const activeSonarWorkflow = path.join(activeWorkflowDir, 'sonarcloud.yml');

@@ -9,7 +9,7 @@ import {
   createContentRuntimeMessageHandler,
 } from '../../../scripts/content/runtimeMessageHandlers.js';
 
-const { createLoggerMock } = require('../../helpers/loggerMock.js');
+const { createLoggerMock } = require('../../helpers/loggerMock.cjs');
 
 function createRouter(overrides = {}) {
   const dependencies = {

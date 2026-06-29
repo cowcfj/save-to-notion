@@ -69,8 +69,6 @@ describe('RetryManager module surface contracts', () => {
       AbortError: globalThis.AbortError,
     };
     sandbox.globalThis = sandbox;
-
-    // eslint-disable-next-line sonarjs/code-eval -- Intentional VM execution of trusted local source for browser-global contract testing.
     vm.runInNewContext(source, sandbox, { filename: retryManagerSourcePath });
 
     expect(sandbox.RetryManager).toEqual(expect.any(Function));

@@ -1,13 +1,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import loggerMock from './loggerMock.cjs';
+
+const { createLoggerMock } = loggerMock;
 
 export const PERFORMANCE_HTML_FIXTURE = fs.readFileSync(
-  path.resolve(__dirname, '../mocks/performance/performance-html-fixture.html'),
+  path.resolve(process.cwd(), 'tests/mocks/performance/performance-html-fixture.html'),
   'utf8'
 );
 
 export function createPerformanceLoggerMock(overrides = {}) {
-  return require('./loggerMock.js').createLoggerMock(overrides);
+  return createLoggerMock(overrides);
 }
 
 export function capturePerformanceGlobals() {

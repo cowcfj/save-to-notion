@@ -5,16 +5,20 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const require = createRequire(import.meta.url);
 
 const createDirectory = directoryPath => {
-  // eslint-disable-next-line security/detect-non-literal-fs-filename
   fs.mkdirSync(directoryPath, { recursive: true });
 };
 
 const writeFile = (rootDir, relativePath, content = '') => {
   const filePath = path.join(rootDir, relativePath);
   createDirectory(path.dirname(filePath));
-  // eslint-disable-next-line security/detect-non-literal-fs-filename
   fs.writeFileSync(filePath, content, 'utf8');
 };
 
@@ -54,9 +58,7 @@ describe('tools/report-native-esm-scope-parity.mjs', () => {
   };
 
   const expectNoSummaryFiles = outputRoot => {
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- 測試檢查暫存輸出檔案
     expect(fs.existsSync(path.join(outputRoot, 'scope-parity-summary.json'))).toBe(false);
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- 測試檢查暫存輸出檔案
     expect(fs.existsSync(path.join(outputRoot, 'scope-parity-summary.md'))).toBe(false);
   };
 

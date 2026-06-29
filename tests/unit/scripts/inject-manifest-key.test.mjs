@@ -1,13 +1,15 @@
 /**
  * @jest-environment node
  */
-/* eslint-disable sonarjs/no-os-command-from-path */
-/* eslint-disable security/detect-non-literal-fs-filename */
 
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 describe('tools/inject-manifest-key.mjs', () => {
   const scriptPath = path.resolve(__dirname, '../../../tools/inject-manifest-key.mjs');
