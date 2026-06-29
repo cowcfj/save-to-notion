@@ -95,6 +95,14 @@ describe('Drive Sync Handlers', () => {
     handlers = createDriveSyncHandlers();
   });
 
+  function expectDriveSyncStatusUpdateBroadcast() {
+    expect(mockSendMessage).toHaveBeenCalledWith({
+      action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
+      lastKnownRemoteUpdatedAt: '2026-04-20T00:00:00.000Z',
+      lastSuccessfulUploadAt: null,
+    });
+  }
+
   afterEach(() => {
     jest.restoreAllMocks();
     delete globalThis.chrome;
@@ -243,30 +251,6 @@ describe('Drive Sync Handlers', () => {
       const result = await handlers[RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD]({});
       expect(result.success).toBe(true);
     });
-
-    it('should persist failed upload metadata and broadcast when snapshot build throws', async () => {
-      driveSnapshot.buildUnifiedPageStateFromLocalStorage.mockRejectedValue(
-        new Error('build failed')
-      );
-
-      const result = await handlers[RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD]({});
-
-      expect(driveClient.updateDriveSyncRunMetadata).toHaveBeenCalledWith({
-        type: 'upload',
-        success: false,
-        errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
-      });
-      expect(mockSendMessage).toHaveBeenCalledWith({
-        action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
-        lastKnownRemoteUpdatedAt: '2026-04-20T00:00:00.000Z',
-        lastSuccessfulUploadAt: null,
-      });
-      expect(result).toEqual({
-        success: false,
-        errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
-        error: 'build failed',
-      });
-    });
   });
 
   describe('handleManualDownload', () => {
@@ -316,29 +300,54 @@ describe('Drive Sync Handlers', () => {
       expect(result.errorCode).toBe(DRIVE_SYNC_ERROR_CODES.NO_REMOTE_SNAPSHOT);
       expect(result.error).toBe('NO_REMOTE_SNAPSHOT');
     });
+  });
 
-    it('should persist failed download metadata and broadcast when apply throws', async () => {
-      driveSnapshot.applyDriveSnapshotToLocalStorage.mockReturnValue(
-        Promise.reject(new Error('apply failed'))
-      );
+  describe('manual sync failure metadata', () => {
+    it.each([
+      {
+        title: 'snapshot build throws',
+        action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD,
+        arrangeFailure: () => {
+          driveSnapshot.buildUnifiedPageStateFromLocalStorage.mockRejectedValue(
+            new Error('build failed')
+          );
+        },
+        metadataType: 'upload',
+        errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
+        expectedResult: {
+          success: false,
+          errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
+          error: 'build failed',
+        },
+      },
+      {
+        title: 'apply throws',
+        action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD,
+        arrangeFailure: () => {
+          driveSnapshot.applyDriveSnapshotToLocalStorage.mockRejectedValue(
+            new Error('apply failed')
+          );
+        },
+        metadataType: 'download',
+        errorCode: DRIVE_SYNC_ERROR_CODES.DOWNLOAD_FAILED,
+        expectedResult: {
+          success: false,
+          errorCode: DRIVE_SYNC_ERROR_CODES.DOWNLOAD_FAILED,
+          error: 'apply failed',
+        },
+      },
+    ])('persists failed $metadataType metadata and broadcasts when $title', async config => {
+      config.arrangeFailure();
 
-      const result = await handlers[RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD]({});
+      const result = await handlers[config.action]({});
 
       expect(driveClient.updateDriveSyncRunMetadata).toHaveBeenCalledWith({
-        type: 'download',
+        type: config.metadataType,
         success: false,
-        errorCode: DRIVE_SYNC_ERROR_CODES.DOWNLOAD_FAILED,
+        errorCode: config.errorCode,
       });
-      expect(mockSendMessage).toHaveBeenCalledWith({
-        action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
-        lastKnownRemoteUpdatedAt: '2026-04-20T00:00:00.000Z',
-        lastSuccessfulUploadAt: null,
-      });
-      expect(result).toEqual({
-        success: false,
-        errorCode: DRIVE_SYNC_ERROR_CODES.DOWNLOAD_FAILED,
-        error: 'apply failed',
-      });
+      expectDriveSyncStatusUpdateBroadcast();
+      expect(result).toEqual(config.expectedResult);
     });
   });
 

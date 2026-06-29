@@ -4,7 +4,7 @@
  * 測試 Notion 區塊構建工具函數
  */
 
-const {
+import {
   MAX_TEXT_LENGTH,
   createRichText,
   createParagraph,
@@ -20,13 +20,9 @@ const {
   textToParagraphs,
   createFallbackBlocks,
   isValidBlock,
-} = require('../../../../scripts/background/utils/BlockBuilder');
-const {
-  NOTION_CODE_LANGUAGE_PLAIN_TEXT,
-} = require('../../../../scripts/config/shared/notionCodeLanguages.js');
-const {
-  EXTRACTION_FALLBACK_MESSAGES,
-} = require('../../../../scripts/config/messages/extractionFallbackMessages.js');
+} from '../../../../scripts/background/utils/BlockBuilder.js';
+import { NOTION_CODE_LANGUAGE_PLAIN_TEXT } from '../../../../scripts/config/shared/notionCodeLanguages.js';
+import { EXTRACTION_FALLBACK_MESSAGES } from '../../../../scripts/config/messages/extractionFallbackMessages.js';
 
 describe('BlockBuilder', () => {
   describe('createRichText', () => {

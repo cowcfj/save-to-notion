@@ -1,24 +1,11 @@
-const fs = require('node:fs');
-const path = require('node:path');
+import fs from 'node:fs';
 
-const rootDir = path.resolve(__dirname, '../../..');
+import jestConfig from '../../../jest.config.js';
+import packageJson from '../../../package.json';
+
 const BABEL_PACKAGE_NAMES = ['babel-jest', '@babel/core', '@babel/preset-env'];
 const SWC_PACKAGE_NAMES = ['@swc/core', '@swc/jest'];
-const RETIRED_BABEL_CONFIG_FILE = ['babel', 'config', 'js'].join('.');
-const ACTIVE_POLICY_FILES = [
-  '.github/workflows/ci.yml',
-  '.github/workflows/coverage-gate.yml',
-  'release-please-config.json',
-  'tests/contract/ci/ciPolicyContract.test.mjs',
-];
-
-function readRootText(relativePath) {
-  return fs.readFileSync(path.join(rootDir, relativePath), 'utf8');
-}
-
-function readRootJson(relativePath) {
-  return JSON.parse(readRootText(relativePath));
-}
+const RETIRED_BABEL_CONFIG_FILE = 'babel.config.js';
 
 function collectTransformEntries(jestConfig) {
   const configs = [jestConfig, ...(jestConfig.projects || [])];
@@ -28,7 +15,7 @@ function collectTransformEntries(jestConfig) {
 
 describe('Jest transformer contract', () => {
   test('repo-owned devDependencies use SWC instead of direct Babel packages', () => {
-    const { devDependencies } = readRootJson('package.json');
+    const { devDependencies } = packageJson;
 
     SWC_PACKAGE_NAMES.forEach(packageName => {
       expect(devDependencies).toHaveProperty(packageName);
@@ -40,7 +27,6 @@ describe('Jest transformer contract', () => {
   });
 
   test('default Jest JS and TS transforms are owned by @swc/jest', () => {
-    const jestConfig = require('../../../jest.config.js');
     const transformEntries = collectTransformEntries(jestConfig);
     const jsTsTransforms = transformEntries.filter(([pattern]) => /\\\.\[?tj/.test(pattern));
 
@@ -59,7 +45,7 @@ describe('Jest transformer contract', () => {
   });
 
   test('Jest config does not retain direct Babel transform references', () => {
-    const jestConfigSource = readRootText('jest.config.js');
+    const jestConfigSource = fs.readFileSync('jest.config.js', 'utf8');
 
     BABEL_PACKAGE_NAMES.forEach(packageName => {
       expect(jestConfigSource).not.toContain(packageName);
@@ -67,12 +53,17 @@ describe('Jest transformer contract', () => {
   });
 
   test('root Babel config has been removed', () => {
-    expect(fs.existsSync(path.join(rootDir, RETIRED_BABEL_CONFIG_FILE))).toBe(false);
+    expect(fs.existsSync('babel.config.js')).toBe(false);
   });
 
   test('active workflow and release policy files no longer list the retired Babel config', () => {
-    ACTIVE_POLICY_FILES.forEach(relativePath => {
-      expect(readRootText(relativePath)).not.toContain(RETIRED_BABEL_CONFIG_FILE);
+    [
+      fs.readFileSync('.github/workflows/ci.yml', 'utf8'),
+      fs.readFileSync('.github/workflows/coverage-gate.yml', 'utf8'),
+      fs.readFileSync('release-please-config.json', 'utf8'),
+      fs.readFileSync('tests/contract/ci/ciPolicyContract.test.mjs', 'utf8'),
+    ].forEach(policyFileSource => {
+      expect(policyFileSource).not.toContain(RETIRED_BABEL_CONFIG_FILE);
     });
   });
 });
