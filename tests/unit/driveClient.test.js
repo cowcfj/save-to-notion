@@ -8,6 +8,11 @@ jest.mock('../../scripts/config/env/index.js', () => ({
   },
 }));
 
+jest.mock('../../scripts/auth/accountSession.js', () => ({
+  __esModule: true,
+  buildAccountAuthHeaders: jest.fn(),
+}));
+
 import {
   ALL_DRIVE_SYNC_KEYS,
   startDriveOAuthFlow,
@@ -47,7 +52,7 @@ describe('Drive Client API', () => {
     mockFetch = jest.fn();
     globalThis.fetch = mockFetch;
 
-    jest.spyOn(accountSession, 'buildAccountAuthHeaders').mockResolvedValue({
+    accountSession.buildAccountAuthHeaders.mockResolvedValue({
       Authorization: 'Bearer test-token',
     });
 

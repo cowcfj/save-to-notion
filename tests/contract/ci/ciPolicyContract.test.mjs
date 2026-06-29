@@ -96,7 +96,6 @@ describe('CI policy contract', () => {
         'tests/',
         'tools/',
         'rollup/',
-        'babel.config.js',
         'eslint.config.mjs',
         'jest.config.js',
         'jest.native-esm.config.cjs',
@@ -217,5 +216,20 @@ describe('CI policy contract', () => {
     const classifierStep = getWorkflowStepBlock(workflowSource, '偵測覆蓋率相關變更');
 
     expect(classifierStep).toContain("- 'jest.native-esm.config.cjs'");
+  });
+
+  test('CI related-test changed-file detection tracks secondary Jest config files', () => {
+    const workflowSource = readWorkflow('ci.yml');
+    const changedFilesStep = getWorkflowStepBlock(
+      workflowSource,
+      'Detect changed source files for related tests'
+    );
+    const relatedTestsStep = getWorkflowStepBlock(workflowSource, 'Jest related tests');
+
+    expect(workflowSource).toContain("- 'jest.config.*.js'");
+    [changedFilesStep, relatedTestsStep].forEach(step => {
+      expect(step).toContain("jest.config.js 'jest.config.*.js'");
+    });
+    expect(relatedTestsStep).toContain(String.raw`jest\.config(\..*)?\.js`);
   });
 });

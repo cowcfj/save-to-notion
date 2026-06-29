@@ -3,11 +3,16 @@
  */
 
 import { jest } from '@jest/globals';
-import { LogExporter } from '../../../scripts/utils/LogExporter.js';
-import Logger from '../../../scripts/utils/Logger.js';
 
-// Mock Logger
-jest.mock('../../../scripts/utils/Logger.js');
+jest.mock('../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: {
+    getBuffer: jest.fn(),
+  },
+}));
+
+const { LogExporter } = require('../../../scripts/utils/LogExporter.js');
+const Logger = require('../../../scripts/utils/Logger.js').default;
 
 describe('LogExporter', () => {
   let mockBuffer = null;

@@ -41,7 +41,6 @@ jobs:
               - 'scripts/**'
               - 'pages/**'
               - 'tests/**'
-              - 'babel.config.js'
               - 'jest.config.js'
               - 'jest.config.*.js'
               - 'jest.native-esm.config.cjs'

@@ -4,6 +4,27 @@
  * 覆蓋 shouldRunAutoSync() 所有條件分支。
  */
 
+jest.mock('../../scripts/auth/driveClient.js', () => ({
+  __esModule: true,
+  getDriveSyncMetadata: jest.fn(),
+  ensureDriveSyncIdentity: jest.fn(),
+  updateDriveSyncRunMetadata: jest.fn(),
+  clearDriveDirty: jest.fn(),
+  uploadDriveSnapshot: jest.fn(),
+  writeDriveAutoSyncTelemetry: jest.fn(),
+}));
+
+jest.mock('../../scripts/auth/accountSession.js', () => ({
+  __esModule: true,
+  getAccountAccessToken: jest.fn(),
+}));
+
+jest.mock('../../scripts/sync/driveSnapshot.js', () => ({
+  __esModule: true,
+  buildUnifiedPageStateFromLocalStorage: jest.fn(),
+  buildDriveSnapshot: jest.fn(),
+}));
+
 import {
   shouldRunAutoSync,
   runAutoUpload,
@@ -122,6 +143,8 @@ describe('runAutoUpload()', () => {
   let mockSendMessage;
 
   beforeEach(() => {
+    jest.clearAllMocks();
+
     mockSendMessage = jest.fn().mockResolvedValue({});
     globalThis.chrome = {
       runtime: {
@@ -135,21 +158,23 @@ describe('runAutoUpload()', () => {
     jest.spyOn(Logger, 'success').mockImplementation(() => {});
 
     // 預設視為已登入；個別案例可覆寫
-    jest.spyOn(accountSession, 'getAccountAccessToken').mockResolvedValue('fake-token');
+    accountSession.getAccountAccessToken.mockResolvedValue('fake-token');
 
-    jest.spyOn(driveClient, 'getDriveSyncMetadata').mockResolvedValue(baseMetadata());
-    jest.spyOn(driveClient, 'ensureDriveSyncIdentity').mockResolvedValue('inst-1');
-    jest.spyOn(driveClient, 'updateDriveSyncRunMetadata').mockResolvedValue();
-    jest.spyOn(driveClient, 'clearDriveDirty').mockResolvedValue();
-    jest
-      .spyOn(driveClient, 'uploadDriveSnapshot')
-      .mockResolvedValue({ success: true, updatedAt: '2026-04-21T00:00:00.000Z' });
+    driveClient.getDriveSyncMetadata.mockResolvedValue(baseMetadata());
+    driveClient.ensureDriveSyncIdentity.mockResolvedValue('inst-1');
+    driveClient.updateDriveSyncRunMetadata.mockResolvedValue();
+    driveClient.clearDriveDirty.mockResolvedValue();
+    driveClient.writeDriveAutoSyncTelemetry.mockResolvedValue();
+    driveClient.uploadDriveSnapshot.mockResolvedValue({
+      success: true,
+      updatedAt: '2026-04-21T00:00:00.000Z',
+    });
 
-    jest.spyOn(driveSnapshot, 'buildUnifiedPageStateFromLocalStorage').mockResolvedValue({
+    driveSnapshot.buildUnifiedPageStateFromLocalStorage.mockResolvedValue({
       pages: new Map(),
       urlAliases: new Map(),
     });
-    jest.spyOn(driveSnapshot, 'buildDriveSnapshot').mockResolvedValue({
+    driveSnapshot.buildDriveSnapshot.mockResolvedValue({
       metadata: { updated_at: 'x', item_counts: {} },
       payload: {},
     });

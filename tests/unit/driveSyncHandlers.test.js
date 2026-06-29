@@ -2,6 +2,29 @@
  * Drive Sync Background Handlers Tests
  */
 
+jest.mock('../../scripts/auth/driveClient.js', () => ({
+  __esModule: true,
+  uploadDriveSnapshot: jest.fn(),
+  downloadDriveSnapshot: jest.fn(),
+  getDriveSyncMetadata: jest.fn(),
+  ensureDriveSyncIdentity: jest.fn(),
+  updateDriveSyncRunMetadata: jest.fn(),
+  setDriveFrequency: jest.fn(),
+  clearDriveDirty: jest.fn(),
+}));
+
+jest.mock('../../scripts/sync/driveSnapshot.js', () => ({
+  __esModule: true,
+  buildUnifiedPageStateFromLocalStorage: jest.fn(),
+  buildDriveSnapshot: jest.fn(),
+  applyDriveSnapshotToLocalStorage: jest.fn(),
+}));
+
+jest.mock('../../scripts/background/handlers/driveAlarmScheduler.js', () => ({
+  __esModule: true,
+  setupDriveAlarm: jest.fn(),
+}));
+
 import { RUNTIME_ACTIONS } from '../../scripts/config/shared/runtimeActions.js';
 import { createDriveSyncHandlers } from '../../scripts/background/handlers/driveSyncHandlers.js';
 import * as driveClient from '../../scripts/auth/driveClient.js';
@@ -15,6 +38,8 @@ describe('Drive Sync Handlers', () => {
   let mockSendMessage;
 
   beforeEach(() => {
+    jest.clearAllMocks();
+
     mockSendMessage = jest.fn().mockResolvedValue({});
     globalThis.chrome = {
       runtime: {
@@ -31,14 +56,12 @@ describe('Drive Sync Handlers', () => {
       success: jest.fn(),
     };
 
-    jest
-      .spyOn(driveClient, 'uploadDriveSnapshot')
-      .mockResolvedValue({ success: true, updatedAt: 'x' });
-    jest.spyOn(driveClient, 'downloadDriveSnapshot').mockResolvedValue({
+    driveClient.uploadDriveSnapshot.mockResolvedValue({ success: true, updatedAt: 'x' });
+    driveClient.downloadDriveSnapshot.mockResolvedValue({
       metadata: { updated_at: 'y' },
       payload: { highlights: [], saved_states: [] },
     });
-    jest.spyOn(driveClient, 'getDriveSyncMetadata').mockResolvedValue({
+    driveClient.getDriveSyncMetadata.mockResolvedValue({
       installationId: 'installation-123',
       profileId: 'profile-123',
       frequency: 'daily',
@@ -46,31 +69,39 @@ describe('Drive Sync Handlers', () => {
       lastKnownRemoteUpdatedAt: '2026-04-20T00:00:00.000Z',
       lastSuccessfulUploadAt: null,
     });
-    jest.spyOn(driveClient, 'updateDriveSyncRunMetadata').mockResolvedValue();
-    jest.spyOn(driveClient, 'clearDriveDirty').mockResolvedValue();
-    jest.spyOn(driveClient, 'setDriveFrequency').mockResolvedValue();
-    jest.spyOn(driveClient, 'ensureDriveSyncIdentity').mockResolvedValue('installation-123');
-    jest.spyOn(driveAlarmScheduler, 'setupDriveAlarm').mockResolvedValue();
+    driveClient.updateDriveSyncRunMetadata.mockResolvedValue();
+    driveClient.clearDriveDirty.mockResolvedValue();
+    driveClient.setDriveFrequency.mockResolvedValue();
+    driveClient.ensureDriveSyncIdentity.mockResolvedValue('installation-123');
+    driveAlarmScheduler.setupDriveAlarm.mockResolvedValue();
     jest.spyOn(Logger, 'warn').mockImplementation(() => {});
 
-    jest.spyOn(driveSnapshot, 'buildUnifiedPageStateFromLocalStorage').mockResolvedValue({
+    driveSnapshot.buildUnifiedPageStateFromLocalStorage.mockResolvedValue({
       pages: new Map(),
       urlAliases: new Map(),
     });
-    jest.spyOn(driveSnapshot, 'buildDriveSnapshot').mockResolvedValue({
+    driveSnapshot.buildDriveSnapshot.mockResolvedValue({
       metadata: {
         updated_at: 'x',
         item_counts: { highlights: 0, saved_states: 0 },
       },
       payload: { highlights: [], saved_states: [], url_aliases: {} },
     });
-    jest.spyOn(driveSnapshot, 'applyDriveSnapshotToLocalStorage').mockResolvedValue({
+    driveSnapshot.applyDriveSnapshotToLocalStorage.mockResolvedValue({
       writtenKeys: ['a', 'b'],
       removedKeys: ['c'],
     });
 
     handlers = createDriveSyncHandlers();
   });
+
+  function expectDriveSyncStatusUpdateBroadcast() {
+    expect(mockSendMessage).toHaveBeenCalledWith({
+      action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
+      lastKnownRemoteUpdatedAt: '2026-04-20T00:00:00.000Z',
+      lastSuccessfulUploadAt: null,
+    });
+  }
 
   afterEach(() => {
     jest.restoreAllMocks();
@@ -220,30 +251,6 @@ describe('Drive Sync Handlers', () => {
       const result = await handlers[RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD]({});
       expect(result.success).toBe(true);
     });
-
-    it('should persist failed upload metadata and broadcast when snapshot build throws', async () => {
-      driveSnapshot.buildUnifiedPageStateFromLocalStorage.mockRejectedValue(
-        new Error('build failed')
-      );
-
-      const result = await handlers[RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD]({});
-
-      expect(driveClient.updateDriveSyncRunMetadata).toHaveBeenCalledWith({
-        type: 'upload',
-        success: false,
-        errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
-      });
-      expect(mockSendMessage).toHaveBeenCalledWith({
-        action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
-        lastKnownRemoteUpdatedAt: '2026-04-20T00:00:00.000Z',
-        lastSuccessfulUploadAt: null,
-      });
-      expect(result).toEqual({
-        success: false,
-        errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
-        error: 'build failed',
-      });
-    });
   });
 
   describe('handleManualDownload', () => {
@@ -293,29 +300,54 @@ describe('Drive Sync Handlers', () => {
       expect(result.errorCode).toBe(DRIVE_SYNC_ERROR_CODES.NO_REMOTE_SNAPSHOT);
       expect(result.error).toBe('NO_REMOTE_SNAPSHOT');
     });
+  });
 
-    it('should persist failed download metadata and broadcast when apply throws', async () => {
-      driveSnapshot.applyDriveSnapshotToLocalStorage.mockReturnValue(
-        Promise.reject(new Error('apply failed'))
-      );
+  describe('manual sync failure metadata', () => {
+    it.each([
+      {
+        title: 'snapshot build throws',
+        action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD,
+        arrangeFailure: () => {
+          driveSnapshot.buildUnifiedPageStateFromLocalStorage.mockRejectedValue(
+            new Error('build failed')
+          );
+        },
+        metadataType: 'upload',
+        errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
+        expectedResult: {
+          success: false,
+          errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
+          error: 'build failed',
+        },
+      },
+      {
+        title: 'apply throws',
+        action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD,
+        arrangeFailure: () => {
+          driveSnapshot.applyDriveSnapshotToLocalStorage.mockRejectedValue(
+            new Error('apply failed')
+          );
+        },
+        metadataType: 'download',
+        errorCode: DRIVE_SYNC_ERROR_CODES.DOWNLOAD_FAILED,
+        expectedResult: {
+          success: false,
+          errorCode: DRIVE_SYNC_ERROR_CODES.DOWNLOAD_FAILED,
+          error: 'apply failed',
+        },
+      },
+    ])('persists failed $metadataType metadata and broadcasts when $title', async config => {
+      config.arrangeFailure();
 
-      const result = await handlers[RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD]({});
+      const result = await handlers[config.action]({});
 
       expect(driveClient.updateDriveSyncRunMetadata).toHaveBeenCalledWith({
-        type: 'download',
+        type: config.metadataType,
         success: false,
-        errorCode: DRIVE_SYNC_ERROR_CODES.DOWNLOAD_FAILED,
+        errorCode: config.errorCode,
       });
-      expect(mockSendMessage).toHaveBeenCalledWith({
-        action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
-        lastKnownRemoteUpdatedAt: '2026-04-20T00:00:00.000Z',
-        lastSuccessfulUploadAt: null,
-      });
-      expect(result).toEqual({
-        success: false,
-        errorCode: DRIVE_SYNC_ERROR_CODES.DOWNLOAD_FAILED,
-        error: 'apply failed',
-      });
+      expectDriveSyncStatusUpdateBroadcast();
+      expect(result).toEqual(config.expectedResult);
     });
   });
 

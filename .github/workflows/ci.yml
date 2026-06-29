@@ -42,7 +42,6 @@ jobs:
               - 'scripts/**'
               - 'pages/**'
               - 'tests/**'
-              - 'babel.config.js'
               - 'jest.config.js'
               - 'jest.config.*.js'
               - 'package.json'
@@ -186,7 +185,7 @@ jobs:
         run: |
           BASE_SHA="${{ github.event.pull_request.base.sha }}"
           git fetch --no-tags --depth=1 origin "$BASE_SHA"
-          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" HEAD -- scripts pages tests babel.config.js jest.config.js package.json package-lock.json)
+          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" HEAD -- scripts pages tests jest.config.js 'jest.config.*.js' package.json package-lock.json)
           if [ -n "$CHANGED_FILES" ]; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
             echo "變更的檔案:"
@@ -201,10 +200,10 @@ jobs:
           BASE_SHA="${{ github.event.pull_request.base.sha }}"
 
           # 取得所有變更檔案
-          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" HEAD -- scripts pages tests babel.config.js jest.config.js package.json package-lock.json)
+          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" HEAD -- scripts pages tests jest.config.js 'jest.config.*.js' package.json package-lock.json)
 
           # 過濾掉配置檔案（這些檔案無法用 --findRelatedTests）
-          TEST_FILES=$(echo "$CHANGED_FILES" | grep -v -E '^(package\.json|package-lock\.json|babel\.config\.js|jest\.config\.js)$' || true)
+          TEST_FILES=$(echo "$CHANGED_FILES" | grep -v -E '^(package\.json|package-lock\.json|jest\.config(\..*)?\.js)$' || true)
 
           if [ -n "$TEST_FILES" ]; then
             echo "Running related tests for changed source files:"

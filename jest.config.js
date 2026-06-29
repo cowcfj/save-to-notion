@@ -1,5 +1,18 @@
 const ESM_TRANSFORM_IGNORE_PATTERNS = [
-  String.raw`node_modules/(?!(jsdom|@exodus|html-encoding-sniffer|@notionhq|parse5|@babel|@jest|jest-environment-jsdom|whatwg-url|tr46|webidl-conversions|data-urls|decimal.js|punycode|entities|nwsapi|saxes|cssstyle|rrweb-cssom|symbol-tree|@asamuzakjp\/css-color)/)`
+  String.raw`node_modules/(?!(jsdom|@exodus|html-encoding-sniffer|@notionhq|parse5|@jest|jest-environment-jsdom|whatwg-url|tr46|webidl-conversions|data-urls|decimal.js|punycode|entities|nwsapi|saxes|cssstyle|rrweb-cssom|symbol-tree|@asamuzakjp\/css-color)/)`
+];
+
+const SWC_JEST_TRANSFORM = [
+  '@swc/jest',
+  {
+    sourceMaps: 'inline',
+    jsc: {
+      target: 'es2023',
+    },
+    module: {
+      type: 'commonjs',
+    },
+  },
 ];
 
 module.exports = {
@@ -30,7 +43,7 @@ module.exports = {
         '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.js'
       },
       transform: {
-        '^.+\\.[tj]sx?$': 'babel-jest',
+        '^.+\\.[tj]sx?$': SWC_JEST_TRANSFORM,
       },
       transformIgnorePatterns: ESM_TRANSFORM_IGNORE_PATTERNS
     },
@@ -49,7 +62,7 @@ module.exports = {
         '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.js'
       },
       transform: {
-        '^.+\\.[tj]sx?$': 'babel-jest',
+        '^.+\\.[tj]sx?$': SWC_JEST_TRANSFORM,
       },
       transformIgnorePatterns: ESM_TRANSFORM_IGNORE_PATTERNS
     }
@@ -80,7 +93,7 @@ module.exports = {
     '!**/node_modules/**'
   ],
 
-  // Incumbent Jest/Babel coverage is retained as fallback and contract evidence.
+  // Incumbent Jest/SWC coverage is retained as fallback and contract evidence.
   // Official local threshold ownership lives in jest.native-esm.config.cjs.
   coverageThreshold: {
     global: {
@@ -110,7 +123,7 @@ module.exports = {
 
   // 轉換配置（如果需要）
   transform: {
-    '^.+\\.[tj]sx?$': 'babel-jest',
+    '^.+\\.[tj]sx?$': SWC_JEST_TRANSFORM,
   },
 
   // 轉換 node_modules 中的 ES 模組
