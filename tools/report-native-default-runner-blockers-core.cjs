@@ -194,12 +194,18 @@ function countBy(records, key) {
   }, {});
 }
 
-function classifyFile({ filePath, rootDir, nativeDefaultSet, nativeCoverageSet }) {
+function findMatchingRoot(filePath, roots = defaultRoots) {
+  return roots
+    .map(root => normalizeRelativePath(root).replace(/\/$/, ''))
+    .find(candidate => filePath === candidate || filePath.startsWith(`${candidate}/`));
+}
+
+function classifyFile({ filePath, rootDir, roots = defaultRoots, nativeDefaultSet, nativeCoverageSet }) {
   const absolutePath = path.join(rootDir, filePath);
   const source = fs.readFileSync(absolutePath, 'utf8');
   const packageBoundary = findPackageBoundary({ filePath, rootDir });
   const signals = detectSignals({ filePath, source, packageBoundary });
-  const root = defaultRoots.find(candidate => filePath === candidate || filePath.startsWith(`${candidate}/`));
+  const root = findMatchingRoot(filePath, roots);
 
   if (nativeDefaultSet.has(filePath)) {
     signals.unshift('already-native-default');
@@ -234,7 +240,9 @@ function buildClassificationReport(options) {
   const nativeCoverageSet = new Set(loadConfigTestMatch(nativeCoverageConfigPath, rootDir));
   const records = files
     ? discoveredFiles
-    : discoveredFiles.map(filePath => classifyFile({ filePath, rootDir, nativeDefaultSet, nativeCoverageSet }));
+    : discoveredFiles.map(filePath =>
+        classifyFile({ filePath, rootDir, roots, nativeDefaultSet, nativeCoverageSet })
+      );
 
   return {
     schemaVersion: 1,
@@ -348,6 +356,7 @@ module.exports = {
   choosePrimaryBlocker,
   defaultRoots,
   detectSignals,
+  findMatchingRoot,
   listTestFiles,
   loadConfigTestMatch,
   normalizeConfigPattern,

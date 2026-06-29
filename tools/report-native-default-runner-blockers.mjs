@@ -15,6 +15,26 @@ const {
   renderMarkdown,
 } = require('./report-native-default-runner-blockers-core.cjs');
 
+function assertNoSymlinkedSegment(filePath) {
+  const absoluteFilePath = path.resolve(filePath);
+
+  let currentPath = projectRoot;
+  const relativePath = path.relative(projectRoot, path.dirname(absoluteFilePath));
+  if (relativePath === '') {
+    return;
+  }
+
+  for (const segment of relativePath.split(path.sep)) {
+    currentPath = path.join(currentPath, segment);
+    if (!fs.existsSync(currentPath)) {
+      return;
+    }
+    if (fs.lstatSync(currentPath).isSymbolicLink()) {
+      throw new Error('summary output path 必須位於 coverage/native-default 底下');
+    }
+  }
+}
+
 function readRequiredOptionValue(argv, index, optionName) {
   const value = argv[index + 1];
   if (!value) {
@@ -64,11 +84,13 @@ function parseCliArgs(argv) {
 }
 
 function assertOutputPath(filePath) {
+  const absolutePath = path.resolve(filePath);
   assertPathInsideDirectory(
-    path.resolve(filePath),
+    absolutePath,
     allowedOutputRoot,
     'summary output path 必須位於 coverage/native-default 底下'
   );
+  assertNoSymlinkedSegment(absolutePath);
 }
 
 function writeOutputFiles(report, options) {

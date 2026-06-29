@@ -182,6 +182,27 @@ describe('tools/report-native-default-runner-blockers', () => {
     expectClassificationRows(report);
   });
 
+  test('classifies custom root suites under the caller-provided roots', () => {
+    writeFile(tempRoot, 'tests/custom/domain/custom-root.test.js', 'test("custom", () => {});');
+    writeConfig(tempRoot, 'jest.native-default.config.cjs', []);
+    writeConfig(tempRoot, 'jest.native-esm.config.cjs', []);
+
+    const report = reporter.buildClassificationReport({
+      rootDir: tempRoot,
+      roots: ['tests/custom'],
+      nativeDefaultConfigPath: path.join(tempRoot, 'jest.native-default.config.cjs'),
+      nativeCoverageConfigPath: path.join(tempRoot, 'jest.native-esm.config.cjs'),
+    });
+
+    expect(report.files).toEqual([
+      expect.objectContaining({
+        path: 'tests/custom/domain/custom-root.test.js',
+        root: 'tests/custom',
+      }),
+    ]);
+    expect(report.totals.byRoot).toEqual({ 'tests/custom': 1 });
+  });
+
   test('classifies malformed nearest package.json without falling back to a parent boundary', () => {
     writeFile(tempRoot, 'tests/unit/package.json', JSON.stringify({ type: 'module' }));
     writeFile(tempRoot, 'tests/unit/malformed/package.json', '{ invalid json');
@@ -259,6 +280,75 @@ describe('tools/report-native-default-runner-blockers', () => {
     );
     expect(fs.existsSync(path.join(allowedOutputRoot, 'blocker-classification-summary.md'))).toBe(
       true
+    );
+  });
+
+  test.each([
+    ['--summary-json', 'blocker-classification-summary.json'],
+    ['--summary-md', 'blocker-classification-summary.md'],
+  ])('CLI rejects symlinked %s parents that escape coverage/native-default', (flag, fileName) => {
+    writeFile(tempRoot, 'tests/unit/storage.test.js', 'sessionStorage.clear();');
+    writeConfig(tempRoot, 'jest.native-default.config.cjs', []);
+    writeConfig(tempRoot, 'jest.native-esm.config.cjs', []);
+    const escapedOutputRoot = path.join(tempRoot, `escaped-${fileName}`);
+    createDirectory(escapedOutputRoot);
+    const symlinkParent = path.join(allowedOutputRoot, `symlink-${fileName}`);
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    fs.symlinkSync(escapedOutputRoot, symlinkParent, 'dir');
+    const jsonPath =
+      flag === '--summary-json'
+        ? path.join(symlinkParent, fileName)
+        : path.join(allowedOutputRoot, 'blocker-classification-summary.json');
+    const markdownPath =
+      flag === '--summary-md'
+        ? path.join(symlinkParent, fileName)
+        : path.join(allowedOutputRoot, 'blocker-classification-summary.md');
+
+    const result = runCliWithArgs([
+      '--root-dir',
+      tempRoot,
+      '--native-default-config',
+      path.join(tempRoot, 'jest.native-default.config.cjs'),
+      '--native-coverage-config',
+      path.join(tempRoot, 'jest.native-esm.config.cjs'),
+      '--summary-json',
+      jsonPath,
+      '--summary-md',
+      markdownPath,
+    ]);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('summary output path 必須位於 coverage/native-default 底下');
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    expect(fs.existsSync(path.join(escapedOutputRoot, fileName))).toBe(false);
+  });
+
+  test('CLI rejects symlinked coverage/native-default output root', () => {
+    writeFile(tempRoot, 'tests/unit/storage.test.js', 'sessionStorage.clear();');
+    writeConfig(tempRoot, 'jest.native-default.config.cjs', []);
+    writeConfig(tempRoot, 'jest.native-esm.config.cjs', []);
+    fs.rmSync(allowedOutputRoot, { recursive: true, force: true });
+    const escapedOutputRoot = path.join(tempRoot, 'escaped-native-default-root');
+    createDirectory(escapedOutputRoot);
+    fs.symlinkSync(escapedOutputRoot, allowedOutputRoot, 'dir');
+
+    const result = runCliWithArgs([
+      '--root-dir',
+      tempRoot,
+      '--native-default-config',
+      path.join(tempRoot, 'jest.native-default.config.cjs'),
+      '--native-coverage-config',
+      path.join(tempRoot, 'jest.native-esm.config.cjs'),
+      '--summary-json',
+      path.join(allowedOutputRoot, 'blocker-classification-summary.json'),
+      '--summary-md',
+      path.join(allowedOutputRoot, 'blocker-classification-summary.md'),
+    ]);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('summary output path 必須位於 coverage/native-default 底下');
+    expect(fs.existsSync(path.join(escapedOutputRoot, 'blocker-classification-summary.json'))).toBe(
+      false
     );
   });
 });
