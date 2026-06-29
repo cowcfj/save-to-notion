@@ -4,7 +4,20 @@ import { createRequire } from 'node:module';
 
 const rootDir = path.resolve(__dirname, '../../..');
 const nativeDefaultConfigPath = path.join(rootDir, 'jest.native-default.config.cjs');
+const phase2ReportPath = path.join(
+  rootDir,
+  'docs/reports/testing/coverage/20260629_NATIVE_JEST_DEFAULT_RUNNER_PHASE2_CLASSIFICATION.md'
+);
 const require = createRequire(__filename);
+
+const phase3NativeDefaultCohort = [
+  '<rootDir>/tests/native-esm/background/handlers/backgroundHandlers.native-esm.test.mjs',
+];
+
+const rootCommonJsCandidateProbes = [
+  '<rootDir>/tests/unit/background/background-state.test.js',
+  '<rootDir>/tests/unit/utils/securityUtils.test.js',
+];
 
 function readPackageScripts() {
   const packageJson = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8'));
@@ -53,6 +66,26 @@ describe('native default Jest runner contract', () => {
     expect(scripts['test:quick']).toBe('jest --config jest.config.js --onlyChanged');
     expect(scripts['test:coverage']).toBe('npm run test:coverage:native-esm:assert');
     expect(scripts['test:ci']).toBe('npm run test:coverage:native-esm:assert');
+    expect(fs.existsSync(phase2ReportPath)).toBe(true);
+  });
+
+  test('native default allowlist includes the Phase 3 proven cohort only', () => {
+    const nativeDefaultConfig = require('../../../jest.native-default.config.cjs');
+
+    expect(nativeDefaultConfig.testMatch).toEqual(
+      expect.arrayContaining(phase3NativeDefaultCohort)
+    );
+    expect(nativeDefaultConfig.testMatch).toEqual(
+      expect.not.arrayContaining(rootCommonJsCandidateProbes)
+    );
+  });
+
+  test('incumbent Jest config does not directly allowlist the native-only Phase 3 cohort', () => {
+    const incumbentConfig = require('../../../jest.config.js');
+    const incumbentProjectMatches = incumbentConfig.projects.flatMap(project => project.testMatch);
+
+    expect(incumbentProjectMatches).toEqual(expect.not.arrayContaining(phase3NativeDefaultCohort));
+    expect(incumbentConfig.testPathIgnorePatterns).toEqual(expect.arrayContaining(['/tests/e2e/']));
   });
 
   test('native default config exists and is not an official coverage owner', () => {
