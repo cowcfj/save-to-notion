@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { jest } from '@jest/globals';
 
 const isESM = typeof jest.unstable_mockModule === 'function' && typeof require === 'undefined';
 const setupDirectory = path.resolve(process.cwd(), 'tests/unit/content/extractors');
