@@ -9,6 +9,7 @@ const blockerPriority = [
   'native-esm-candidate',
   'node-lifecycle-contract',
   'incumbent-contract-retained',
+  'malformed-package-boundary',
   'test-helper-package-boundary',
   'babel-hoisted-mock',
   'jest-require-actual-esm',
@@ -30,6 +31,7 @@ const dispositionByBlocker = {
   'node-lifecycle-contract': 'retain-incumbent-contract',
   'global-runtime-surface': 'probe-for-native-default',
   'jsdom-origin-or-storage': 'probe-for-native-default',
+  'malformed-package-boundary': 'requires-package-json-fix',
   'test-helper-package-boundary': 'requires-package-boundary-change',
   'incumbent-contract-retained': 'retain-incumbent-contract',
   'unknown-needs-reproduction': 'defer-to-default-cutover-decision',
@@ -111,10 +113,16 @@ function findPackageBoundary({ filePath, rootDir }) {
       try {
         const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
         if (packageJson.type === 'module') {
-          return normalizeRelativePath(path.relative(rootDir, packagePath));
+          return {
+            path: normalizeRelativePath(path.relative(rootDir, packagePath)),
+            malformed: false,
+          };
         }
       } catch {
-        return normalizeRelativePath(path.relative(rootDir, packagePath));
+        return {
+          path: normalizeRelativePath(path.relative(rootDir, packagePath)),
+          malformed: true,
+        };
       }
     }
     if (currentDir === rootPath) {
@@ -129,7 +137,9 @@ function detectSignals({ filePath, source, packageBoundary }) {
   const signals = [];
   const normalizedPath = normalizeRelativePath(filePath);
 
-  if (packageBoundary) {
+  if (packageBoundary?.malformed) {
+    signals.push('malformed-package-boundary');
+  } else if (packageBoundary) {
     signals.push('test-helper-package-boundary');
   }
   if (normalizedPath.startsWith('tests/contract/')) {
@@ -203,7 +213,7 @@ function classifyFile({ filePath, rootDir, nativeDefaultSet, nativeCoverageSet }
   return {
     path: filePath,
     root,
-    packageBoundary,
+    packageBoundary: packageBoundary?.path || null,
     signals: [...new Set(signals)],
     primaryBlocker,
     disposition: chooseDisposition(primaryBlocker),

@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import * as reporter from '../../../tools/report-native-default-runner-blockers-core.cjs';
 
 const createDirectory = directoryPath => {
   // eslint-disable-next-line security/detect-non-literal-fs-filename
@@ -150,11 +151,6 @@ describe('tools/report-native-default-runner-blockers', () => {
   const tempRoot = path.join(projectRoot, '.tmp/test-native-default-blockers');
   const allowedOutputRoot = path.join(projectRoot, 'coverage/native-default/test-output');
   const cliPath = path.join(projectRoot, 'tools/report-native-default-runner-blockers.mjs');
-  let reporter;
-
-  const loadReporter = () => {
-    reporter = require('../../../tools/report-native-default-runner-blockers-core.cjs');
-  };
 
   const runCliWithArgs = args =>
     spawnSync(process.execPath, [cliPath, ...args], {
@@ -167,7 +163,6 @@ describe('tools/report-native-default-runner-blockers', () => {
     fs.rmSync(allowedOutputRoot, { recursive: true, force: true });
     createDirectory(tempRoot);
     createDirectory(allowedOutputRoot);
-    loadReporter();
   });
 
   afterEach(() => {
@@ -185,6 +180,31 @@ describe('tools/report-native-default-runner-blockers', () => {
 
     expectRootTotals(report);
     expectClassificationRows(report);
+  });
+
+  test('classifies malformed nearest package.json without falling back to a parent boundary', () => {
+    writeFile(tempRoot, 'tests/unit/package.json', JSON.stringify({ type: 'module' }));
+    writeFile(tempRoot, 'tests/unit/malformed/package.json', '{ invalid json');
+    writeFile(
+      tempRoot,
+      'tests/unit/malformed/package-boundary.test.js',
+      'test("malformed", () => {});'
+    );
+    writeNativeRunnerConfigs(tempRoot);
+
+    const report = buildClassificationReport(reporter, tempRoot);
+
+    expect(report.files).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: 'tests/unit/malformed/package-boundary.test.js',
+          packageBoundary: 'tests/unit/malformed/package.json',
+          signals: expect.arrayContaining(['malformed-package-boundary']),
+          primaryBlocker: 'malformed-package-boundary',
+          disposition: 'requires-package-json-fix',
+        }),
+      ])
+    );
   });
 
   test('renders Markdown with blocker counts and candidate rows', () => {
