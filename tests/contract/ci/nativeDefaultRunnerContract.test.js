@@ -38,6 +38,21 @@ describe('native default Jest runner contract', () => {
     );
   });
 
+  test('native blocker classifier is diagnostic-only and writes under native-default coverage artifacts', () => {
+    const scripts = readPackageScripts();
+
+    expect(scripts['test:native:blockers']).toBe(
+      'node tools/report-native-default-runner-blockers.mjs --summary-json coverage/native-default/blocker-classification-summary.json --summary-md coverage/native-default/blocker-classification-summary.md'
+    );
+    expect(scripts['test:native:blockers']).toContain('coverage/native-default/');
+    expect(scripts['test:native:blockers']).not.toContain('coverage/native-esm/lcov.info');
+    expect(scripts['test:native:blockers']).not.toContain('jest ');
+    expect(scripts.test).toBe('jest --config jest.config.js');
+    expect(scripts['test:quick']).toBe('jest --config jest.config.js --onlyChanged');
+    expect(scripts['test:coverage']).toBe('npm run test:coverage:native-esm:assert');
+    expect(scripts['test:ci']).toBe('npm run test:coverage:native-esm:assert');
+  });
+
   test('native default config exists and is not an official coverage owner', () => {
     expect(fs.existsSync(nativeDefaultConfigPath)).toBe(true);
 
