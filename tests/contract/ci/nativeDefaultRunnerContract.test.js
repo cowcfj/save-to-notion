@@ -1,8 +1,10 @@
-const fs = require('node:fs');
-const path = require('node:path');
+import fs from 'node:fs';
+import path from 'node:path';
+import { createRequire } from 'node:module';
 
 const rootDir = path.resolve(__dirname, '../../..');
 const nativeDefaultConfigPath = path.join(rootDir, 'jest.native-default.config.cjs');
+const require = createRequire(__filename);
 
 function readPackageScripts() {
   const packageJson = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8'));

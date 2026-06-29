@@ -27,6 +27,33 @@ const writeConfig = (rootDir, relativePath, testMatch) => {
   );
 };
 
+const expectPathDoesNotExist = filePath => {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
+  expect(fs.existsSync(filePath)).toBe(false);
+};
+
+const expectFileContents = (filePath, expectedContents) => {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
+  expect(fs.readFileSync(filePath, 'utf8')).toBe(expectedContents);
+};
+
+const setupNativeRunnerFixture = rootDir => {
+  writeFile(rootDir, 'tests/unit/storage.test.js', 'sessionStorage.clear();');
+  writeConfig(rootDir, 'jest.native-default.config.cjs', []);
+  writeConfig(rootDir, 'jest.native-esm.config.cjs', []);
+};
+
+const buildRejectedSymlinkOutputPaths = ({ allowedOutputRoot, fileName, flag, symlinkPath }) => ({
+  jsonPath:
+    flag === '--summary-json'
+      ? path.join(symlinkPath, fileName)
+      : path.join(allowedOutputRoot, 'blocker-classification-summary.json'),
+  markdownPath:
+    flag === '--summary-md'
+      ? path.join(symlinkPath, fileName)
+      : path.join(allowedOutputRoot, 'blocker-classification-summary.md'),
+});
+
 const writeClassificationFixtures = rootDir => {
   writeFile(rootDir, 'tests/native-esm/ready.native-esm.test.mjs', 'test("ready", () => {});');
   writeFile(
@@ -74,6 +101,86 @@ const writeNativeRunnerConfigs = rootDir => {
     '<rootDir>/tests/native-esm/coverage-only.native-esm.test.mjs',
   ]);
 };
+
+const packageBoundaryCases = [
+  {
+    description:
+      'classifies malformed nearest package.json without falling back to a parent boundary',
+    packageJsonPath: 'tests/unit/malformed/package.json',
+    packageJsonContent: '{ invalid json',
+    testFilePath: 'tests/unit/malformed/package-boundary.test.js',
+    testSource: 'test("malformed", () => {});',
+    expectedRecord: {
+      path: 'tests/unit/malformed/package-boundary.test.js',
+      packageBoundary: 'tests/unit/malformed/package.json',
+      signals: expect.arrayContaining(['malformed-package-boundary']),
+      primaryBlocker: 'malformed-package-boundary',
+      disposition: 'requires-package-json-fix',
+    },
+  },
+  {
+    description:
+      'uses the nearest valid package.json as the package boundary even when it is CommonJS',
+    packageJsonPath: 'tests/unit/commonjs-helper/package.json',
+    packageJsonContent: JSON.stringify({ type: 'commonjs' }),
+    testFilePath: 'tests/unit/commonjs-helper/package-boundary.test.js',
+    testSource: 'test("commonjs", () => {});',
+    expectedRecord: {
+      path: 'tests/unit/commonjs-helper/package-boundary.test.js',
+      packageBoundary: 'tests/unit/commonjs-helper/package.json',
+      signals: expect.arrayContaining(['test-helper-package-boundary']),
+      primaryBlocker: 'test-helper-package-boundary',
+      disposition: 'requires-package-boundary-change',
+    },
+  },
+];
+
+const rejectedSymlinkOutputCases = [
+  {
+    description: 'CLI rejects symlinked parents that escape coverage/native-default (%s)',
+    flag: '--summary-json',
+    fileName: 'blocker-classification-summary.json',
+    symlinkType: 'dir',
+    prepareSymlinkTarget: ({ symlinkTargetPath }) => createDirectory(symlinkTargetPath),
+    verifyTarget: ({ symlinkTargetPath, fileName }) => {
+      expectPathDoesNotExist(path.join(symlinkTargetPath, fileName));
+    },
+  },
+  {
+    description: 'CLI rejects symlinked parents that escape coverage/native-default (%s)',
+    flag: '--summary-md',
+    fileName: 'blocker-classification-summary.md',
+    symlinkType: 'dir',
+    prepareSymlinkTarget: ({ symlinkTargetPath }) => createDirectory(symlinkTargetPath),
+    verifyTarget: ({ symlinkTargetPath, fileName }) => {
+      expectPathDoesNotExist(path.join(symlinkTargetPath, fileName));
+    },
+  },
+  {
+    description: 'CLI rejects symlinked final files under coverage/native-default (%s)',
+    flag: '--summary-json',
+    fileName: 'blocker-classification-summary.json',
+    symlinkType: 'file',
+    prepareSymlinkTarget: ({ tempRoot, fileName }) => {
+      writeFile(tempRoot, `escaped-${fileName}`, '');
+    },
+    verifyTarget: ({ symlinkTargetPath }) => {
+      expectFileContents(symlinkTargetPath, '');
+    },
+  },
+  {
+    description: 'CLI rejects symlinked final files under coverage/native-default (%s)',
+    flag: '--summary-md',
+    fileName: 'blocker-classification-summary.md',
+    symlinkType: 'file',
+    prepareSymlinkTarget: ({ tempRoot, fileName }) => {
+      writeFile(tempRoot, `escaped-${fileName}`, '');
+    },
+    verifyTarget: ({ symlinkTargetPath }) => {
+      expectFileContents(symlinkTargetPath, '');
+    },
+  },
+];
 
 const buildClassificationReport = (reporter, rootDir) =>
   reporter.buildClassificationReport({
@@ -213,59 +320,21 @@ describe('tools/report-native-default-runner-blockers', () => {
     );
   });
 
-  test('classifies malformed nearest package.json without falling back to a parent boundary', () => {
-    writeFile(tempRoot, 'tests/unit/package.json', JSON.stringify({ type: 'module' }));
-    writeFile(tempRoot, 'tests/unit/malformed/package.json', '{ invalid json');
-    writeFile(
-      tempRoot,
-      'tests/unit/malformed/package-boundary.test.js',
-      'test("malformed", () => {});'
-    );
-    writeNativeRunnerConfigs(tempRoot);
+  test.each(packageBoundaryCases)(
+    '$description',
+    ({ packageJsonPath, packageJsonContent, testFilePath, testSource, expectedRecord }) => {
+      writeFile(tempRoot, 'tests/unit/package.json', JSON.stringify({ type: 'module' }));
+      writeFile(tempRoot, packageJsonPath, packageJsonContent);
+      writeFile(tempRoot, testFilePath, testSource);
+      writeNativeRunnerConfigs(tempRoot);
 
-    const report = buildClassificationReport(reporter, tempRoot);
+      const report = buildClassificationReport(reporter, tempRoot);
 
-    expect(report.files).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          path: 'tests/unit/malformed/package-boundary.test.js',
-          packageBoundary: 'tests/unit/malformed/package.json',
-          signals: expect.arrayContaining(['malformed-package-boundary']),
-          primaryBlocker: 'malformed-package-boundary',
-          disposition: 'requires-package-json-fix',
-        }),
-      ])
-    );
-  });
-
-  test('uses the nearest valid package.json as the package boundary even when it is CommonJS', () => {
-    writeFile(tempRoot, 'tests/unit/package.json', JSON.stringify({ type: 'module' }));
-    writeFile(
-      tempRoot,
-      'tests/unit/commonjs-helper/package.json',
-      JSON.stringify({ type: 'commonjs' })
-    );
-    writeFile(
-      tempRoot,
-      'tests/unit/commonjs-helper/package-boundary.test.js',
-      'test("commonjs", () => {});'
-    );
-    writeNativeRunnerConfigs(tempRoot);
-
-    const report = buildClassificationReport(reporter, tempRoot);
-
-    expect(report.files).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          path: 'tests/unit/commonjs-helper/package-boundary.test.js',
-          packageBoundary: 'tests/unit/commonjs-helper/package.json',
-          signals: expect.arrayContaining(['test-helper-package-boundary']),
-          primaryBlocker: 'test-helper-package-boundary',
-          disposition: 'requires-package-boundary-change',
-        }),
-      ])
-    );
-  });
+      expect(report.files).toEqual(
+        expect.arrayContaining([expect.objectContaining(expectedRecord)])
+      );
+    }
+  );
 
   test('does not treat the project root package.json as a nested test-helper boundary', () => {
     writeFile(tempRoot, 'package.json', JSON.stringify({ type: 'commonjs' }));
@@ -286,9 +355,7 @@ describe('tools/report-native-default-runner-blockers', () => {
   });
 
   test('classifies caller-provided file paths with the same record shape as discovered files', () => {
-    writeFile(tempRoot, 'tests/unit/storage.test.js', 'sessionStorage.clear();');
-    writeConfig(tempRoot, 'jest.native-default.config.cjs', []);
-    writeConfig(tempRoot, 'jest.native-esm.config.cjs', []);
+    setupNativeRunnerFixture(tempRoot);
 
     const report = reporter.buildClassificationReport({
       rootDir: tempRoot,
@@ -333,9 +400,7 @@ describe('tools/report-native-default-runner-blockers', () => {
   });
 
   test('renders Markdown with blocker counts and candidate rows', () => {
-    writeFile(tempRoot, 'tests/unit/storage.test.js', 'sessionStorage.clear();');
-    writeConfig(tempRoot, 'jest.native-default.config.cjs', []);
-    writeConfig(tempRoot, 'jest.native-esm.config.cjs', []);
+    setupNativeRunnerFixture(tempRoot);
 
     const report = reporter.buildClassificationReport({
       rootDir: tempRoot,
@@ -354,9 +419,7 @@ describe('tools/report-native-default-runner-blockers', () => {
   });
 
   test('CLI writes summaries under coverage/native-default', () => {
-    writeFile(tempRoot, 'tests/unit/storage.test.js', 'sessionStorage.clear();');
-    writeConfig(tempRoot, 'jest.native-default.config.cjs', []);
-    writeConfig(tempRoot, 'jest.native-esm.config.cjs', []);
+    setupNativeRunnerFixture(tempRoot);
 
     const result = runCliWithArgs([
       '--root-dir',
@@ -380,26 +443,26 @@ describe('tools/report-native-default-runner-blockers', () => {
     );
   });
 
-  test.each([
-    ['--summary-json', 'blocker-classification-summary.json'],
-    ['--summary-md', 'blocker-classification-summary.md'],
-  ])('CLI rejects symlinked %s parents that escape coverage/native-default', (flag, fileName) => {
-    writeFile(tempRoot, 'tests/unit/storage.test.js', 'sessionStorage.clear();');
-    writeConfig(tempRoot, 'jest.native-default.config.cjs', []);
-    writeConfig(tempRoot, 'jest.native-esm.config.cjs', []);
-    const escapedOutputRoot = path.join(tempRoot, `escaped-${fileName}`);
-    createDirectory(escapedOutputRoot);
-    const symlinkParent = path.join(allowedOutputRoot, `symlink-${fileName}`);
+  test.each(rejectedSymlinkOutputCases)('$description', caseDefinition => {
+    expect.hasAssertions();
+    setupNativeRunnerFixture(tempRoot);
+
+    const symlinkTargetPath = path.join(tempRoot, `escaped-${caseDefinition.fileName}`);
+    const symlinkPath = path.join(allowedOutputRoot, `symlink-${caseDefinition.fileName}`);
+    const { jsonPath, markdownPath } = buildRejectedSymlinkOutputPaths({
+      allowedOutputRoot,
+      fileName: caseDefinition.fileName,
+      flag: caseDefinition.flag,
+      symlinkPath,
+    });
+
+    caseDefinition.prepareSymlinkTarget({
+      tempRoot,
+      fileName: caseDefinition.fileName,
+      symlinkTargetPath,
+    });
     // eslint-disable-next-line security/detect-non-literal-fs-filename
-    fs.symlinkSync(escapedOutputRoot, symlinkParent, 'dir');
-    const jsonPath =
-      flag === '--summary-json'
-        ? path.join(symlinkParent, fileName)
-        : path.join(allowedOutputRoot, 'blocker-classification-summary.json');
-    const markdownPath =
-      flag === '--summary-md'
-        ? path.join(symlinkParent, fileName)
-        : path.join(allowedOutputRoot, 'blocker-classification-summary.md');
+    fs.symlinkSync(symlinkTargetPath, symlinkPath, caseDefinition.symlinkType);
 
     const result = runCliWithArgs([
       '--root-dir',
@@ -416,14 +479,11 @@ describe('tools/report-native-default-runner-blockers', () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('摘要輸出路徑必須位於 coverage/native-default 底下');
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
-    expect(fs.existsSync(path.join(escapedOutputRoot, fileName))).toBe(false);
+    caseDefinition.verifyTarget({ symlinkTargetPath, fileName: caseDefinition.fileName });
   });
 
   test('CLI rejects symlinked coverage/native-default output root', () => {
-    writeFile(tempRoot, 'tests/unit/storage.test.js', 'sessionStorage.clear();');
-    writeConfig(tempRoot, 'jest.native-default.config.cjs', []);
-    writeConfig(tempRoot, 'jest.native-esm.config.cjs', []);
+    setupNativeRunnerFixture(tempRoot);
     fs.rmSync(allowedOutputRoot, { recursive: true, force: true });
     const escapedOutputRoot = path.join(tempRoot, 'escaped-native-default-root');
     createDirectory(escapedOutputRoot);
@@ -444,48 +504,6 @@ describe('tools/report-native-default-runner-blockers', () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('摘要輸出路徑必須位於 coverage/native-default 底下');
-    expect(fs.existsSync(path.join(escapedOutputRoot, 'blocker-classification-summary.json'))).toBe(
-      false
-    );
-  });
-
-  test.each([
-    ['--summary-json', 'blocker-classification-summary.json'],
-    ['--summary-md', 'blocker-classification-summary.md'],
-  ])('CLI rejects symlinked final %s files under coverage/native-default', (flag, fileName) => {
-    writeFile(tempRoot, 'tests/unit/storage.test.js', 'sessionStorage.clear();');
-    writeConfig(tempRoot, 'jest.native-default.config.cjs', []);
-    writeConfig(tempRoot, 'jest.native-esm.config.cjs', []);
-    const escapedOutputFile = path.join(tempRoot, `escaped-${fileName}`);
-    writeFile(tempRoot, `escaped-${fileName}`, '');
-    const symlinkFile = path.join(allowedOutputRoot, `symlink-${fileName}`);
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
-    fs.symlinkSync(escapedOutputFile, symlinkFile, 'file');
-    const jsonPath =
-      flag === '--summary-json'
-        ? symlinkFile
-        : path.join(allowedOutputRoot, 'blocker-classification-summary.json');
-    const markdownPath =
-      flag === '--summary-md'
-        ? symlinkFile
-        : path.join(allowedOutputRoot, 'blocker-classification-summary.md');
-
-    const result = runCliWithArgs([
-      '--root-dir',
-      tempRoot,
-      '--native-default-config',
-      path.join(tempRoot, 'jest.native-default.config.cjs'),
-      '--native-coverage-config',
-      path.join(tempRoot, 'jest.native-esm.config.cjs'),
-      '--summary-json',
-      jsonPath,
-      '--summary-md',
-      markdownPath,
-    ]);
-
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain('摘要輸出路徑必須位於 coverage/native-default 底下');
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
-    expect(fs.readFileSync(escapedOutputFile, 'utf8')).toBe('');
+    expectPathDoesNotExist(path.join(escapedOutputRoot, 'blocker-classification-summary.json'));
   });
 });
