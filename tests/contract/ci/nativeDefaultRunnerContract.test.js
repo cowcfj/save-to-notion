@@ -10,6 +10,13 @@ const phase3NativeDefaultCohort = [
   '<rootDir>/tests/native-esm/background/handlers/backgroundHandlers.native-esm.test.mjs',
 ];
 
+const phase3BNativeDefaultCohort = [
+  '<rootDir>/tests/native-esm/background/services/backgroundServices.native-esm.test.mjs',
+  '<rootDir>/tests/native-esm/background/support/background-support-native-siblings.native-esm.test.mjs',
+  '<rootDir>/tests/native-esm/background/utils/backgroundUtils.native-esm.test.mjs',
+  '<rootDir>/tests/native-esm/destinations/destinations.native-esm.test.mjs',
+];
+
 const rootCommonJsCandidateProbes = [
   '<rootDir>/tests/unit/background/background-state.test.js',
   '<rootDir>/tests/unit/utils/securityUtils.test.js',
@@ -71,11 +78,11 @@ describe('native default Jest runner contract', () => {
     expect(scripts['test:ci']).toBe('npm run test:coverage:native-esm:assert');
   });
 
-  test('native default allowlist includes the Phase 3 proven cohort only', () => {
+  test('native default allowlist includes the Phase 3 and Phase 3B proven cohorts only', () => {
     const nativeDefaultConfig = require(nativeDefaultConfigPath);
 
     expect(nativeDefaultConfig.testMatch).toEqual(
-      expect.arrayContaining(phase3NativeDefaultCohort)
+      expect.arrayContaining([...phase3NativeDefaultCohort, ...phase3BNativeDefaultCohort])
     );
     expect(nativeDefaultConfig.testMatch).toEqual(
       expect.not.arrayContaining(rootCommonJsCandidateProbes)
