@@ -18,8 +18,8 @@ import {
   updateUIForUnsavedPage,
   renderDestinationSelector,
   formatSaveSuccessMessage,
-} from '../../../pages/popup/popupUI.js';
-import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
+} from '../../../../pages/popup/popupUI.js';
+import { UI_MESSAGES } from '../../../../scripts/config/shared/messages.js';
 
 describe('popupUI.js', () => {
   let mockElements = {};
