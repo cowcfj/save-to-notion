@@ -46,6 +46,15 @@ const phase3DPolicyLifecycleCohort = [
   '<rootDir>/tests/unit/utils/css-color-mock-shape.test.js',
 ];
 
+const phase2ProbePassingNativeDefaultCohort = [
+  '<rootDir>/tests/unit/background/core-functions.test.js',
+  '<rootDir>/tests/unit/background/image-processing.test.js',
+  '<rootDir>/tests/unit/helpers/performanceOptimizerTestHarness.test.mjs',
+  '<rootDir>/tests/unit/highlighter/highlighter-path-compression.test.js',
+  '<rootDir>/tests/unit/highlighter/highlighter-storage-optimization.test.js',
+  '<rootDir>/tests/unit/performance/PerformanceOptimizer.comprehensive.test.mjs',
+];
+
 const rootCommonJsCandidateProbes = [
   '<rootDir>/tests/unit/background/background-state.test.js',
   '<rootDir>/tests/unit/utils/securityUtils.test.js',
@@ -115,6 +124,7 @@ describe('native default Jest runner contract', () => {
         ...phase3NativeDefaultCohort,
         ...phase3BNativeDefaultCohort,
         ...phase3DPolicyLifecycleCohort,
+        ...phase2ProbePassingNativeDefaultCohort,
       ])
     );
     expect(nativeDefaultConfig.testMatch).toEqual(

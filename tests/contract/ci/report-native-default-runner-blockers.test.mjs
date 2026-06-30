@@ -182,6 +182,15 @@ const rejectedSymlinkOutputCases = [
   },
 ];
 
+const phase2ProbePassingNativeDefaultCohort = [
+  'tests/unit/background/core-functions.test.js',
+  'tests/unit/background/image-processing.test.js',
+  'tests/unit/helpers/performanceOptimizerTestHarness.test.mjs',
+  'tests/unit/highlighter/highlighter-path-compression.test.js',
+  'tests/unit/highlighter/highlighter-storage-optimization.test.js',
+  'tests/unit/performance/PerformanceOptimizer.comprehensive.test.mjs',
+];
+
 const buildClassificationReport = (reporter, rootDir) =>
   reporter.buildClassificationReport({
     rootDir,
@@ -288,6 +297,23 @@ describe('tools/report-native-default-runner-blockers', () => {
     expect(report.files).toHaveLength(10);
     expectRootTotals(report);
     expectClassificationRows(report);
+  });
+
+  test('目前 repo 在 Phase 2 cohort promoted 後沒有未知 blockers', () => {
+    const report = buildClassificationReport(reporter, projectRoot);
+
+    expect(report.totals.unknown).toBe(0);
+    for (const suitePath of phase2ProbePassingNativeDefaultCohort) {
+      expect(report.files).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            path: suitePath,
+            primaryBlocker: 'already-native-default',
+            disposition: 'already-native-default',
+          }),
+        ])
+      );
+    }
   });
 
   test('classifies custom root suites under the caller-provided roots', () => {
