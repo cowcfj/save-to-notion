@@ -55,6 +55,13 @@ const phase2ProbePassingNativeDefaultCohort = [
   '<rootDir>/tests/unit/performance/PerformanceOptimizer.comprehensive.test.mjs',
 ];
 
+const cjsEsmRequireProductionEsmCohort = [
+  '<rootDir>/tests/unit/config/messages.test.js',
+  '<rootDir>/tests/unit/config/storageKeys.test.js',
+  '<rootDir>/tests/unit/normalizeUrl.test.js',
+  '<rootDir>/tests/unit/background/buildHighlightBlocks.test.js',
+];
+
 const rootCommonJsCandidateProbes = [
   '<rootDir>/tests/unit/background/background-state.test.js',
   '<rootDir>/tests/unit/utils/securityUtils.test.js',
@@ -125,6 +132,7 @@ describe('native default Jest runner contract', () => {
         ...phase3BNativeDefaultCohort,
         ...phase3DPolicyLifecycleCohort,
         ...phase2ProbePassingNativeDefaultCohort,
+        ...cjsEsmRequireProductionEsmCohort,
       ])
     );
     expect(nativeDefaultConfig.testMatch).toEqual(
