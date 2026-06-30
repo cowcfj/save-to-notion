@@ -3,11 +3,12 @@
  * 測試長文本智能分割功能
  */
 
-// 先設置 Chrome Mock
-require('../mocks/chrome.js');
+let splitTextForHighlight;
 
-// 導入原始源碼
-const { splitTextForHighlight } = require('../../scripts/background/utils/BlockBuilder.js');
+beforeAll(async () => {
+  await import('../mocks/chrome.js');
+  ({ splitTextForHighlight } = await import('../../scripts/background/utils/BlockBuilder.js'));
+});
 
 describe('splitTextForHighlight', () => {
   // ==========================================

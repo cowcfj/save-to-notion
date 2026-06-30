@@ -2,7 +2,11 @@
  * @jest-environment node
  */
 
-const { detectPageComplexity } = require('../../scripts/utils/pageComplexityDetector.js');
+let detectPageComplexity;
+
+beforeAll(async () => {
+  ({ detectPageComplexity } = await import('../../scripts/utils/pageComplexityDetector.js'));
+});
 
 describe('pageComplexityDetector non-browser environment regression', () => {
   test('detectPageComplexity should not fall back when document lacks URL fields outside browser', () => {
