@@ -205,28 +205,42 @@ jobs:
           # 配置檔案無法用 --findRelatedTests；測試檔要直接 run-by-path。
           CANDIDATE_FILES=$(echo "$CHANGED_FILES" | grep -v -E '^(package\.json|package-lock\.json|jest\.config(\..*)?\.js)$' || true)
           INCUMBENT_TEST_FILES=$(echo "$CANDIDATE_FILES" | grep -E '^tests/.*\.(test|spec)\.js$' || true)
-          NATIVE_TEST_FILES=$(echo "$CANDIDATE_FILES" | grep -E '^tests/.*\.(test|spec)\.mjs$' || true)
+          NATIVE_TEST_CANDIDATES=$(echo "$CANDIDATE_FILES" | grep -E '^tests/.*\.(test|spec)\.mjs$' || true)
+          NATIVE_DEFAULT_TEST_FILES=$(node - <<'NODE'
+          const config = require('./jest.native-default.config.cjs');
+          const rootPrefix = '<rootDir>/';
+          for (const pattern of config.testMatch || []) {
+            const normalized = pattern.startsWith(rootPrefix)
+              ? pattern.slice(rootPrefix.length)
+              : pattern.replace(/^\.\//, '');
+            if (normalized.endsWith('.mjs')) {
+              console.log(normalized);
+            }
+          }
+          NODE
+          )
+          NATIVE_TEST_FILES=$(comm -12 <(printf '%s\n' "$NATIVE_TEST_CANDIDATES" | sed '/^$/d' | sort -u) <(printf '%s\n' "$NATIVE_DEFAULT_TEST_FILES" | sed '/^$/d' | sort -u) || true)
           SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -v -E '^tests/.*\.(test|spec)\.(js|mjs)$' || true)
 
           if [ -z "$SOURCE_FILES" ] && [ -z "$INCUMBENT_TEST_FILES" ] && [ -z "$NATIVE_TEST_FILES" ]; then
-            echo "::notice::Only config files changed, running smoke test instead of related tests"
+            echo "::notice::只變更設定檔，改執行 smoke test 而不是 related tests"
             npm test -- --listTests
           fi
 
           if [ -n "$INCUMBENT_TEST_FILES" ]; then
-            echo "Running changed incumbent Jest test files:"
+            echo "正在執行變更的 incumbent Jest 測試檔:"
             echo "$INCUMBENT_TEST_FILES"
             echo "$INCUMBENT_TEST_FILES" | xargs npx jest --config jest.config.js --ci --runTestsByPath --maxWorkers=2
           fi
 
           if [ -n "$NATIVE_TEST_FILES" ]; then
-            echo "Running changed native-default Jest test files:"
+            echo "正在執行變更的 native-default Jest 測試檔:"
             echo "$NATIVE_TEST_FILES"
             echo "$NATIVE_TEST_FILES" | NODE_OPTIONS=--experimental-vm-modules xargs npx jest --config jest.native-default.config.cjs --ci --runTestsByPath --maxWorkers=2
           fi
 
           if [ -n "$SOURCE_FILES" ]; then
-            echo "Running related tests for changed source files:"
+            echo "正在為變更的來源檔案執行 related tests:"
             echo "$SOURCE_FILES"
             echo "$SOURCE_FILES" | xargs npx jest --config jest.config.js --ci --findRelatedTests --maxWorkers=2
           fi

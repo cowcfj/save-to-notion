@@ -233,13 +233,18 @@ describe('CI policy contract', () => {
     expect(relatedTestsStep).toContain(String.raw`jest\.config(\..*)?\.js`);
   });
 
-  test('CI related-test runner executes changed test files by path before source related-test lookup', () => {
+  test('CI related-test 執行器會先以路徑執行變更測試檔，再查找來源關聯測試', () => {
     const workflowSource = readWorkflow('ci.yml');
     const relatedTestsStep = getWorkflowStepBlock(workflowSource, 'Jest related tests');
 
     expect(relatedTestsStep).toContain('SOURCE_FILES=');
     expect(relatedTestsStep).toContain('INCUMBENT_TEST_FILES=');
     expect(relatedTestsStep).toContain('NATIVE_TEST_FILES=');
+    expect(relatedTestsStep).toContain('NATIVE_DEFAULT_TEST_FILES=');
+    expect(relatedTestsStep).toContain("require('./jest.native-default.config.cjs')");
+    expect(relatedTestsStep).toContain('config.testMatch');
+    expect(relatedTestsStep).toContain('NATIVE_TEST_CANDIDATES=');
+    expect(relatedTestsStep).toContain('comm -12');
     expect(relatedTestsStep).toContain(
       'xargs npx jest --config jest.config.js --ci --runTestsByPath --maxWorkers=2'
     );
@@ -252,5 +257,18 @@ describe('CI policy contract', () => {
     expect(relatedTestsStep).not.toContain(
       'echo "$TEST_FILES" | xargs npx jest --config jest.config.js --ci --findRelatedTests --maxWorkers=2'
     );
+    expect(relatedTestsStep).not.toContain('NATIVE_TEST_FILES=$(echo "$CANDIDATE_FILES" | grep -E');
+    expect(relatedTestsStep).toContain(
+      '::notice::只變更設定檔，改執行 smoke test 而不是 related tests'
+    );
+    expect(relatedTestsStep).toContain('正在執行變更的 incumbent Jest 測試檔:');
+    expect(relatedTestsStep).toContain('正在執行變更的 native-default Jest 測試檔:');
+    expect(relatedTestsStep).toContain('正在為變更的來源檔案執行 related tests:');
+    expect(relatedTestsStep).not.toContain(
+      'Only config files changed, running smoke test instead of related tests'
+    );
+    expect(relatedTestsStep).not.toContain('Running changed incumbent Jest test files:');
+    expect(relatedTestsStep).not.toContain('Running changed native-default Jest test files:');
+    expect(relatedTestsStep).not.toContain('Running related tests for changed source files:');
   });
 });
