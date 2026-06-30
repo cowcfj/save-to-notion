@@ -79,6 +79,14 @@ const writeClassificationFixtures = rootDir => {
   );
   writeFile(
     rootDir,
+    'tests/unit/mixed-contained-and-production-require.test.js',
+    [
+      'const retained = require("../../../scripts/background/utils/updateNotificationVersion.cjs");',
+      'const migrated = require("../../../scripts/background/utils/BlockBuilder.js");',
+    ].join('\n')
+  );
+  writeFile(
+    rootDir,
     'tests/unit/root-import-boundary.test.js',
     'import { tool } from "../../../scripts/tool.js";\ntest("tool", () => expect(tool).toBeDefined());'
   );
@@ -274,6 +282,11 @@ const expectClassificationRows = report => {
         disposition: 'retain-contained-cjs',
       }),
       expect.objectContaining({
+        path: 'tests/unit/mixed-contained-and-production-require.test.js',
+        primaryBlocker: 'commonjs-require-production-esm',
+        disposition: 'requires-helper-refactor',
+      }),
+      expect.objectContaining({
         path: 'tests/unit/root-import-boundary.test.js',
         primaryBlocker: 'root-commonjs-test-boundary',
         disposition: 'defer-to-default-cutover-decision',
@@ -334,11 +347,11 @@ describe('tools/report-native-default-runner-blockers', () => {
 
     const report = buildClassificationReport(reporter, tempRoot);
 
-    expect(report.files).toHaveLength(11);
+    expect(report.files).toHaveLength(12);
     expectRootTotals(report, {
       'tests/contract': 1,
       'tests/native-esm': 2,
-      'tests/unit': 8,
+      'tests/unit': 9,
     });
     expectClassificationRows(report);
     const containedCjsRecord = report.files.find(
@@ -348,6 +361,16 @@ describe('tools/report-native-default-runner-blockers', () => {
       expect.arrayContaining(['contained-cjs-require', 'root-commonjs-test-boundary'])
     );
     expect(containedCjsRecord.signals).not.toContain('commonjs-require-production-esm');
+    const mixedRequireRecord = report.files.find(
+      file => file.path === 'tests/unit/mixed-contained-and-production-require.test.js'
+    );
+    expect(mixedRequireRecord.signals).toEqual(
+      expect.arrayContaining([
+        'contained-cjs-require',
+        'commonjs-require-production-esm',
+        'root-commonjs-test-boundary',
+      ])
+    );
   });
 
   test('目前 repo 在 Phase 2 cohort promoted 後沒有未知 blockers', () => {
