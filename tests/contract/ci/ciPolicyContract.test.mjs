@@ -289,13 +289,13 @@ describe('CI policy contract', () => {
     const relatedTestsStep = getWorkflowStepBlock(workflowSource, 'Jest related tests');
 
     expect(relatedTestsStep).toContain(
-      'INCUMBENT_TEST_FILES=$(echo "$CANDIDATE_FILES" | grep -E \'^tests/(unit|contract|integration)/.*\\.(test|spec)\\.js$\' || true)'
+      String.raw`INCUMBENT_TEST_FILES=$(echo "$CANDIDATE_FILES" | grep -E '^tests/(unit|contract|integration)/.*\.(test|spec)\.js$' || true)`
     );
     expect(relatedTestsStep).toContain(
       'SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -E \'^(scripts|pages)/\' || true)'
     );
     expect(relatedTestsStep).not.toContain(
-      'SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -v -E \'^tests/.*\\.(test|spec)\\.(js|mjs)$\' || true)'
+      String.raw`SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -v -E '^tests/.*\.(test|spec)\.(js|mjs)$' || true)`
     );
   });
 });
