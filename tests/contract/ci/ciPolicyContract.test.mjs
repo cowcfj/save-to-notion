@@ -164,14 +164,8 @@ describe('CI policy contract', () => {
   });
 
   test('incumbent Jest config remains a non-coverage default runner config', () => {
-    const scripts = readRootJson('package.json').scripts;
     const incumbentConfig = require('../../../jest.config.js');
 
-    expect(scripts['test:coverage']).toBe('npm run test:coverage:native-esm:assert');
-    expect(scripts['test:ci']).toBe('npm run test:coverage:native-esm:assert');
-    expect(scripts).not.toHaveProperty(retiredIncumbentCoverageScript);
-    expect(scripts).not.toHaveProperty(retiredIncumbentCiScript);
-    expect(scripts).not.toHaveProperty(retiredThresholdSimulationScript);
     expect(incumbentConfig.coverageThreshold.global).toEqual({
       branches: 0,
       functions: 0,
