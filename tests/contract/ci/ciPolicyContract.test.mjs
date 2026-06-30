@@ -11,6 +11,7 @@ const activeWorkflowDir = path.join(rootDir, '.github/workflows');
 const activeSonarWorkflow = path.join(activeWorkflowDir, 'sonarcloud.yml');
 const incumbentJestTestFilePattern = String.raw`^tests/(unit|contract|integration)/.*\.(test|spec)\.js$`;
 const anyJestTestFilePattern = String.raw`^tests/.*\.(test|spec)\.(js|mjs)$`;
+// Keep these retired script names computed so global scans do not flag this contract test itself.
 const retiredIncumbentCoverageScript = 'test:coverage:' + 'incumbent';
 const retiredIncumbentCiScript = 'test:ci:' + 'incumbent';
 const retiredThresholdSimulationScript = ['test:coverage:native-esm', 'threshold-simulation'].join(
