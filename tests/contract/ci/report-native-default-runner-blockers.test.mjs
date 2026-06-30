@@ -182,6 +182,8 @@ const rejectedSymlinkOutputCases = [
   },
 ];
 
+const classificationRoots = ['tests/unit', 'tests/contract', 'tests/native-esm'];
+
 const phase2ProbePassingNativeDefaultCohort = [
   'tests/unit/background/core-functions.test.js',
   'tests/unit/background/image-processing.test.js',
@@ -198,20 +200,32 @@ const cjsEsmRequireProductionEsmCohort = [
   'tests/unit/background/buildHighlightBlocks.test.js',
 ];
 
-const buildClassificationReport = (reporter, rootDir) =>
+const promotedNativeDefaultCohort = [
+  ...phase2ProbePassingNativeDefaultCohort,
+  ...cjsEsmRequireProductionEsmCohort,
+];
+
+const countPathsByRoot = suitePaths =>
+  suitePaths.reduce((totals, suitePath) => {
+    const root = classificationRoots.find(root => suitePath.startsWith(`${root}/`));
+    if (!root) {
+      throw new Error(`Test path is outside classifier roots: ${suitePath}`);
+    }
+    totals[root] = (totals[root] ?? 0) + 1;
+    return totals;
+  }, {});
+
+const buildClassificationReport = (reporter, rootDir, files) =>
   reporter.buildClassificationReport({
     rootDir,
-    roots: ['tests/unit', 'tests/contract', 'tests/native-esm'],
+    roots: classificationRoots,
     nativeDefaultConfigPath: path.join(rootDir, 'jest.native-default.config.cjs'),
     nativeCoverageConfigPath: path.join(rootDir, 'jest.native-esm.config.cjs'),
+    ...(files ? { files } : {}),
   });
 
-const expectRootTotals = report => {
-  expect(report.totals.byRoot).toEqual({
-    'tests/contract': 1,
-    'tests/native-esm': 2,
-    'tests/unit': 7,
-  });
+const expectRootTotals = (report, expectedRootTotals) => {
+  expect(report.totals.byRoot).toEqual(expectedRootTotals);
 };
 
 const expectClassificationRows = report => {
@@ -302,19 +316,27 @@ describe('tools/report-native-default-runner-blockers', () => {
     const report = buildClassificationReport(reporter, tempRoot);
 
     expect(report.files).toHaveLength(10);
-    expectRootTotals(report);
+    expectRootTotals(report, {
+      'tests/contract': 1,
+      'tests/native-esm': 2,
+      'tests/unit': 7,
+    });
     expectClassificationRows(report);
   });
 
   test('目前 repo 在 Phase 2 cohort promoted 後沒有未知 blockers', () => {
     const report = buildClassificationReport(reporter, projectRoot);
+    const promotedCohortReport = buildClassificationReport(
+      reporter,
+      projectRoot,
+      promotedNativeDefaultCohort
+    );
 
     expect(report.totals.unknown).toBe(0);
-    for (const suitePath of [
-      ...phase2ProbePassingNativeDefaultCohort,
-      ...cjsEsmRequireProductionEsmCohort,
-    ]) {
-      expect(report.files).toEqual(
+    expect(promotedCohortReport.files).toHaveLength(promotedNativeDefaultCohort.length);
+    expectRootTotals(promotedCohortReport, countPathsByRoot(promotedNativeDefaultCohort));
+    for (const suitePath of promotedNativeDefaultCohort) {
+      expect(promotedCohortReport.files).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             path: suitePath,
@@ -325,7 +347,7 @@ describe('tools/report-native-default-runner-blockers', () => {
       );
     }
     for (const suitePath of cjsEsmRequireProductionEsmCohort) {
-      expect(report.files).toEqual(
+      expect(promotedCohortReport.files).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             path: suitePath,
