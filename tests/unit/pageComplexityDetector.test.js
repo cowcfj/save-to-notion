@@ -6,19 +6,34 @@
  * @author Content Extraction Team
  */
 
-// 將頁面複雜度檢測器轉為 CommonJS 格式，以便測試
-// 【重構】直接導入源代碼而非測試替身
-const {
-  detectPageComplexity,
-  selectExtractor,
-  getAnalysisReport,
-  logAnalysis,
-  isDocumentation,
-} = require('../../scripts/utils/pageComplexityDetector.js');
-const {
-  TECHNICAL_TERM_RULES,
-  TECHNICAL_TERM_GROUPS,
-} = require('../../scripts/config/shared/technicalTerms.js');
+const { createLoggerMock } = require('../helpers/loggerMock.cjs');
+
+const mockLogger = createLoggerMock();
+const mockLoggerModule = {
+  default: mockLogger,
+  ...mockLogger,
+};
+
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('../../scripts/utils/Logger.js', () => mockLoggerModule);
+}
+
+jest.mock('../../scripts/utils/Logger.js', () => mockLoggerModule);
+
+let detectPageComplexity;
+let selectExtractor;
+let getAnalysisReport;
+let logAnalysis;
+let isDocumentation;
+let TECHNICAL_TERM_RULES;
+let TECHNICAL_TERM_GROUPS;
+
+beforeAll(async () => {
+  ({ detectPageComplexity, selectExtractor, getAnalysisReport, logAnalysis, isDocumentation } =
+    await import('../../scripts/utils/pageComplexityDetector.js'));
+  ({ TECHNICAL_TERM_RULES, TECHNICAL_TERM_GROUPS } =
+    await import('../../scripts/config/shared/technicalTerms.js'));
+});
 
 describe('頁面複雜度檢測器', () => {
   describe('isDocumentation 函數 (替代 isTechnicalDoc)', () => {
@@ -642,7 +657,7 @@ describe('頁面複雜度檢測器', () => {
       }
     });
 
-    test('non-global technical term matcher should be evaluated once', () => {
+    test('non-global technical term matcher should be evaluated once', async () => {
       const NativeRegExp = globalThis.RegExp;
 
       function OneShotRegExp(pattern, flags) {
@@ -665,10 +680,9 @@ describe('頁面複雜度檢測器', () => {
 
       try {
         globalThis.RegExp = OneShotRegExp;
-        jest.isolateModules(() => {
-          const {
-            detectPageComplexity: detectWithOneShotMatcher,
-          } = require('../../scripts/utils/pageComplexityDetector.js');
+        await jest.isolateModulesAsync(async () => {
+          const { detectPageComplexity: detectWithOneShotMatcher } =
+            await import('../../scripts/utils/pageComplexityDetector.js');
 
           document.documentElement.innerHTML = '<body><p>function plain text</p></body>';
           const result = detectWithOneShotMatcher(document);
