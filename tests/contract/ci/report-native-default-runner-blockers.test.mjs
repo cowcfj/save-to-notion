@@ -299,13 +299,8 @@ describe('tools/report-native-default-runner-blockers', () => {
     expectClassificationRows(report);
   });
 
-  test('current repo has no unknown blockers after Phase 2 cohort promotion', () => {
-    const report = reporter.buildClassificationReport({
-      rootDir: projectRoot,
-      roots: ['tests/unit', 'tests/contract', 'tests/native-esm'],
-      nativeDefaultConfigPath: path.join(projectRoot, 'jest.native-default.config.cjs'),
-      nativeCoverageConfigPath: path.join(projectRoot, 'jest.native-esm.config.cjs'),
-    });
+  test('目前 repo 在 Phase 2 cohort promoted 後沒有未知 blockers', () => {
+    const report = buildClassificationReport(reporter, projectRoot);
 
     expect(report.totals.unknown).toBe(0);
     for (const suitePath of phase2ProbePassingNativeDefaultCohort) {
