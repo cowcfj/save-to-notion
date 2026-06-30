@@ -7,7 +7,11 @@ globalThis.performance = { now: () => Date.now() };
 globalThis.requestIdleCallback = cb => setTimeout(cb, 0);
 globalThis.cancelIdleCallback = clearTimeout;
 
-const { PerformanceOptimizer } = require('../../../scripts/performance/PerformanceOptimizer');
+let PerformanceOptimizer;
+
+beforeAll(async () => {
+  ({ PerformanceOptimizer } = await import('../../../scripts/performance/PerformanceOptimizer.js'));
+});
 
 describe('PerformanceOptimizer - 批次處理邏輯', () => {
   let optimizer = null;

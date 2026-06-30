@@ -74,6 +74,27 @@ const writeClassificationFixtures = rootDir => {
   );
   writeFile(
     rootDir,
+    'tests/unit/non-root-runtime-name.test.js',
+    [
+      'const vendorPage = require("../../../vendor/pages/widget.js");',
+      'const packageScript = require("../../../third_party/scripts/tool.js");',
+    ].join('\n')
+  );
+  writeFile(
+    rootDir,
+    'tests/unit/contained-cjs-require.test.js',
+    'const tool = require("../../../scripts/background/utils/updateNotificationVersion.cjs");'
+  );
+  writeFile(
+    rootDir,
+    'tests/unit/mixed-contained-and-production-require.test.js',
+    [
+      'const retained = require("../../../scripts/background/utils/updateNotificationVersion.cjs");',
+      'const migrated = require("../../../scripts/background/utils/BlockBuilder.js");',
+    ].join('\n')
+  );
+  writeFile(
+    rootDir,
     'tests/unit/root-import-boundary.test.js',
     'import { tool } from "../../../scripts/tool.js";\ntest("tool", () => expect(tool).toBeDefined());'
   );
@@ -206,6 +227,11 @@ const cjsEsmRequireProductionEsmCohort2 = [
   'tests/unit/background/processContentResult.test.js',
 ];
 
+// This live-repo cohort intentionally tracks the one retained contained-CJS suite
+// in the current classifier ledger. If it fails, inspect the suite's require()
+// calls and update the cohort only after confirming the ledger changed.
+const containedCjsRequireCohort = ['tests/unit/background/updateNotificationVersion.test.js'];
+
 const promotedNativeDefaultCohort = [
   ...phase2ProbePassingNativeDefaultCohort,
   ...cjsEsmRequireProductionEsmCohort,
@@ -260,6 +286,21 @@ const expectClassificationRows = report => {
       expect.objectContaining({
         path: 'tests/unit/production-require.test.js',
         primaryBlocker: 'commonjs-require-production-esm',
+      }),
+      expect.objectContaining({
+        path: 'tests/unit/non-root-runtime-name.test.js',
+        primaryBlocker: 'root-commonjs-test-boundary',
+        disposition: 'defer-to-default-cutover-decision',
+      }),
+      expect.objectContaining({
+        path: 'tests/unit/contained-cjs-require.test.js',
+        primaryBlocker: 'contained-cjs-require',
+        disposition: 'retain-contained-cjs',
+      }),
+      expect.objectContaining({
+        path: 'tests/unit/mixed-contained-and-production-require.test.js',
+        primaryBlocker: 'commonjs-require-production-esm',
+        disposition: 'requires-helper-refactor',
       }),
       expect.objectContaining({
         path: 'tests/unit/root-import-boundary.test.js',
@@ -322,13 +363,36 @@ describe('tools/report-native-default-runner-blockers', () => {
 
     const report = buildClassificationReport(reporter, tempRoot);
 
-    expect(report.files).toHaveLength(10);
+    expect(report.files).toHaveLength(13);
     expectRootTotals(report, {
       'tests/contract': 1,
       'tests/native-esm': 2,
-      'tests/unit': 7,
+      'tests/unit': 10,
     });
     expectClassificationRows(report);
+    const containedCjsRecord = report.files.find(
+      file => file.path === 'tests/unit/contained-cjs-require.test.js'
+    );
+    expect(containedCjsRecord.signals).toEqual(
+      expect.arrayContaining(['contained-cjs-require', 'root-commonjs-test-boundary'])
+    );
+    expect(containedCjsRecord.signals).not.toContain('commonjs-require-production-esm');
+    const nonRootRuntimeNameRecord = report.files.find(
+      file => file.path === 'tests/unit/non-root-runtime-name.test.js'
+    );
+    expect(nonRootRuntimeNameRecord.signals).not.toEqual(
+      expect.arrayContaining(['contained-cjs-require', 'commonjs-require-production-esm'])
+    );
+    const mixedRequireRecord = report.files.find(
+      file => file.path === 'tests/unit/mixed-contained-and-production-require.test.js'
+    );
+    expect(mixedRequireRecord.signals).toEqual(
+      expect.arrayContaining([
+        'contained-cjs-require',
+        'commonjs-require-production-esm',
+        'root-commonjs-test-boundary',
+      ])
+    );
   });
 
   test('目前 repo 在 Phase 2 cohort promoted 後沒有未知 blockers', () => {
@@ -369,6 +433,26 @@ describe('tools/report-native-default-runner-blockers', () => {
         ])
       );
     }
+
+    const containedCjsReport = buildClassificationReport(
+      reporter,
+      projectRoot,
+      containedCjsRequireCohort
+    );
+
+    expect(containedCjsReport.files).toEqual([
+      expect.objectContaining({
+        path: 'tests/unit/background/updateNotificationVersion.test.js',
+        primaryBlocker: 'contained-cjs-require',
+        disposition: 'retain-contained-cjs',
+      }),
+    ]);
+    expect(containedCjsReport.files[0].signals).toEqual(
+      expect.arrayContaining(['contained-cjs-require', 'root-commonjs-test-boundary'])
+    );
+    expect(containedCjsReport.files[0].signals).not.toContain(
+      'commonjs-require-production-esm'
+    );
   });
 
   test('classifies custom root suites under the caller-provided roots', () => {
