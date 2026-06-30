@@ -21,7 +21,7 @@
     "scripts/**/*.{js,mjs}",
     "pages/**/*.{js,html}",
     "tests/**/*.js",
-    "tools/**/*.{js,mjs}",
+    "tools/**/*.{js,mjs,cjs}",
     "rollup/**/*.{js,mjs}"
   ],
   "ignore": [

@@ -1,9 +1,6 @@
-/* eslint-disable security/detect-non-literal-fs-filename */
 import { test as base, chromium } from '@playwright/test';
 import path from 'node:path';
 import fs from 'node:fs';
-import crypto from 'node:crypto';
-import v8toIstanbul from 'v8-to-istanbul';
 
 export const test = base.extend({
   context: async ({ browserName: _ }, use) => {
@@ -42,80 +39,7 @@ export const test = base.extend({
       ],
     });
 
-    // 1. 監聽新頁面並開啟覆蓋率收集
-    // 這裡的 page 包含: 測試目標頁面, Popup, Options 頁面
-    await context.exposeBinding('__coverage__', () => {
-      /* noop */
-    }); // 預防性綁定
-
-    context.on('page', async page => {
-      try {
-        await page.coverage.startJSCoverage({
-          resetOnNavigation: false,
-        });
-      } catch {
-        // 忽略錯誤
-      }
-    });
-
-    // 為已經存在的頁面開啟覆蓋率 (如果有)
-    for (const page of context.pages()) {
-      await page.coverage.startJSCoverage({
-        resetOnNavigation: false,
-      });
-    }
-
     await use(context);
-
-    // 2. 停止並獲取覆蓋率 (從所有開啟的頁面)
-    const allCoverage = [];
-
-    for (const page of context.pages()) {
-      try {
-        const coverage = await page.coverage.stopJSCoverage();
-        allCoverage.push(...coverage);
-      } catch {
-        // 忽略錯誤
-      }
-    }
-
-    // 3. 確保 coverage/e2e 目錄存在（供後續存儲與 merge 使用）
-    const nycOutput = path.join(__dirname, '../../coverage/e2e');
-    fs.mkdirSync(nycOutput, { recursive: true });
-
-    // 4. 存儲覆蓋率數據至 coverage/e2e 目錄（逐一寫入覆蓋率檔案）
-    for (const entry of allCoverage) {
-      // 只處理擴充功能的腳本
-      if (!entry.url.includes('chrome-extension://')) {
-        continue;
-      }
-
-      const url = new URL(entry.url);
-      // 排除第三方庫和非專案代碼 (粗略過濾)
-      if (url.pathname.includes('node_modules')) {
-        continue;
-      }
-
-      // 對應到本地文件路徑
-      // entry.url 類似: chrome-extension://[id]/scripts/background.js
-      const relativePath = url.pathname.replace(/^\//, '');
-      const filePath = path.join(pathToExtension, relativePath);
-
-      if (fs.existsSync(filePath)) {
-        // 使用 v8-to-istanbul 轉換
-        const converter = v8toIstanbul(filePath);
-        await converter.load();
-        converter.applyCoverage(entry.functions);
-
-        // 轉換為 Istanbul 格式
-        const istanbulCoverage = converter.toIstanbul();
-
-        // 為每個文件/測試生成唯一報告
-        const reportName = `playwright-${crypto.randomUUID()}.json`;
-        fs.writeFileSync(path.join(nycOutput, reportName), JSON.stringify(istanbulCoverage));
-      }
-    }
-
     await context.close();
   },
 
