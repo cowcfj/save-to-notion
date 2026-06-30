@@ -14,6 +14,7 @@ const blockerPriority = [
   'babel-hoisted-mock',
   'jest-require-actual-esm',
   'commonjs-require-production-esm',
+  'contained-cjs-require',
   'root-commonjs-test-boundary',
   'global-runtime-surface',
   'jsdom-origin-or-storage',
@@ -25,6 +26,7 @@ const dispositionByBlocker = {
   'native-esm-candidate': 'migrate-to-native-default',
   'coverage-gate-only': 'coverage-only-not-default-runner',
   'babel-hoisted-mock': 'requires-helper-refactor',
+  'contained-cjs-require': 'retain-contained-cjs',
   'commonjs-require-production-esm': 'requires-helper-refactor',
   'jest-require-actual-esm': 'requires-helper-refactor',
   'root-commonjs-test-boundary': 'defer-to-default-cutover-decision',
@@ -149,9 +151,29 @@ function hasRootEsmSyntax(source) {
     .some(line => startsWithModuleKeyword(line, 'import') || startsWithModuleKeyword(line, 'export'));
 }
 
+function collectRequireSpecifiers(source) {
+  return [...source.matchAll(/\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g)].map(
+    match => match[1]
+  );
+}
+
+function isProductionRuntimeRequire(specifier) {
+  const normalizedSpecifier = normalizeRelativePath(specifier);
+  return /^(?:\.\.\/)*(?:scripts|pages)\//.test(normalizedSpecifier);
+}
+
+function isContainedCjsRequire(specifier) {
+  return isProductionRuntimeRequire(specifier) && specifier.endsWith('.cjs');
+}
+
+function isProductionEsmRequire(specifier) {
+  return isProductionRuntimeRequire(specifier) && !specifier.endsWith('.cjs');
+}
+
 function detectSignals({ filePath, source, packageBoundary }) {
   const signals = [];
   const normalizedPath = normalizeRelativePath(filePath);
+  const requireSpecifiers = collectRequireSpecifiers(source);
 
   if (packageBoundary?.malformed) {
     signals.push('malformed-package-boundary');
@@ -167,7 +189,10 @@ function detectSignals({ filePath, source, packageBoundary }) {
   if (/\bjest\.requireActual\s*\(/.test(source)) {
     signals.push('jest-require-actual-esm');
   }
-  if (/\brequire\s*\(\s*['"][^'"]*(?:scripts|pages)\//.test(source)) {
+  if (requireSpecifiers.some(isContainedCjsRequire)) {
+    signals.push('contained-cjs-require');
+  }
+  if (requireSpecifiers.some(isProductionEsmRequire)) {
     signals.push('commonjs-require-production-esm');
   }
   if (/\bmodule\.exports\b|\brequire\.main\b|\bprocess\.argv\b|scripts\/postinstall\.js/.test(source)) {

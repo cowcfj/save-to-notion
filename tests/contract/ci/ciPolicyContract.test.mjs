@@ -11,6 +11,12 @@ const activeWorkflowDir = path.join(rootDir, '.github/workflows');
 const activeSonarWorkflow = path.join(activeWorkflowDir, 'sonarcloud.yml');
 const incumbentJestTestFilePattern = String.raw`^tests/(unit|contract|integration)/.*\.(test|spec)\.js$`;
 const anyJestTestFilePattern = String.raw`^tests/.*\.(test|spec)\.(js|mjs)$`;
+// Keep these retired script names computed so global scans do not flag this contract test itself.
+const retiredIncumbentCoverageScript = 'test:coverage:' + 'incumbent';
+const retiredIncumbentCiScript = 'test:ci:' + 'incumbent';
+const retiredThresholdSimulationScript = ['test:coverage:native-esm', 'threshold-simulation'].join(
+  ':'
+);
 
 function readWorkflow(relativePath) {
   return fs.readFileSync(path.join(activeWorkflowDir, relativePath), 'utf8');
@@ -128,13 +134,14 @@ describe('CI policy contract', () => {
     });
   });
 
-  test('native ESM threshold comparison regenerates fallback and official artifacts before reporting', () => {
-    const script =
-      readRootJson('package.json').scripts['test:coverage:native-esm:threshold-simulation'];
+  test('active coverage scripts do not expose retired incumbent coverage lanes', () => {
+    const scripts = readRootJson('package.json').scripts;
 
-    expect(script).toMatch(
-      /^npm run test:coverage:incumbent && npm run test:coverage:native-esm && node tools\/report-native-esm-threshold-simulation\.mjs/
-    );
+    expect(scripts['test:coverage']).toBe('npm run test:coverage:native-esm:assert');
+    expect(scripts['test:ci']).toBe('npm run test:coverage:native-esm:assert');
+    expect(scripts).not.toHaveProperty(retiredIncumbentCoverageScript);
+    expect(scripts).not.toHaveProperty(retiredIncumbentCiScript);
+    expect(scripts).not.toHaveProperty(retiredThresholdSimulationScript);
   });
 
   test('native ESM coverage owns official local thresholds and emits LCOV in the official V8 directory', () => {
@@ -156,13 +163,9 @@ describe('CI policy contract', () => {
     });
   });
 
-  test('incumbent Jest coverage is retained as a fallback but no longer owns local thresholds', () => {
-    const scripts = readRootJson('package.json').scripts;
+  test('incumbent Jest config remains a non-coverage default runner config', () => {
     const incumbentConfig = require('../../../jest.config.js');
 
-    expect(scripts['test:coverage']).toBe('npm run test:coverage:native-esm:assert');
-    expect(scripts['test:ci']).toBe('npm run test:coverage:native-esm:assert');
-    expect(scripts['test:coverage:incumbent']).toBe('jest --config jest.config.js --coverage');
     expect(incumbentConfig.coverageThreshold.global).toEqual({
       branches: 0,
       functions: 0,
@@ -171,16 +174,15 @@ describe('CI policy contract', () => {
     });
   });
 
-  test('Jest open-handle troubleshooting guidance points to an existing script', () => {
+  test('Jest open-handle troubleshooting guidance avoids retired incumbent coverage scripts', () => {
     const scripts = readRootJson('package.json').scripts;
     const incumbentJestConfig = readRootText('jest.config.js');
 
     expect(scripts).not.toHaveProperty('test:ci:diagnostic');
-    expect(scripts).toHaveProperty('test:ci:incumbent');
+    expect(scripts).not.toHaveProperty(retiredIncumbentCiScript);
     expect(incumbentJestConfig).not.toContain('test:ci:diagnostic');
-    expect(incumbentJestConfig).toContain(
-      'npm run test:ci:incumbent -- --detectOpenHandles'
-    );
+    expect(incumbentJestConfig).not.toContain(retiredIncumbentCiScript);
+    expect(incumbentJestConfig).toContain('npm test -- --detectOpenHandles');
   });
 
   test('native ESM parity flag is retired after single-upload cutover', () => {
