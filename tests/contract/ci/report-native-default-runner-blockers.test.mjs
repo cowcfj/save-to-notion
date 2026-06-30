@@ -191,6 +191,13 @@ const phase2ProbePassingNativeDefaultCohort = [
   'tests/unit/performance/PerformanceOptimizer.comprehensive.test.mjs',
 ];
 
+const cjsEsmRequireProductionEsmCohort = [
+  'tests/unit/config/messages.test.js',
+  'tests/unit/config/storageKeys.test.js',
+  'tests/unit/normalizeUrl.test.js',
+  'tests/unit/background/buildHighlightBlocks.test.js',
+];
+
 const buildClassificationReport = (reporter, rootDir) =>
   reporter.buildClassificationReport({
     rootDir,
@@ -303,13 +310,29 @@ describe('tools/report-native-default-runner-blockers', () => {
     const report = buildClassificationReport(reporter, projectRoot);
 
     expect(report.totals.unknown).toBe(0);
-    for (const suitePath of phase2ProbePassingNativeDefaultCohort) {
+    for (const suitePath of [
+      ...phase2ProbePassingNativeDefaultCohort,
+      ...cjsEsmRequireProductionEsmCohort,
+    ]) {
       expect(report.files).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             path: suitePath,
             primaryBlocker: 'already-native-default',
             disposition: 'already-native-default',
+          }),
+        ])
+      );
+    }
+    for (const suitePath of cjsEsmRequireProductionEsmCohort) {
+      expect(report.files).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            path: suitePath,
+            signals: expect.not.arrayContaining([
+              'commonjs-require-production-esm',
+              'root-commonjs-test-boundary',
+            ]),
           }),
         ])
       );

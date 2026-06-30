@@ -2,9 +2,13 @@
  * buildHighlightBlocks 單元測試
  */
 
-const { buildHighlightBlocks } = require('../../../scripts/background/utils/BlockBuilder.js');
+let buildHighlightBlocks;
 
 describe('buildHighlightBlocks', () => {
+  beforeAll(async () => {
+    ({ buildHighlightBlocks } = await import('../../../scripts/background/utils/BlockBuilder.js'));
+  });
+
   it('should return empty array for null input', () => {
     expect(buildHighlightBlocks(null)).toEqual([]);
   });

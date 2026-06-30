@@ -1,13 +1,15 @@
 // URL 標準化函數測試
 // 測試 normalizeUrl 函數的各種場景
 
-// 先設置 Chrome Mock,再導入源碼
-require('../mocks/chrome.js');
-
-// 導入實際的源碼函數
-const { normalizeUrl } = require('../../scripts/utils/urlUtils.js');
+let normalizeUrl;
 
 describe('normalizeUrl', () => {
+  beforeAll(async () => {
+    // 先設置 Chrome Mock,再導入源碼
+    await import('../mocks/chrome.js');
+    ({ normalizeUrl } = await import('../../scripts/utils/urlUtils.js'));
+  });
+
   describe('基本功能', () => {
     test('應該返回不變的簡單 URL', () => {
       const url = 'https://example.com/page';

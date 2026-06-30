@@ -3,9 +3,13 @@
  * 驗證 mergeDataSourceConfig 的合併邏輯
  */
 
-const { mergeDataSourceConfig } = require('../../../scripts/config/shared/storage.js');
+let mergeDataSourceConfig;
 
 describe('配置模組 - storageKeys.js', () => {
+  beforeAll(async () => {
+    ({ mergeDataSourceConfig } = await import('../../../scripts/config/shared/storage.js'));
+  });
+
   describe('mergeDataSourceConfig', () => {
     test('local 優先覆蓋 sync', () => {
       const local = {

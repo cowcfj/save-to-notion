@@ -3,25 +3,23 @@
  * 驗證所有 arrow function message builders 回傳正確型別且嵌入參數
  */
 
-const {
-  UI_MESSAGES,
-  ERROR_MESSAGES,
-  ERROR_TYPES,
-  API_ERROR_PATTERNS,
-} = require('../../../scripts/config/shared/messages.js');
-const { ErrorHandler } = require('../../../scripts/utils/ErrorHandler.js');
-const fs = require('node:fs');
-const path = require('node:path');
-const { deepFreeze } = require('../../../scripts/config/shared/deepFreeze.js');
-const { BACKGROUND_MESSAGES } = require('../../../scripts/config/messages/backgroundMessages.js');
+let fs;
+let path;
+let UI_MESSAGES;
+let ERROR_MESSAGES;
+let ERROR_TYPES;
+let API_ERROR_PATTERNS;
+let ErrorHandler;
+let deepFreeze;
+let BACKGROUND_MESSAGES;
+let HIGHLIGHTER_MESSAGES;
+let DATA_SOURCE_MESSAGES;
 
 function readProjectSource(relativePath) {
-  // eslint-disable-next-line security/detect-non-literal-fs-filename
   return fs.readFileSync(path.resolve(__dirname, '../../..', relativePath), 'utf8');
 }
 
 function collectJsFiles(dir) {
-  // eslint-disable-next-line security/detect-non-literal-fs-filename
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   const results = [];
   for (const entry of entries) {
@@ -36,6 +34,22 @@ function collectJsFiles(dir) {
 }
 
 describe('配置模組 - messages.js 動態函式', () => {
+  beforeAll(async () => {
+    fs = await import('node:fs');
+    // eslint-disable-next-line unicorn/import-style
+    ({ default: path } = await import('node:path'));
+    ({ UI_MESSAGES, ERROR_MESSAGES, ERROR_TYPES, API_ERROR_PATTERNS } =
+      await import('../../../scripts/config/shared/messages.js'));
+    ({ ErrorHandler } = await import('../../../scripts/utils/ErrorHandler.js'));
+    ({ deepFreeze } = await import('../../../scripts/config/shared/deepFreeze.js'));
+    ({ BACKGROUND_MESSAGES } =
+      await import('../../../scripts/config/messages/backgroundMessages.js'));
+    ({ HIGHLIGHTER_MESSAGES } =
+      await import('../../../scripts/config/messages/highlighterMessages.js'));
+    ({ DATA_SOURCE_MESSAGES } =
+      await import('../../../scripts/config/messages/dataSourceMessages.js'));
+  });
+
   const SEARCH_TERM = '測試關鍵字';
   const LOAD_COUNT = 5;
   const FOUND_COUNT = 10;
@@ -89,83 +103,111 @@ describe('配置模組 - messages.js 動態函式', () => {
   });
 
   const singleParamFunctions = [
-    { path: 'DATA_SOURCE.SEARCHING', fn: UI_MESSAGES.DATA_SOURCE.SEARCHING, arg: SEARCH_TERM },
-    { path: 'DATA_SOURCE.LOAD_SUCCESS', fn: UI_MESSAGES.DATA_SOURCE.LOAD_SUCCESS, arg: LOAD_COUNT },
-    { path: 'DATA_SOURCE.FOUND_COUNT', fn: UI_MESSAGES.DATA_SOURCE.FOUND_COUNT, arg: FOUND_COUNT },
-    { path: 'DATA_SOURCE.NO_RESULT', fn: UI_MESSAGES.DATA_SOURCE.NO_RESULT, arg: NO_RESULT_TERM },
+    {
+      path: 'DATA_SOURCE.SEARCHING',
+      getFn: () => UI_MESSAGES.DATA_SOURCE.SEARCHING,
+      arg: SEARCH_TERM,
+    },
+    {
+      path: 'DATA_SOURCE.LOAD_SUCCESS',
+      getFn: () => UI_MESSAGES.DATA_SOURCE.LOAD_SUCCESS,
+      arg: LOAD_COUNT,
+    },
+    {
+      path: 'DATA_SOURCE.FOUND_COUNT',
+      getFn: () => UI_MESSAGES.DATA_SOURCE.FOUND_COUNT,
+      arg: FOUND_COUNT,
+    },
+    {
+      path: 'DATA_SOURCE.NO_RESULT',
+      getFn: () => UI_MESSAGES.DATA_SOURCE.NO_RESULT,
+      arg: NO_RESULT_TERM,
+    },
     {
       path: 'DATA_SOURCE.LOAD_FAILED',
-      fn: UI_MESSAGES.DATA_SOURCE.LOAD_FAILED,
+      getFn: () => UI_MESSAGES.DATA_SOURCE.LOAD_FAILED,
       arg: LOAD_FAILED_REASON,
     },
-    { path: 'LOGS.EXPORT_SUCCESS', fn: UI_MESSAGES.LOGS.EXPORT_SUCCESS, arg: EXPORT_ID },
+    { path: 'LOGS.EXPORT_SUCCESS', getFn: () => UI_MESSAGES.LOGS.EXPORT_SUCCESS, arg: EXPORT_ID },
     {
       path: 'SETTINGS.DEBUG_LOGS_TOGGLE_FAILED',
-      fn: UI_MESSAGES.SETTINGS.DEBUG_LOGS_TOGGLE_FAILED,
+      getFn: () => UI_MESSAGES.SETTINGS.DEBUG_LOGS_TOGGLE_FAILED,
       arg: DEBUG_LOGS_TOGGLE_FAILED_REASON,
     },
     {
       path: 'SETTINGS.DISCONNECT_FAILED',
-      fn: UI_MESSAGES.SETTINGS.DISCONNECT_FAILED,
+      getFn: () => UI_MESSAGES.SETTINGS.DISCONNECT_FAILED,
       arg: DISCONNECT_FAILED_REASON,
     },
     {
       path: 'AUTH.OPEN_NOTION_FAILED',
-      fn: UI_MESSAGES.AUTH.OPEN_NOTION_FAILED,
+      getFn: () => UI_MESSAGES.AUTH.OPEN_NOTION_FAILED,
       arg: OPEN_NOTION_FAILED_REASON,
     },
     {
       path: 'OPTIONS.DESTINATION.DEFAULT_NAME',
-      fn: UI_MESSAGES.OPTIONS.DESTINATION.DEFAULT_NAME,
+      getFn: () => UI_MESSAGES.OPTIONS.DESTINATION.DEFAULT_NAME,
       arg: DESTINATION_NAME_SUFFIX,
     },
     {
       path: 'OPTIONS.DESTINATION.APPLY_SUCCESS',
-      fn: UI_MESSAGES.OPTIONS.DESTINATION.APPLY_SUCCESS,
+      getFn: () => UI_MESSAGES.OPTIONS.DESTINATION.APPLY_SUCCESS,
       arg: DESTINATION_PROFILE_NAME,
     },
-    { path: 'POPUP.CLEAR_SUCCESS', fn: UI_MESSAGES.POPUP.CLEAR_SUCCESS, arg: CLEAR_SUCCESS_COUNT },
+    {
+      path: 'POPUP.CLEAR_SUCCESS',
+      getFn: () => UI_MESSAGES.POPUP.CLEAR_SUCCESS,
+      arg: CLEAR_SUCCESS_COUNT,
+    },
     {
       path: 'SIDEPANEL.REMAINING_COUNT',
-      fn: UI_MESSAGES.SIDEPANEL.REMAINING_COUNT,
+      getFn: () => UI_MESSAGES.SIDEPANEL.REMAINING_COUNT,
       arg: REMAINING_COUNT,
     },
-    { path: 'SIDEPANEL.PAGE_COUNT', fn: UI_MESSAGES.SIDEPANEL.PAGE_COUNT, arg: PAGE_COUNT },
+    {
+      path: 'SIDEPANEL.PAGE_COUNT',
+      getFn: () => UI_MESSAGES.SIDEPANEL.PAGE_COUNT,
+      arg: PAGE_COUNT,
+    },
     {
       path: 'SIDEPANEL.HIGHLIGHT_COUNT',
-      fn: UI_MESSAGES.SIDEPANEL.HIGHLIGHT_COUNT,
+      getFn: () => UI_MESSAGES.SIDEPANEL.HIGHLIGHT_COUNT,
       arg: HIGHLIGHT_COUNT,
     },
     {
       path: 'HIGHLIGHTS.SYNC_SUCCESS_COUNT',
-      fn: UI_MESSAGES.HIGHLIGHTS.SYNC_SUCCESS_COUNT,
+      getFn: () => UI_MESSAGES.HIGHLIGHTS.SYNC_SUCCESS_COUNT,
       arg: SYNC_SUCCESS_COUNT,
     },
     {
       path: 'STORAGE.CLEANUP_FAILED',
-      fn: UI_MESSAGES.STORAGE.CLEANUP_FAILED,
+      getFn: () => UI_MESSAGES.STORAGE.CLEANUP_FAILED,
       arg: CLEANUP_FAILED_REASON,
     },
     {
       path: 'STORAGE.HEALTH_CORRUPTED',
-      fn: UI_MESSAGES.STORAGE.HEALTH_CORRUPTED,
+      getFn: () => UI_MESSAGES.STORAGE.HEALTH_CORRUPTED,
       arg: HEALTH_CODE,
     },
     {
       path: 'STORAGE.HEALTH_LEGACY_SAVED',
-      fn: UI_MESSAGES.STORAGE.HEALTH_LEGACY_SAVED,
+      getFn: () => UI_MESSAGES.STORAGE.HEALTH_LEGACY_SAVED,
       arg: LEGACY_SAVED_COUNT,
     },
     {
       path: 'STORAGE.USAGE_TOO_LARGE',
-      fn: UI_MESSAGES.STORAGE.USAGE_TOO_LARGE,
+      getFn: () => UI_MESSAGES.STORAGE.USAGE_TOO_LARGE,
       arg: USAGE_TOO_LARGE,
     },
-    { path: 'STORAGE.USAGE_LARGE', fn: UI_MESSAGES.STORAGE.USAGE_LARGE, arg: USAGE_LARGE },
+    {
+      path: 'STORAGE.USAGE_LARGE',
+      getFn: () => UI_MESSAGES.STORAGE.USAGE_LARGE,
+      arg: USAGE_LARGE,
+    },
   ];
 
-  test.each(singleParamFunctions)('UI_MESSAGES.$path 應回傳包含參數的字串', ({ fn, arg }) => {
-    const result = fn(arg);
+  test.each(singleParamFunctions)('UI_MESSAGES.$path 應回傳包含參數的字串', ({ getFn, arg }) => {
+    const result = getFn()(arg);
     expect(typeof result).toBe('string');
     expect(result).toContain(String(arg));
   });
@@ -369,13 +411,6 @@ describe('配置模組 - messages.js 動態函式', () => {
   });
 
   describe('Leaf 模組與 UI_MESSAGES facade 相容性', () => {
-    const {
-      HIGHLIGHTER_MESSAGES,
-    } = require('../../../scripts/config/messages/highlighterMessages.js');
-    const {
-      DATA_SOURCE_MESSAGES,
-    } = require('../../../scripts/config/messages/dataSourceMessages.js');
-
     test('各個 Leaf 模組應該被凍結', () => {
       expect(Object.isFrozen(BACKGROUND_MESSAGES)).toBe(true);
       expect(Object.isFrozen(BACKGROUND_MESSAGES.POPUP)).toBe(true);
@@ -427,9 +462,9 @@ describe('配置模組 - messages.js 動態函式', () => {
       expect(UI_MESSAGES.TOOLBAR).toBe(HIGHLIGHTER_MESSAGES.TOOLBAR);
     });
 
-    test('門面 re-exports 的 error registry 欄位應與 errorMessages.js 完全一致', () => {
-      const errorMessagesModule = require('../../../scripts/config/messages/errorMessages.js');
-      const facadeModule = require('../../../scripts/config/shared/messages.js');
+    test('門面 re-exports 的 error registry 欄位應與 errorMessages.js 完全一致', async () => {
+      const errorMessagesModule = await import('../../../scripts/config/messages/errorMessages.js');
+      const facadeModule = await import('../../../scripts/config/shared/messages.js');
 
       expect(facadeModule.LOG_LEVELS).toBe(errorMessagesModule.LOG_LEVELS);
       expect(facadeModule.ERROR_TYPES).toBe(errorMessagesModule.ERROR_TYPES);
@@ -450,7 +485,7 @@ describe('配置模組 - messages.js 動態函式', () => {
         /config\/(?:shared\/(?:errorMessages|backgroundMessages|dataSourceMessages)|runtimeActions\/errorMessages|contentSafe\/(?:contentExtractionMessages|highlighterMessages|toolbarMessages))\.js/;
 
       const violations = jsFiles
-        // eslint-disable-next-line security/detect-non-literal-fs-filename
+
         .filter(file => oldPathsRegex.test(fs.readFileSync(file, 'utf8')))
         .map(file => path.relative(projectRoot, file));
 
@@ -501,27 +536,28 @@ describe('配置模組 - messages.js 動態函式', () => {
     test.each([
       {
         path: 'scripts/auth/accountLoginInitiator.js',
-        message: BACKGROUND_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED,
+        getMessage: () => BACKGROUND_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED,
         reference: 'BACKGROUND_MESSAGES.ACCOUNT.LOGIN_PAGE_OPEN_FAILED',
       },
       {
         path: 'scripts/auth/driveClient.js',
-        message: BACKGROUND_MESSAGES.DRIVE_SYNC.TRANSIENT_AUTH_ERROR,
+        getMessage: () => BACKGROUND_MESSAGES.DRIVE_SYNC.TRANSIENT_AUTH_ERROR,
         reference: 'BACKGROUND_MESSAGES.DRIVE_SYNC.TRANSIENT_AUTH_ERROR',
       },
       {
         path: 'scripts/destinations/ProfileStore.js',
-        message: BACKGROUND_MESSAGES.DESTINATION_PROFILE.DEFAULT_PROFILE_NAME,
+        getMessage: () => BACKGROUND_MESSAGES.DESTINATION_PROFILE.DEFAULT_PROFILE_NAME,
         reference: 'BACKGROUND_MESSAGES.DESTINATION_PROFILE.DEFAULT_PROFILE_NAME',
       },
       {
         path: 'scripts/destinations/ProfileStore.js',
-        message: BACKGROUND_MESSAGES.DESTINATION_PROFILE.CREATE_LIMIT_REACHED,
+        getMessage: () => BACKGROUND_MESSAGES.DESTINATION_PROFILE.CREATE_LIMIT_REACHED,
         reference: 'BACKGROUND_MESSAGES.DESTINATION_PROFILE.CREATE_LIMIT_REACHED',
       },
     ])(
       '$path 應引用 bundle-safe message leaf 而不是直接內嵌 "$message"',
-      ({ path: filePath, message, reference }) => {
+      ({ path: filePath, getMessage, reference }) => {
+        const message = getMessage();
         const source = readProjectSource(filePath);
         expect(source).toContain(reference);
         expect(source).not.toContain(`'${message}'`);
