@@ -2,15 +2,49 @@
  * @jest-environment node
  */
 
-import {
-  normalizeUrl,
-  computeStableUrl,
-  resolveStorageUrl,
-  buildStableUrlFromNextData,
-  hasSameOrigin,
-  isRootUrl,
-  isSafeStableUrl,
-} from '../../../scripts/utils/urlUtils.js';
+const { createLoggerMock } = require('../../helpers/loggerMock.cjs');
+
+const originalLogger = globalThis.Logger;
+const loggerMock = createLoggerMock();
+
+globalThis.Logger = loggerMock;
+
+let normalizeUrl;
+let computeStableUrl;
+let resolveStorageUrl;
+let buildStableUrlFromNextData;
+let hasSameOrigin;
+let isRootUrl;
+let isSafeStableUrl;
+
+beforeAll(async () => {
+  ({
+    normalizeUrl,
+    computeStableUrl,
+    resolveStorageUrl,
+    buildStableUrlFromNextData,
+    hasSameOrigin,
+    isRootUrl,
+    isSafeStableUrl,
+  } = await import('../../../scripts/utils/urlUtils.js'));
+});
+
+beforeEach(() => {
+  Object.values(loggerMock).forEach(value => {
+    if (jest.isMockFunction(value)) {
+      value.mockClear();
+    }
+  });
+  globalThis.Logger = loggerMock;
+});
+
+afterAll(() => {
+  if (originalLogger === undefined) {
+    delete globalThis.Logger;
+  } else {
+    globalThis.Logger = originalLogger;
+  }
+});
 
 describe('urlUtils', () => {
   describe('computeStableUrl', () => {
@@ -295,17 +329,19 @@ describe('urlUtils', () => {
         expect(buildStableUrlFromNextData(routeInfo, 'not-a-url')).toBeNull();
       });
 
-      it('應該拒絕相對 originalUrl 且不記錄錯誤', () => {
+      it('應該拒絕相對 originalUrl 且不記錄錯誤', async () => {
         const routeInfo = { page: '/[id]/[slug]', query: { id: '1', slug: 'test' } };
         const originalSelf = globalThis.self;
 
         try {
           globalThis.self = globalThis;
           globalThis.Logger.error.mockClear();
-          jest.resetModules();
-          const {
-            buildStableUrlFromNextData: buildStableUrlWithLogger,
-          } = require('../../../scripts/utils/urlUtils.js');
+          let buildStableUrlWithLogger;
+
+          await jest.isolateModulesAsync(async () => {
+            ({ buildStableUrlFromNextData: buildStableUrlWithLogger } =
+              await import('../../../scripts/utils/urlUtils.js'));
+          });
 
           expect(buildStableUrlWithLogger(routeInfo, '/news/1/test')).toBeNull();
           expect(globalThis.Logger.error).not.toHaveBeenCalledWith(
@@ -318,7 +354,6 @@ describe('urlUtils', () => {
           } else {
             globalThis.self = originalSelf;
           }
-          jest.resetModules();
         }
       });
     });
