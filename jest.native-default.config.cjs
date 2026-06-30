@@ -56,7 +56,6 @@ module.exports = {
     '<rootDir>/tests/unit/scripts/package-extension.test.mjs',
     '<rootDir>/tests/unit/scripts/postinstall.test.js',
     '<rootDir>/tests/unit/scripts/report-native-esm-scope-parity.test.mjs',
-    '<rootDir>/tests/unit/scripts/report-native-esm-threshold-simulation.test.mjs',
     '<rootDir>/tests/unit/utils.dateFormat.test.js',
     '<rootDir>/tests/unit/utils/chrome-mock.test.js',
     '<rootDir>/tests/unit/utils/css-color-mock-shape.test.js',
