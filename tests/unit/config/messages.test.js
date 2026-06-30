@@ -555,7 +555,7 @@ describe('配置模組 - messages.js 動態函式', () => {
         reference: 'BACKGROUND_MESSAGES.DESTINATION_PROFILE.CREATE_LIMIT_REACHED',
       },
     ])(
-      '$path 應引用 bundle-safe message leaf 而不是直接內嵌 "$message"',
+      '$path 應引用 bundle-safe message leaf 而不是直接內嵌 "$reference"',
       ({ path: filePath, getMessage, reference }) => {
         const message = getMessage();
         const source = readProjectSource(filePath);
