@@ -9,6 +9,8 @@ const require = createRequire(import.meta.url);
 const rootDir = path.resolve(__dirname, '../../..');
 const activeWorkflowDir = path.join(rootDir, '.github/workflows');
 const activeSonarWorkflow = path.join(activeWorkflowDir, 'sonarcloud.yml');
+const incumbentJestTestFilePattern = String.raw`^tests/(unit|contract|integration)/.*\.(test|spec)\.js$`;
+const anyJestTestFilePattern = String.raw`^tests/.*\.(test|spec)\.(js|mjs)$`;
 
 function readWorkflow(relativePath) {
   return fs.readFileSync(path.join(activeWorkflowDir, relativePath), 'utf8');
@@ -289,13 +291,17 @@ describe('CI policy contract', () => {
     const relatedTestsStep = getWorkflowStepBlock(workflowSource, 'Jest related tests');
 
     expect(relatedTestsStep).toContain(
-      String.raw`INCUMBENT_TEST_FILES=$(echo "$CANDIDATE_FILES" | grep -E '^tests/(unit|contract|integration)/.*\.(test|spec)\.js$' || true)`
+      'INCUMBENT_TEST_FILES=$(echo "$CANDIDATE_FILES" | grep -E \'' +
+        incumbentJestTestFilePattern +
+        "' || true)"
     );
     expect(relatedTestsStep).toContain(
       'SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -E \'^(scripts|pages)/\' || true)'
     );
     expect(relatedTestsStep).not.toContain(
-      String.raw`SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -v -E '^tests/.*\.(test|spec)\.(js|mjs)$' || true)`
+      'SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -v -E \'' +
+        anyJestTestFilePattern +
+        "' || true)"
     );
   });
 });
