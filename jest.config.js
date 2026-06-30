@@ -137,7 +137,7 @@ module.exports = {
 
   // 防止測試掛起
   // forceExit: false 讓掛起問題暴露出來,而非被掩蓋
-  // detectOpenHandles: false 為速度優化;遇到掛起時用 npm run test:ci:incumbent -- --detectOpenHandles 診斷
+  // detectOpenHandles: false 為速度優化;遇到掛起時用 npm test -- --detectOpenHandles 診斷
   forceExit: false,
   detectOpenHandles: false,
 

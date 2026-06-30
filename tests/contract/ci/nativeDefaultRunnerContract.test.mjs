@@ -8,6 +8,15 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '../../..');
 const nativeDefaultConfigPath = path.join(rootDir, 'jest.native-default.config.cjs');
 const require = createRequire(import.meta.url);
+const retiredIncumbentCoverageScript = 'test:coverage:' + 'incumbent';
+const retiredIncumbentCiScript = 'test:ci:' + 'incumbent';
+const retiredThresholdSimulationScript = ['test:coverage:native-esm', 'threshold-simulation'].join(
+  ':'
+);
+const retiredThresholdSimulationTestFile = [
+  'report-native-esm',
+  'threshold-simulation.test.mjs',
+].join('-');
 
 const phase3NativeDefaultCohort = [
   '<rootDir>/tests/native-esm/background/handlers/backgroundHandlers.native-esm.test.mjs',
@@ -40,10 +49,19 @@ const phase3DPolicyLifecycleCohort = [
   '<rootDir>/tests/unit/scripts/package-extension.test.mjs',
   '<rootDir>/tests/unit/scripts/postinstall.test.js',
   '<rootDir>/tests/unit/scripts/report-native-esm-scope-parity.test.mjs',
-  '<rootDir>/tests/unit/scripts/report-native-esm-threshold-simulation.test.mjs',
   '<rootDir>/tests/unit/utils.dateFormat.test.js',
   '<rootDir>/tests/unit/utils/chrome-mock.test.js',
   '<rootDir>/tests/unit/utils/css-color-mock-shape.test.js',
+];
+
+const retiredIncumbentCoverageSurfaces = [
+  retiredIncumbentCoverageScript,
+  retiredIncumbentCiScript,
+  retiredThresholdSimulationScript,
+];
+
+const retiredThresholdSimulationSuites = [
+  `<rootDir>/tests/unit/scripts/${retiredThresholdSimulationTestFile}`,
 ];
 
 const phase2ProbePassingNativeDefaultCohort = [
@@ -105,6 +123,9 @@ describe('native default Jest runner contract', () => {
     expect(scripts['test:coverage:native-esm']).toContain(
       'jest --config jest.native-esm.config.cjs --ci --coverage'
     );
+    for (const retiredScriptName of retiredIncumbentCoverageSurfaces) {
+      expect(scripts).not.toHaveProperty(retiredScriptName);
+    }
   });
 
   test('native blocker classifier is diagnostic-only and writes under native-default coverage artifacts', () => {
@@ -144,6 +165,9 @@ describe('native default Jest runner contract', () => {
     );
     expect(nativeDefaultConfig.testMatch).toEqual(
       expect.not.arrayContaining(rootCommonJsCandidateProbes)
+    );
+    expect(nativeDefaultConfig.testMatch).toEqual(
+      expect.not.arrayContaining(retiredThresholdSimulationSuites)
     );
   });
 
