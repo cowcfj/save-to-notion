@@ -169,6 +169,18 @@ describe('CI policy contract', () => {
     });
   });
 
+  test('Jest open-handle troubleshooting guidance points to an existing script', () => {
+    const scripts = readRootJson('package.json').scripts;
+    const incumbentJestConfig = readRootText('jest.config.js');
+
+    expect(scripts).not.toHaveProperty('test:ci:diagnostic');
+    expect(scripts).toHaveProperty('test:ci:incumbent');
+    expect(incumbentJestConfig).not.toContain('test:ci:diagnostic');
+    expect(incumbentJestConfig).toContain(
+      'npm run test:ci:incumbent -- --detectOpenHandles'
+    );
+  });
+
   test('native ESM parity flag is retired after single-upload cutover', () => {
     const codecovConfig = readRootText('codecov.yml');
 
