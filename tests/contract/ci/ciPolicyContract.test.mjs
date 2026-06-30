@@ -271,4 +271,19 @@ describe('CI policy contract', () => {
     expect(relatedTestsStep).not.toContain('Running changed native-default Jest test files:');
     expect(relatedTestsStep).not.toContain('Running related tests for changed source files:');
   });
+
+  test('CI related-test 執行器不會把 e2e helper 丟進 Jest related tests', () => {
+    const workflowSource = readWorkflow('ci.yml');
+    const relatedTestsStep = getWorkflowStepBlock(workflowSource, 'Jest related tests');
+
+    expect(relatedTestsStep).toContain(
+      'INCUMBENT_TEST_FILES=$(echo "$CANDIDATE_FILES" | grep -E \'^tests/(unit|contract|integration)/.*\\.(test|spec)\\.js$\' || true)'
+    );
+    expect(relatedTestsStep).toContain(
+      'SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -E \'^(scripts|pages)/\' || true)'
+    );
+    expect(relatedTestsStep).not.toContain(
+      'SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -v -E \'^tests/.*\\.(test|spec)\\.(js|mjs)$\' || true)'
+    );
+  });
 });
