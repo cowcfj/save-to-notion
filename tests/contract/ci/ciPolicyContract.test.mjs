@@ -169,6 +169,18 @@ describe('CI policy contract', () => {
     });
   });
 
+  test('Jest open-handle troubleshooting guidance points to an existing script', () => {
+    const scripts = readRootJson('package.json').scripts;
+    const incumbentJestConfig = readRootText('jest.config.js');
+
+    expect(scripts).not.toHaveProperty('test:ci:diagnostic');
+    expect(scripts).toHaveProperty('test:ci:incumbent');
+    expect(incumbentJestConfig).not.toContain('test:ci:diagnostic');
+    expect(incumbentJestConfig).toContain(
+      'npm run test:ci:incumbent -- --detectOpenHandles'
+    );
+  });
+
   test('native ESM parity flag is retired after single-upload cutover', () => {
     const codecovConfig = readRootText('codecov.yml');
 
@@ -270,5 +282,20 @@ describe('CI policy contract', () => {
     expect(relatedTestsStep).not.toContain('Running changed incumbent Jest test files:');
     expect(relatedTestsStep).not.toContain('Running changed native-default Jest test files:');
     expect(relatedTestsStep).not.toContain('Running related tests for changed source files:');
+  });
+
+  test('CI related-test 執行器不會把 e2e helper 丟進 Jest related tests', () => {
+    const workflowSource = readWorkflow('ci.yml');
+    const relatedTestsStep = getWorkflowStepBlock(workflowSource, 'Jest related tests');
+
+    expect(relatedTestsStep).toContain(
+      'INCUMBENT_TEST_FILES=$(echo "$CANDIDATE_FILES" | grep -E \'^tests/(unit|contract|integration)/.*\\.(test|spec)\\.js$\' || true)'
+    );
+    expect(relatedTestsStep).toContain(
+      'SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -E \'^(scripts|pages)/\' || true)'
+    );
+    expect(relatedTestsStep).not.toContain(
+      'SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -v -E \'^tests/.*\\.(test|spec)\\.(js|mjs)$\' || true)'
+    );
   });
 });
