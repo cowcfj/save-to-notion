@@ -202,16 +202,33 @@ jobs:
           # 取得所有變更檔案
           CHANGED_FILES=$(git diff --name-only "$BASE_SHA" HEAD -- scripts pages tests jest.config.js 'jest.config.*.js' package.json package-lock.json)
 
-          # 過濾掉配置檔案（這些檔案無法用 --findRelatedTests）
-          TEST_FILES=$(echo "$CHANGED_FILES" | grep -v -E '^(package\.json|package-lock\.json|jest\.config(\..*)?\.js)$' || true)
+          # 配置檔案無法用 --findRelatedTests；測試檔要直接 run-by-path。
+          CANDIDATE_FILES=$(echo "$CHANGED_FILES" | grep -v -E '^(package\.json|package-lock\.json|jest\.config(\..*)?\.js)$' || true)
+          INCUMBENT_TEST_FILES=$(echo "$CANDIDATE_FILES" | grep -E '^tests/.*\.(test|spec)\.js$' || true)
+          NATIVE_TEST_FILES=$(echo "$CANDIDATE_FILES" | grep -E '^tests/.*\.(test|spec)\.mjs$' || true)
+          SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -v -E '^tests/.*\.(test|spec)\.(js|mjs)$' || true)
 
-          if [ -n "$TEST_FILES" ]; then
-            echo "Running related tests for changed source files:"
-            echo "$TEST_FILES"
-            echo "$TEST_FILES" | xargs npx jest --config jest.config.js --ci --findRelatedTests --maxWorkers=2
-          else
+          if [ -z "$SOURCE_FILES" ] && [ -z "$INCUMBENT_TEST_FILES" ] && [ -z "$NATIVE_TEST_FILES" ]; then
             echo "::notice::Only config files changed, running smoke test instead of related tests"
             npm test -- --listTests
+          fi
+
+          if [ -n "$INCUMBENT_TEST_FILES" ]; then
+            echo "Running changed incumbent Jest test files:"
+            echo "$INCUMBENT_TEST_FILES"
+            echo "$INCUMBENT_TEST_FILES" | xargs npx jest --config jest.config.js --ci --runTestsByPath --maxWorkers=2
+          fi
+
+          if [ -n "$NATIVE_TEST_FILES" ]; then
+            echo "Running changed native-default Jest test files:"
+            echo "$NATIVE_TEST_FILES"
+            echo "$NATIVE_TEST_FILES" | NODE_OPTIONS=--experimental-vm-modules xargs npx jest --config jest.native-default.config.cjs --ci --runTestsByPath --maxWorkers=2
+          fi
+
+          if [ -n "$SOURCE_FILES" ]; then
+            echo "Running related tests for changed source files:"
+            echo "$SOURCE_FILES"
+            echo "$SOURCE_FILES" | xargs npx jest --config jest.config.js --ci --findRelatedTests --maxWorkers=2
           fi
 
       - name: Jest config-change smoke suite

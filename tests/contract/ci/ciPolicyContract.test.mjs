@@ -232,4 +232,25 @@ describe('CI policy contract', () => {
     });
     expect(relatedTestsStep).toContain(String.raw`jest\.config(\..*)?\.js`);
   });
+
+  test('CI related-test runner executes changed test files by path before source related-test lookup', () => {
+    const workflowSource = readWorkflow('ci.yml');
+    const relatedTestsStep = getWorkflowStepBlock(workflowSource, 'Jest related tests');
+
+    expect(relatedTestsStep).toContain('SOURCE_FILES=');
+    expect(relatedTestsStep).toContain('INCUMBENT_TEST_FILES=');
+    expect(relatedTestsStep).toContain('NATIVE_TEST_FILES=');
+    expect(relatedTestsStep).toContain(
+      'xargs npx jest --config jest.config.js --ci --runTestsByPath --maxWorkers=2'
+    );
+    expect(relatedTestsStep).toContain(
+      'xargs npx jest --config jest.native-default.config.cjs --ci --runTestsByPath --maxWorkers=2'
+    );
+    expect(relatedTestsStep).toContain(
+      'xargs npx jest --config jest.config.js --ci --findRelatedTests --maxWorkers=2'
+    );
+    expect(relatedTestsStep).not.toContain(
+      'echo "$TEST_FILES" | xargs npx jest --config jest.config.js --ci --findRelatedTests --maxWorkers=2'
+    );
+  });
 });
