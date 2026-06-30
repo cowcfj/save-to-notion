@@ -158,7 +158,8 @@ function collectRequireSpecifiers(source) {
 }
 
 function isProductionRuntimeRequire(specifier) {
-  return /(?:^|\/)(?:scripts|pages)\//.test(specifier);
+  const normalizedSpecifier = normalizeRelativePath(specifier);
+  return /^(?:\.\.\/)*(?:scripts|pages)\//.test(normalizedSpecifier);
 }
 
 function isContainedCjsRequire(specifier) {

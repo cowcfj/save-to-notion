@@ -74,6 +74,14 @@ const writeClassificationFixtures = rootDir => {
   );
   writeFile(
     rootDir,
+    'tests/unit/non-root-runtime-name.test.js',
+    [
+      'const vendorPage = require("../../../vendor/pages/widget.js");',
+      'const packageScript = require("../../../third_party/scripts/tool.js");',
+    ].join('\n')
+  );
+  writeFile(
+    rootDir,
     'tests/unit/contained-cjs-require.test.js',
     'const tool = require("../../../scripts/background/utils/updateNotificationVersion.cjs");'
   );
@@ -219,6 +227,9 @@ const cjsEsmRequireProductionEsmCohort2 = [
   'tests/unit/background/processContentResult.test.js',
 ];
 
+// This live-repo cohort intentionally tracks the one retained contained-CJS suite
+// in the current classifier ledger. If it fails, inspect the suite's require()
+// calls and update the cohort only after confirming the ledger changed.
 const containedCjsRequireCohort = ['tests/unit/background/updateNotificationVersion.test.js'];
 
 const promotedNativeDefaultCohort = [
@@ -275,6 +286,11 @@ const expectClassificationRows = report => {
       expect.objectContaining({
         path: 'tests/unit/production-require.test.js',
         primaryBlocker: 'commonjs-require-production-esm',
+      }),
+      expect.objectContaining({
+        path: 'tests/unit/non-root-runtime-name.test.js',
+        primaryBlocker: 'root-commonjs-test-boundary',
+        disposition: 'defer-to-default-cutover-decision',
       }),
       expect.objectContaining({
         path: 'tests/unit/contained-cjs-require.test.js',
@@ -347,11 +363,11 @@ describe('tools/report-native-default-runner-blockers', () => {
 
     const report = buildClassificationReport(reporter, tempRoot);
 
-    expect(report.files).toHaveLength(12);
+    expect(report.files).toHaveLength(13);
     expectRootTotals(report, {
       'tests/contract': 1,
       'tests/native-esm': 2,
-      'tests/unit': 9,
+      'tests/unit': 10,
     });
     expectClassificationRows(report);
     const containedCjsRecord = report.files.find(
@@ -361,6 +377,12 @@ describe('tools/report-native-default-runner-blockers', () => {
       expect.arrayContaining(['contained-cjs-require', 'root-commonjs-test-boundary'])
     );
     expect(containedCjsRecord.signals).not.toContain('commonjs-require-production-esm');
+    const nonRootRuntimeNameRecord = report.files.find(
+      file => file.path === 'tests/unit/non-root-runtime-name.test.js'
+    );
+    expect(nonRootRuntimeNameRecord.signals).not.toEqual(
+      expect.arrayContaining(['contained-cjs-require', 'commonjs-require-production-esm'])
+    );
     const mixedRequireRecord = report.files.find(
       file => file.path === 'tests/unit/mixed-contained-and-production-require.test.js'
     );

@@ -4,12 +4,9 @@
  * 覆蓋核心功能、跨片段匹配（P0）、消歧義、邊界情況與降級安全。
  */
 
-const { createLoggerMock } = require('../../../helpers/loggerMock.cjs');
+const { installGlobalLoggerMock } = require('../../../helpers/loggerMock.cjs');
 
-const originalLogger = globalThis.Logger;
-const loggerMock = createLoggerMock();
-
-globalThis.Logger = loggerMock;
+installGlobalLoggerMock();
 
 let mergeHighlightsWithStyle;
 let findHighlightPosition;
@@ -27,23 +24,6 @@ beforeAll(async () => {
     VALID_HIGHLIGHT_COLORS,
     HIGHLIGHT_STYLE_OPTIONS,
   } = await import('../../../../scripts/background/utils/highlightStyleMerger.js'));
-});
-
-beforeEach(() => {
-  Object.values(loggerMock).forEach(value => {
-    if (jest.isMockFunction(value)) {
-      value.mockClear();
-    }
-  });
-  globalThis.Logger = loggerMock;
-});
-
-afterAll(() => {
-  if (originalLogger === undefined) {
-    delete globalThis.Logger;
-  } else {
-    globalThis.Logger = originalLogger;
-  }
 });
 
 // ============================================================================

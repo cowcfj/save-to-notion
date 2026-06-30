@@ -2,12 +2,9 @@
  * @jest-environment node
  */
 
-const { createLoggerMock } = require('../../helpers/loggerMock.cjs');
+const { installGlobalLoggerMock } = require('../../helpers/loggerMock.cjs');
 
-const originalLogger = globalThis.Logger;
-const loggerMock = createLoggerMock();
-
-globalThis.Logger = loggerMock;
+installGlobalLoggerMock();
 
 let normalizeUrl;
 let computeStableUrl;
@@ -27,23 +24,6 @@ beforeAll(async () => {
     isRootUrl,
     isSafeStableUrl,
   } = await import('../../../scripts/utils/urlUtils.js'));
-});
-
-beforeEach(() => {
-  Object.values(loggerMock).forEach(value => {
-    if (jest.isMockFunction(value)) {
-      value.mockClear();
-    }
-  });
-  globalThis.Logger = loggerMock;
-});
-
-afterAll(() => {
-  if (originalLogger === undefined) {
-    delete globalThis.Logger;
-  } else {
-    globalThis.Logger = originalLogger;
-  }
 });
 
 describe('urlUtils', () => {
