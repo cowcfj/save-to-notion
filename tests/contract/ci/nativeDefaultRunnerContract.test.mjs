@@ -62,6 +62,12 @@ const cjsEsmRequireProductionEsmCohort = [
   '<rootDir>/tests/unit/background/buildHighlightBlocks.test.js',
 ];
 
+const cjsEsmRequireProductionEsmCohort2 = [
+  '<rootDir>/tests/unit/pageComplexityDetector.node-env.test.js',
+  '<rootDir>/tests/unit/splitTextForHighlight.test.js',
+  '<rootDir>/tests/unit/background/processContentResult.test.js',
+];
+
 const rootCommonJsCandidateProbes = [
   '<rootDir>/tests/unit/background/background-state.test.js',
   '<rootDir>/tests/unit/utils/securityUtils.test.js',
@@ -133,6 +139,7 @@ describe('native default Jest runner contract', () => {
         ...phase3DPolicyLifecycleCohort,
         ...phase2ProbePassingNativeDefaultCohort,
         ...cjsEsmRequireProductionEsmCohort,
+        ...cjsEsmRequireProductionEsmCohort2,
       ])
     );
     expect(nativeDefaultConfig.testMatch).toEqual(

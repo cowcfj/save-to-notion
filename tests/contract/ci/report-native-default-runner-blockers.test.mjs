@@ -200,9 +200,16 @@ const cjsEsmRequireProductionEsmCohort = [
   'tests/unit/background/buildHighlightBlocks.test.js',
 ];
 
+const cjsEsmRequireProductionEsmCohort2 = [
+  'tests/unit/pageComplexityDetector.node-env.test.js',
+  'tests/unit/splitTextForHighlight.test.js',
+  'tests/unit/background/processContentResult.test.js',
+];
+
 const promotedNativeDefaultCohort = [
   ...phase2ProbePassingNativeDefaultCohort,
   ...cjsEsmRequireProductionEsmCohort,
+  ...cjsEsmRequireProductionEsmCohort2,
 ];
 
 const countPathsByRoot = suitePaths =>
@@ -346,7 +353,10 @@ describe('tools/report-native-default-runner-blockers', () => {
         ])
       );
     }
-    for (const suitePath of cjsEsmRequireProductionEsmCohort) {
+    for (const suitePath of [
+      ...cjsEsmRequireProductionEsmCohort,
+      ...cjsEsmRequireProductionEsmCohort2,
+    ]) {
       expect(promotedCohortReport.files).toEqual(
         expect.arrayContaining([
           expect.objectContaining({

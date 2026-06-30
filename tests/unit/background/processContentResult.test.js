@@ -2,11 +2,16 @@
  * processContentResult 單元測試
  */
 
-const { processContentResult } = require('../../../scripts/background/handlers/saveHandlers.js');
-const { CONTENT_QUALITY } = require('../../../scripts/config/shared/content.js');
-const {
-  HIGHLIGHT_STYLE_OPTIONS,
-} = require('../../../scripts/background/utils/highlightStyleMerger.js');
+let processContentResult;
+let CONTENT_QUALITY;
+let HIGHLIGHT_STYLE_OPTIONS;
+
+beforeAll(async () => {
+  ({ processContentResult } = await import('../../../scripts/background/handlers/saveHandlers.js'));
+  ({ CONTENT_QUALITY } = await import('../../../scripts/config/shared/content.js'));
+  ({ HIGHLIGHT_STYLE_OPTIONS } =
+    await import('../../../scripts/background/utils/highlightStyleMerger.js'));
+});
 
 describe('processContentResult', () => {
   it('should return default content for null input', () => {
