@@ -8,10 +8,18 @@ const harnessDirectory = path.dirname(fileURLToPath(import.meta.url));
 const backgroundEntrypointPath = fileURLToPath(
   new URL('../../../scripts/background.js', import.meta.url)
 );
+const backgroundLifecycleTestSurfacePath = fileURLToPath(
+  new URL('../../../scripts/background/backgroundLifecycleTestSurface.js', import.meta.url)
+);
 const trustedBackgroundEntrypointPath = path.resolve(
   harnessDirectory,
   '../../../scripts/background.js'
 );
+const trustedBackgroundLifecycleTestSurfacePath = path.resolve(
+  harnessDirectory,
+  '../../../scripts/background/backgroundLifecycleTestSurface.js'
+);
+let backgroundLifecycleTestSurfaceModule = null;
 
 function toHarnessImportSpecifier(absolutePath) {
   const relativePath = path.relative(harnessDirectory, absolutePath).replaceAll(path.sep, '/');
@@ -43,6 +51,18 @@ async function importLinkedModule(specifier, referencingModule) {
 
   const referencingPath = fileURLToPath(referencingModule.identifier);
   const absolutePath = path.resolve(path.dirname(referencingPath), specifier);
+  if (absolutePath === backgroundLifecycleTestSurfacePath) {
+    await resolveTrustedBackgroundLifecycleTestSurfacePath(absolutePath);
+    backgroundLifecycleTestSurfaceModule = new vm.SourceTextModule(
+      await fs.readFile(absolutePath, 'utf8'),
+      {
+        context: referencingModule.context,
+        identifier: pathToFileURL(absolutePath).href,
+      }
+    );
+    return backgroundLifecycleTestSurfaceModule;
+  }
+
   const moduleNamespace = await import(toHarnessImportSpecifier(absolutePath));
   return createSyntheticModule(
     moduleNamespace,
@@ -60,6 +80,21 @@ async function resolveTrustedBackgroundEntrypointPath(candidatePath) {
   if (candidateRealPath !== trustedRealPath) {
     throw new TypeError(
       `Refusing to evaluate untrusted background entrypoint: ${candidatePath}`
+    );
+  }
+
+  return candidateRealPath;
+}
+
+async function resolveTrustedBackgroundLifecycleTestSurfacePath(candidatePath) {
+  const [candidateRealPath, trustedRealPath] = await Promise.all([
+    fs.realpath(candidatePath),
+    fs.realpath(trustedBackgroundLifecycleTestSurfacePath),
+  ]);
+
+  if (candidateRealPath !== trustedRealPath) {
+    throw new TypeError(
+      `Refusing to evaluate untrusted background lifecycle test surface: ${candidatePath}`
     );
   }
 
@@ -160,8 +195,10 @@ function makeLoggerMock() {
 }
 
 function unwrapTestExports(moduleNamespace) {
-  if (globalThis.__backgroundLifecycleTestSurface) {
-    return globalThis.__backgroundLifecycleTestSurface;
+  const testSurface =
+    backgroundLifecycleTestSurfaceModule?.namespace?.getBackgroundLifecycleTestSurface?.();
+  if (testSurface) {
+    return testSurface;
   }
 
   if (moduleNamespace?.default !== undefined) {

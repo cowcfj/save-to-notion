@@ -10,6 +10,7 @@ import { spawnSync } from 'node:child_process';
 describe('scripts/postinstall.js', () => {
   const repoRoot = process.cwd();
   const postinstallScript = path.join(repoRoot, 'scripts/postinstall.js');
+  const postinstallTestTimeoutMs = 5000;
 
   let tempRoot;
 
@@ -42,10 +43,11 @@ describe('scripts/postinstall.js', () => {
     fs.writeFileSync(path.join(envDir, 'build.js'), content);
   }
 
-  function runPostinstall() {
-    return spawnSync(process.execPath, [postinstallScript], {
+  function runPostinstall({ spawnSyncImpl = spawnSync } = {}) {
+    return spawnSyncImpl(process.execPath, [postinstallScript], {
       cwd: tempRoot,
       encoding: 'utf8',
+      timeout: postinstallTestTimeoutMs,
     });
   }
 
@@ -55,6 +57,26 @@ describe('scripts/postinstall.js', () => {
 
   afterEach(() => {
     fs.rmSync(tempRoot, { recursive: true, force: true });
+  });
+
+  test('runPostinstall 應設定 timeout，避免 postinstall 子程序卡住時阻塞 Jest worker', () => {
+    const timeoutResult = {
+      error: Object.assign(new Error('spawnSync timed out'), { code: 'ETIMEDOUT' }),
+      signal: 'SIGTERM',
+      status: null,
+      stderr: '',
+      stdout: '',
+    };
+    const spawnSyncImpl = jest.fn(() => timeoutResult);
+
+    const result = runPostinstall({ spawnSyncImpl });
+
+    expect(spawnSyncImpl).toHaveBeenCalledWith(process.execPath, [postinstallScript], {
+      cwd: tempRoot,
+      encoding: 'utf8',
+      timeout: postinstallTestTimeoutMs,
+    });
+    expect(result).toBe(timeoutResult);
   });
 
   test('當 build.js 不存在且 template 存在時應從 template 複製並輸出成功訊息', () => {
