@@ -113,7 +113,10 @@ jest.mock('../../scripts/background/handlers/driveAlarmScheduler.js', () => ({
   setupDriveAlarm: jest.fn().mockResolvedValue(undefined),
 }));
 
-import { getBackgroundLifecycleTestSurface } from '../../scripts/background/backgroundLifecycleTestSurface.js';
+import {
+  getBackgroundLifecycleTestSurface,
+  setBackgroundLifecycleTestSurface,
+} from '../../scripts/background/backgroundLifecycleTestSurface.js';
 
 const DRIVE_ALARM_RESTORE_CALL = ['daily', { initialDelayInMinutes: 0.5 }];
 
@@ -128,6 +131,11 @@ function loadDriveAutoSyncAlarmCallback(runAutoUploadMock) {
   globalThis.chrome = {
     runtime: { onInstalled: { addListener: jest.fn() } },
     alarms: { onAlarm: { addListener: alarmsAddListener } },
+    storage: {
+      local: {
+        get: jest.fn().mockResolvedValue({}),
+      },
+    },
   };
 
   const driveAutoSyncMock = { runAutoUpload: runAutoUploadMock };
@@ -300,6 +308,28 @@ describe('Background Script Lifecycle', () => {
       });
 
       expect(driveAlarmScheduler.setupDriveAlarm).not.toHaveBeenCalled();
+    });
+
+    test('production 環境載入 background 時不應暴露 lifecycle test surface', () => {
+      const originalNodeEnv = process.env.NODE_ENV;
+      const originalSurface = getBackgroundLifecycleTestSurface();
+      const sentinelSurface = { sentinel: true };
+
+      try {
+        setBackgroundLifecycleTestSurface(sentinelSurface);
+        process.env.NODE_ENV = 'production';
+        jest.resetModules();
+        globalThis.chrome = createDriveAlarmStartupChromeMock({ frequency: 'off' });
+        globalThis.Logger = mockLogger;
+
+        require('../../scripts/background.js');
+
+        expect(getBackgroundLifecycleTestSurface()).toBe(sentinelSurface);
+      } finally {
+        process.env.NODE_ENV = originalNodeEnv;
+        setBackgroundLifecycleTestSurface(originalSurface);
+        jest.resetModules();
+      }
     });
   });
 
@@ -647,6 +677,16 @@ describe('Background Script Lifecycle', () => {
       expect(mockLogger.error).toHaveBeenCalledWith(
         '[Alarm] Drive 自動同步失敗',
         expect.objectContaining({ reason: 'auto upload broke' })
+      );
+    });
+
+    it('loads alarm callback without startup recovery warning from incomplete chrome mock', async () => {
+      loadDriveAutoSyncAlarmCallback(jest.fn().mockResolvedValue());
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(mockLogger.warn).not.toHaveBeenCalledWith(
+        '[Background] ensureDriveAutoSyncAlarm failed',
+        expect.anything()
       );
     });
   });

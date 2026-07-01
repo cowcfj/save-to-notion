@@ -166,25 +166,29 @@ const actionHandlers = {
 
 messageHandler.registerAll(actionHandlers);
 
+const isNodeTestEnvironment = typeof process !== 'undefined' && process.env?.NODE_ENV === 'test';
+
 // TEST_EXPOSURE_START
 // Expose handlers for E2E testing (Development/Test only)
 if (globalThis.self !== undefined) {
   globalThis.actionHandlers = actionHandlers;
 }
-setBackgroundLifecycleTestSurface({
-  storageService,
-  notionService,
-  injectionService,
-  pageContentService,
-  tabService,
-  accountAuthHandler,
-  messageHandler,
-  actionHandlers,
-  handleExtensionUpdate,
-  handleExtensionInstall,
-  shouldShowUpdateNotification,
-  showUpdateNotification,
-});
+if (isNodeTestEnvironment) {
+  setBackgroundLifecycleTestSurface({
+    storageService,
+    notionService,
+    injectionService,
+    pageContentService,
+    tabService,
+    accountAuthHandler,
+    messageHandler,
+    actionHandlers,
+    handleExtensionUpdate,
+    handleExtensionInstall,
+    shouldShowUpdateNotification,
+    showUpdateNotification,
+  });
+}
 // TEST_EXPOSURE_END
 
 // ==========================================
