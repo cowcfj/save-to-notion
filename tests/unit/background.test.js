@@ -115,9 +115,30 @@ jest.mock('../../scripts/background/handlers/driveAlarmScheduler.js', () => ({
 
 import { getBackgroundLifecycleTestSurface } from '../../scripts/background/backgroundLifecycleTestSurface.js';
 
+const DRIVE_ALARM_RESTORE_CALL = ['daily', { initialDelayInMinutes: 0.5 }];
+
 function loadBackgroundLifecycleTestSurface() {
   require('../../scripts/background.js');
   return getBackgroundLifecycleTestSurface();
+}
+
+function loadDriveAutoSyncAlarmCallback(runAutoUploadMock) {
+  jest.resetModules();
+  const alarmsAddListener = jest.fn();
+  globalThis.chrome = {
+    runtime: { onInstalled: { addListener: jest.fn() } },
+    alarms: { onAlarm: { addListener: alarmsAddListener } },
+  };
+
+  const driveAutoSyncMock = { runAutoUpload: runAutoUploadMock };
+  jest.doMock('../../scripts/background/handlers/driveAutoSync.js', () => driveAutoSyncMock);
+
+  require('../../scripts/background.js');
+
+  return {
+    alarmCallback: alarmsAddListener.mock.calls[0][0],
+    driveAutoSyncMock,
+  };
 }
 
 function createDriveAlarmStartupChromeMock({ frequency = 'daily', alarm = null } = {}) {
@@ -171,6 +192,17 @@ const { shouldShowUpdateNotification, handleExtensionUpdate, handleExtensionInst
 
 describe('Background Script Lifecycle', () => {
   let mockChrome;
+
+  async function handleMinorVersionUpdate(setupWindowCreate) {
+    mockChrome.runtime.getManifest.mockReturnValue({ version: '2.8.0' });
+    setupWindowCreate(mockChrome.windows.create);
+    await handleExtensionUpdate('2.7.0');
+  }
+
+  function loadOnInstalledCallback() {
+    require('../../scripts/background.js');
+    return mockChrome.runtime.onInstalled.addListener.mock.calls[0][0];
+  }
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -249,12 +281,16 @@ describe('Background Script Lifecycle', () => {
       expect(mockAccountAuthHandler.setupListeners).toHaveBeenCalledTimes(1);
     });
 
-    test('alarm 缺失且 frequency 啟用時，應以短首延遲恢復排程', async () => {
-      const driveAlarmScheduler = await loadBackgroundWithDriveAlarmStartup();
+    test.each([
+      ['alarm 缺失且 frequency 啟用時', undefined],
+      [
+        'alarm 存在但 periodInMinutes 與 frequency 不一致時',
+        { name: 'drive-auto-sync', periodInMinutes: 10_080 },
+      ],
+    ])('%s，應以短首延遲恢復排程', async (_caseName, alarm) => {
+      const driveAlarmScheduler = await loadBackgroundWithDriveAlarmStartup({ alarm });
 
-      expect(driveAlarmScheduler.setupDriveAlarm).toHaveBeenCalledWith('daily', {
-        initialDelayInMinutes: 0.5,
-      });
+      expect(driveAlarmScheduler.setupDriveAlarm).toHaveBeenCalledWith(...DRIVE_ALARM_RESTORE_CALL);
     });
 
     test('alarm 已存在時，不應重建排程', async () => {
@@ -265,29 +301,11 @@ describe('Background Script Lifecycle', () => {
 
       expect(driveAlarmScheduler.setupDriveAlarm).not.toHaveBeenCalled();
     });
-
-    // Step 1 Failing Test：alarm 漂移場景（Step 3 實作前預期 FAIL）
-    test('alarm 存在但 periodInMinutes 與 frequency 不一致時，應重建排程', async () => {
-      // frequency = 'daily' 期望 periodInMinutes = 1440
-      // 卻回傳 10080（weekly），代表 alarm 存在但配置漂移
-      const driveAlarmScheduler = await loadBackgroundWithDriveAlarmStartup({
-        // alarm 存在，但 periodInMinutes 是 10080（weekly），與 frequency=daily (1440) 不一致
-        alarm: { name: 'drive-auto-sync', periodInMinutes: 10_080 },
-      });
-
-      // 配置漂移：必須重建，且使用短首延遲
-      expect(driveAlarmScheduler.setupDriveAlarm).toHaveBeenCalledWith('daily', {
-        initialDelayInMinutes: 0.5,
-      });
-    });
   });
 
   describe('handleExtensionUpdate', () => {
     test('Should show notification popup for important updates', async () => {
-      mockChrome.runtime.getManifest.mockReturnValue({ version: '2.8.0' });
-      mockChrome.windows.create.mockResolvedValue({ id: 123 });
-
-      await handleExtensionUpdate('2.7.0');
+      await handleMinorVersionUpdate(createWindow => createWindow.mockResolvedValue({ id: 123 }));
 
       expect(mockChrome.windows.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -298,10 +316,9 @@ describe('Background Script Lifecycle', () => {
     });
 
     test('Should handle failure when creating window', async () => {
-      mockChrome.runtime.getManifest.mockReturnValue({ version: '2.8.0' });
-      mockChrome.windows.create.mockRejectedValue(new Error('creation failed'));
-
-      await handleExtensionUpdate('2.7.0');
+      await handleMinorVersionUpdate(createWindow =>
+        createWindow.mockRejectedValue(new Error('creation failed'))
+      );
 
       expect(mockLogger.warn).toHaveBeenCalledWith(
         expect.stringContaining('顯示更新通知失敗'),
@@ -402,10 +419,7 @@ describe('Background Script Lifecycle', () => {
     });
 
     test('Should handle install reason', () => {
-      require('../../scripts/background.js');
-
-      const addListener = mockChrome.runtime.onInstalled.addListener;
-      const callback = addListener.mock.calls[0][0]; // 取得在 background.js 註冊的 callback
+      const callback = loadOnInstalledCallback();
 
       callback({ reason: 'install' });
       expect(mockLogger.ready).toHaveBeenCalled();
@@ -416,11 +430,8 @@ describe('Background Script Lifecycle', () => {
     });
 
     test('Should handle update reason', () => {
-      require('../../scripts/background.js');
       mockChrome.runtime.getManifest.mockReturnValue({ version: '2.8.1' }); // patch update, won't trigger ui
-
-      const addListener = mockChrome.runtime.onInstalled.addListener;
-      const callback = addListener.mock.calls[0][0];
+      const callback = loadOnInstalledCallback();
 
       callback({ reason: 'update', previousVersion: '2.8.0' });
 
@@ -615,19 +626,9 @@ describe('Background Script Lifecycle', () => {
     const expectedAlarmFiredAt = new Date(scheduledTime).toISOString();
 
     it('listens to DRIVE_AUTO_SYNC_ALARM and calls runAutoUpload', async () => {
-      jest.resetModules();
-      const alarmsAddListener = jest.fn();
-      globalThis.chrome = {
-        runtime: { onInstalled: { addListener: jest.fn() } },
-        alarms: { onAlarm: { addListener: alarmsAddListener } },
-      };
-
-      const driveAutoSyncMock = { runAutoUpload: jest.fn().mockResolvedValue() };
-      jest.doMock('../../scripts/background/handlers/driveAutoSync.js', () => driveAutoSyncMock);
-
-      require('../../scripts/background.js');
-
-      const alarmCallback = alarmsAddListener.mock.calls[0][0];
+      const { alarmCallback, driveAutoSyncMock } = loadDriveAutoSyncAlarmCallback(
+        jest.fn().mockResolvedValue()
+      );
       await alarmCallback({ name: 'drive-auto-sync', scheduledTime });
 
       expect(driveAutoSyncMock.runAutoUpload).toHaveBeenCalledWith({
@@ -636,21 +637,9 @@ describe('Background Script Lifecycle', () => {
     });
 
     it('logs error when runAutoUpload fails', async () => {
-      jest.resetModules();
-      const alarmsAddListener = jest.fn();
-      globalThis.chrome = {
-        runtime: { onInstalled: { addListener: jest.fn() } },
-        alarms: { onAlarm: { addListener: alarmsAddListener } },
-      };
-
-      const driveAutoSyncMock = {
-        runAutoUpload: jest.fn().mockRejectedValue(new Error('auto upload broke')),
-      };
-      jest.doMock('../../scripts/background/handlers/driveAutoSync.js', () => driveAutoSyncMock);
-
-      require('../../scripts/background.js');
-
-      const alarmCallback = alarmsAddListener.mock.calls[0][0];
+      const { alarmCallback } = loadDriveAutoSyncAlarmCallback(
+        jest.fn().mockRejectedValue(new Error('auto upload broke'))
+      );
       await alarmCallback({ name: 'drive-auto-sync', scheduledTime });
       // wait for promise rejection to propagate
       await new Promise(resolve => setTimeout(resolve, 0));
