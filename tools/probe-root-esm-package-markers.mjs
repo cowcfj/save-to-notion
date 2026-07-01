@@ -14,7 +14,7 @@ export const groupMarkersByScope = core.groupMarkersByScope;
 export const hashDirectoryTree = core.hashDirectoryTree;
 export const runProbe = core.runProbe;
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     process.exitCode = core.main(process.argv.slice(2));
   } catch (error) {

@@ -8,9 +8,8 @@ const { spawnSync } = require('node:child_process');
 
 const MARKER_ROOTS = Object.freeze(['pages', 'scripts', 'tests']);
 const PRODUCTION_COMMANDS = Object.freeze(['npm run build:prod', 'npm run package:local-unpacked']);
-const TEST_COMMANDS = Object.freeze([
-  'npm run test:native:blockers',
-]);
+const TEST_COMMANDS = Object.freeze(['npm run test:native:blockers']);
+const COMMAND_TIMEOUT_MS = 10 * 60 * 1000;
 const COPY_EXCLUDES = Object.freeze([
   '.git',
   '.codegraph',
@@ -25,7 +24,9 @@ const VOLATILE_NAMES = Object.freeze(['.DS_Store']);
 
 const VARIANT_BUILDERS = Object.freeze({
   'pages-only': markers =>
-    markers.filter(marker => marker.scope === 'production' && marker.relativePath.startsWith('pages/')),
+    markers.filter(
+      marker => marker.scope === 'production' && marker.relativePath.startsWith('pages/')
+    ),
   'scripts-production-without-performance': markers =>
     markers.filter(
       marker =>
@@ -59,9 +60,9 @@ function listFilesRecursive(rootDir) {
 
   const result = [];
   const visit = directory => {
-    const entries = fs.readdirSync(directory, { withFileTypes: true }).sort((left, right) =>
-      left.name.localeCompare(right.name)
-    );
+    const entries = fs
+      .readdirSync(directory, { withFileTypes: true })
+      .sort((left, right) => left.name.localeCompare(right.name));
 
     for (const entry of entries) {
       const absolutePath = path.join(directory, entry.name);
@@ -182,7 +183,9 @@ function buildProbeSummary({
 }) {
   const groups = groupMarkersByScope(markers);
   const commandStatus = commands.every(command => command.status === 0) ? 'pass' : 'fail';
-  const comparisonStatus = comparisons.every(comparison => comparison.status === 'match') ? 'pass' : 'fail';
+  const comparisonStatus = comparisons.every(comparison => comparison.status === 'match')
+    ? 'pass'
+    : 'fail';
 
   return {
     schemaVersion: 1,
@@ -204,7 +207,10 @@ function buildProbeSummary({
     comparisons,
     gates: [
       { id: 'commands-pass', status: commandStatus },
-      { id: 'output-equivalence', status: comparisons.length === 0 ? 'not_evaluated' : comparisonStatus },
+      {
+        id: 'output-equivalence',
+        status: comparisons.length === 0 ? 'not_evaluated' : comparisonStatus,
+      },
     ],
     variants,
   };
@@ -228,8 +234,8 @@ function shouldCopySourcePath(sourceRoot, src) {
   if (!relativePath) {
     return true;
   }
-  const [topLevel] = relativePath.split('/');
-  return !COPY_EXCLUDES.includes(topLevel);
+  const segments = relativePath.split('/');
+  return !segments.some(segment => COPY_EXCLUDES.includes(segment));
 }
 
 function copyRepository(sourceRoot, targetRoot) {
@@ -263,25 +269,29 @@ function runCommand(command, cwd) {
     shell: true,
     encoding: 'utf8',
     maxBuffer: 20 * 1024 * 1024,
+    timeout: COMMAND_TIMEOUT_MS,
     env: { ...process.env, CI: process.env.CI ?? '1' },
   });
+  const timedOut = result.error?.code === 'ETIMEDOUT';
+  const stderr = [result.stderr, timedOut ? result.error.message : ''].filter(Boolean).join('\n');
 
   return {
     label: command,
     command,
-    status: result.status ?? 1,
+    status: timedOut ? 124 : (result.status ?? 1),
     signal: result.signal,
     startedAt,
     finishedAt: new Date().toISOString(),
     stdoutTail: tailLines(result.stdout),
-    stderrTail: tailLines(result.stderr),
+    stderrTail: tailLines(stderr),
   };
 }
 
 function compareOutputTrees(baselineRoot, probeRoot, relativePath) {
   const baselineHash = hashDirectoryTree(path.join(baselineRoot, relativePath));
   const probeHash = hashDirectoryTree(path.join(probeRoot, relativePath));
-  const status = baselineHash.digest && baselineHash.digest === probeHash.digest ? 'match' : 'drift';
+  const status =
+    baselineHash.digest && baselineHash.digest === probeHash.digest ? 'match' : 'drift';
 
   return {
     path: relativePath,
@@ -300,15 +310,35 @@ function runCommands(commands, cwd, labelPrefix) {
   }));
 }
 
-function buildVariantRun({ sourceRoot, tempRoot, variantName, markers, commands, compareOutputs }) {
-  const baselineRoot = path.join(tempRoot, `${variantName}-baseline`);
+function buildSharedBaselineRun({ sourceRoot, tempRoot, commands }) {
+  const baselineRoot = path.join(tempRoot, 'production-baseline');
+  createProbeCopy(sourceRoot, baselineRoot, []);
+  return {
+    root: baselineRoot,
+    commands: runCommands(commands, baselineRoot, 'production baseline'),
+  };
+}
+
+function buildVariantRun({
+  sourceRoot,
+  tempRoot,
+  variantName,
+  markers,
+  commands,
+  compareOutputs,
+  sharedBaselineRun = null,
+}) {
+  const baselineRoot = sharedBaselineRun?.root ?? path.join(tempRoot, `${variantName}-baseline`);
   const probeRoot = path.join(tempRoot, `${variantName}-probe`);
   const removedMarkers = VARIANT_BUILDERS[variantName](markers);
 
-  createProbeCopy(sourceRoot, baselineRoot, []);
+  if (!sharedBaselineRun) {
+    createProbeCopy(sourceRoot, baselineRoot, []);
+  }
   createProbeCopy(sourceRoot, probeRoot, removedMarkers);
 
-  const baselineCommands = runCommands(commands, baselineRoot, `${variantName} baseline`);
+  const baselineCommands =
+    sharedBaselineRun?.commands ?? runCommands(commands, baselineRoot, `${variantName} baseline`);
   const probeCommands = runCommands(commands, probeRoot, `${variantName} probe`);
   const comparisons = compareOutputs
     ? ['dist', '.tmp/extension-unpacked'].map(relativePath =>
@@ -327,22 +357,22 @@ function buildVariantRun({ sourceRoot, tempRoot, variantName, markers, commands,
 
 function formatMarkdownSummary(summary) {
   const lines = [
-    `# Root ESM Package Marker Probe: ${summary.variant}`,
+    `# Root ESM package marker 探測：${summary.variant}`,
     '',
-    `- Generated: ${summary.generatedAt}`,
-    `- Production markers: ${summary.totals.productionMarkers}`,
-    `- Test markers: ${summary.totals.testMarkers}`,
-    `- Removed markers in selected variant(s): ${summary.totals.removedMarkers}`,
+    `- 產生時間：${summary.generatedAt}`,
+    `- production marker 數：${summary.totals.productionMarkers}`,
+    `- test marker 數：${summary.totals.testMarkers}`,
+    `- 已選 variant 移除 marker 數：${summary.totals.removedMarkers}`,
     '',
-    '## Gates',
+    '## 關卡',
     '',
-    '| Gate | Status |',
+    '| 關卡 | 狀態 |',
     '| --- | --- |',
     ...summary.gates.map(gate => `| ${gate.id} | ${gate.status} |`),
     '',
-    '## Marker Dispositions',
+    '## Marker 處置',
     '',
-    '| Marker | Scope | Disposition |',
+    '| Marker | 範圍 | 處置 |',
     '| --- | --- | --- |',
     ...summary.markers.map(
       marker => `| \`${marker.relativePath}\` | ${marker.scope} | ${marker.disposition} |`
@@ -350,11 +380,21 @@ function formatMarkdownSummary(summary) {
   ];
 
   if (summary.variants.length > 0) {
-    lines.push('', '## Variant Results', '', '| Variant | Removed markers | Command failures | Drift |', '| --- | ---: | ---: | ---: |');
+    lines.push(
+      '',
+      '## Variant 結果',
+      '',
+      '| Variant | 移除 markers | 命令失敗數 | 輸出漂移數 |',
+      '| --- | ---: | ---: | ---: |'
+    );
     for (const variant of summary.variants) {
       const commandFailures = variant.commands.filter(command => command.status !== 0).length;
-      const driftCount = variant.comparisons.filter(comparison => comparison.status !== 'match').length;
-      lines.push(`| ${variant.name} | ${variant.removedMarkers.length} | ${commandFailures} | ${driftCount} |`);
+      const driftCount = variant.comparisons.filter(
+        comparison => comparison.status !== 'match'
+      ).length;
+      lines.push(
+        `| ${variant.name} | ${variant.removedMarkers.length} | ${commandFailures} | ${driftCount} |`
+      );
     }
   }
 
@@ -368,11 +408,16 @@ function parseArgs(argv) {
     summaryJson: '',
     summaryMd: '',
     help: false,
+    keepTemp: false,
   };
 
   for (const arg of argv) {
     if (arg === '--help' || arg === '-h') {
       options.help = true;
+      continue;
+    }
+    if (arg === '--keep-temp') {
+      options.keepTemp = true;
       continue;
     }
     const [key, ...valueParts] = arg.split('=');
@@ -388,22 +433,26 @@ function parseArgs(argv) {
     }
   }
 
+  if (!options.help && !options.variant) {
+    throw new Error('缺少必要參數：--variant');
+  }
+
   return options;
 }
 
 function printHelp() {
-  console.log(`Usage: node tools/probe-root-esm-package-markers.mjs --variant=<variant> [--summary-json=path] [--summary-md=path]
+  console.log(`用法：node tools/probe-root-esm-package-markers.mjs --variant=<variant> [--summary-json=path] [--summary-md=path] [--keep-temp]
 
-Variants:
-  production                         Run pages-only, scripts-production-without-performance, scripts-performance-only, and scripts-and-pages.
-  tests                              Remove tests/** package markers in a root-ESM probe copy.
-  pages-only                         Remove pages/** package markers only.
+Variants：
+  production                         執行 pages-only、scripts-production-without-performance、scripts-performance-only 與 scripts-and-pages。
+  tests                              在 root ESM probe copy 中移除 tests/** package markers。
+  pages-only                         只移除 pages/** package markers。
   scripts-production-without-performance
   scripts-performance-only
   scripts-and-pages
 
-The tool copies the repository to a temp directory, sets root package.json type to module only in the copies,
-removes selected nested package markers only in probe copies, runs the relevant commands, and compares output hashes.`);
+此工具會將 repository 複製到暫存目錄，只在 copy 內把 root package.json type 設為 module，
+只在 probe copy 內移除選定的 nested package markers，執行相關命令，並比對輸出 hash。`);
 }
 
 function writeSummaries(summary, options) {
@@ -438,35 +487,46 @@ function runProbe(options, sourceRoot = process.cwd()) {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'root-esm-package-markers-'));
   const isTestVariant = options.variant === 'tests';
   const commands = isTestVariant ? TEST_COMMANDS : PRODUCTION_COMMANDS;
-  const variantRuns = variantNames.map(variantName =>
-    buildVariantRun({
+  try {
+    const sharedBaselineRun =
+      options.variant === 'production'
+        ? buildSharedBaselineRun({ sourceRoot, tempRoot, commands })
+        : null;
+    const variantRuns = variantNames.map(variantName =>
+      buildVariantRun({
+        sourceRoot,
+        tempRoot,
+        variantName,
+        markers,
+        commands,
+        compareOutputs: !isTestVariant,
+        sharedBaselineRun,
+      })
+    );
+
+    const removedMarkers = variantRuns.flatMap(variant => variant.removedMarkers);
+    const allCommands = variantRuns.flatMap(variant => variant.commands);
+    const allComparisons = variantRuns.flatMap(variant => variant.comparisons);
+    const firstVariant = variantRuns[0] ?? {};
+    const summary = buildProbeSummary({
+      variant: options.variant,
       sourceRoot,
-      tempRoot,
-      variantName,
+      baselineRoot: firstVariant.roots?.baseline ?? '',
+      probeRoot: firstVariant.roots?.probe ?? '',
       markers,
-      commands,
-      compareOutputs: !isTestVariant,
-    })
-  );
+      removedMarkers: [...new Set(removedMarkers)].sort(),
+      commands: allCommands,
+      comparisons: allComparisons,
+      variants: variantRuns,
+    });
 
-  const removedMarkers = variantRuns.flatMap(variant => variant.removedMarkers);
-  const allCommands = variantRuns.flatMap(variant => variant.commands);
-  const allComparisons = variantRuns.flatMap(variant => variant.comparisons);
-  const firstVariant = variantRuns[0] ?? {};
-  const summary = buildProbeSummary({
-    variant: options.variant,
-    sourceRoot,
-    baselineRoot: firstVariant.roots?.baseline ?? '',
-    probeRoot: firstVariant.roots?.probe ?? '',
-    markers,
-    removedMarkers: [...new Set(removedMarkers)].sort(),
-    commands: allCommands,
-    comparisons: allComparisons,
-    variants: variantRuns,
-  });
-
-  writeSummaries(summary, options);
-  return summary;
+    writeSummaries(summary, options);
+    return summary;
+  } finally {
+    if (!options.keepTemp) {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  }
 }
 
 function main(argv = process.argv.slice(2)) {
@@ -495,5 +555,7 @@ module.exports = {
   hashDirectoryTree,
   main,
   parseArgs,
+  runCommand,
   runProbe,
+  shouldCopySourcePath,
 };
