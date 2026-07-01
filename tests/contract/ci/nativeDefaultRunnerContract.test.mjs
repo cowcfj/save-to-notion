@@ -202,7 +202,7 @@ describe('native default Jest runner contract', () => {
       '<rootDir>/tests/native-esm/native-default.after-env.mjs',
     ]);
     expect(config.moduleNameMapper).toEqual({
-      '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.js',
+      '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.cjs',
     });
     expect(config.testMatch).toEqual(
       expect.arrayContaining([

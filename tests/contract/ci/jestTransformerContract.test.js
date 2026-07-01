@@ -15,15 +15,25 @@ const JS_TS_TRANSFORM_FIXTURE_PATHS = [
 const ESM_TRANSFORM_IGNORE_PATTERNS = [
   String.raw`node_modules/(?!(jsdom|@exodus|html-encoding-sniffer|@notionhq|parse5|@jest|jest-environment-jsdom|whatwg-url|tr46|webidl-conversions|data-urls|decimal.js|punycode|entities|nwsapi|saxes|cssstyle|rrweb-cssom|symbol-tree|@asamuzakjp\/css-color)/)`,
 ];
+const EXPECTED_SETUP_FILES = ['<rootDir>/tests/presetup.cjs'];
+const EXPECTED_SETUP_FILES_AFTER_ENV = ['<rootDir>/tests/setup.cjs'];
+const EXPECTED_MODULE_NAME_MAPPER = {
+  '^chrome$': '<rootDir>/tests/mocks/chrome.cjs',
+  '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.cjs',
+};
+
+function collectJestConfigs(jestConfig) {
+  return [jestConfig, ...(jestConfig.projects || [])];
+}
 
 function collectTransformEntries(jestConfig) {
-  const configs = [jestConfig, ...(jestConfig.projects || [])];
+  const configs = collectJestConfigs(jestConfig);
 
   return configs.flatMap(config => Object.entries(config.transform || {}));
 }
 
 function collectTransformIgnorePatterns(jestConfig) {
-  const configs = [jestConfig, ...(jestConfig.projects || [])];
+  const configs = collectJestConfigs(jestConfig);
 
   return configs.map(config => config.transformIgnorePatterns);
 }
@@ -73,6 +83,25 @@ describe('Jest transformer contract', () => {
     expect(transformIgnorePatternSets).toHaveLength(3);
     transformIgnorePatternSets.forEach(patterns => {
       expect(patterns).toEqual(ESM_TRANSFORM_IGNORE_PATTERNS);
+    });
+  });
+
+  test('default Jest setup files are explicit CommonJS containment files', () => {
+    const configs = collectJestConfigs(jestConfig);
+
+    expect(configs).toHaveLength(3);
+    configs.forEach(config => {
+      expect(config.setupFiles).toEqual(EXPECTED_SETUP_FILES);
+      expect(config.setupFilesAfterEnv).toEqual(EXPECTED_SETUP_FILES_AFTER_ENV);
+    });
+  });
+
+  test('default Jest shared mock mappers are explicit CommonJS containment files', () => {
+    const configs = collectJestConfigs(jestConfig);
+
+    expect(configs).toHaveLength(3);
+    configs.forEach(config => {
+      expect(config.moduleNameMapper).toEqual(EXPECTED_MODULE_NAME_MAPPER);
     });
   });
 

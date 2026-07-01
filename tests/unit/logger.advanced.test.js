@@ -7,7 +7,7 @@
 const Logger = globalThis.Logger;
 
 if (!Logger) {
-  throw new Error('Logger 未正確載入，請確認 tests/presetup.js 設定正確');
+  throw new Error('Logger 未正確載入，請確認 tests/presetup.cjs 設定正確');
 }
 
 describe('Logger 系統進階測試', () => {

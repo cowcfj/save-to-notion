@@ -21,10 +21,10 @@ module.exports = {
   testEnvironment: 'jsdom',
 
   // 預設置文件（在模組載入前執行，用於全局 mock）
-  setupFiles: ['<rootDir>/tests/presetup.js'],
+  setupFiles: ['<rootDir>/tests/presetup.cjs'],
 
   // 測試設置文件（在模組載入後執行）
-  setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.cjs'],
 
   projects: [
     {
@@ -36,11 +36,11 @@ module.exports = {
         '<rootDir>/tests/unit/**/*.spec.js',
         '<rootDir>/tests/contract/**/*.test.js'
       ],
-      setupFiles: ['<rootDir>/tests/presetup.js'],
-      setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+      setupFiles: ['<rootDir>/tests/presetup.cjs'],
+      setupFilesAfterEnv: ['<rootDir>/tests/setup.cjs'],
       moduleNameMapper: {
-        '^chrome$': '<rootDir>/tests/mocks/chrome.js',
-        '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.js'
+        '^chrome$': '<rootDir>/tests/mocks/chrome.cjs',
+        '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.cjs'
       },
       transform: {
         '^.+\\.[tj]sx?$': SWC_JEST_TRANSFORM,
@@ -55,11 +55,11 @@ module.exports = {
         '<rootDir>/tests/integration/**/*.test.js',
         '<rootDir>/tests/integration/**/*.spec.js'
       ],
-      setupFiles: ['<rootDir>/tests/presetup.js'],
-      setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+      setupFiles: ['<rootDir>/tests/presetup.cjs'],
+      setupFilesAfterEnv: ['<rootDir>/tests/setup.cjs'],
       moduleNameMapper: {
-        '^chrome$': '<rootDir>/tests/mocks/chrome.js',
-        '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.js'
+        '^chrome$': '<rootDir>/tests/mocks/chrome.cjs',
+        '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.cjs'
       },
       transform: {
         '^.+\\.[tj]sx?$': SWC_JEST_TRANSFORM,
@@ -131,8 +131,8 @@ module.exports = {
 
   // 模組名稱映射（用於模擬 Chrome API）
   moduleNameMapper: {
-    '^chrome$': '<rootDir>/tests/mocks/chrome.js',
-    '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.js'
+    '^chrome$': '<rootDir>/tests/mocks/chrome.cjs',
+    '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.cjs'
   },
 
   // 防止測試掛起

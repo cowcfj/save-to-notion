@@ -19,7 +19,7 @@ if (globalThis.structuredClone === undefined) {
 }
 
 // 導入 Chrome API mock
-const sharedChromeMock = require('./mocks/chrome');
+const sharedChromeMock = require('./mocks/chrome.cjs');
 const sharedRuntimeSendMessage = sharedChromeMock.runtime.sendMessage;
 
 // Force Logger into dev mode for testing

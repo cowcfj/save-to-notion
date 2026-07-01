@@ -63,7 +63,7 @@ module.exports = {
   setupFiles: ['<rootDir>/tests/native-esm/native-runner.setup.mjs'],
   setupFilesAfterEnv: ['<rootDir>/tests/native-esm/native-default.after-env.mjs'],
   moduleNameMapper: {
-    '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.js',
+    '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.cjs',
   },
   cacheDirectory: '<rootDir>/.tmp/jest-cache-native-default',
   maxWorkers: 4,

@@ -16,7 +16,7 @@ jest.mock('../../scripts/utils/Logger.js', () => ({
 }));
 
 // 先設置 Chrome Mock,再導入源碼
-import '../mocks/chrome.js';
+import '../mocks/chrome.cjs';
 import Logger from '../../scripts/utils/Logger.js';
 
 // 刪除 presetup.js 設定的 mock，讓 IIFE 能正常初始化
