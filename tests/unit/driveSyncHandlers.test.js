@@ -2,7 +2,7 @@
  * Drive Sync Background Handlers Tests
  */
 
-jest.mock('../../scripts/auth/driveClient.js', () => ({
+const driveClientMockModule = {
   __esModule: true,
   uploadDriveSnapshot: jest.fn(),
   downloadDriveSnapshot: jest.fn(),
@@ -11,27 +11,52 @@ jest.mock('../../scripts/auth/driveClient.js', () => ({
   updateDriveSyncRunMetadata: jest.fn(),
   setDriveFrequency: jest.fn(),
   clearDriveDirty: jest.fn(),
-}));
+};
 
-jest.mock('../../scripts/sync/driveSnapshot.js', () => ({
+const driveSnapshotMockModule = {
   __esModule: true,
   buildUnifiedPageStateFromLocalStorage: jest.fn(),
   buildDriveSnapshot: jest.fn(),
   applyDriveSnapshotToLocalStorage: jest.fn(),
-}));
+};
 
-jest.mock('../../scripts/background/handlers/driveAlarmScheduler.js', () => ({
+const driveAlarmSchedulerMockModule = {
   __esModule: true,
   setupDriveAlarm: jest.fn(),
-}));
+};
 
-import { RUNTIME_ACTIONS } from '../../scripts/config/shared/runtimeActions.js';
-import { createDriveSyncHandlers } from '../../scripts/background/handlers/driveSyncHandlers.js';
-import * as driveClient from '../../scripts/auth/driveClient.js';
-import * as driveSnapshot from '../../scripts/sync/driveSnapshot.js';
-import * as driveAlarmScheduler from '../../scripts/background/handlers/driveAlarmScheduler.js';
-import Logger from '../../scripts/utils/Logger.js';
-import { DRIVE_SYNC_ERROR_CODES } from '../../scripts/config/extension/driveSyncErrorCodes.js';
+jest.unstable_mockModule('../../scripts/auth/driveClient.js', () => driveClientMockModule);
+jest.unstable_mockModule('../../scripts/sync/driveSnapshot.js', () => driveSnapshotMockModule);
+jest.unstable_mockModule(
+  '../../scripts/background/handlers/driveAlarmScheduler.js',
+  () => driveAlarmSchedulerMockModule
+);
+jest.doMock('../../scripts/auth/driveClient.js', () => driveClientMockModule);
+jest.doMock('../../scripts/sync/driveSnapshot.js', () => driveSnapshotMockModule);
+jest.doMock(
+  '../../scripts/background/handlers/driveAlarmScheduler.js',
+  () => driveAlarmSchedulerMockModule
+);
+
+let RUNTIME_ACTIONS;
+let createDriveSyncHandlers;
+let driveClient;
+let driveSnapshot;
+let driveAlarmScheduler;
+let Logger;
+let DRIVE_SYNC_ERROR_CODES;
+
+beforeAll(async () => {
+  ({ RUNTIME_ACTIONS } = await import('../../scripts/config/shared/runtimeActions.js'));
+  ({ createDriveSyncHandlers } =
+    await import('../../scripts/background/handlers/driveSyncHandlers.js'));
+  driveClient = await import('../../scripts/auth/driveClient.js');
+  driveSnapshot = await import('../../scripts/sync/driveSnapshot.js');
+  driveAlarmScheduler = await import('../../scripts/background/handlers/driveAlarmScheduler.js');
+  ({ default: Logger } = await import('../../scripts/utils/Logger.js'));
+  ({ DRIVE_SYNC_ERROR_CODES } =
+    await import('../../scripts/config/extension/driveSyncErrorCodes.js'));
+});
 
 describe('Drive Sync Handlers', () => {
   let handlers;
@@ -75,6 +100,7 @@ describe('Drive Sync Handlers', () => {
     driveClient.ensureDriveSyncIdentity.mockResolvedValue('installation-123');
     driveAlarmScheduler.setupDriveAlarm.mockResolvedValue();
     jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+    jest.spyOn(Logger, 'error').mockImplementation(() => {});
 
     driveSnapshot.buildUnifiedPageStateFromLocalStorage.mockResolvedValue({
       pages: new Map(),
@@ -306,48 +332,49 @@ describe('Drive Sync Handlers', () => {
     it.each([
       {
         title: 'snapshot build throws',
-        action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD,
+        getAction: () => RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD,
         arrangeFailure: () => {
           driveSnapshot.buildUnifiedPageStateFromLocalStorage.mockRejectedValue(
             new Error('build failed')
           );
         },
         metadataType: 'upload',
-        errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
-        expectedResult: {
+        getErrorCode: () => DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
+        getExpectedResult: () => ({
           success: false,
           errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
           error: 'build failed',
-        },
+        }),
       },
       {
         title: 'apply throws',
-        action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD,
+        getAction: () => RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD,
         arrangeFailure: () => {
           driveSnapshot.applyDriveSnapshotToLocalStorage.mockRejectedValue(
             new Error('apply failed')
           );
         },
         metadataType: 'download',
-        errorCode: DRIVE_SYNC_ERROR_CODES.DOWNLOAD_FAILED,
-        expectedResult: {
+        getErrorCode: () => DRIVE_SYNC_ERROR_CODES.DOWNLOAD_FAILED,
+        getExpectedResult: () => ({
           success: false,
           errorCode: DRIVE_SYNC_ERROR_CODES.DOWNLOAD_FAILED,
           error: 'apply failed',
-        },
+        }),
       },
     ])('persists failed $metadataType metadata and broadcasts when $title', async config => {
       config.arrangeFailure();
 
-      const result = await handlers[config.action]({});
+      const result = await handlers[config.getAction()]({});
+      const errorCode = config.getErrorCode();
 
       expect(driveClient.updateDriveSyncRunMetadata).toHaveBeenCalledWith({
         type: config.metadataType,
         success: false,
-        errorCode: config.errorCode,
+        errorCode,
       });
       expectDriveSyncStatusUpdateBroadcast();
-      expect(result).toEqual(config.expectedResult);
+      expect(result).toEqual(config.getExpectedResult());
     });
   });
 

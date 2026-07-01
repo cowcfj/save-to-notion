@@ -2,36 +2,62 @@
  * Drive Client API & Storage Tests
  */
 
-jest.mock('../../scripts/config/env/index.js', () => ({
+const envMockModule = {
   BUILD_ENV: {
     OAUTH_SERVER_URL: 'https://test-server.example.com',
   },
-}));
+};
 
-jest.mock('../../scripts/auth/accountSession.js', () => ({
+const accountSessionMockModule = {
   __esModule: true,
   buildAccountAuthHeaders: jest.fn(),
-}));
+};
 
-import {
-  ALL_DRIVE_SYNC_KEYS,
-  startDriveOAuthFlow,
-  getDriveSyncMetadata,
-  ensureDriveSyncIdentity,
-  setDriveConnection,
-  clearDriveSyncMetadata,
-  updateDriveSyncRunMetadata,
-  clearDriveSyncConflict,
-  fetchDriveConnectionStatus,
-  fetchDriveSnapshotStatus,
-  uploadDriveSnapshot,
-  downloadDriveSnapshot,
-  disconnectDrive,
-  setLastKnownRemoteUpdatedAt,
-} from '../../scripts/auth/driveClient.js';
-import * as accountSession from '../../scripts/auth/accountSession.js';
-import { DRIVE_SYNC_ERROR_CODES } from '../../scripts/config/extension/driveSyncErrorCodes.js';
-import Logger from '../../scripts/utils/Logger.js';
+jest.unstable_mockModule('../../scripts/config/env/index.js', () => envMockModule);
+jest.unstable_mockModule('../../scripts/auth/accountSession.js', () => accountSessionMockModule);
+jest.doMock('../../scripts/config/env/index.js', () => envMockModule);
+jest.doMock('../../scripts/auth/accountSession.js', () => accountSessionMockModule);
+
+let ALL_DRIVE_SYNC_KEYS;
+let startDriveOAuthFlow;
+let getDriveSyncMetadata;
+let ensureDriveSyncIdentity;
+let setDriveConnection;
+let clearDriveSyncMetadata;
+let updateDriveSyncRunMetadata;
+let clearDriveSyncConflict;
+let fetchDriveConnectionStatus;
+let fetchDriveSnapshotStatus;
+let uploadDriveSnapshot;
+let downloadDriveSnapshot;
+let disconnectDrive;
+let setLastKnownRemoteUpdatedAt;
+let accountSession;
+let DRIVE_SYNC_ERROR_CODES;
+let Logger;
+
+beforeAll(async () => {
+  ({
+    ALL_DRIVE_SYNC_KEYS,
+    startDriveOAuthFlow,
+    getDriveSyncMetadata,
+    ensureDriveSyncIdentity,
+    setDriveConnection,
+    clearDriveSyncMetadata,
+    updateDriveSyncRunMetadata,
+    clearDriveSyncConflict,
+    fetchDriveConnectionStatus,
+    fetchDriveSnapshotStatus,
+    uploadDriveSnapshot,
+    downloadDriveSnapshot,
+    disconnectDrive,
+    setLastKnownRemoteUpdatedAt,
+  } = await import('../../scripts/auth/driveClient.js'));
+  accountSession = await import('../../scripts/auth/accountSession.js');
+  ({ DRIVE_SYNC_ERROR_CODES } =
+    await import('../../scripts/config/extension/driveSyncErrorCodes.js'));
+  ({ default: Logger } = await import('../../scripts/utils/Logger.js'));
+});
 
 describe('Drive Client API', () => {
   let mockStorageLocal;

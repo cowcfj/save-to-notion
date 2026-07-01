@@ -235,6 +235,17 @@ const babelHoistedMockOrderingCohort1 = [
   'tests/unit/security/saveHandlers.security.test.js',
 ];
 
+const babelHoistedMockOrderingCohort2Drive = [
+  'tests/unit/driveAutoSync.test.js',
+  'tests/unit/driveClient.test.js',
+  'tests/unit/driveSyncHandlers.test.js',
+];
+
+const babelHoistedMockOrderingCohort2AuthAdjacent = [
+  'tests/unit/scripts/accountSession.test.js',
+  'tests/unit/utils/notionAuth.test.js',
+];
+
 // This live-repo cohort intentionally tracks the one retained contained-CJS suite
 // in the current classifier ledger. If it fails, inspect the suite's require()
 // calls and update the cohort only after confirming the ledger changed.
@@ -245,6 +256,8 @@ const promotedNativeDefaultCohort = [
   ...cjsEsmRequireProductionEsmCohort,
   ...cjsEsmRequireProductionEsmCohort2,
   ...babelHoistedMockOrderingCohort1,
+  ...babelHoistedMockOrderingCohort2Drive,
+  ...babelHoistedMockOrderingCohort2AuthAdjacent,
 ];
 
 const countPathsByRoot = suitePaths =>
@@ -452,6 +465,34 @@ describe('tools/report-native-default-runner-blockers', () => {
         ])
       );
     }
+    for (const suitePath of babelHoistedMockOrderingCohort2Drive) {
+      expect(promotedCohortReport.files).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            path: suitePath,
+            signals: expect.not.arrayContaining(['babel-hoisted-mock']),
+          }),
+        ])
+      );
+    }
+    for (const suitePath of babelHoistedMockOrderingCohort2AuthAdjacent) {
+      expect(promotedCohortReport.files).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            path: suitePath,
+            signals: expect.not.arrayContaining(['babel-hoisted-mock']),
+          }),
+        ])
+      );
+    }
+    expect(promotedCohortReport.files).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: 'tests/unit/utils/notionAuth.test.js',
+          signals: expect.not.arrayContaining(['jest-require-actual-esm']),
+        }),
+      ])
+    );
 
     const containedCjsReport = buildClassificationReport(
       reporter,

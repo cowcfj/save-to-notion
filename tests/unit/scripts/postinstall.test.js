@@ -2,10 +2,10 @@
  * @jest-environment node
  */
 
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 
 describe('scripts/postinstall.js', () => {
   const repoRoot = process.cwd();
