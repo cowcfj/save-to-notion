@@ -238,6 +238,10 @@ function shouldCopySourcePath(sourceRoot, src) {
   return !segments.some(segment => COPY_EXCLUDES.includes(segment));
 }
 
+function getNodeModulesLinkType(platform = process.platform) {
+  return platform === 'win32' ? 'junction' : 'dir';
+}
+
 function copyRepository(sourceRoot, targetRoot) {
   assertSafeProbeRoot(targetRoot, sourceRoot);
   fs.cpSync(sourceRoot, targetRoot, {
@@ -248,7 +252,7 @@ function copyRepository(sourceRoot, targetRoot) {
   const sourceNodeModules = path.join(sourceRoot, 'node_modules');
   const targetNodeModules = path.join(targetRoot, 'node_modules');
   if (fs.existsSync(sourceNodeModules) && !fs.existsSync(targetNodeModules)) {
-    fs.symlinkSync(sourceNodeModules, targetNodeModules, 'dir');
+    fs.symlinkSync(sourceNodeModules, targetNodeModules, getNodeModulesLinkType());
   }
 }
 
@@ -551,6 +555,7 @@ module.exports = {
   buildProbeSummary,
   discoverPackageMarkers,
   formatMarkdownSummary,
+  getNodeModulesLinkType,
   groupMarkersByScope,
   hashDirectoryTree,
   main,

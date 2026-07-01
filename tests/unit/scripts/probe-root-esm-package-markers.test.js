@@ -210,6 +210,12 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
     ).toBe(false);
   });
 
+  test('uses Windows junctions for node_modules links and directory symlinks elsewhere', () => {
+    expect(probe.getNodeModulesLinkType('win32')).toBe('junction');
+    expect(probe.getNodeModulesLinkType('darwin')).toBe('dir');
+    expect(probe.getNodeModulesLinkType('linux')).toBe('dir');
+  });
+
   test('formats user-visible Markdown summary labels in zh-TW while preserving data values', () => {
     const summary = probe.buildProbeSummary({
       variant: 'production',
