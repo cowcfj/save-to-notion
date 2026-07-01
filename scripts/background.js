@@ -39,6 +39,7 @@ import { createNotionHandlers } from './background/handlers/notionHandlers.js';
 import { createSidepanelHandlers } from './background/handlers/sidepanelHandlers.js';
 import { createAccountAuthHandler } from './background/handlers/accountAuthHandler.js';
 import { createDriveSyncHandlers } from './background/handlers/driveSyncHandlers.js';
+import { setBackgroundLifecycleTestSurface } from './background/backgroundLifecycleTestSurface.js';
 import {
   DRIVE_AUTO_SYNC_ALARM,
   FREQUENCY_PERIOD_MINUTES,
@@ -165,10 +166,28 @@ const actionHandlers = {
 
 messageHandler.registerAll(actionHandlers);
 
+const isNodeTestEnvironment = typeof process !== 'undefined' && process.env?.NODE_ENV === 'test';
+
 // TEST_EXPOSURE_START
 // Expose handlers for E2E testing (Development/Test only)
 if (globalThis.self !== undefined) {
   globalThis.actionHandlers = actionHandlers;
+}
+if (isNodeTestEnvironment) {
+  setBackgroundLifecycleTestSurface({
+    storageService,
+    notionService,
+    injectionService,
+    pageContentService,
+    tabService,
+    accountAuthHandler,
+    messageHandler,
+    actionHandlers,
+    handleExtensionUpdate,
+    handleExtensionInstall,
+    shouldShowUpdateNotification,
+    showUpdateNotification,
+  });
 }
 // TEST_EXPOSURE_END
 
@@ -338,25 +357,3 @@ async function showUpdateNotification(previousVersion, currentVersion) {
     Logger.warn('[Lifecycle] 顯示更新通知失敗', { error, action: 'showUpdateNotification' });
   }
 }
-
-// ============================================================
-// EXPORTS (For Testing)
-// ============================================================
-// TEST_EXPOSURE_START
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    storageService,
-    notionService,
-    injectionService,
-    pageContentService,
-    tabService,
-    accountAuthHandler,
-    messageHandler,
-    actionHandlers,
-    handleExtensionUpdate,
-    handleExtensionInstall,
-    shouldShowUpdateNotification,
-    showUpdateNotification,
-  };
-}
-// TEST_EXPOSURE_END
