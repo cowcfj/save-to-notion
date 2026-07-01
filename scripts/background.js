@@ -39,6 +39,7 @@ import { createNotionHandlers } from './background/handlers/notionHandlers.js';
 import { createSidepanelHandlers } from './background/handlers/sidepanelHandlers.js';
 import { createAccountAuthHandler } from './background/handlers/accountAuthHandler.js';
 import { createDriveSyncHandlers } from './background/handlers/driveSyncHandlers.js';
+import { setBackgroundLifecycleTestSurface } from './background/backgroundLifecycleTestSurface.js';
 import {
   DRIVE_AUTO_SYNC_ALARM,
   FREQUENCY_PERIOD_MINUTES,
@@ -170,6 +171,20 @@ messageHandler.registerAll(actionHandlers);
 if (globalThis.self !== undefined) {
   globalThis.actionHandlers = actionHandlers;
 }
+setBackgroundLifecycleTestSurface({
+  storageService,
+  notionService,
+  injectionService,
+  pageContentService,
+  tabService,
+  accountAuthHandler,
+  messageHandler,
+  actionHandlers,
+  handleExtensionUpdate,
+  handleExtensionInstall,
+  shouldShowUpdateNotification,
+  showUpdateNotification,
+});
 // TEST_EXPOSURE_END
 
 // ==========================================
@@ -338,25 +353,3 @@ async function showUpdateNotification(previousVersion, currentVersion) {
     Logger.warn('[Lifecycle] 顯示更新通知失敗', { error, action: 'showUpdateNotification' });
   }
 }
-
-// ============================================================
-// EXPORTS (For Testing)
-// ============================================================
-// TEST_EXPOSURE_START
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    storageService,
-    notionService,
-    injectionService,
-    pageContentService,
-    tabService,
-    accountAuthHandler,
-    messageHandler,
-    actionHandlers,
-    handleExtensionUpdate,
-    handleExtensionInstall,
-    shouldShowUpdateNotification,
-    showUpdateNotification,
-  };
-}
-// TEST_EXPOSURE_END

@@ -2,206 +2,138 @@
  * @jest-environment node
  */
 
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+
 describe('scripts/postinstall.js', () => {
-  const projectRoot = '/mock-root/notion-smart-clipper';
-  const targetPath = `${projectRoot}/scripts/config/env/build.js`;
-  const templatePath = `${projectRoot}/scripts/config/env/build.example.js`;
+  const repoRoot = process.cwd();
+  const postinstallScript = path.join(repoRoot, 'scripts/postinstall.js');
 
-  function loadPostinstall({
-    envExists,
-    templateExists = true,
-    copyError = null,
-    envContent = 'export const BUILD_ENV = Object.freeze({});',
-  }) {
-    process.exitCode = undefined;
-    const joinMock = jest.fn((...parts) => parts.join('/'));
-    const existsSyncMock = jest.fn(filePath => {
-      if (filePath === targetPath) {
-        return envExists;
-      }
+  let tempRoot;
 
-      if (filePath === templatePath) {
-        return templateExists;
-      }
-
-      return false;
-    });
-    const copyFileSyncMock = jest.fn(() => {
-      if (copyError) {
-        throw copyError;
-      }
-    });
-    const readFileSyncMock = jest.fn(() => envContent);
-    const consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
-    const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    const cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue(projectRoot);
-
-    jest.resetModules();
-    jest.doMock('node:fs', () => ({
-      existsSync: existsSyncMock,
-      copyFileSync: copyFileSyncMock,
-      readFileSync: readFileSyncMock,
-    }));
-    jest.doMock('node:path', () => ({
-      join: joinMock,
-    }));
-
-    let thrownError = null;
-    jest.isolateModules(() => {
-      try {
-        require('../../../scripts/postinstall.js');
-      } catch (error) {
-        thrownError = error;
-      }
-    });
-
-    return {
-      joinMock,
-      existsSyncMock,
-      copyFileSyncMock,
-      readFileSyncMock,
-      consoleInfoSpy,
-      consoleWarnSpy,
-      consoleErrorSpy,
-      cwdSpy,
-      thrownError,
-    };
+  function ensureTempEnvDir() {
+    const envDir = path.join(tempRoot, 'scripts/config/env');
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- test-owned temp workspace path.
+    fs.mkdirSync(envDir, { recursive: true });
+    return envDir;
   }
 
+  function readTempBuildFile() {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- test-owned temp workspace path.
+    return fs.readFileSync(path.join(tempRoot, 'scripts/config/env/build.js'), 'utf8');
+  }
+
+  function tempBuildFileExists() {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- test-owned temp workspace path.
+    return fs.existsSync(path.join(tempRoot, 'scripts/config/env/build.js'));
+  }
+
+  function writeBuildExample(content = 'export const BUILD_ENV = Object.freeze({});\n') {
+    const envDir = ensureTempEnvDir();
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- test-owned temp workspace path.
+    fs.writeFileSync(path.join(envDir, 'build.example.js'), content);
+  }
+
+  function writeBuild(content) {
+    const envDir = ensureTempEnvDir();
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- test-owned temp workspace path.
+    fs.writeFileSync(path.join(envDir, 'build.js'), content);
+  }
+
+  function runPostinstall() {
+    return spawnSync(process.execPath, [postinstallScript], {
+      cwd: tempRoot,
+      encoding: 'utf8',
+    });
+  }
+
+  beforeEach(() => {
+    tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'notion-postinstall-'));
+  });
+
   afterEach(() => {
-    process.exitCode = undefined;
-    jest.restoreAllMocks();
-    jest.resetModules();
-    jest.unmock('node:fs');
-    jest.unmock('node:path');
+    fs.rmSync(tempRoot, { recursive: true, force: true });
   });
 
   test('當 build.js 不存在且 template 存在時應從 template 複製並輸出成功訊息', () => {
-    const {
-      joinMock,
-      existsSyncMock,
-      copyFileSyncMock,
-      readFileSyncMock,
-      consoleInfoSpy,
-      consoleWarnSpy,
-      consoleErrorSpy,
-      cwdSpy,
-      thrownError,
-    } = loadPostinstall({
-      envExists: false,
-    });
+    const templateContent = `export const BUILD_ENV = Object.freeze({
+  OAUTH_CLIENT_ID: 'configured-client-id',
+});
+`;
+    writeBuildExample(templateContent);
 
-    expect(thrownError).toBeNull();
-    expect(cwdSpy).toHaveBeenCalled();
-    expect(joinMock).toHaveBeenNthCalledWith(
-      1,
-      projectRoot,
-      'scripts',
-      'config',
-      'env',
-      'build.js'
-    );
-    expect(joinMock).toHaveBeenNthCalledWith(
-      2,
-      projectRoot,
-      'scripts',
-      'config',
-      'env',
-      'build.example.js'
-    );
-    expect(existsSyncMock).toHaveBeenNthCalledWith(1, targetPath);
-    expect(existsSyncMock).toHaveBeenNthCalledWith(2, templatePath);
-    expect(copyFileSyncMock).toHaveBeenCalledWith(templatePath, targetPath);
-    expect(readFileSyncMock).toHaveBeenCalledWith(targetPath, 'utf8');
-    expect(consoleInfoSpy).toHaveBeenCalledWith(
+    const result = runPostinstall();
+
+    expect(result.status).toBe(0);
+    expect(readTempBuildFile()).toBe(templateContent);
+    expect(result.stdout).toContain(
       '已從 scripts/config/env/build.example.js 建立 scripts/config/env/build.js'
     );
-    expect(consoleWarnSpy).not.toHaveBeenCalled();
-    expect(consoleErrorSpy).not.toHaveBeenCalled();
-    expect(process.exitCode).toBeUndefined();
+    expect(result.stderr).toBe('');
   });
 
   test('當 build.js 已存在時應驗證 BUILD_ENV 匯出而不複製', () => {
     const envContent = `export const BUILD_ENV = Object.freeze({
   OAUTH_CLIENT_ID: 'configured-client-id',
-});`;
-    const {
-      existsSyncMock,
-      copyFileSyncMock,
-      readFileSyncMock,
-      consoleInfoSpy,
-      consoleWarnSpy,
-      consoleErrorSpy,
-      thrownError,
-    } = loadPostinstall({
-      envExists: true,
-      envContent,
-    });
+});
+`;
+    const templateContent = `export const BUILD_ENV = Object.freeze({
+  OAUTH_CLIENT_ID: 'template-client-id',
+});
+`;
+    writeBuild(envContent);
+    writeBuildExample(templateContent);
 
-    expect(thrownError).toBeNull();
-    expect(existsSyncMock).toHaveBeenCalledWith(targetPath);
-    expect(readFileSyncMock).toHaveBeenCalledWith(targetPath, 'utf8');
-    expect(copyFileSyncMock).not.toHaveBeenCalled();
-    expect(consoleInfoSpy).not.toHaveBeenCalled();
-    expect(consoleWarnSpy).not.toHaveBeenCalled();
-    expect(consoleErrorSpy).not.toHaveBeenCalled();
-    expect(process.exitCode).toBeUndefined();
+    const result = runPostinstall();
+
+    expect(result.status).toBe(0);
+    expect(readTempBuildFile()).toBe(envContent);
+    expect(result.stdout).toBe('');
+    expect(result.stderr).toBe('');
   });
 
   test('當 build.js 的 OAUTH_CLIENT_ID 為空且格式與範本不同時仍應輸出警告', () => {
-    const envContent = `export const BUILD_ENV = Object.freeze({
+    writeBuild(`export const BUILD_ENV = Object.freeze({
   OAUTH_CLIENT_ID:'',
-});`;
-    const { consoleWarnSpy, thrownError } = loadPostinstall({
-      envExists: true,
-      envContent,
-    });
+});
+`);
 
-    expect(thrownError).toBeNull();
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      '\u001B[33m⚠️  scripts/config/env/build.js 中 OAUTH_CLIENT_ID 尚未設定。' +
-        '若需測試 OAuth，請參考 README.md 填入你的 Notion Client ID。\u001B[0m'
-    );
+    const result = runPostinstall();
+
+    expect(result.status).toBe(0);
+    expect(result.stderr).toContain('scripts/config/env/build.js 中 OAUTH_CLIENT_ID 尚未設定');
   });
 
   test('當 build.js 缺少 OAUTH_CLIENT_ID key 時仍應輸出警告', () => {
-    const envContent = `export const BUILD_ENV = Object.freeze({
+    writeBuild(`export const BUILD_ENV = Object.freeze({
   ENABLE_OAUTH: false,
-});`;
-    const { consoleWarnSpy, thrownError } = loadPostinstall({
-      envExists: true,
-      envContent,
-    });
+});
+`);
 
-    expect(thrownError).toBeNull();
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      '\u001B[33m⚠️  scripts/config/env/build.js 中 OAUTH_CLIENT_ID 尚未設定。' +
-        '若需測試 OAuth，請參考 README.md 填入你的 Notion Client ID。\u001B[0m'
-    );
+    const result = runPostinstall();
+
+    expect(result.status).toBe(0);
+    expect(result.stderr).toContain('scripts/config/env/build.js 中 OAUTH_CLIENT_ID 尚未設定');
   });
 
   test('當 template 不存在時應拋出錯誤中止安裝', () => {
-    const { copyFileSyncMock, thrownError } = loadPostinstall({
-      envExists: false,
-      templateExists: false,
-    });
+    ensureTempEnvDir();
 
-    expect(copyFileSyncMock).not.toHaveBeenCalled();
-    expect(thrownError).toBeInstanceOf(Error);
-    expect(thrownError.message).toContain('找不到 scripts/config/env/build.example.js');
+    const result = runPostinstall();
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('找不到 scripts/config/env/build.example.js');
+    expect(tempBuildFileExists()).toBe(false);
   });
 
-  test('當複製失敗時應拋出錯誤中止安裝', () => {
-    const copyError = new Error('disk full');
-    const { thrownError } = loadPostinstall({
-      envExists: false,
-      templateExists: true,
-      copyError,
-    });
+  test('當複製後 build.js 缺少 BUILD_ENV 匯出時應拋出錯誤中止安裝', () => {
+    writeBuildExample('export const OTHER_ENV = Object.freeze({});\n');
 
-    expect(thrownError).toBeInstanceOf(Error);
-    expect(thrownError.message).toContain('建立 scripts/config/env/build.js 失敗');
-    expect(thrownError.message).toContain('disk full');
+    const result = runPostinstall();
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('scripts/config/env/build.js 缺少必要的 BUILD_ENV 匯出');
   });
 });

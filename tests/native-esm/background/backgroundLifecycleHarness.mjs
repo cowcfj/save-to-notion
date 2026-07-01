@@ -160,16 +160,16 @@ function makeLoggerMock() {
 }
 
 function unwrapTestExports(moduleNamespace) {
+  if (globalThis.__backgroundLifecycleTestSurface) {
+    return globalThis.__backgroundLifecycleTestSurface;
+  }
+
   if (moduleNamespace?.default !== undefined) {
     return moduleNamespace.default;
   }
 
   if (moduleNamespace && Object.keys(moduleNamespace).length > 0) {
     return moduleNamespace;
-  }
-
-  if (globalThis.module?.exports && typeof globalThis.module.exports === 'object') {
-    return globalThis.module.exports;
   }
 
   return moduleNamespace;

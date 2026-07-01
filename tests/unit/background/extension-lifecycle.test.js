@@ -14,6 +14,7 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
   },
 }));
 import Logger from '../../../scripts/utils/Logger.js';
+import { getBackgroundLifecycleTestSurface } from '../../../scripts/background/backgroundLifecycleTestSurface.js';
 
 jest.mock('../../../scripts/utils/urlUtils.js', () => ({
   normalizeUrl: jest.fn(),
@@ -90,7 +91,8 @@ describe('Background Extension Lifecycle', () => {
 
     // Ensure background.js is loaded
     // Since we mocked everything, it should initialize without error
-    background = require('../../../scripts/background.js');
+    require('../../../scripts/background.js');
+    background = getBackgroundLifecycleTestSurface();
   });
 
   beforeEach(() => {

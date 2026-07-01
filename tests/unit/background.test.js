@@ -113,12 +113,61 @@ jest.mock('../../scripts/background/handlers/driveAlarmScheduler.js', () => ({
   setupDriveAlarm: jest.fn().mockResolvedValue(undefined),
 }));
 
-// Now require the module
-const {
-  shouldShowUpdateNotification,
-  handleExtensionUpdate,
-  handleExtensionInstall,
-} = require('../../scripts/background.js');
+import { getBackgroundLifecycleTestSurface } from '../../scripts/background/backgroundLifecycleTestSurface.js';
+
+function loadBackgroundLifecycleTestSurface() {
+  require('../../scripts/background.js');
+  return getBackgroundLifecycleTestSurface();
+}
+
+function createDriveAlarmStartupChromeMock({ frequency = 'daily', alarm = null } = {}) {
+  const { DRIVE_SYNC_STORAGE_KEYS } = require('../../scripts/auth/driveClient.js');
+
+  return {
+    runtime: {
+      getManifest: jest.fn(),
+      getURL: jest.fn(path => `chrome-extension://id/${path}`),
+      onInstalled: { addListener: jest.fn() },
+      onMessage: { addListener: jest.fn() },
+    },
+    tabs: {
+      create: jest.fn().mockResolvedValue(undefined),
+      sendMessage: jest.fn(),
+      onUpdated: { addListener: jest.fn(), removeListener: jest.fn() },
+      onRemoved: { addListener: jest.fn(), removeListener: jest.fn() },
+      get: jest.fn(),
+    },
+    windows: { create: jest.fn() },
+    alarms: {
+      create: jest.fn().mockResolvedValue(undefined),
+      clear: jest.fn().mockResolvedValue(true),
+      get: jest.fn().mockResolvedValue(alarm),
+      onAlarm: { addListener: jest.fn(), removeListener: jest.fn() },
+    },
+    storage: {
+      local: {
+        get: jest.fn().mockResolvedValue({ [DRIVE_SYNC_STORAGE_KEYS.FREQUENCY]: frequency }),
+      },
+    },
+  };
+}
+
+async function loadBackgroundWithDriveAlarmStartup(options) {
+  jest.resetModules();
+
+  const driveAlarmScheduler = require('../../scripts/background/handlers/driveAlarmScheduler.js');
+  globalThis.chrome = createDriveAlarmStartupChromeMock(options);
+  globalThis.Logger = mockLogger;
+
+  require('../../scripts/background.js');
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  return driveAlarmScheduler;
+}
+
+require('../../scripts/background.js');
+const { shouldShowUpdateNotification, handleExtensionUpdate, handleExtensionInstall } =
+  getBackgroundLifecycleTestSurface();
 
 describe('Background Script Lifecycle', () => {
   let mockChrome;
@@ -165,34 +214,21 @@ describe('Background Script Lifecycle', () => {
   });
 
   describe('shouldShowUpdateNotification', () => {
-    test('Major version upgrade should return true', () => {
-      expect(shouldShowUpdateNotification('1.0.0', '2.0.0')).toBe(true);
-    });
-
-    test('Minor version upgrade should return true', () => {
-      expect(shouldShowUpdateNotification('1.0.0', '1.1.0')).toBe(true);
-    });
-
-    test('Downgrade should return false', () => {
-      expect(shouldShowUpdateNotification('2.0.0', '1.0.0')).toBe(false);
-      expect(shouldShowUpdateNotification('1.1.0', '1.0.0')).toBe(false);
-    });
-
-    test('Patch version upgrade should return false', () => {
-      expect(shouldShowUpdateNotification('2.7.2', '2.7.3')).toBe(false);
-      expect(shouldShowUpdateNotification('2.7.0', '2.7.1')).toBe(false);
-    });
-
-    test('Same version should return false', () => {
-      expect(shouldShowUpdateNotification('1.0.0', '1.0.0')).toBe(false);
-    });
-
-    test('Null or undefined versions should return false', () => {
-      expect(shouldShowUpdateNotification(null, '2.0.0')).toBe(false);
-      expect(shouldShowUpdateNotification('1.0.0', null)).toBe(false);
-      expect(shouldShowUpdateNotification(undefined, '2.0.0')).toBe(false);
-      expect(shouldShowUpdateNotification('1.0.0', undefined)).toBe(false);
-      expect(shouldShowUpdateNotification(null, null)).toBe(false);
+    test.each([
+      ['major version upgrade', '1.0.0', '2.0.0', true],
+      ['minor version upgrade', '1.0.0', '1.1.0', true],
+      ['major downgrade', '2.0.0', '1.0.0', false],
+      ['minor downgrade', '1.1.0', '1.0.0', false],
+      ['patch upgrade from patch', '2.7.2', '2.7.3', false],
+      ['patch upgrade from minor', '2.7.0', '2.7.1', false],
+      ['same version', '1.0.0', '1.0.0', false],
+      ['missing previous version', null, '2.0.0', false],
+      ['missing current version', '1.0.0', null, false],
+      ['undefined previous version', undefined, '2.0.0', false],
+      ['undefined current version', '1.0.0', undefined, false],
+      ['missing both versions', null, null, false],
+    ])('returns %s result', (_caseName, previousVersion, currentVersion, expected) => {
+      expect(shouldShowUpdateNotification(previousVersion, currentVersion)).toBe(expected);
     });
   });
 
@@ -214,42 +250,7 @@ describe('Background Script Lifecycle', () => {
     });
 
     test('alarm 缺失且 frequency 啟用時，應以短首延遲恢復排程', async () => {
-      jest.resetModules();
-
-      const driveAlarmScheduler = require('../../scripts/background/handlers/driveAlarmScheduler.js');
-      const { DRIVE_SYNC_STORAGE_KEYS } = require('../../scripts/auth/driveClient.js');
-
-      globalThis.chrome = {
-        runtime: {
-          getManifest: jest.fn(),
-          getURL: jest.fn(path => `chrome-extension://id/${path}`),
-          onInstalled: { addListener: jest.fn() },
-          onMessage: { addListener: jest.fn() },
-        },
-        tabs: {
-          create: jest.fn().mockResolvedValue(undefined),
-          sendMessage: jest.fn(),
-          onUpdated: { addListener: jest.fn(), removeListener: jest.fn() },
-          onRemoved: { addListener: jest.fn(), removeListener: jest.fn() },
-          get: jest.fn(),
-        },
-        windows: { create: jest.fn() },
-        alarms: {
-          create: jest.fn().mockResolvedValue(undefined),
-          clear: jest.fn().mockResolvedValue(true),
-          get: jest.fn().mockResolvedValue(null),
-          onAlarm: { addListener: jest.fn(), removeListener: jest.fn() },
-        },
-        storage: {
-          local: {
-            get: jest.fn().mockResolvedValue({ [DRIVE_SYNC_STORAGE_KEYS.FREQUENCY]: 'daily' }),
-          },
-        },
-      };
-      globalThis.Logger = mockLogger;
-
-      require('../../scripts/background.js');
-      await new Promise(resolve => setTimeout(resolve, 0));
+      const driveAlarmScheduler = await loadBackgroundWithDriveAlarmStartup();
 
       expect(driveAlarmScheduler.setupDriveAlarm).toHaveBeenCalledWith('daily', {
         initialDelayInMinutes: 0.5,
@@ -257,88 +258,22 @@ describe('Background Script Lifecycle', () => {
     });
 
     test('alarm 已存在時，不應重建排程', async () => {
-      jest.resetModules();
-
-      const driveAlarmScheduler = require('../../scripts/background/handlers/driveAlarmScheduler.js');
-      const { DRIVE_SYNC_STORAGE_KEYS } = require('../../scripts/auth/driveClient.js');
-
-      globalThis.chrome = {
-        runtime: {
-          getManifest: jest.fn(),
-          getURL: jest.fn(path => `chrome-extension://id/${path}`),
-          onInstalled: { addListener: jest.fn() },
-          onMessage: { addListener: jest.fn() },
-        },
-        tabs: {
-          create: jest.fn().mockResolvedValue(undefined),
-          sendMessage: jest.fn(),
-          onUpdated: { addListener: jest.fn(), removeListener: jest.fn() },
-          onRemoved: { addListener: jest.fn(), removeListener: jest.fn() },
-          get: jest.fn(),
-        },
-        windows: { create: jest.fn() },
-        alarms: {
-          create: jest.fn().mockResolvedValue(undefined),
-          clear: jest.fn().mockResolvedValue(true),
-          // 有效 alarm：periodInMinutes 與 frequency=daily(1440) 一致
-          get: jest.fn().mockResolvedValue({ name: 'drive-auto-sync', periodInMinutes: 1440 }),
-          onAlarm: { addListener: jest.fn(), removeListener: jest.fn() },
-        },
-        storage: {
-          local: {
-            get: jest.fn().mockResolvedValue({ [DRIVE_SYNC_STORAGE_KEYS.FREQUENCY]: 'daily' }),
-          },
-        },
-      };
-      globalThis.Logger = mockLogger;
-
-      require('../../scripts/background.js');
-      await new Promise(resolve => setTimeout(resolve, 0));
+      // 有效 alarm：periodInMinutes 與 frequency=daily(1440) 一致
+      const driveAlarmScheduler = await loadBackgroundWithDriveAlarmStartup({
+        alarm: { name: 'drive-auto-sync', periodInMinutes: 1440 },
+      });
 
       expect(driveAlarmScheduler.setupDriveAlarm).not.toHaveBeenCalled();
     });
 
     // Step 1 Failing Test：alarm 漂移場景（Step 3 實作前預期 FAIL）
     test('alarm 存在但 periodInMinutes 與 frequency 不一致時，應重建排程', async () => {
-      jest.resetModules();
-
-      const driveAlarmScheduler = require('../../scripts/background/handlers/driveAlarmScheduler.js');
-      const { DRIVE_SYNC_STORAGE_KEYS } = require('../../scripts/auth/driveClient.js');
-
       // frequency = 'daily' 期望 periodInMinutes = 1440
       // 卻回傳 10080（weekly），代表 alarm 存在但配置漂移
-      globalThis.chrome = {
-        runtime: {
-          getManifest: jest.fn(),
-          getURL: jest.fn(path => `chrome-extension://id/${path}`),
-          onInstalled: { addListener: jest.fn() },
-          onMessage: { addListener: jest.fn() },
-        },
-        tabs: {
-          create: jest.fn().mockResolvedValue(undefined),
-          sendMessage: jest.fn(),
-          onUpdated: { addListener: jest.fn(), removeListener: jest.fn() },
-          onRemoved: { addListener: jest.fn(), removeListener: jest.fn() },
-          get: jest.fn(),
-        },
-        windows: { create: jest.fn() },
-        alarms: {
-          create: jest.fn().mockResolvedValue(undefined),
-          clear: jest.fn().mockResolvedValue(true),
-          // alarm 存在，但 periodInMinutes 是 10080（weekly），與 frequency=daily (1440) 不一致
-          get: jest.fn().mockResolvedValue({ name: 'drive-auto-sync', periodInMinutes: 10_080 }),
-          onAlarm: { addListener: jest.fn(), removeListener: jest.fn() },
-        },
-        storage: {
-          local: {
-            get: jest.fn().mockResolvedValue({ [DRIVE_SYNC_STORAGE_KEYS.FREQUENCY]: 'daily' }),
-          },
-        },
-      };
-      globalThis.Logger = mockLogger;
-
-      require('../../scripts/background.js');
-      await new Promise(resolve => setTimeout(resolve, 0));
+      const driveAlarmScheduler = await loadBackgroundWithDriveAlarmStartup({
+        // alarm 存在，但 periodInMinutes 是 10080（weekly），與 frequency=daily (1440) 不一致
+        alarm: { name: 'drive-auto-sync', periodInMinutes: 10_080 },
+      });
 
       // 配置漂移：必須重建，且使用短首延遲
       expect(driveAlarmScheduler.setupDriveAlarm).toHaveBeenCalledWith('daily', {
@@ -645,56 +580,33 @@ describe('Background Script Lifecycle', () => {
       expect(underlyingStorageMocks.setSavedPageData).toHaveBeenCalledWith('url5', { data: 1 });
     });
 
-    test('savePageDataAndHighlights dirty tracking wrapper works', async () => {
-      const bgModule = require('../../scripts/background.js');
+    async function expectDirtyTrackingForward({ methodName, args }) {
+      const bgModule = loadBackgroundLifecycleTestSurface();
       const driveClient = require('../../scripts/auth/driveClient.js');
 
-      await bgModule.storageService.savePageDataAndHighlights('url', { page: 1 }, [1, 2]);
-      // wrapper 既要 forward 給底層，也要標記 drive dirty
-      expect(underlyingStorageMocks.savePageDataAndHighlights).toHaveBeenCalledWith(
-        'url',
-        { page: 1 },
-        [1, 2]
-      );
+      await bgModule.storageService[methodName](...args);
+      expect(underlyingStorageMocks[methodName]).toHaveBeenCalledWith(...args);
       expect(driveClient.markDriveDirty).toHaveBeenCalled();
-    });
+    }
 
-    test('updateHighlights dirty tracking wrapper works', async () => {
-      const bgModule = require('../../scripts/background.js');
-      const driveClient = require('../../scripts/auth/driveClient.js');
-
-      await bgModule.storageService.updateHighlights('url', ['h1']);
-      expect(underlyingStorageMocks.updateHighlights).toHaveBeenCalledWith('url', ['h1']);
-      expect(driveClient.markDriveDirty).toHaveBeenCalled();
-    });
-
-    test('setSavedPageData dirty tracking wrapper works', async () => {
-      const bgModule = require('../../scripts/background.js');
-      const driveClient = require('../../scripts/auth/driveClient.js');
-
-      await bgModule.storageService.setSavedPageData('url', { data: 1 });
-      expect(underlyingStorageMocks.setSavedPageData).toHaveBeenCalledWith('url', { data: 1 });
-      expect(driveClient.markDriveDirty).toHaveBeenCalled();
-    });
-
-    test('clearPageState dirty tracking wrapper works', async () => {
-      const bgModule = require('../../scripts/background.js');
-      const driveClient = require('../../scripts/auth/driveClient.js');
-
-      await bgModule.storageService.clearPageState('url-to-clear');
-      expect(underlyingStorageMocks.clearPageState).toHaveBeenCalledWith('url-to-clear');
-      expect(driveClient.markDriveDirty).toHaveBeenCalled();
-    });
-
-    test('clearNotionState dirty tracking wrapper works', async () => {
-      const bgModule = require('../../scripts/background.js');
-      const driveClient = require('../../scripts/auth/driveClient.js');
-
-      await bgModule.storageService.clearNotionState('url-clear-notion', { expectedPageId: 'p1' });
-      expect(underlyingStorageMocks.clearNotionState).toHaveBeenCalledWith('url-clear-notion', {
-        expectedPageId: 'p1',
-      });
-      expect(driveClient.markDriveDirty).toHaveBeenCalled();
+    // eslint-disable-next-line jest/expect-expect -- assertions live in expectDirtyTrackingForward.
+    test.each([
+      [
+        'savePageDataAndHighlights',
+        {
+          methodName: 'savePageDataAndHighlights',
+          args: ['url', { page: 1 }, [1, 2]],
+        },
+      ],
+      ['updateHighlights', { methodName: 'updateHighlights', args: ['url', ['h1']] }],
+      ['setSavedPageData', { methodName: 'setSavedPageData', args: ['url', { data: 1 }] }],
+      ['clearPageState', { methodName: 'clearPageState', args: ['url-to-clear'] }],
+      [
+        'clearNotionState',
+        { methodName: 'clearNotionState', args: ['url-clear-notion', { expectedPageId: 'p1' }] },
+      ],
+    ])('%s dirty tracking wrapper forwards and marks drive dirty', async (_label, scenario) => {
+      await expectDirtyTrackingForward(scenario);
     });
   });
 
