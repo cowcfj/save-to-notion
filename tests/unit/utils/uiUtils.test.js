@@ -3,29 +3,38 @@ let injectIcons;
 let Logger;
 let validateSafeSvg;
 
-jest.mock('../../../scripts/utils/securityUtils.js', () => ({
+const securityUtilsMock = {
   validateSafeSvg: jest.fn().mockReturnValue(true),
   isSafeSvgAttribute: jest.fn().mockReturnValue(true),
-}));
-
-jest.mock('../../../scripts/utils/Logger.js', () => ({
+};
+const loggerMock = {
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+  info: jest.fn(),
+  debug: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  log: jest.fn(),
+};
+const loggerMockModule = {
   __esModule: true,
-  default: {
-    success: jest.fn(),
-    start: jest.fn(),
-    ready: jest.fn(),
-    info: jest.fn(),
-    debug: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    log: jest.fn(),
-  },
-}));
+  default: loggerMock,
+  ...loggerMock,
+};
 
-const loadUiUtilsModules = () => {
-  ({ default: Logger } = require('../../../scripts/utils/Logger.js'));
-  ({ validateSafeSvg } = require('../../../scripts/utils/securityUtils.js'));
-  ({ createSpriteIcon, injectIcons } = require('../../../scripts/utils/uiUtils.js'));
+function registerUiUtilsMocks() {
+  jest.unstable_mockModule('../../../scripts/utils/securityUtils.js', () => securityUtilsMock);
+  jest.unstable_mockModule('../../../scripts/utils/Logger.js', () => loggerMockModule);
+  jest.doMock('../../../scripts/utils/securityUtils.js', () => securityUtilsMock);
+  jest.doMock('../../../scripts/utils/Logger.js', () => loggerMockModule);
+}
+
+const loadUiUtilsModules = async () => {
+  registerUiUtilsMocks();
+  ({ default: Logger } = await import('../../../scripts/utils/Logger.js'));
+  ({ validateSafeSvg } = await import('../../../scripts/utils/securityUtils.js'));
+  ({ createSpriteIcon, injectIcons } = await import('../../../scripts/utils/uiUtils.js'));
 };
 
 describe('uiUtils', () => {
@@ -41,10 +50,12 @@ describe('uiUtils', () => {
   });
 
   describe('createSpriteIcon', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       jest.resetModules();
-      loadUiUtilsModules();
+      await loadUiUtilsModules();
       jest.clearAllMocks();
+      securityUtilsMock.validateSafeSvg.mockReturnValue(true);
+      securityUtilsMock.isSafeSvgAttribute.mockReturnValue(true);
     });
 
     it('應為傳入名稱產生帶有 icon- 前綴的小寫 href', () => {
@@ -90,11 +101,13 @@ describe('uiUtils', () => {
   });
 
   describe('injectIcons', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       jest.resetModules();
-      loadUiUtilsModules();
+      await loadUiUtilsModules();
       document.body.innerHTML = '';
       jest.clearAllMocks();
+      securityUtilsMock.validateSafeSvg.mockReturnValue(true);
+      securityUtilsMock.isSafeSvgAttribute.mockReturnValue(true);
       Object.defineProperty(document, 'readyState', { value: 'complete', configurable: true });
     });
 
