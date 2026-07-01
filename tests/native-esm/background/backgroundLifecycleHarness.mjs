@@ -52,13 +52,9 @@ async function importLinkedModule(specifier, referencingModule) {
   const referencingPath = fileURLToPath(referencingModule.identifier);
   const absolutePath = path.resolve(path.dirname(referencingPath), specifier);
   if (absolutePath === backgroundLifecycleTestSurfacePath) {
-    await resolveTrustedBackgroundLifecycleTestSurfacePath(absolutePath);
-    backgroundLifecycleTestSurfaceModule = new vm.SourceTextModule(
-      await fs.readFile(absolutePath, 'utf8'),
-      {
-        context: referencingModule.context,
-        identifier: pathToFileURL(absolutePath).href,
-      }
+    backgroundLifecycleTestSurfaceModule = await createTrustedBackgroundLifecycleTestSurfaceModule(
+      absolutePath,
+      referencingModule.context
     );
     return backgroundLifecycleTestSurfaceModule;
   }
@@ -100,8 +96,28 @@ async function resolveTrustedBackgroundLifecycleTestSurfacePath(candidatePath) {
   );
 }
 
+async function readTrustedBackgroundLifecycleTestSurfaceSource(candidatePath) {
+  const trustedPath = await resolveTrustedBackgroundLifecycleTestSurfacePath(candidatePath);
+  return {
+    identifier: pathToFileURL(trustedPath).href,
+    source: await fs.readFile(trustedPath, 'utf8'),
+  };
+}
+
+async function createTrustedBackgroundLifecycleTestSurfaceModule(candidatePath, context) {
+  const { identifier, source } =
+    await readTrustedBackgroundLifecycleTestSurfaceSource(candidatePath);
+  // Test-only VM execution of realpath-verified repo-local backgroundLifecycleTestSurface.js.
+  // prettier-ignore
+  return new vm.SourceTextModule(source, { context, identifier }); // NOSONAR - S1523: test-only realpath-verified repo-local test surface.
+}
+
 async function assertTrustedBackgroundEntrypointPath(candidatePath) {
   await resolveTrustedBackgroundEntrypointPath(candidatePath);
+}
+
+async function assertTrustedBackgroundLifecycleTestSurfacePath(candidatePath) {
+  await resolveTrustedBackgroundLifecycleTestSurfacePath(candidatePath);
 }
 
 async function readTrustedBackgroundEntrypointSource() {
@@ -120,10 +136,8 @@ async function importBackgroundEntrypoint() {
   const { identifier, source } = await readTrustedBackgroundEntrypointSource();
   const context = vm.createContext(globalThis);
   // Test-only VM execution of realpath-verified repo-local background.js for native ESM lifecycle parity.
-  const backgroundModule = new vm.SourceTextModule(source, { // NOSONAR - S1523: test-only realpath-verified repo-local background.js.
-    context,
-    identifier,
-  });
+  // prettier-ignore
+  const backgroundModule = new vm.SourceTextModule(source, { context, identifier }); // NOSONAR - S1523: test-only realpath-verified repo-local background.js.
 
   await backgroundModule.link(importLinkedModule);
   await backgroundModule.evaluate();
@@ -248,6 +262,7 @@ function cleanup(chromeLike = globalThis.chrome) {
 
 export {
   assertTrustedBackgroundEntrypointPath,
+  assertTrustedBackgroundLifecycleTestSurfacePath,
   cleanup,
   clearListenerRegistries,
   importBackgroundEntrypoint,
