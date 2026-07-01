@@ -71,34 +71,33 @@ async function importLinkedModule(specifier, referencingModule) {
   );
 }
 
-async function resolveTrustedBackgroundEntrypointPath(candidatePath) {
+async function resolveTrustedRealPath(candidatePath, trustedPath, errorMessage) {
   const [candidateRealPath, trustedRealPath] = await Promise.all([
     fs.realpath(candidatePath),
-    fs.realpath(trustedBackgroundEntrypointPath),
+    fs.realpath(trustedPath),
   ]);
 
   if (candidateRealPath !== trustedRealPath) {
-    throw new TypeError(
-      `Refusing to evaluate untrusted background entrypoint: ${candidatePath}`
-    );
+    throw new TypeError(errorMessage(candidatePath));
   }
 
   return candidateRealPath;
 }
 
+async function resolveTrustedBackgroundEntrypointPath(candidatePath) {
+  return resolveTrustedRealPath(
+    candidatePath,
+    trustedBackgroundEntrypointPath,
+    path => `Refusing to evaluate untrusted background entrypoint: ${path}`
+  );
+}
+
 async function resolveTrustedBackgroundLifecycleTestSurfacePath(candidatePath) {
-  const [candidateRealPath, trustedRealPath] = await Promise.all([
-    fs.realpath(candidatePath),
-    fs.realpath(trustedBackgroundLifecycleTestSurfacePath),
-  ]);
-
-  if (candidateRealPath !== trustedRealPath) {
-    throw new TypeError(
-      `Refusing to evaluate untrusted background lifecycle test surface: ${candidatePath}`
-    );
-  }
-
-  return candidateRealPath;
+  return resolveTrustedRealPath(
+    candidatePath,
+    trustedBackgroundLifecycleTestSurfacePath,
+    path => `Refusing to evaluate untrusted background lifecycle test surface: ${path}`
+  );
 }
 
 async function assertTrustedBackgroundEntrypointPath(candidatePath) {
