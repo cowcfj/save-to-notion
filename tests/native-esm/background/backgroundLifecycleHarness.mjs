@@ -39,6 +39,16 @@ function createSyntheticModule(moduleNamespace, identifier, context) {
   );
 }
 
+async function importSyntheticLinkedModule(absolutePath, context) {
+  const moduleNamespace = await import(toHarnessImportSpecifier(absolutePath));
+  const syntheticModule = createSyntheticModule(
+    moduleNamespace,
+    `${pathToFileURL(absolutePath).href}?synthetic-native-esm`,
+    context
+  );
+  return { moduleNamespace, syntheticModule };
+}
+
 async function importLinkedModule(specifier, referencingModule) {
   if (!specifier.startsWith('.')) {
     const moduleNamespace = await import(specifier);
@@ -52,19 +62,17 @@ async function importLinkedModule(specifier, referencingModule) {
   const referencingPath = fileURLToPath(referencingModule.identifier);
   const absolutePath = path.resolve(path.dirname(referencingPath), specifier);
   if (absolutePath === backgroundLifecycleTestSurfacePath) {
-    backgroundLifecycleTestSurfaceModule = await createTrustedBackgroundLifecycleTestSurfaceModule(
+    await assertTrustedBackgroundLifecycleTestSurfacePath(absolutePath);
+    const { moduleNamespace, syntheticModule } = await importSyntheticLinkedModule(
       absolutePath,
       referencingModule.context
     );
-    return backgroundLifecycleTestSurfaceModule;
+    backgroundLifecycleTestSurfaceModule = moduleNamespace;
+    return syntheticModule;
   }
 
-  const moduleNamespace = await import(toHarnessImportSpecifier(absolutePath));
-  return createSyntheticModule(
-    moduleNamespace,
-    `${pathToFileURL(absolutePath).href}?synthetic-native-esm`,
-    referencingModule.context
-  );
+  return (await importSyntheticLinkedModule(absolutePath, referencingModule.context))
+    .syntheticModule;
 }
 
 async function resolveTrustedRealPath(candidatePath, trustedPath, errorMessage) {
@@ -94,22 +102,6 @@ async function resolveTrustedBackgroundLifecycleTestSurfacePath(candidatePath) {
     trustedBackgroundLifecycleTestSurfacePath,
     path => `Refusing to evaluate untrusted background lifecycle test surface: ${path}`
   );
-}
-
-async function readTrustedBackgroundLifecycleTestSurfaceSource(candidatePath) {
-  const trustedPath = await resolveTrustedBackgroundLifecycleTestSurfacePath(candidatePath);
-  return {
-    identifier: pathToFileURL(trustedPath).href,
-    source: await fs.readFile(trustedPath, 'utf8'),
-  };
-}
-
-async function createTrustedBackgroundLifecycleTestSurfaceModule(candidatePath, context) {
-  const { identifier, source } =
-    await readTrustedBackgroundLifecycleTestSurfaceSource(candidatePath);
-  // Test-only VM execution of realpath-verified repo-local backgroundLifecycleTestSurface.js.
-  // prettier-ignore
-  return new vm.SourceTextModule(source, { context, identifier }); // NOSONAR - S1523: test-only realpath-verified repo-local test surface.
 }
 
 async function assertTrustedBackgroundEntrypointPath(candidatePath) {
@@ -208,8 +200,7 @@ function makeLoggerMock() {
 }
 
 function unwrapTestExports(moduleNamespace) {
-  const testSurface =
-    backgroundLifecycleTestSurfaceModule?.namespace?.getBackgroundLifecycleTestSurface?.();
+  const testSurface = backgroundLifecycleTestSurfaceModule?.getBackgroundLifecycleTestSurface?.();
   if (testSurface) {
     return testSurface;
   }
