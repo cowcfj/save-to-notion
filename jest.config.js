@@ -15,6 +15,11 @@ const SWC_JEST_TRANSFORM = [
   },
 ];
 
+const JEST_MODULE_NAME_MAPPER = {
+  '^chrome$': '<rootDir>/tests/mocks/chrome.cjs',
+  '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.cjs'
+};
+
 module.exports = {
   cacheDirectory: '<rootDir>/.jest-cache',
   // 測試環境 - 使用 jsdom 環境來支持 DOM 測試
@@ -38,10 +43,7 @@ module.exports = {
       ],
       setupFiles: ['<rootDir>/tests/presetup.cjs'],
       setupFilesAfterEnv: ['<rootDir>/tests/setup.cjs'],
-      moduleNameMapper: {
-        '^chrome$': '<rootDir>/tests/mocks/chrome.cjs',
-        '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.cjs'
-      },
+      moduleNameMapper: JEST_MODULE_NAME_MAPPER,
       transform: {
         '^.+\\.[tj]sx?$': SWC_JEST_TRANSFORM,
       },
@@ -57,10 +59,7 @@ module.exports = {
       ],
       setupFiles: ['<rootDir>/tests/presetup.cjs'],
       setupFilesAfterEnv: ['<rootDir>/tests/setup.cjs'],
-      moduleNameMapper: {
-        '^chrome$': '<rootDir>/tests/mocks/chrome.cjs',
-        '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.cjs'
-      },
+      moduleNameMapper: JEST_MODULE_NAME_MAPPER,
       transform: {
         '^.+\\.[tj]sx?$': SWC_JEST_TRANSFORM,
       },
@@ -130,10 +129,7 @@ module.exports = {
   transformIgnorePatterns: ESM_TRANSFORM_IGNORE_PATTERNS,
 
   // 模組名稱映射（用於模擬 Chrome API）
-  moduleNameMapper: {
-    '^chrome$': '<rootDir>/tests/mocks/chrome.cjs',
-    '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.cjs'
-  },
+  moduleNameMapper: JEST_MODULE_NAME_MAPPER,
 
   // 防止測試掛起
   // forceExit: false 讓掛起問題暴露出來,而非被掩蓋

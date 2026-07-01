@@ -96,11 +96,13 @@ describe('Jest transformer contract', () => {
     });
   });
 
-  test('default Jest shared mock mappers are explicit CommonJS containment files', () => {
+  test('default Jest shared mock mappers use one explicit CommonJS containment mapping', () => {
     const configs = collectJestConfigs(jestConfig);
+    const [rootConfig] = configs;
 
     expect(configs).toHaveLength(3);
     configs.forEach(config => {
+      expect(config.moduleNameMapper).toBe(rootConfig.moduleNameMapper);
       expect(config.moduleNameMapper).toEqual(EXPECTED_MODULE_NAME_MAPPER);
     });
   });
