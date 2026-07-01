@@ -227,6 +227,14 @@ const cjsEsmRequireProductionEsmCohort2 = [
   'tests/unit/background/processContentResult.test.js',
 ];
 
+const babelHoistedMockOrderingCohort1 = [
+  'tests/unit/content/content-script.require.test.js',
+  'tests/unit/utils/LogExporter.test.js',
+  'tests/unit/utils/uiUtils.test.js',
+  'tests/unit/destinations/profile-domain.test.js',
+  'tests/unit/security/saveHandlers.security.test.js',
+];
+
 // This live-repo cohort intentionally tracks the one retained contained-CJS suite
 // in the current classifier ledger. If it fails, inspect the suite's require()
 // calls and update the cohort only after confirming the ledger changed.
@@ -236,6 +244,7 @@ const promotedNativeDefaultCohort = [
   ...phase2ProbePassingNativeDefaultCohort,
   ...cjsEsmRequireProductionEsmCohort,
   ...cjsEsmRequireProductionEsmCohort2,
+  ...babelHoistedMockOrderingCohort1,
 ];
 
 const countPathsByRoot = suitePaths =>
@@ -429,6 +438,16 @@ describe('tools/report-native-default-runner-blockers', () => {
               'commonjs-require-production-esm',
               'root-commonjs-test-boundary',
             ]),
+          }),
+        ])
+      );
+    }
+    for (const suitePath of babelHoistedMockOrderingCohort1) {
+      expect(promotedCohortReport.files).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            path: suitePath,
+            signals: expect.not.arrayContaining(['babel-hoisted-mock']),
           }),
         ])
       );

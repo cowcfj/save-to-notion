@@ -10,11 +10,25 @@
  * 還原為直接 require source，bundle 層的整合驗證交由 tests/integration/content/ 處理。
  */
 
-jest.mock('../../../scripts/content/extractors/ContentExtractor.js');
-jest.mock('../../../scripts/content/converters/ConverterFactory.js');
-jest.mock('../../../scripts/content/extractors/ImageCollector.js');
-jest.mock('../../../scripts/utils/imageUtils.js');
-jest.mock('../../../scripts/utils/Logger.js', () => ({
+const contentExtractorMock = {
+  ContentExtractor: {
+    extractAsync: jest.fn(),
+  },
+};
+const converterFactoryMock = {
+  ConverterFactory: {
+    getConverter: jest.fn(),
+  },
+};
+const imageCollectorMock = {
+  ImageCollector: {
+    collectAdditionalImages: jest.fn(),
+  },
+};
+const imageUtilsMock = {
+  mergeUniqueImages: jest.fn(),
+};
+const loggerMock = {
   log: jest.fn(),
   info: jest.fn(),
   warn: jest.fn(),
@@ -23,13 +37,38 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
   success: jest.fn(),
   start: jest.fn(),
   ready: jest.fn(),
-}));
+};
+const loggerMockModule = {
+  __esModule: true,
+  default: loggerMock,
+  ...loggerMock,
+};
+const entryAutoInitMock = {};
 
-function requireFreshDeps() {
-  const { ContentExtractor } = require('../../../scripts/content/extractors/ContentExtractor.js');
-  const { ConverterFactory } = require('../../../scripts/content/converters/ConverterFactory.js');
-  const { ImageCollector } = require('../../../scripts/content/extractors/ImageCollector.js');
-  const { mergeUniqueImages } = require('../../../scripts/utils/imageUtils.js');
+function registerContentScriptMocks() {
+  const mocks = [
+    ['../../../scripts/content/extractors/ContentExtractor.js', contentExtractorMock],
+    ['../../../scripts/content/converters/ConverterFactory.js', converterFactoryMock],
+    ['../../../scripts/content/extractors/ImageCollector.js', imageCollectorMock],
+    ['../../../scripts/utils/imageUtils.js', imageUtilsMock],
+    ['../../../scripts/utils/Logger.js', loggerMockModule],
+    ['../../../scripts/highlighter/entryAutoInit.js', entryAutoInitMock],
+  ];
+
+  for (const [specifier, moduleFactory] of mocks) {
+    jest.unstable_mockModule(specifier, () => moduleFactory);
+    jest.doMock(specifier, () => moduleFactory);
+  }
+}
+
+async function loadFreshDeps() {
+  registerContentScriptMocks();
+  const { ContentExtractor } =
+    await import('../../../scripts/content/extractors/ContentExtractor.js');
+  const { ConverterFactory } =
+    await import('../../../scripts/content/converters/ConverterFactory.js');
+  const { ImageCollector } = await import('../../../scripts/content/extractors/ImageCollector.js');
+  const { mergeUniqueImages } = await import('../../../scripts/utils/imageUtils.js');
   return { ContentExtractor, ConverterFactory, ImageCollector, mergeUniqueImages };
 }
 
@@ -81,10 +120,10 @@ describe('content script source IIFE auto-execution', () => {
   });
 
   test('載入 source 後 IIFE 應透過 promise 暴露擷取結果', async () => {
-    const deps = requireFreshDeps();
+    const deps = await loadFreshDeps();
     setupExtractionMocks(deps, 'Source Require Test');
 
-    require('../../../scripts/content/index.js');
+    await import('../../../scripts/content/index.js');
 
     const result = await globalThis.__notion_extraction_promise;
 
@@ -94,11 +133,11 @@ describe('content script source IIFE auto-execution', () => {
   });
 
   test('應該在存在過期的擷取結果時覆寫並啟動', async () => {
-    const deps = requireFreshDeps();
+    const deps = await loadFreshDeps();
     setupExtractionMocks(deps, 'Fresh Result');
     globalThis.__notion_extraction_result = { title: 'stale-result' };
 
-    require('../../../scripts/content/index.js');
+    await import('../../../scripts/content/index.js');
 
     const result = await globalThis.__notion_extraction_promise;
 
