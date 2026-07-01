@@ -5,7 +5,7 @@
 
 import { jest } from '@jest/globals';
 
-import chrome from '../../../mocks/chrome.js';
+import chrome from '../../../mocks/chrome.cjs';
 
 const mockLogger = {
   log: jest.fn(),

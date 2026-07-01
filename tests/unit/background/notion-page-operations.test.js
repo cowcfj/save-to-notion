@@ -4,7 +4,7 @@
  */
 
 // Mock Chrome APIs
-import mockChrome from '../../mocks/chrome';
+import mockChrome from '../../mocks/chrome.cjs';
 import {
   buildNotionPageResponse,
   buildOpenPageRequest,

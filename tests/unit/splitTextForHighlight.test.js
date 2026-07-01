@@ -6,7 +6,7 @@
 let splitTextForHighlight;
 
 beforeAll(async () => {
-  await import('../mocks/chrome.js');
+  await import('../mocks/chrome.cjs');
   ({ splitTextForHighlight } = await import('../../scripts/background/utils/BlockBuilder.js'));
 });
 

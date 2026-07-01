@@ -2,7 +2,7 @@
 // 測試 cleanImageUrl 和 isValidImageUrl 函數
 
 // 先設置 Chrome Mock,再導入源碼
-import '../../mocks/chrome.js';
+import '../../mocks/chrome.cjs';
 
 // 刪除 presetup.js 設定的 mock，讓 IIFE 能正常初始化
 delete globalThis.ImageUtils;
