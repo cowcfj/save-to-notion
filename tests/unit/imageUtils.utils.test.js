@@ -22,9 +22,6 @@ jest.doMock('../../scripts/utils/Logger.js', () => ({
   default: loggerMock,
 }));
 
-// 先設置 Chrome Mock,再導入源碼
-require('../mocks/chrome.cjs');
-
 let Logger = null;
 let cleanImageUrl = null;
 let isValidImageUrl = null;
@@ -39,6 +36,8 @@ let IMAGE_ATTRIBUTES = null;
 let IMAGE_VALIDATION = null;
 
 beforeAll(async () => {
+  // 先設置 Chrome Mock，再導入源碼
+  await import('../mocks/chrome.cjs');
   ({ default: Logger } = await import('../../scripts/utils/Logger.js'));
 
   // 刪除 presetup.js 設定的 mock，讓 IIFE 能正常初始化

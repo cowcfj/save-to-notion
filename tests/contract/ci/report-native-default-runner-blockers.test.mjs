@@ -372,6 +372,49 @@ const expectClassificationRows = report => {
   );
 };
 
+const expectPromotedCohortRecords = (report, cohortPaths) => {
+  expect(report.files).toHaveLength(cohortPaths.length);
+  expectRootTotals(report, countPathsByRoot(cohortPaths));
+  for (const suitePath of cohortPaths) {
+    expect(report.files).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: suitePath,
+          primaryBlocker: 'already-native-default',
+          disposition: 'already-native-default',
+        }),
+      ])
+    );
+  }
+};
+
+const expectCohortSignalsAbsent = (report, cohortPaths, signals) => {
+  for (const suitePath of cohortPaths) {
+    expect(report.files).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: suitePath,
+          signals: expect.not.arrayContaining(signals),
+        }),
+      ])
+    );
+  }
+};
+
+const expectRetainedContainedCjsReport = report => {
+  expect(report.files).toEqual([
+    expect.objectContaining({
+      path: 'tests/unit/background/updateNotificationVersion.test.js',
+      primaryBlocker: 'contained-cjs-require',
+      disposition: 'retain-contained-cjs',
+    }),
+  ]);
+  expect(report.files[0].signals).toEqual(
+    expect.arrayContaining(['contained-cjs-require', 'root-commonjs-test-boundary'])
+  );
+  expect(report.files[0].signals).not.toContain('commonjs-require-production-esm');
+};
+
 describe('tools/report-native-default-runner-blockers', () => {
   const projectRoot = path.resolve(__dirname, '../../..');
   const tempRoot = path.join(projectRoot, '.tmp/test-native-default-blockers');
@@ -437,6 +480,8 @@ describe('tools/report-native-default-runner-blockers', () => {
   });
 
   test('目前 repo 在 Phase 2 cohort promoted 後沒有未知 blockers', () => {
+    expect.hasAssertions();
+
     const report = buildClassificationReport(reporter, projectRoot);
     const promotedCohortReport = buildClassificationReport(
       reporter,
@@ -445,95 +490,34 @@ describe('tools/report-native-default-runner-blockers', () => {
     );
 
     expect(report.totals.unknown).toBe(0);
-    expect(promotedCohortReport.files).toHaveLength(promotedNativeDefaultCohort.length);
-    expectRootTotals(promotedCohortReport, countPathsByRoot(promotedNativeDefaultCohort));
-    for (const suitePath of promotedNativeDefaultCohort) {
-      expect(promotedCohortReport.files).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            path: suitePath,
-            primaryBlocker: 'already-native-default',
-            disposition: 'already-native-default',
-          }),
-        ])
-      );
-    }
-    for (const suitePath of [
-      ...cjsEsmRequireProductionEsmCohort,
-      ...cjsEsmRequireProductionEsmCohort2,
-    ]) {
-      expect(promotedCohortReport.files).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            path: suitePath,
-            signals: expect.not.arrayContaining([
-              'commonjs-require-production-esm',
-              'root-commonjs-test-boundary',
-            ]),
-          }),
-        ])
-      );
-    }
-    for (const suitePath of babelHoistedMockOrderingCohort1) {
-      expect(promotedCohortReport.files).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            path: suitePath,
-            signals: expect.not.arrayContaining(['babel-hoisted-mock']),
-          }),
-        ])
-      );
-    }
-    for (const suitePath of babelHoistedMockOrderingCohort2Drive) {
-      expect(promotedCohortReport.files).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            path: suitePath,
-            signals: expect.not.arrayContaining(['babel-hoisted-mock']),
-          }),
-        ])
-      );
-    }
-    for (const suitePath of babelHoistedMockOrderingCohort2AuthAdjacent) {
-      expect(promotedCohortReport.files).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            path: suitePath,
-            signals: expect.not.arrayContaining(['babel-hoisted-mock']),
-          }),
-        ])
-      );
-    }
-    for (const suitePath of babelHoistedMockOrderingCohort3LeafRuntime) {
-      expect(promotedCohortReport.files).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            path: suitePath,
-            signals: expect.not.arrayContaining(['babel-hoisted-mock']),
-          }),
-        ])
-      );
-    }
-    for (const suitePath of babelHoistedMockOrderingCohort3HighlighterIndex) {
-      expect(promotedCohortReport.files).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            path: suitePath,
-            signals: expect.not.arrayContaining(['babel-hoisted-mock']),
-          }),
-        ])
-      );
-    }
-    for (const suitePath of babelHoistedMockOrderingCohort3BackgroundEntrypoint) {
-      expect(promotedCohortReport.files).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            path: suitePath,
-            signals: expect.not.arrayContaining(['babel-hoisted-mock']),
-          }),
-        ])
-      );
-    }
+    expectPromotedCohortRecords(promotedCohortReport, promotedNativeDefaultCohort);
+    expectCohortSignalsAbsent(
+      promotedCohortReport,
+      [...cjsEsmRequireProductionEsmCohort, ...cjsEsmRequireProductionEsmCohort2],
+      ['commonjs-require-production-esm', 'root-commonjs-test-boundary']
+    );
+    expectCohortSignalsAbsent(promotedCohortReport, babelHoistedMockOrderingCohort1, [
+      'babel-hoisted-mock',
+    ]);
+    expectCohortSignalsAbsent(promotedCohortReport, babelHoistedMockOrderingCohort2Drive, [
+      'babel-hoisted-mock',
+    ]);
+    expectCohortSignalsAbsent(promotedCohortReport, babelHoistedMockOrderingCohort2AuthAdjacent, [
+      'babel-hoisted-mock',
+    ]);
+    expectCohortSignalsAbsent(promotedCohortReport, babelHoistedMockOrderingCohort3LeafRuntime, [
+      'babel-hoisted-mock',
+    ]);
+    expectCohortSignalsAbsent(
+      promotedCohortReport,
+      babelHoistedMockOrderingCohort3HighlighterIndex,
+      ['babel-hoisted-mock']
+    );
+    expectCohortSignalsAbsent(
+      promotedCohortReport,
+      babelHoistedMockOrderingCohort3BackgroundEntrypoint,
+      ['babel-hoisted-mock']
+    );
     expect(promotedCohortReport.files).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -557,17 +541,7 @@ describe('tools/report-native-default-runner-blockers', () => {
       containedCjsRequireCohort
     );
 
-    expect(containedCjsReport.files).toEqual([
-      expect.objectContaining({
-        path: 'tests/unit/background/updateNotificationVersion.test.js',
-        primaryBlocker: 'contained-cjs-require',
-        disposition: 'retain-contained-cjs',
-      }),
-    ]);
-    expect(containedCjsReport.files[0].signals).toEqual(
-      expect.arrayContaining(['contained-cjs-require', 'root-commonjs-test-boundary'])
-    );
-    expect(containedCjsReport.files[0].signals).not.toContain('commonjs-require-production-esm');
+    expectRetainedContainedCjsReport(containedCjsReport);
   });
 
   test('classifies custom root suites under the caller-provided roots', () => {

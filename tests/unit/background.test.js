@@ -661,20 +661,7 @@ describe('Background Script Lifecycle', () => {
      */
     let underlyingStorageMocks;
 
-    beforeEach(async () => {
-      // 重新 require 模組以捕捉傳給 TabService 的參數
-      jest.resetModules();
-
-      // 確保需要被依賴的 utils 都被 Mock
-      jest.doMock('../../scripts/utils/notionAuth.js', () => ({
-        getActiveNotionToken: jest.fn().mockResolvedValue({ token: 'test-oauth-token' }),
-      }));
-      jest.doMock('../../scripts/utils/Logger.js', () => ({
-        __esModule: true,
-        default: mockLogger,
-      }));
-
-      // 取得 Mock instance 以便進行後續呼叫的斷言
+    function createTabServiceDependencyMocks() {
       const mockStorage = {
         getSavedPageData: jest.fn().mockResolvedValue('data'),
         clearPageState: jest.fn().mockResolvedValue('cleared1'),
@@ -684,25 +671,48 @@ describe('Background Script Lifecycle', () => {
         updateHighlights: jest.fn().mockResolvedValue('updated'),
       };
 
-      // 快照原始 jest.fn() 參考，供 wrapper 測試驗證底層轉發
-      underlyingStorageMocks = {
+      return {
+        mockStorage,
+        mockNotion: {
+          checkPageExists: jest.fn().mockResolvedValue(true),
+        },
+        restrictedUrlMock: jest.fn().mockReturnValue(true),
+        recoverableErrorMock: jest.fn().mockReturnValue(false),
+      };
+    }
+
+    function snapshotUnderlyingStorageMocks(mockStorage) {
+      return {
         clearPageState: mockStorage.clearPageState,
         clearNotionState: mockStorage.clearNotionState,
         setSavedPageData: mockStorage.setSavedPageData,
         savePageDataAndHighlights: mockStorage.savePageDataAndHighlights,
         updateHighlights: mockStorage.updateHighlights,
       };
+    }
 
-      const mockNotion = {
-        checkPageExists: jest.fn().mockResolvedValue(true),
-      };
-      const restrictedUrlMock = jest.fn().mockReturnValue(true);
-      const recoverableErrorMock = jest.fn().mockReturnValue(false);
+    function exposeNativeTabServiceDependencyMocks({
+      mockStorage,
+      mockNotion,
+      restrictedUrlMock,
+      recoverableErrorMock,
+    }) {
       globalThis.__backgroundTestStorageServiceInstance = mockStorage;
       globalThis.__backgroundTestNotionServiceInstance = mockNotion;
       globalThis.__backgroundTestIsRestrictedInjectionUrl = restrictedUrlMock;
       globalThis.__backgroundTestIsRecoverableInjectionError = recoverableErrorMock;
+    }
 
+    function registerTabServiceDependencyMocks(dependencyMocks) {
+      const { mockStorage, mockNotion } = dependencyMocks;
+
+      jest.doMock('../../scripts/utils/notionAuth.js', () => ({
+        getActiveNotionToken: jest.fn().mockResolvedValue({ token: 'test-oauth-token' }),
+      }));
+      jest.doMock('../../scripts/utils/Logger.js', () => ({
+        __esModule: true,
+        default: mockLogger,
+      }));
       jest.doMock('../../scripts/background/services/StorageService.js', () => ({
         StorageService: jest.fn().mockImplementation(() => mockStorage),
       }));
@@ -720,36 +730,57 @@ describe('Background Script Lifecycle', () => {
       jest.doMock('../../scripts/background/services/MigrationService.js', () => ({
         MigrationService: jest.fn().mockImplementation(() => ({})),
       }));
-
-      // 攔截 TabService 建構子，保存傳入的 options
       jest.doMock('../../scripts/background/services/TabService.js', () => ({
         TabService: jest.fn().mockImplementation(options => {
           actualTabServiceDeps = options;
           return { setupListeners: jest.fn() };
         }),
       }));
+    }
 
+    async function loadTabServiceDependenciesForRuntime({
+      restrictedUrlMock,
+      recoverableErrorMock,
+    }) {
       if (isNativeDefaultRuntime()) {
         const surface = await loadBackgroundLifecycleTestSurfaceForRuntime(globalThis.chrome);
-        actualTabServiceDeps = globalThis.__backgroundTestActualTabServiceDeps;
-        storageServiceMock = surface.storageService;
-        notionServiceMock = surface.notionService;
-        injectionServiceMock = {
-          isRestrictedInjectionUrl: restrictedUrlMock,
-          isRecoverableInjectionError: recoverableErrorMock,
+
+        return {
+          actualTabServiceDeps: globalThis.__backgroundTestActualTabServiceDeps,
+          storageServiceMock: surface.storageService,
+          notionServiceMock: surface.notionService,
+          injectionServiceMock: {
+            isRestrictedInjectionUrl: restrictedUrlMock,
+            isRecoverableInjectionError: recoverableErrorMock,
+          },
         };
-      } else {
-        require(BACKGROUND_ENTRYPOINT_PATH);
-
-        const storageModule = require('../../scripts/background/services/StorageService.js');
-        storageServiceMock = new storageModule.StorageService();
-
-        const notionModule = require('../../scripts/background/services/NotionService.js');
-        notionServiceMock = new notionModule.NotionService();
-
-        const injectionModule = require('../../scripts/background/services/InjectionService.js');
-        injectionServiceMock = injectionModule;
       }
+
+      require(BACKGROUND_ENTRYPOINT_PATH);
+
+      const storageModule = require('../../scripts/background/services/StorageService.js');
+      const notionModule = require('../../scripts/background/services/NotionService.js');
+      const injectionModule = require('../../scripts/background/services/InjectionService.js');
+
+      return {
+        actualTabServiceDeps,
+        storageServiceMock: new storageModule.StorageService(),
+        notionServiceMock: new notionModule.NotionService(),
+        injectionServiceMock: injectionModule,
+      };
+    }
+
+    beforeEach(async () => {
+      // 重新 require 模組以捕捉傳給 TabService 的參數
+      jest.resetModules();
+
+      const dependencyMocks = createTabServiceDependencyMocks();
+      underlyingStorageMocks = snapshotUnderlyingStorageMocks(dependencyMocks.mockStorage);
+      exposeNativeTabServiceDependencyMocks(dependencyMocks);
+      registerTabServiceDependencyMocks(dependencyMocks);
+
+      ({ actualTabServiceDeps, storageServiceMock, notionServiceMock, injectionServiceMock } =
+        await loadTabServiceDependenciesForRuntime(dependencyMocks));
     });
 
     test('getSavedPageData maps to StorageService.getSavedPageData', async () => {
