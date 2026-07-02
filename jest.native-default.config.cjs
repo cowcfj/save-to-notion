@@ -51,6 +51,8 @@ module.exports = {
     '<rootDir>/tests/unit/highlighter/highlighter-storage-optimization.test.js',
     '<rootDir>/tests/unit/normalizeUrl.test.js',
     '<rootDir>/tests/unit/background/buildHighlightBlocks.test.js',
+    '<rootDir>/tests/unit/background/extension-lifecycle.test.js',
+    '<rootDir>/tests/unit/background.test.js',
     '<rootDir>/tests/unit/pageComplexityDetector.node-env.test.js',
     '<rootDir>/tests/unit/splitTextForHighlight.test.js',
     '<rootDir>/tests/unit/background/processContentResult.test.js',

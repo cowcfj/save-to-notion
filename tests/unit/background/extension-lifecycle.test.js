@@ -2,111 +2,244 @@
  * @jest-environment jsdom
  */
 
-// Mock Logger
-jest.mock('../../../scripts/utils/Logger.js', () => ({
-  __esModule: true,
-  default: {
-    ready: jest.fn(),
-    success: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
+const loggerMock = {
+  debug: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  log: jest.fn(),
+  success: jest.fn(),
+  ready: jest.fn(),
+  start: jest.fn(),
+};
+
+const isNativeDefaultRuntime = () =>
+  (process.env.NODE_OPTIONS ?? '').includes('--experimental-vm-modules');
+
+const makeChromeMock = () => ({
+  runtime: {
+    onInstalled: { addListener: jest.fn(), removeListener: jest.fn() },
+    onMessage: { addListener: jest.fn(), removeListener: jest.fn() },
+    onStartup: { addListener: jest.fn(), removeListener: jest.fn() },
+    getManifest: jest.fn(() => ({ version: '2.8.1' })),
+    getURL: jest.fn(path => `chrome-extension://ext-id/${path}`),
+    lastError: null,
   },
-}));
-import Logger from '../../../scripts/utils/Logger.js';
-import { getBackgroundLifecycleTestSurface } from '../../../scripts/background/backgroundLifecycleTestSurface.js';
+  alarms: {
+    get: jest.fn(),
+    create: jest.fn(),
+    clear: jest.fn(),
+    onAlarm: { addListener: jest.fn(), removeListener: jest.fn() },
+  },
+  tabs: {
+    onUpdated: { addListener: jest.fn(), removeListener: jest.fn() },
+    onRemoved: { addListener: jest.fn(), removeListener: jest.fn() },
+    onActivated: { addListener: jest.fn(), removeListener: jest.fn() },
+    create: jest.fn(async () => ({ id: 1 })),
+    sendMessage: jest.fn(),
+    get: jest.fn(),
+    query: jest.fn(),
+  },
+  windows: {
+    create: jest.fn(),
+  },
+  storage: {
+    local: {
+      get: jest.fn(),
+      set: jest.fn(),
+      remove: jest.fn(),
+    },
+    sync: {
+      get: jest.fn(),
+      set: jest.fn(),
+    },
+  },
+  action: {
+    setBadgeText: jest.fn(),
+    setBadgeBackgroundColor: jest.fn(),
+  },
+  scripting: {
+    executeScript: jest.fn(),
+  },
+});
 
-jest.mock('../../../scripts/utils/urlUtils.js', () => ({
-  normalizeUrl: jest.fn(),
-  computeStableUrl: jest.fn(),
-}));
+const installChromeMock = chromeMock => {
+  globalThis.chrome = chromeMock;
+  globalThis.chrome = chromeMock;
+  if (globalThis.window !== undefined) {
+    globalThis.chrome = chromeMock;
+  }
+  if (globalThis.self !== undefined) {
+    globalThis.chrome = chromeMock;
+  }
+};
 
-jest.mock('../../../scripts/config/shared/core.js', () => ({
-  TAB_SERVICE: { LOADING_TIMEOUT_MS: 1000 },
-}));
+const registerBackgroundEntrypointMocks = async () => {
+  jest.doMock('../../../scripts/utils/Logger.js', () => ({
+    __esModule: true,
+    default: loggerMock,
+    ...loggerMock,
+  }));
+  await jest.unstable_mockModule('../../../scripts/utils/Logger.js', () => ({
+    __esModule: true,
+    default: loggerMock,
+    ...loggerMock,
+  }));
 
-// Inline mock factories
-jest.mock('../../../scripts/background/services/StorageService.js', () => ({
-  StorageService: jest.fn().mockImplementation(() => ({
-    name: 'StorageService',
-    setupListeners: jest.fn(),
-  })),
-}));
-jest.mock('../../../scripts/background/services/NotionService.js', () => ({
-  NotionService: jest.fn().mockImplementation(() => ({
-    name: 'NotionService',
-    setupListeners: jest.fn(),
-  })),
-}));
-jest.mock('../../../scripts/background/services/InjectionService.js', () => ({
-  InjectionService: jest.fn().mockImplementation(() => ({
-    name: 'InjectionService',
-    setupListeners: jest.fn(),
-  })),
-  isRestrictedInjectionUrl: jest.fn(),
-  isRecoverableInjectionError: jest.fn(),
-}));
-jest.mock('../../../scripts/background/services/PageContentService.js', () => ({
-  PageContentService: jest.fn().mockImplementation(() => ({
-    name: 'PageContentService',
-    setupListeners: jest.fn(),
-  })),
-}));
-jest.mock('../../../scripts/background/services/TabService.js', () => ({
-  TabService: jest.fn().mockImplementation(() => ({
-    name: 'TabService',
-    setupListeners: jest.fn(),
-  })),
-}));
+  jest.doMock('../../../scripts/utils/urlUtils.js', () => ({
+    normalizeUrl: jest.fn(),
+    computeStableUrl: jest.fn(),
+  }));
+  await jest.unstable_mockModule('../../../scripts/utils/urlUtils.js', () => ({
+    __esModule: true,
+    normalizeUrl: jest.fn(url => url),
+    computeStableUrl: jest.fn(url => url),
+  }));
 
-// Mock Handlers
-jest.mock('../../../scripts/background/handlers/MessageHandler.js', () => ({
-  MessageHandler: jest.fn().mockImplementation(() => ({
-    registerAll: jest.fn(),
-    setupListener: jest.fn(),
-  })),
-}));
-jest.mock('../../../scripts/background/handlers/saveHandlers.js', () => ({
-  createSaveHandlers: jest.fn(() => ({})),
-}));
-jest.mock('../../../scripts/background/handlers/highlightHandlers.js', () => ({
-  createHighlightHandlers: jest.fn(() => ({})),
-}));
-jest.mock('../../../scripts/background/handlers/migrationHandlers.js', () => ({
-  createMigrationHandlers: jest.fn(() => ({})),
-}));
-jest.mock('../../../scripts/background/handlers/logHandlers.js', () => ({
-  createLogHandlers: jest.fn(() => ({})),
-}));
-jest.mock('../../../scripts/background/handlers/notionHandlers.js', () => ({
-  createNotionHandlers: jest.fn(() => ({})),
-}));
+  jest.doMock('../../../scripts/config/shared/core.js', () => ({
+    TAB_SERVICE: { LOADING_TIMEOUT_MS: 1000 },
+  }));
+  await jest.unstable_mockModule('../../../scripts/config/shared/core.js', () => ({
+    TAB_SERVICE: { LOADING_TIMEOUT_MS: 1000 },
+  }));
+
+  const serviceFactory = name =>
+    jest.fn().mockImplementation(() => ({
+      name,
+      setupListeners: jest.fn(),
+    }));
+
+  const serviceMocks = [
+    ['../../../scripts/background/services/StorageService.js', 'StorageService'],
+    ['../../../scripts/background/services/NotionService.js', 'NotionService'],
+    ['../../../scripts/background/services/PageContentService.js', 'PageContentService'],
+    ['../../../scripts/background/services/TabService.js', 'TabService'],
+    ['../../../scripts/background/services/MigrationService.js', 'MigrationService'],
+  ];
+
+  for (const [modulePath, exportName] of serviceMocks) {
+    const mockFactory = () => ({ [exportName]: serviceFactory(exportName) });
+    jest.doMock(modulePath, mockFactory);
+    await jest.unstable_mockModule(modulePath, mockFactory);
+  }
+
+  const injectionMockFactory = () => ({
+    InjectionService: serviceFactory('InjectionService'),
+    isRestrictedInjectionUrl: jest.fn(),
+    isRecoverableInjectionError: jest.fn(),
+  });
+  jest.doMock('../../../scripts/background/services/InjectionService.js', injectionMockFactory);
+  await jest.unstable_mockModule(
+    '../../../scripts/background/services/InjectionService.js',
+    injectionMockFactory
+  );
+
+  const messageHandlerMockFactory = () => ({
+    MessageHandler: jest.fn().mockImplementation(() => ({
+      registerAll: jest.fn(),
+      setupListener: jest.fn(),
+    })),
+  });
+  jest.doMock('../../../scripts/background/handlers/MessageHandler.js', messageHandlerMockFactory);
+  await jest.unstable_mockModule(
+    '../../../scripts/background/handlers/MessageHandler.js',
+    messageHandlerMockFactory
+  );
+
+  const handlerMocks = [
+    ['../../../scripts/background/handlers/saveHandlers.js', 'createSaveHandlers'],
+    ['../../../scripts/background/handlers/highlightHandlers.js', 'createHighlightHandlers'],
+    ['../../../scripts/background/handlers/migrationHandlers.js', 'createMigrationHandlers'],
+    ['../../../scripts/background/handlers/logHandlers.js', 'createLogHandlers'],
+    ['../../../scripts/background/handlers/notionHandlers.js', 'createNotionHandlers'],
+    ['../../../scripts/background/handlers/sidepanelHandlers.js', 'createSidepanelHandlers'],
+    ['../../../scripts/background/handlers/driveSyncHandlers.js', 'createDriveSyncHandlers'],
+  ];
+
+  for (const [modulePath, exportName] of handlerMocks) {
+    const mockFactory = () => ({ [exportName]: jest.fn(() => ({})) });
+    jest.doMock(modulePath, mockFactory);
+    await jest.unstable_mockModule(modulePath, mockFactory);
+  }
+
+  const accountAuthMockFactory = () => ({
+    createAccountAuthHandler: jest.fn(() => ({ setupListeners: jest.fn() })),
+  });
+  jest.doMock('../../../scripts/background/handlers/accountAuthHandler.js', accountAuthMockFactory);
+  await jest.unstable_mockModule(
+    '../../../scripts/background/handlers/accountAuthHandler.js',
+    accountAuthMockFactory
+  );
+
+  await jest.unstable_mockModule('../../../scripts/utils/notionAuth.js', () => ({
+    getActiveNotionToken: jest.fn(async () => ({ token: 'token' })),
+  }));
+  await jest.unstable_mockModule('../../../scripts/background/handlers/driveAutoSync.js', () => ({
+    runAutoUpload: jest.fn(async () => undefined),
+  }));
+  await jest.unstable_mockModule(
+    '../../../scripts/background/handlers/driveAlarmScheduler.js',
+    () => ({
+      DRIVE_AUTO_SYNC_ALARM: 'drive-auto-sync',
+      FREQUENCY_PERIOD_MINUTES: { daily: 1440 },
+      setupDriveAlarm: jest.fn(async () => undefined),
+    })
+  );
+  await jest.unstable_mockModule('../../../scripts/auth/driveClient.js', () => ({
+    DRIVE_SYNC_FREQUENCIES: ['off', 'daily', 'weekly', 'monthly'],
+    DRIVE_SYNC_STORAGE_KEYS: { FREQUENCY: 'frequency' },
+    markDriveDirty: jest.fn(),
+  }));
+  await jest.unstable_mockModule('../../../scripts/destinations/ProfileStore.js', () => ({
+    AccountGatedDestinationEntitlementProvider: jest.fn(),
+    LocalDestinationProfileRepository: jest.fn(),
+  }));
+  await jest.unstable_mockModule('../../../scripts/destinations/ProfileResolver.js', () => ({
+    ProfileResolver: jest.fn().mockImplementation(() => ({
+      resolve: jest.fn(async () => ({ id: 'default' })),
+    })),
+  }));
+};
 
 let background;
+let chrome;
+
+const loadBackgroundTestSurface = async () => {
+  if (isNativeDefaultRuntime()) {
+    const { importBackgroundEntrypoint, setupBackgroundEntrypointGlobals, unwrapTestExports } =
+      await import('../../native-esm/background/backgroundLifecycleHarness.mjs');
+    setupBackgroundEntrypointGlobals({ chrome, logger: loggerMock });
+    return unwrapTestExports(await importBackgroundEntrypoint());
+  }
+
+  require('../../../scripts/background.js');
+  return require('../../../scripts/background/backgroundLifecycleTestSurface.js').getBackgroundLifecycleTestSurface();
+};
 
 describe('Background Extension Lifecycle', () => {
-  beforeAll(() => {
-    // Manually assign global Logger since mocked module doesn't run side-effects
-    globalThis.Logger = Logger;
-
-    // Ensure background.js is loaded
-    // Since we mocked everything, it should initialize without error
-    require('../../../scripts/background.js');
-    background = getBackgroundLifecycleTestSurface();
+  beforeAll(async () => {
+    await registerBackgroundEntrypointMocks();
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
+    chrome = makeChromeMock();
+    chrome.storage.local.get.mockResolvedValue({ frequency: 'off' });
+    globalThis.module = { exports: {} };
+    installChromeMock(chrome);
+    globalThis.Logger = loggerMock;
+    globalThis.URL = URL;
     chrome.runtime.getManifest.mockReturnValue({ version: '2.8.1' });
     chrome.windows.create.mockResolvedValue({ id: 123 });
     chrome.tabs.sendMessage.mockResolvedValue({});
     chrome.tabs.get.mockResolvedValue({ status: 'complete' });
+    background = await loadBackgroundTestSurface();
   });
 
   describe('handleExtensionUpdate', () => {
     test('應該記錄更新信息', async () => {
       await background.handleExtensionUpdate('2.7.3');
-      expect(Logger.success).toHaveBeenCalledWith(
+      expect(loggerMock.success).toHaveBeenCalledWith(
         '[Lifecycle] 擴展已更新',
         expect.objectContaining({ previousVersion: '2.7.3' })
       );
@@ -117,13 +250,11 @@ describe('Background Extension Lifecycle', () => {
       await background.handleExtensionUpdate('2.7.3');
 
       expect(chrome.windows.create).toHaveBeenCalled();
-      expect(Logger.info).toHaveBeenCalledWith(expect.stringContaining('已顯示更新通知視窗'));
+      expect(loggerMock.info).toHaveBeenCalledWith(expect.stringContaining('已顯示更新通知視窗'));
     });
   });
 
   describe('shouldShowUpdateNotification', () => {
-    // 透過直接測試 shouldShowUpdateNotification（如果導出）或通過 handleExtensionUpdate 間接測試 logic
-
     const setupUpdateTest = async (previousVersion, currentVersion) => {
       chrome.runtime.getManifest.mockReturnValue({ version: currentVersion });
       chrome.windows.create.mockClear();
@@ -154,7 +285,10 @@ describe('Background Extension Lifecycle', () => {
   describe('handleExtensionInstall', () => {
     test('應該記錄首次安裝信息', () => {
       background.handleExtensionInstall();
-      expect(Logger.success).toHaveBeenCalledWith('[Lifecycle] 擴展首次安裝', expect.anything());
+      expect(loggerMock.success).toHaveBeenCalledWith(
+        '[Lifecycle] 擴展首次安裝',
+        expect.anything()
+      );
     });
 
     test('應該開啟 onboarding tab', () => {
@@ -174,9 +308,8 @@ describe('Background Extension Lifecycle', () => {
       );
       chrome.tabs.create.mockRejectedValueOnce(new Error('tab_create_failed'));
       expect(() => background.handleExtensionInstall()).not.toThrow();
-      // 等待 unhandled rejection 進到 catch
       await new Promise(resolve => setTimeout(resolve, 0));
-      expect(Logger.warn).toHaveBeenCalledWith(
+      expect(loggerMock.warn).toHaveBeenCalledWith(
         expect.stringContaining('開啟 onboarding tab 失敗'),
         expect.anything()
       );
@@ -202,7 +335,7 @@ describe('Background Extension Lifecycle', () => {
     test('應該處理錯誤', async () => {
       chrome.windows.create.mockRejectedValue(new Error('Failed'));
       await background.showUpdateNotification('2.7.3', '2.8.1');
-      expect(Logger.warn).toHaveBeenCalledWith(
+      expect(loggerMock.warn).toHaveBeenCalledWith(
         expect.stringContaining('顯示更新通知失敗'),
         expect.anything()
       );

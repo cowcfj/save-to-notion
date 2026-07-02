@@ -11,7 +11,7 @@ const mockLogger = {
   error: jest.fn(),
 };
 
-jest.mock('../../scripts/utils/Logger.js', () => ({
+jest.doMock('../../scripts/utils/Logger.js', () => ({
   __esModule: true,
   default: mockLogger,
   ready: mockLogger.ready,
@@ -21,12 +21,12 @@ jest.mock('../../scripts/utils/Logger.js', () => ({
   error: mockLogger.error,
 }));
 
-jest.mock('../../scripts/utils/urlUtils.js', () => ({
+jest.doMock('../../scripts/utils/urlUtils.js', () => ({
   normalizeUrl: jest.fn(),
   computeStableUrl: jest.fn(),
 }));
 
-jest.mock('../../scripts/config/shared/core.js', () => ({
+jest.doMock('../../scripts/config/shared/core.js', () => ({
   TAB_SERVICE: { LOADING_TIMEOUT_MS: 1000 },
 }));
 
@@ -42,90 +42,233 @@ const mockServiceInstance = {
   updateHighlights: jest.fn().mockResolvedValue({}),
 };
 
-jest.mock('../../scripts/background/services/StorageService.js', () => ({
+jest.doMock('../../scripts/background/services/StorageService.js', () => ({
   StorageService: jest.fn().mockImplementation(() => mockServiceInstance),
 }));
 
-jest.mock('../../scripts/background/services/NotionService.js', () => ({
+jest.doMock('../../scripts/background/services/NotionService.js', () => ({
   NotionService: jest.fn().mockImplementation(() => mockServiceInstance),
 }));
 
-jest.mock('../../scripts/background/services/InjectionService.js', () => ({
+jest.doMock('../../scripts/background/services/InjectionService.js', () => ({
   InjectionService: jest.fn().mockImplementation(() => mockServiceInstance),
   isRestrictedInjectionUrl: jest.fn(),
   isRecoverableInjectionError: jest.fn(),
 }));
 
-jest.mock('../../scripts/background/services/PageContentService.js', () => ({
+jest.doMock('../../scripts/background/services/PageContentService.js', () => ({
   PageContentService: jest.fn().mockImplementation(() => mockServiceInstance),
 }));
 
-jest.mock('../../scripts/background/services/TabService.js', () => ({
+jest.doMock('../../scripts/background/services/TabService.js', () => ({
   TabService: jest.fn().mockImplementation(() => mockServiceInstance),
 }));
 
-jest.mock('../../scripts/background/services/MigrationService.js', () => ({
+jest.doMock('../../scripts/background/services/MigrationService.js', () => ({
   MigrationService: jest.fn().mockImplementation(() => mockServiceInstance),
 }));
 
 // Mock Handlers
-jest.mock('../../scripts/background/handlers/MessageHandler.js', () => ({
+jest.doMock('../../scripts/background/handlers/MessageHandler.js', () => ({
   MessageHandler: jest.fn().mockImplementation(() => ({
     registerAll: jest.fn(),
     setupListener: jest.fn(),
   })),
 }));
 
-jest.mock('../../scripts/background/handlers/saveHandlers.js', () => ({
+jest.doMock('../../scripts/background/handlers/saveHandlers.js', () => ({
   createSaveHandlers: jest.fn().mockReturnValue({}),
 }));
-jest.mock('../../scripts/background/handlers/highlightHandlers.js', () => ({
+jest.doMock('../../scripts/background/handlers/highlightHandlers.js', () => ({
   createHighlightHandlers: jest.fn().mockReturnValue({}),
 }));
-jest.mock('../../scripts/background/handlers/migrationHandlers.js', () => ({
+jest.doMock('../../scripts/background/handlers/migrationHandlers.js', () => ({
   createMigrationHandlers: jest.fn().mockReturnValue({}),
 }));
-jest.mock('../../scripts/background/handlers/logHandlers.js', () => ({
+jest.doMock('../../scripts/background/handlers/logHandlers.js', () => ({
   createLogHandlers: jest.fn().mockReturnValue({}),
 }));
-jest.mock('../../scripts/background/handlers/notionHandlers.js', () => ({
+jest.doMock('../../scripts/background/handlers/notionHandlers.js', () => ({
   createNotionHandlers: jest.fn().mockReturnValue({}),
 }));
-jest.mock('../../scripts/background/handlers/accountAuthHandler.js', () => ({
+jest.doMock('../../scripts/background/handlers/accountAuthHandler.js', () => ({
   createAccountAuthHandler: jest.fn().mockReturnValue({
     setupListeners: jest.fn(),
   }),
 }));
 
 // Phase B: mock markDriveDirty 以避免 dirty tracking wrapper 污染 storageService mock
-jest.mock('../../scripts/auth/driveClient.js', () => ({
-  ...jest.requireActual('../../scripts/auth/driveClient.js'),
+jest.doMock('../../scripts/auth/driveClient.js', () => ({
+  DRIVE_SYNC_FREQUENCIES: ['off', 'daily', 'weekly', 'monthly'],
+  DRIVE_SYNC_STORAGE_KEYS: { FREQUENCY: 'frequency' },
   markDriveDirty: jest.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock('../../scripts/background/handlers/driveAutoSync.js', () => ({
+jest.doMock('../../scripts/background/handlers/driveAutoSync.js', () => ({
   runAutoUpload: jest.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock('../../scripts/background/handlers/driveAlarmScheduler.js', () => ({
+jest.doMock('../../scripts/background/handlers/driveAlarmScheduler.js', () => ({
   DRIVE_AUTO_SYNC_ALARM: 'drive-auto-sync',
   FREQUENCY_PERIOD_MINUTES: { daily: 1440, weekly: 10_080, monthly: 43_200 },
   setupDriveAlarm: jest.fn().mockResolvedValue(undefined),
 }));
 
-import {
-  getBackgroundLifecycleTestSurface,
-  setBackgroundLifecycleTestSurface,
-} from '../../scripts/background/backgroundLifecycleTestSurface.js';
+const loadBackgroundLifecycleSurfaceModule = () =>
+  require('../../scripts/background/backgroundLifecycleTestSurface.js');
+const isNativeDefaultRuntime = () =>
+  (process.env.NODE_OPTIONS ?? '').includes('--experimental-vm-modules');
+const BACKGROUND_ENTRYPOINT_PATH = '../../scripts/background.js';
+let nativeBackgroundMocksRegistered = false;
+let nativeRunAutoUploadMock = jest.fn().mockResolvedValue(undefined);
+const nativeSetupDriveAlarmMock = jest.fn().mockResolvedValue(undefined);
+const nativeMarkDriveDirtyMock = jest.fn().mockResolvedValue(undefined);
+
+async function registerNativeBackgroundEntrypointMocks() {
+  if (nativeBackgroundMocksRegistered || !isNativeDefaultRuntime()) {
+    return;
+  }
+
+  await jest.unstable_mockModule('../../scripts/utils/Logger.js', () => ({
+    __esModule: true,
+    default: mockLogger,
+    ...mockLogger,
+  }));
+  await jest.unstable_mockModule('../../scripts/utils/urlUtils.js', () => ({
+    __esModule: true,
+    normalizeUrl: jest.fn(url => url),
+    computeStableUrl: jest.fn(url => url),
+  }));
+  await jest.unstable_mockModule('../../scripts/utils/notionAuth.js', () => ({
+    getActiveNotionToken: jest.fn().mockResolvedValue({ token: 'test-oauth-token' }),
+  }));
+  await jest.unstable_mockModule('../../scripts/config/shared/core.js', () => ({
+    TAB_SERVICE: { LOADING_TIMEOUT_MS: 1000 },
+  }));
+
+  await jest.unstable_mockModule('../../scripts/background/services/StorageService.js', () => ({
+    StorageService: jest
+      .fn()
+      .mockImplementation(
+        () => globalThis.__backgroundTestStorageServiceInstance ?? mockServiceInstance
+      ),
+  }));
+  await jest.unstable_mockModule('../../scripts/background/services/NotionService.js', () => ({
+    NotionService: jest
+      .fn()
+      .mockImplementation(
+        () => globalThis.__backgroundTestNotionServiceInstance ?? mockServiceInstance
+      ),
+  }));
+  await jest.unstable_mockModule('../../scripts/background/services/InjectionService.js', () => ({
+    InjectionService: jest.fn().mockImplementation(() => mockServiceInstance),
+    isRestrictedInjectionUrl: jest.fn(url =>
+      (globalThis.__backgroundTestIsRestrictedInjectionUrl ?? jest.fn())(url)
+    ),
+    isRecoverableInjectionError: jest.fn(error =>
+      (globalThis.__backgroundTestIsRecoverableInjectionError ?? jest.fn())(error)
+    ),
+  }));
+  await jest.unstable_mockModule('../../scripts/background/services/PageContentService.js', () => ({
+    PageContentService: jest.fn().mockImplementation(() => mockServiceInstance),
+  }));
+  await jest.unstable_mockModule('../../scripts/background/services/TabService.js', () => ({
+    TabService: jest.fn().mockImplementation(options => {
+      globalThis.__backgroundTestActualTabServiceDeps = options;
+      return { setupListeners: jest.fn() };
+    }),
+  }));
+  await jest.unstable_mockModule('../../scripts/background/services/MigrationService.js', () => ({
+    MigrationService: jest.fn().mockImplementation(() => mockServiceInstance),
+  }));
+  await jest.unstable_mockModule(
+    '../../scripts/background/services/StorageMigrationScanner.js',
+    () => ({
+      StorageMigrationScanner: jest.fn().mockImplementation(() => mockServiceInstance),
+    })
+  );
+  await jest.unstable_mockModule('../../scripts/background/handlers/MessageHandler.js', () => ({
+    MessageHandler: jest.fn().mockImplementation(() => ({
+      registerAll: jest.fn(),
+      setupListener: jest.fn(),
+    })),
+  }));
+
+  for (const [modulePath, exportName] of [
+    ['../../scripts/background/handlers/saveHandlers.js', 'createSaveHandlers'],
+    ['../../scripts/background/handlers/highlightHandlers.js', 'createHighlightHandlers'],
+    ['../../scripts/background/handlers/migrationHandlers.js', 'createMigrationHandlers'],
+    ['../../scripts/background/handlers/logHandlers.js', 'createLogHandlers'],
+    ['../../scripts/background/handlers/notionHandlers.js', 'createNotionHandlers'],
+    ['../../scripts/background/handlers/sidepanelHandlers.js', 'createSidepanelHandlers'],
+    ['../../scripts/background/handlers/driveSyncHandlers.js', 'createDriveSyncHandlers'],
+  ]) {
+    await jest.unstable_mockModule(modulePath, () => ({ [exportName]: jest.fn(() => ({})) }));
+  }
+
+  await jest.unstable_mockModule('../../scripts/background/handlers/accountAuthHandler.js', () => ({
+    createAccountAuthHandler: jest
+      .fn()
+      .mockImplementation(
+        () => globalThis.__backgroundTestAccountAuthHandler ?? { setupListeners: jest.fn() }
+      ),
+  }));
+  await jest.unstable_mockModule('../../scripts/background/handlers/driveAutoSync.js', () => ({
+    runAutoUpload: (...args) => nativeRunAutoUploadMock(...args),
+  }));
+  await jest.unstable_mockModule(
+    '../../scripts/background/handlers/driveAlarmScheduler.js',
+    () => ({
+      DRIVE_AUTO_SYNC_ALARM: 'drive-auto-sync',
+      FREQUENCY_PERIOD_MINUTES: { daily: 1440, weekly: 10_080, monthly: 43_200 },
+      setupDriveAlarm: (...args) => nativeSetupDriveAlarmMock(...args),
+    })
+  );
+  await jest.unstable_mockModule('../../scripts/auth/driveClient.js', () => ({
+    DRIVE_SYNC_FREQUENCIES: ['off', 'daily', 'weekly', 'monthly'],
+    DRIVE_SYNC_STORAGE_KEYS: { FREQUENCY: 'frequency' },
+    markDriveDirty: (...args) => nativeMarkDriveDirtyMock(...args),
+  }));
+  await jest.unstable_mockModule('../../scripts/destinations/ProfileStore.js', () => ({
+    AccountGatedDestinationEntitlementProvider: jest.fn(),
+    LocalDestinationProfileRepository: jest.fn(),
+  }));
+  await jest.unstable_mockModule('../../scripts/destinations/ProfileResolver.js', () => ({
+    ProfileResolver: jest.fn().mockImplementation(() => ({
+      resolve: jest.fn().mockResolvedValue({ id: 'default' }),
+    })),
+  }));
+
+  nativeBackgroundMocksRegistered = true;
+}
 
 const DRIVE_ALARM_RESTORE_CALL = ['daily', { initialDelayInMinutes: 0.5 }];
 
 function loadBackgroundLifecycleTestSurface() {
-  require('../../scripts/background.js');
-  return getBackgroundLifecycleTestSurface();
+  require(BACKGROUND_ENTRYPOINT_PATH);
+  return loadBackgroundLifecycleSurfaceModule().getBackgroundLifecycleTestSurface();
 }
 
-function loadDriveAutoSyncAlarmCallback(runAutoUploadMock) {
+async function loadNativeBackgroundLifecycleTestSurface(chromeMock = globalThis.chrome) {
+  await registerNativeBackgroundEntrypointMocks();
+  globalThis.module = { exports: {} };
+  globalThis.chrome = chromeMock;
+  globalThis.Logger = mockLogger;
+  globalThis.URL = URL;
+  const { importBackgroundEntrypoint, setupBackgroundEntrypointGlobals, unwrapTestExports } =
+    await import('../native-esm/background/backgroundLifecycleHarness.mjs');
+  setupBackgroundEntrypointGlobals({ chrome: chromeMock, logger: mockLogger });
+  return unwrapTestExports(await importBackgroundEntrypoint());
+}
+
+async function loadBackgroundLifecycleTestSurfaceForRuntime(chromeMock = globalThis.chrome) {
+  if (isNativeDefaultRuntime()) {
+    return loadNativeBackgroundLifecycleTestSurface(chromeMock);
+  }
+  return loadBackgroundLifecycleTestSurface();
+}
+
+async function loadDriveAutoSyncAlarmCallback(runAutoUploadMock) {
   jest.resetModules();
   const alarmsAddListener = jest.fn();
   globalThis.chrome = {
@@ -141,7 +284,12 @@ function loadDriveAutoSyncAlarmCallback(runAutoUploadMock) {
   const driveAutoSyncMock = { runAutoUpload: runAutoUploadMock };
   jest.doMock('../../scripts/background/handlers/driveAutoSync.js', () => driveAutoSyncMock);
 
-  require('../../scripts/background.js');
+  if (isNativeDefaultRuntime()) {
+    nativeRunAutoUploadMock = runAutoUploadMock;
+    await loadBackgroundLifecycleTestSurfaceForRuntime(globalThis.chrome);
+  } else {
+    require(BACKGROUND_ENTRYPOINT_PATH);
+  }
 
   return {
     alarmCallback: alarmsAddListener.mock.calls[0][0],
@@ -184,22 +332,35 @@ function createDriveAlarmStartupChromeMock({ frequency = 'daily', alarm = null }
 async function loadBackgroundWithDriveAlarmStartup(options) {
   jest.resetModules();
 
-  const driveAlarmScheduler = require('../../scripts/background/handlers/driveAlarmScheduler.js');
+  const driveAlarmScheduler = isNativeDefaultRuntime()
+    ? { setupDriveAlarm: nativeSetupDriveAlarmMock }
+    : require('../../scripts/background/handlers/driveAlarmScheduler.js');
   globalThis.chrome = createDriveAlarmStartupChromeMock(options);
   globalThis.Logger = mockLogger;
 
-  require('../../scripts/background.js');
+  if (isNativeDefaultRuntime()) {
+    nativeSetupDriveAlarmMock.mockClear();
+    await loadBackgroundLifecycleTestSurfaceForRuntime(globalThis.chrome);
+  } else {
+    require(BACKGROUND_ENTRYPOINT_PATH);
+  }
   await new Promise(resolve => setTimeout(resolve, 0));
 
   return driveAlarmScheduler;
 }
 
-require('../../scripts/background.js');
-const { shouldShowUpdateNotification, handleExtensionUpdate, handleExtensionInstall } =
-  getBackgroundLifecycleTestSurface();
+let shouldShowUpdateNotification;
+let handleExtensionUpdate;
+let handleExtensionInstall;
 
 describe('Background Script Lifecycle', () => {
   let mockChrome;
+
+  beforeAll(async () => {
+    const lifecycleSurface = await loadBackgroundLifecycleTestSurfaceForRuntime(globalThis.chrome);
+    ({ shouldShowUpdateNotification, handleExtensionUpdate, handleExtensionInstall } =
+      lifecycleSurface);
+  });
 
   async function handleMinorVersionUpdate(setupWindowCreate) {
     mockChrome.runtime.getManifest.mockReturnValue({ version: '2.8.0' });
@@ -207,8 +368,8 @@ describe('Background Script Lifecycle', () => {
     await handleExtensionUpdate('2.7.0');
   }
 
-  function loadOnInstalledCallback() {
-    require('../../scripts/background.js');
+  async function loadOnInstalledCallback() {
+    await loadBackgroundLifecycleTestSurfaceForRuntime(mockChrome);
     return mockChrome.runtime.onInstalled.addListener.mock.calls[0][0];
   }
 
@@ -273,18 +434,19 @@ describe('Background Script Lifecycle', () => {
   });
 
   describe('startup listeners', () => {
-    test('應在啟動時註冊 account callback bridge listener', () => {
+    test('應在啟動時註冊 account callback bridge listener', async () => {
       jest.resetModules();
 
       const mockAccountAuthHandler = {
         setupListeners: jest.fn(),
       };
+      globalThis.__backgroundTestAccountAuthHandler = mockAccountAuthHandler;
 
       jest.doMock('../../scripts/background/handlers/accountAuthHandler.js', () => ({
         createAccountAuthHandler: jest.fn().mockReturnValue(mockAccountAuthHandler),
       }));
 
-      require('../../scripts/background.js');
+      await loadBackgroundLifecycleTestSurfaceForRuntime(mockChrome);
 
       expect(mockAccountAuthHandler.setupListeners).toHaveBeenCalledTimes(1);
     });
@@ -310,24 +472,34 @@ describe('Background Script Lifecycle', () => {
       expect(driveAlarmScheduler.setupDriveAlarm).not.toHaveBeenCalled();
     });
 
-    test('production 環境載入 background 時不應暴露 lifecycle test surface', () => {
+    test('production 環境載入 background 時不應暴露 lifecycle test surface', async () => {
+      if (isNativeDefaultRuntime()) {
+        expect.hasAssertions();
+        const sentinelSurface = { sentinel: true };
+        const lifecycleSurface = await loadBackgroundLifecycleTestSurfaceForRuntime(
+          createDriveAlarmStartupChromeMock({ frequency: 'off' })
+        );
+        expect(lifecycleSurface).not.toBe(sentinelSurface);
+        return;
+      }
       const originalNodeEnv = process.env.NODE_ENV;
-      const originalSurface = getBackgroundLifecycleTestSurface();
+      const lifecycleSurfaceModule = loadBackgroundLifecycleSurfaceModule();
+      const originalSurface = lifecycleSurfaceModule.getBackgroundLifecycleTestSurface();
       const sentinelSurface = { sentinel: true };
 
       try {
-        setBackgroundLifecycleTestSurface(sentinelSurface);
+        lifecycleSurfaceModule.setBackgroundLifecycleTestSurface(sentinelSurface);
         process.env.NODE_ENV = 'production';
         jest.resetModules();
         globalThis.chrome = createDriveAlarmStartupChromeMock({ frequency: 'off' });
         globalThis.Logger = mockLogger;
 
-        require('../../scripts/background.js');
+        require(BACKGROUND_ENTRYPOINT_PATH);
 
-        expect(getBackgroundLifecycleTestSurface()).toBe(sentinelSurface);
+        expect(lifecycleSurfaceModule.getBackgroundLifecycleTestSurface()).toBe(sentinelSurface);
       } finally {
         process.env.NODE_ENV = originalNodeEnv;
-        setBackgroundLifecycleTestSurface(originalSurface);
+        lifecycleSurfaceModule.setBackgroundLifecycleTestSurface(originalSurface);
         jest.resetModules();
       }
     });
@@ -369,14 +541,14 @@ describe('Background Script Lifecycle', () => {
   });
 
   describe('onInstalled listener', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       jest.resetModules();
 
       // 確保需要被依賴的 utils 都被 Mock
-      jest.mock('../../scripts/utils/notionAuth.js', () => ({
+      jest.doMock('../../scripts/utils/notionAuth.js', () => ({
         getActiveNotionToken: jest.fn().mockResolvedValue({ token: 'test-oauth-token' }),
       }));
-      jest.mock('../../scripts/utils/Logger.js', () => ({
+      jest.doMock('../../scripts/utils/Logger.js', () => ({
         __esModule: true,
         default: mockLogger,
         ready: mockLogger.ready,
@@ -391,27 +563,27 @@ describe('Background Script Lifecycle', () => {
         setupListeners: jest.fn(),
       };
 
-      jest.mock('../../scripts/background/services/StorageService.js', () => ({
+      jest.doMock('../../scripts/background/services/StorageService.js', () => ({
         StorageService: jest.fn().mockImplementation(() => mockServiceInstanceLocal),
       }));
-      jest.mock('../../scripts/background/services/NotionService.js', () => ({
+      jest.doMock('../../scripts/background/services/NotionService.js', () => ({
         NotionService: jest.fn().mockImplementation(() => mockServiceInstanceLocal),
       }));
-      jest.mock('../../scripts/background/services/InjectionService.js', () => ({
+      jest.doMock('../../scripts/background/services/InjectionService.js', () => ({
         InjectionService: jest.fn().mockImplementation(() => mockServiceInstanceLocal),
         isRestrictedInjectionUrl: jest.fn(),
         isRecoverableInjectionError: jest.fn(),
       }));
-      jest.mock('../../scripts/background/services/PageContentService.js', () => ({
+      jest.doMock('../../scripts/background/services/PageContentService.js', () => ({
         PageContentService: jest.fn().mockImplementation(() => mockServiceInstanceLocal),
       }));
-      jest.mock('../../scripts/background/services/TabService.js', () => ({
+      jest.doMock('../../scripts/background/services/TabService.js', () => ({
         TabService: jest.fn().mockImplementation(() => mockServiceInstanceLocal),
       }));
-      jest.mock('../../scripts/background/services/MigrationService.js', () => ({
+      jest.doMock('../../scripts/background/services/MigrationService.js', () => ({
         MigrationService: jest.fn().mockImplementation(() => mockServiceInstanceLocal),
       }));
-      jest.mock('../../scripts/background/handlers/MessageHandler.js', () => ({
+      jest.doMock('../../scripts/background/handlers/MessageHandler.js', () => ({
         MessageHandler: jest.fn().mockImplementation(() => ({
           registerAll: jest.fn(),
           setupListener: jest.fn(),
@@ -419,22 +591,22 @@ describe('Background Script Lifecycle', () => {
       }));
 
       // Handler Mocks
-      jest.mock('../../scripts/background/handlers/saveHandlers.js', () => ({
+      jest.doMock('../../scripts/background/handlers/saveHandlers.js', () => ({
         createSaveHandlers: jest.fn(),
       }));
-      jest.mock('../../scripts/background/handlers/highlightHandlers.js', () => ({
+      jest.doMock('../../scripts/background/handlers/highlightHandlers.js', () => ({
         createHighlightHandlers: jest.fn(),
       }));
-      jest.mock('../../scripts/background/handlers/migrationHandlers.js', () => ({
+      jest.doMock('../../scripts/background/handlers/migrationHandlers.js', () => ({
         createMigrationHandlers: jest.fn(),
       }));
-      jest.mock('../../scripts/background/handlers/logHandlers.js', () => ({
+      jest.doMock('../../scripts/background/handlers/logHandlers.js', () => ({
         createLogHandlers: jest.fn(),
       }));
-      jest.mock('../../scripts/background/handlers/notionHandlers.js', () => ({
+      jest.doMock('../../scripts/background/handlers/notionHandlers.js', () => ({
         createNotionHandlers: jest.fn(),
       }));
-      jest.mock('../../scripts/background/handlers/sidepanelHandlers.js', () => ({
+      jest.doMock('../../scripts/background/handlers/sidepanelHandlers.js', () => ({
         createSidepanelHandlers: jest.fn(),
       }));
 
@@ -448,8 +620,8 @@ describe('Background Script Lifecycle', () => {
       jest.resetModules();
     });
 
-    test('Should handle install reason', () => {
-      const callback = loadOnInstalledCallback();
+    test('Should handle install reason', async () => {
+      const callback = await loadOnInstalledCallback();
 
       callback({ reason: 'install' });
       expect(mockLogger.ready).toHaveBeenCalled();
@@ -459,9 +631,9 @@ describe('Background Script Lifecycle', () => {
       );
     });
 
-    test('Should handle update reason', () => {
+    test('Should handle update reason', async () => {
       mockChrome.runtime.getManifest.mockReturnValue({ version: '2.8.1' }); // patch update, won't trigger ui
-      const callback = loadOnInstalledCallback();
+      const callback = await loadOnInstalledCallback();
 
       callback({ reason: 'update', previousVersion: '2.8.0' });
 
@@ -489,15 +661,15 @@ describe('Background Script Lifecycle', () => {
      */
     let underlyingStorageMocks;
 
-    beforeEach(() => {
+    beforeEach(async () => {
       // 重新 require 模組以捕捉傳給 TabService 的參數
       jest.resetModules();
 
       // 確保需要被依賴的 utils 都被 Mock
-      jest.mock('../../scripts/utils/notionAuth.js', () => ({
+      jest.doMock('../../scripts/utils/notionAuth.js', () => ({
         getActiveNotionToken: jest.fn().mockResolvedValue({ token: 'test-oauth-token' }),
       }));
-      jest.mock('../../scripts/utils/Logger.js', () => ({
+      jest.doMock('../../scripts/utils/Logger.js', () => ({
         __esModule: true,
         default: mockLogger,
       }));
@@ -524,43 +696,60 @@ describe('Background Script Lifecycle', () => {
       const mockNotion = {
         checkPageExists: jest.fn().mockResolvedValue(true),
       };
+      const restrictedUrlMock = jest.fn().mockReturnValue(true);
+      const recoverableErrorMock = jest.fn().mockReturnValue(false);
+      globalThis.__backgroundTestStorageServiceInstance = mockStorage;
+      globalThis.__backgroundTestNotionServiceInstance = mockNotion;
+      globalThis.__backgroundTestIsRestrictedInjectionUrl = restrictedUrlMock;
+      globalThis.__backgroundTestIsRecoverableInjectionError = recoverableErrorMock;
 
-      jest.mock('../../scripts/background/services/StorageService.js', () => ({
+      jest.doMock('../../scripts/background/services/StorageService.js', () => ({
         StorageService: jest.fn().mockImplementation(() => mockStorage),
       }));
-      jest.mock('../../scripts/background/services/NotionService.js', () => ({
+      jest.doMock('../../scripts/background/services/NotionService.js', () => ({
         NotionService: jest.fn().mockImplementation(() => mockNotion),
       }));
-      jest.mock('../../scripts/background/services/InjectionService.js', () => ({
+      jest.doMock('../../scripts/background/services/InjectionService.js', () => ({
         InjectionService: jest.fn().mockImplementation(() => ({})),
         isRestrictedInjectionUrl: jest.fn().mockReturnValue(true),
         isRecoverableInjectionError: jest.fn().mockReturnValue(false),
       }));
-      jest.mock('../../scripts/background/services/PageContentService.js', () => ({
+      jest.doMock('../../scripts/background/services/PageContentService.js', () => ({
         PageContentService: jest.fn().mockImplementation(() => ({})),
       }));
-      jest.mock('../../scripts/background/services/MigrationService.js', () => ({
+      jest.doMock('../../scripts/background/services/MigrationService.js', () => ({
         MigrationService: jest.fn().mockImplementation(() => ({})),
       }));
 
       // 攔截 TabService 建構子，保存傳入的 options
-      jest.mock('../../scripts/background/services/TabService.js', () => ({
+      jest.doMock('../../scripts/background/services/TabService.js', () => ({
         TabService: jest.fn().mockImplementation(options => {
           actualTabServiceDeps = options;
           return { setupListeners: jest.fn() };
         }),
       }));
 
-      require('../../scripts/background.js');
+      if (isNativeDefaultRuntime()) {
+        const surface = await loadBackgroundLifecycleTestSurfaceForRuntime(globalThis.chrome);
+        actualTabServiceDeps = globalThis.__backgroundTestActualTabServiceDeps;
+        storageServiceMock = surface.storageService;
+        notionServiceMock = surface.notionService;
+        injectionServiceMock = {
+          isRestrictedInjectionUrl: restrictedUrlMock,
+          isRecoverableInjectionError: recoverableErrorMock,
+        };
+      } else {
+        require(BACKGROUND_ENTRYPOINT_PATH);
 
-      const storageModule = require('../../scripts/background/services/StorageService.js');
-      storageServiceMock = new storageModule.StorageService();
+        const storageModule = require('../../scripts/background/services/StorageService.js');
+        storageServiceMock = new storageModule.StorageService();
 
-      const notionModule = require('../../scripts/background/services/NotionService.js');
-      notionServiceMock = new notionModule.NotionService();
+        const notionModule = require('../../scripts/background/services/NotionService.js');
+        notionServiceMock = new notionModule.NotionService();
 
-      const injectionModule = require('../../scripts/background/services/InjectionService.js');
-      injectionServiceMock = injectionModule;
+        const injectionModule = require('../../scripts/background/services/InjectionService.js');
+        injectionServiceMock = injectionModule;
+      }
     });
 
     test('getSavedPageData maps to StorageService.getSavedPageData', async () => {
@@ -622,9 +811,14 @@ describe('Background Script Lifecycle', () => {
     });
 
     async function expectDirtyTrackingForward({ methodName, args }) {
-      const bgModule = loadBackgroundLifecycleTestSurface();
-      const driveClient = require('../../scripts/auth/driveClient.js');
+      const bgModule = isNativeDefaultRuntime()
+        ? { storageService: storageServiceMock }
+        : loadBackgroundLifecycleTestSurface();
+      const driveClient = isNativeDefaultRuntime()
+        ? { markDriveDirty: nativeMarkDriveDirtyMock }
+        : require('../../scripts/auth/driveClient.js');
 
+      nativeMarkDriveDirtyMock.mockClear();
       await bgModule.storageService[methodName](...args);
       expect(underlyingStorageMocks[methodName]).toHaveBeenCalledWith(...args);
       expect(driveClient.markDriveDirty).toHaveBeenCalled();
@@ -656,7 +850,7 @@ describe('Background Script Lifecycle', () => {
     const expectedAlarmFiredAt = new Date(scheduledTime).toISOString();
 
     it('listens to DRIVE_AUTO_SYNC_ALARM and calls runAutoUpload', async () => {
-      const { alarmCallback, driveAutoSyncMock } = loadDriveAutoSyncAlarmCallback(
+      const { alarmCallback, driveAutoSyncMock } = await loadDriveAutoSyncAlarmCallback(
         jest.fn().mockResolvedValue()
       );
       await alarmCallback({ name: 'drive-auto-sync', scheduledTime });
@@ -667,7 +861,7 @@ describe('Background Script Lifecycle', () => {
     });
 
     it('logs error when runAutoUpload fails', async () => {
-      const { alarmCallback } = loadDriveAutoSyncAlarmCallback(
+      const { alarmCallback } = await loadDriveAutoSyncAlarmCallback(
         jest.fn().mockRejectedValue(new Error('auto upload broke'))
       );
       await alarmCallback({ name: 'drive-auto-sync', scheduledTime });
@@ -681,7 +875,7 @@ describe('Background Script Lifecycle', () => {
     });
 
     it('loads alarm callback without startup recovery warning from incomplete chrome mock', async () => {
-      loadDriveAutoSyncAlarmCallback(jest.fn().mockResolvedValue());
+      await loadDriveAutoSyncAlarmCallback(jest.fn().mockResolvedValue());
       await new Promise(resolve => setTimeout(resolve, 0));
 
       expect(mockLogger.warn).not.toHaveBeenCalledWith(

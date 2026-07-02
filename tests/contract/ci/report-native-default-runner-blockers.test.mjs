@@ -257,6 +257,11 @@ const babelHoistedMockOrderingCohort3HighlighterIndex = [
   'tests/unit/highlighter/highlighter-index.test.js',
 ];
 
+const babelHoistedMockOrderingCohort3BackgroundEntrypoint = [
+  'tests/unit/background/extension-lifecycle.test.js',
+  'tests/unit/background.test.js',
+];
+
 // This live-repo cohort intentionally tracks the one retained contained-CJS suite
 // in the current classifier ledger. If it fails, inspect the suite's require()
 // calls and update the cohort only after confirming the ledger changed.
@@ -271,6 +276,7 @@ const promotedNativeDefaultCohort = [
   ...babelHoistedMockOrderingCohort2AuthAdjacent,
   ...babelHoistedMockOrderingCohort3LeafRuntime,
   ...babelHoistedMockOrderingCohort3HighlighterIndex,
+  ...babelHoistedMockOrderingCohort3BackgroundEntrypoint,
 ];
 
 const countPathsByRoot = suitePaths =>
@@ -518,6 +524,16 @@ describe('tools/report-native-default-runner-blockers', () => {
         ])
       );
     }
+    for (const suitePath of babelHoistedMockOrderingCohort3BackgroundEntrypoint) {
+      expect(promotedCohortReport.files).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            path: suitePath,
+            signals: expect.not.arrayContaining(['babel-hoisted-mock']),
+          }),
+        ])
+      );
+    }
     expect(promotedCohortReport.files).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -526,6 +542,10 @@ describe('tools/report-native-default-runner-blockers', () => {
         }),
         expect.objectContaining({
           path: 'tests/unit/utils/notionAuth.test.js',
+          signals: expect.not.arrayContaining(['jest-require-actual-esm']),
+        }),
+        expect.objectContaining({
+          path: 'tests/unit/background.test.js',
           signals: expect.not.arrayContaining(['jest-require-actual-esm']),
         }),
       ])
@@ -547,9 +567,7 @@ describe('tools/report-native-default-runner-blockers', () => {
     expect(containedCjsReport.files[0].signals).toEqual(
       expect.arrayContaining(['contained-cjs-require', 'root-commonjs-test-boundary'])
     );
-    expect(containedCjsReport.files[0].signals).not.toContain(
-      'commonjs-require-production-esm'
-    );
+    expect(containedCjsReport.files[0].signals).not.toContain('commonjs-require-production-esm');
   });
 
   test('classifies custom root suites under the caller-provided roots', () => {
