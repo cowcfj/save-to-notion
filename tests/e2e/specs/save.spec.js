@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures';
+import { test, expect } from '../fixtures.js';
 
 test('Should save page to Notion successfully', async ({ page, extensionId, context }) => {
   // 1. Mock Notion API

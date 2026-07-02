@@ -1,9 +1,9 @@
 // 測試更新通知完整流程
 console.log('🧪 開始測試更新通知功能');
 
-const {
-  shouldShowUpdateNotification,
-} = require('../../scripts/background/utils/updateNotificationVersion.cjs');
+import updateNotificationVersion from '../../scripts/background/utils/updateNotificationVersion.cjs';
+
+const { shouldShowUpdateNotification } = updateNotificationVersion;
 
 // 測試 1: 版本比較邏輯（只有 Major/Minor 才通知）
 function testVersionComparison() {

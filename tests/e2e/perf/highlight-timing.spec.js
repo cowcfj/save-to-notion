@@ -15,10 +15,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { test, expect } from '../fixtures';
-import { summarize, writeBaseline, printDelta } from './timingHelpers';
+import { test, expect } from '../fixtures.js';
+import { summarize, writeBaseline, printDelta } from './timingHelpers.js';
 
-const FIXTURE_PATH = path.resolve(__dirname, 'fixtures/nextjs-article.html');
+const FIXTURE_PATH = path.resolve(process.cwd(), 'tests/e2e/perf/fixtures/nextjs-article.html');
 const FIXTURE_URL = 'https://example.com/perf-highlight-fixture';
 const SAMPLE_COUNT = 10;
 

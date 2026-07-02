@@ -9,6 +9,27 @@ const { spawnSync } = require('node:child_process');
 const MARKER_ROOTS = Object.freeze(['pages', 'scripts', 'tests']);
 const PRODUCTION_COMMANDS = Object.freeze(['npm run build:prod', 'npm run package:local-unpacked']);
 const TEST_COMMANDS = Object.freeze(['npm run test:native:blockers']);
+const CUTOVER_CORE_COMMANDS = Object.freeze([
+  'node scripts/postinstall.js',
+  'npm test',
+  'npm run test:native',
+  'npm run test:coverage:native-esm:assert',
+  'npm run build:prod',
+  'node tools/check-message-boundaries.mjs --require-all',
+  'bash tools/package-extension.sh --unpacked-dir=.tmp/extension-unpacked',
+  'node tools/check-size-gates.mjs --mode=hard --scope=all --unpacked-dir=.tmp/extension-unpacked',
+]);
+const CUTOVER_PACKAGE_OUTPUT_COMMANDS = Object.freeze([
+  'npm run build:prod',
+  'node tools/check-message-boundaries.mjs --require-all',
+  'bash tools/package-extension.sh --unpacked-dir=.tmp/extension-unpacked',
+  'node tools/check-size-gates.mjs --mode=hard --scope=all --unpacked-dir=.tmp/extension-unpacked',
+]);
+const CUTOVER_ACTIONS = Object.freeze([
+  'set-root-package-type-module',
+  'transform-scripts-postinstall-to-esm',
+  'transform-jest-config-to-esm',
+]);
 const COMMAND_TIMEOUT_MS = 10 * 60 * 1000;
 const COPY_EXCLUDES = Object.freeze([
   '.git',
@@ -21,6 +42,11 @@ const COPY_EXCLUDES = Object.freeze([
   'releases',
 ]);
 const VOLATILE_NAMES = Object.freeze(['.DS_Store']);
+
+const selectProductionMarkers = markers => markers.filter(marker => marker.scope === 'production');
+const selectTestMarkers = markers => markers.filter(marker => marker.scope === 'test');
+const selectAllMarkers = markers =>
+  markers.filter(marker => marker.scope === 'production' || marker.scope === 'test');
 
 const VARIANT_BUILDERS = Object.freeze({
   'pages-only': markers =>
@@ -36,8 +62,29 @@ const VARIANT_BUILDERS = Object.freeze({
     ),
   'scripts-performance-only': markers =>
     markers.filter(marker => marker.relativePath === 'scripts/performance/package.json'),
-  'scripts-and-pages': markers => markers.filter(marker => marker.scope === 'production'),
-  tests: markers => markers.filter(marker => marker.scope === 'test'),
+  'scripts-and-pages': selectProductionMarkers,
+  tests: selectTestMarkers,
+  'cutover-core': selectProductionMarkers,
+  'cutover-with-test-markers': selectAllMarkers,
+  'cutover-package-output': selectProductionMarkers,
+});
+
+const CUTOVER_VARIANTS = Object.freeze({
+  'cutover-core': {
+    commands: CUTOVER_CORE_COMMANDS,
+    compareOutputs: false,
+    runBaselineCommands: false,
+  },
+  'cutover-with-test-markers': {
+    commands: CUTOVER_CORE_COMMANDS,
+    compareOutputs: false,
+    runBaselineCommands: false,
+  },
+  'cutover-package-output': {
+    commands: CUTOVER_PACKAGE_OUTPUT_COMMANDS,
+    compareOutputs: true,
+    runBaselineCommands: true,
+  },
 });
 
 function toPosixPath(value) {
@@ -186,6 +233,20 @@ function buildProbeSummary({
   const comparisonStatus = comparisons.every(comparison => comparison.status === 'match')
     ? 'pass'
     : 'fail';
+  const cutoverVariants = variants.filter(item => item.kind === 'cutover-rehearsal');
+  const cutoverGates =
+    cutoverVariants.length === 0
+      ? []
+      : [
+          {
+            id: 'cutover-rehearsal',
+            status: cutoverVariants.every(item =>
+              item.commands.every(command => command.status === 0)
+            )
+              ? 'pass'
+              : 'fail',
+          },
+        ];
 
   return {
     schemaVersion: 1,
@@ -211,6 +272,7 @@ function buildProbeSummary({
         id: 'output-equivalence',
         status: comparisons.length === 0 ? 'not_evaluated' : comparisonStatus,
       },
+      ...cutoverGates,
     ],
     variants,
   };
@@ -227,6 +289,58 @@ function removeMarkers(rootDir, markers) {
   for (const marker of markers) {
     fs.rmSync(path.join(rootDir, marker.relativePath), { force: true });
   }
+}
+
+function replaceRequiredSource(source, searchValue, replacementValue, fileLabel) {
+  if (!source.includes(searchValue)) {
+    throw new Error(`${fileLabel} does not contain expected source: ${searchValue}`);
+  }
+  return source.replace(searchValue, replacementValue);
+}
+
+function transformPostinstallToEsm(rootDir) {
+  const postinstallPath = path.join(rootDir, 'scripts', 'postinstall.js');
+  let source = fs.readFileSync(postinstallPath, 'utf8');
+  if (
+    source.includes("import fs from 'node:fs';") &&
+    source.includes("import path from 'node:path';")
+  ) {
+    return;
+  }
+  source = replaceRequiredSource(
+    source,
+    "const fs = require('node:fs');",
+    "import fs from 'node:fs';",
+    'scripts/postinstall.js'
+  );
+  source = replaceRequiredSource(
+    source,
+    "const path = require('node:path');",
+    "import path from 'node:path';",
+    'scripts/postinstall.js'
+  );
+  fs.writeFileSync(postinstallPath, source, 'utf8');
+}
+
+function transformJestConfigToEsm(rootDir) {
+  const jestConfigPath = path.join(rootDir, 'jest.config.js');
+  let source = fs.readFileSync(jestConfigPath, 'utf8');
+  if (source.includes('export default config;')) {
+    return;
+  }
+  source = replaceRequiredSource(
+    source,
+    'module.exports = {',
+    'const config = {',
+    'jest.config.js'
+  );
+  fs.writeFileSync(jestConfigPath, `${source.trimEnd()}\n\nexport default config;\n`, 'utf8');
+}
+
+function applyCutoverTransforms(rootDir, sourceRoot) {
+  assertSafeProbeRoot(rootDir, sourceRoot);
+  transformPostinstallToEsm(rootDir);
+  transformJestConfigToEsm(rootDir);
 }
 
 function shouldCopySourcePath(sourceRoot, src) {
@@ -259,6 +373,13 @@ function copyRepository(sourceRoot, targetRoot) {
 function createProbeCopy(sourceRoot, targetRoot, markersToRemove) {
   copyRepository(sourceRoot, targetRoot);
   setRootTypeModule(targetRoot);
+  removeMarkers(targetRoot, markersToRemove);
+}
+
+function createCutoverProbeCopy(sourceRoot, targetRoot, markersToRemove) {
+  copyRepository(sourceRoot, targetRoot);
+  setRootTypeModule(targetRoot);
+  applyCutoverTransforms(targetRoot, sourceRoot);
   removeMarkers(targetRoot, markersToRemove);
 }
 
@@ -359,6 +480,36 @@ function buildVariantRun({
   };
 }
 
+function buildCutoverVariantRun({ sourceRoot, tempRoot, variantName, markers }) {
+  const config = CUTOVER_VARIANTS[variantName];
+  const baselineRoot = path.join(tempRoot, `${variantName}-baseline`);
+  const probeRoot = path.join(tempRoot, `${variantName}-probe`);
+  const removedMarkers = VARIANT_BUILDERS[variantName](markers);
+
+  copyRepository(sourceRoot, baselineRoot);
+  createCutoverProbeCopy(sourceRoot, probeRoot, removedMarkers);
+
+  const baselineCommands = config.runBaselineCommands
+    ? runCommands(config.commands, baselineRoot, `${variantName} baseline`)
+    : [];
+  const probeCommands = runCommands(config.commands, probeRoot, `${variantName} probe`);
+  const comparisons = config.compareOutputs
+    ? ['dist', '.tmp/extension-unpacked'].map(relativePath =>
+        compareOutputTrees(baselineRoot, probeRoot, relativePath)
+      )
+    : [];
+
+  return {
+    name: variantName,
+    kind: 'cutover-rehearsal',
+    actions: [...CUTOVER_ACTIONS],
+    roots: { baseline: baselineRoot, probe: probeRoot },
+    removedMarkers: removedMarkers.map(marker => marker.relativePath),
+    commands: [...baselineCommands, ...probeCommands],
+    comparisons,
+  };
+}
+
 function formatMarkdownSummary(summary) {
   const lines = [
     `# Root ESM package marker 探測：${summary.variant}`,
@@ -399,6 +550,14 @@ function formatMarkdownSummary(summary) {
       lines.push(
         `| ${variant.name} | ${variant.removedMarkers.length} | ${commandFailures} | ${driftCount} |`
       );
+    }
+  }
+
+  const cutoverVariants = summary.variants.filter(variant => variant.kind === 'cutover-rehearsal');
+  if (cutoverVariants.length > 0) {
+    lines.push('', '## Cutover rehearsal', '', '| Variant | Actions |', '| --- | --- |');
+    for (const variant of cutoverVariants) {
+      lines.push(`| ${variant.name} | ${(variant.actions || []).join(', ')} |`);
     }
   }
 
@@ -454,9 +613,16 @@ Variants：
   scripts-production-without-performance
   scripts-performance-only
   scripts-and-pages
+  cutover-core                      在 probe copy 內執行 root type module、postinstall ESM、Jest config ESM 與 production marker removal rehearsal。
+  cutover-with-test-markers         在 cutover-core 基礎上暫時移除 tests/** package markers。
+  cutover-package-output            以 live CommonJS baseline 對照 cutover probe 的 build/package output。
 
 此工具會將 repository 複製到暫存目錄，只在 copy 內把 root package.json type 設為 module，
 只在 probe copy 內移除選定的 nested package markers，執行相關命令，並比對輸出 hash。`);
+}
+
+function isCutoverVariant(variantName) {
+  return Object.prototype.hasOwnProperty.call(CUTOVER_VARIANTS, variantName);
 }
 
 function writeSummaries(summary, options) {
@@ -490,23 +656,30 @@ function runProbe(options, sourceRoot = process.cwd()) {
 
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'root-esm-package-markers-'));
   const isTestVariant = options.variant === 'tests';
+  const isCutoverRun = variantNames.every(isCutoverVariant);
   const commands = isTestVariant ? TEST_COMMANDS : PRODUCTION_COMMANDS;
   try {
-    const sharedBaselineRun =
-      options.variant === 'production'
-        ? buildSharedBaselineRun({ sourceRoot, tempRoot, commands })
-        : null;
-    const variantRuns = variantNames.map(variantName =>
-      buildVariantRun({
-        sourceRoot,
-        tempRoot,
-        variantName,
-        markers,
-        commands,
-        compareOutputs: !isTestVariant,
-        sharedBaselineRun,
-      })
-    );
+    const variantRuns = isCutoverRun
+      ? variantNames.map(variantName =>
+          buildCutoverVariantRun({ sourceRoot, tempRoot, variantName, markers })
+        )
+      : (() => {
+          const sharedBaselineRun =
+            options.variant === 'production'
+              ? buildSharedBaselineRun({ sourceRoot, tempRoot, commands })
+              : null;
+          return variantNames.map(variantName =>
+            buildVariantRun({
+              sourceRoot,
+              tempRoot,
+              variantName,
+              markers,
+              commands,
+              compareOutputs: !isTestVariant,
+              sharedBaselineRun,
+            })
+          );
+        })();
 
     const removedMarkers = variantRuns.flatMap(variant => variant.removedMarkers);
     const allCommands = variantRuns.flatMap(variant => variant.commands);
@@ -551,6 +724,7 @@ function main(argv = process.argv.slice(2)) {
 }
 
 module.exports = {
+  applyCutoverTransforms,
   assertSafeProbeRoot,
   buildProbeSummary,
   discoverPackageMarkers,

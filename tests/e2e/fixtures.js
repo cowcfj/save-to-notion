@@ -5,7 +5,7 @@ import fs from 'node:fs';
 export const test = base.extend({
   context: async ({ browserName: _ }, use) => {
     // 擴充功能路徑 - 指向項目根目錄（manifest.json 所在位置）
-    const pathToExtension = path.join(__dirname, '../..');
+    const pathToExtension = process.cwd();
 
     // 檢查 manifest.json 是否存在
     if (!fs.existsSync(path.join(pathToExtension, 'manifest.json'))) {

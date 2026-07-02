@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures';
+import { test, expect } from '../fixtures.js';
 
 test.describe('Highlighting Feature', () => {
   test('should inject highlighter script via direct Service Worker injection', async ({

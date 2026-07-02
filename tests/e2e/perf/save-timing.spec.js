@@ -8,13 +8,13 @@
  * Local-only — never runs in CI (see playwright.config.js perf project).
  */
 
-import { test, expect } from '../fixtures';
-import { measureN, writeBaseline, printDelta } from './timingHelpers';
+import { test, expect } from '../fixtures.js';
+import { measureN, writeBaseline, printDelta } from './timingHelpers.js';
 import {
   seedStorageAndMockNotionApi,
   resolveTargetTabIdAndMockQuery,
   triggerSavePage,
-} from './perfSetup';
+} from './perfSetup.js';
 
 test('perf: save round-trip on example.com', async ({ page, context, extensionId }) => {
   await seedStorageAndMockNotionApi({ context, extensionId });

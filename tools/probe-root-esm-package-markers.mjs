@@ -7,6 +7,7 @@ const require = createRequire(import.meta.url);
 const core = require('./probe-root-esm-package-markers-core.cjs');
 
 export const assertSafeProbeRoot = core.assertSafeProbeRoot;
+export const applyCutoverTransforms = core.applyCutoverTransforms;
 export const buildProbeSummary = core.buildProbeSummary;
 export const discoverPackageMarkers = core.discoverPackageMarkers;
 export const formatMarkdownSummary = core.formatMarkdownSummary;

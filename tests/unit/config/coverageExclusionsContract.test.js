@@ -20,7 +20,7 @@ function readSonarProperties() {
 }
 
 function readJestCoverageExclusions() {
-  const { collectCoverageFrom } = require('../../../jest.config.js');
+  const { collectCoverageFrom } = readJestConfig();
   return new Set(
     collectCoverageFrom
       .filter(pattern => pattern.startsWith('!'))
@@ -30,8 +30,13 @@ function readJestCoverageExclusions() {
 }
 
 function readJestProjectCacheDirectories() {
-  const { projects } = require('../../../jest.config.js');
+  const { projects } = readJestConfig();
   return projects.map(project => project.cacheDirectory);
+}
+
+function readJestConfig() {
+  const config = require('../../../jest.config.js');
+  return config.default ?? config;
 }
 
 function escapeRegExp(value) {
