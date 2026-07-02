@@ -8,20 +8,35 @@
  * - 日誌安全函數
  */
 
-import {
-  isValidUrl,
-  isValidNotionUrl,
-  validateInternalRequest,
-  validateContentScriptRequest,
-  validateSafeSvg,
-  separateIconAndText,
-  isSafeSvgAttribute,
-  validateBackupData,
-  createSafeIcon,
-} from '../../../scripts/utils/securityUtils.js';
-import * as securityUtilsExports from '../../../scripts/utils/securityUtils.js';
-import { maskSensitiveString } from '../../../scripts/utils/LogSanitizer.js';
-import { SECURITY_CONSTANTS } from '../../../scripts/config/shared/core.js';
+let isValidUrl;
+let isValidNotionUrl;
+let validateInternalRequest;
+let validateContentScriptRequest;
+let validateSafeSvg;
+let separateIconAndText;
+let isSafeSvgAttribute;
+let validateBackupData;
+let createSafeIcon;
+let securityUtilsExports;
+let maskSensitiveString;
+let SECURITY_CONSTANTS;
+
+beforeAll(async () => {
+  securityUtilsExports = await import('../../../scripts/utils/securityUtils.js');
+  ({
+    isValidUrl,
+    isValidNotionUrl,
+    validateInternalRequest,
+    validateContentScriptRequest,
+    validateSafeSvg,
+    separateIconAndText,
+    isSafeSvgAttribute,
+    validateBackupData,
+    createSafeIcon,
+  } = securityUtilsExports);
+  ({ maskSensitiveString } = await import('../../../scripts/utils/LogSanitizer.js'));
+  ({ SECURITY_CONSTANTS } = await import('../../../scripts/config/shared/core.js'));
+});
 
 describe('securityUtils', () => {
   describe('export surface', () => {

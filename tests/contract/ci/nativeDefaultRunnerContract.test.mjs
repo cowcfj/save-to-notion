@@ -86,9 +86,8 @@ const cjsEsmRequireProductionEsmCohort2 = [
   '<rootDir>/tests/unit/background/processContentResult.test.js',
 ];
 
-const rootCommonJsCandidateProbes = [
-  '<rootDir>/tests/unit/background/background-state.test.js',
-  '<rootDir>/tests/unit/utils/securityUtils.test.js',
+const rootCommonJsRetainedCutoverCandidates = [
+  '<rootDir>/tests/unit/performance/timingHelpers.test.js',
 ];
 
 function readPackageScripts() {
@@ -150,7 +149,7 @@ describe('native default Jest runner contract', () => {
     expect(scripts['test:ci']).toBe('npm run test:coverage:native-esm:assert');
   });
 
-  test('native default allowlist includes the proven native and no-Babel policy/lifecycle cohorts only', () => {
+  test('native default allowlist includes proven cohorts and excludes retained root-cutover probes', () => {
     const nativeDefaultConfig = require(nativeDefaultConfigPath);
 
     expect(nativeDefaultConfig.testMatch).toEqual(
@@ -164,7 +163,7 @@ describe('native default Jest runner contract', () => {
       ])
     );
     expect(nativeDefaultConfig.testMatch).toEqual(
-      expect.not.arrayContaining(rootCommonJsCandidateProbes)
+      expect.not.arrayContaining(rootCommonJsRetainedCutoverCandidates)
     );
     expect(nativeDefaultConfig.testMatch).toEqual(
       expect.not.arrayContaining(retiredThresholdSimulationSuites)

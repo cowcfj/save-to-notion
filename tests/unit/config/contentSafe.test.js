@@ -1,11 +1,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import {
-  TOOLBAR_SELECTORS as SHARED_TOOLBAR_SELECTORS,
-  UI_ICONS,
-} from '../../../scripts/config/shared/ui.js';
-import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
+
+let SHARED_TOOLBAR_SELECTORS;
+let UI_ICONS;
+let UI_MESSAGES;
+
+beforeAll(async () => {
+  ({ TOOLBAR_SELECTORS: SHARED_TOOLBAR_SELECTORS, UI_ICONS } =
+    await import('../../../scripts/config/shared/ui.js'));
+  ({ UI_MESSAGES } = await import('../../../scripts/config/shared/messages.js'));
+});
 
 describe('contentSafe config', () => {
   const projectRoot = path.resolve(__dirname, '../../..');
