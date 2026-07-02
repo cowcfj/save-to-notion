@@ -349,6 +349,48 @@ async function loadBackgroundWithDriveAlarmStartup(options) {
   return driveAlarmScheduler;
 }
 
+function createTabServiceDependencyMocks() {
+  const mockStorage = {
+    getSavedPageData: jest.fn().mockResolvedValue('data'),
+    clearPageState: jest.fn().mockResolvedValue('cleared1'),
+    clearNotionState: jest.fn().mockResolvedValue('cleared2'),
+    setSavedPageData: jest.fn().mockResolvedValue('set'),
+    savePageDataAndHighlights: jest.fn().mockResolvedValue('saved'),
+    updateHighlights: jest.fn().mockResolvedValue('updated'),
+  };
+
+  return {
+    mockStorage,
+    mockNotion: {
+      checkPageExists: jest.fn().mockResolvedValue(true),
+    },
+    restrictedUrlMock: jest.fn().mockReturnValue(true),
+    recoverableErrorMock: jest.fn().mockReturnValue(false),
+  };
+}
+
+function snapshotUnderlyingStorageMocks(mockStorage) {
+  return {
+    clearPageState: mockStorage.clearPageState,
+    clearNotionState: mockStorage.clearNotionState,
+    setSavedPageData: mockStorage.setSavedPageData,
+    savePageDataAndHighlights: mockStorage.savePageDataAndHighlights,
+    updateHighlights: mockStorage.updateHighlights,
+  };
+}
+
+function exposeNativeTabServiceDependencyMocks({
+  mockStorage,
+  mockNotion,
+  restrictedUrlMock,
+  recoverableErrorMock,
+}) {
+  globalThis.__backgroundTestStorageServiceInstance = mockStorage;
+  globalThis.__backgroundTestNotionServiceInstance = mockNotion;
+  globalThis.__backgroundTestIsRestrictedInjectionUrl = restrictedUrlMock;
+  globalThis.__backgroundTestIsRecoverableInjectionError = recoverableErrorMock;
+}
+
 let shouldShowUpdateNotification;
 let handleExtensionUpdate;
 let handleExtensionInstall;
@@ -660,48 +702,6 @@ describe('Background Script Lifecycle', () => {
      * 讓我們能驗證底層 storage 確實收到 args（wrapper 本身不是 jest.fn）。
      */
     let underlyingStorageMocks;
-
-    function createTabServiceDependencyMocks() {
-      const mockStorage = {
-        getSavedPageData: jest.fn().mockResolvedValue('data'),
-        clearPageState: jest.fn().mockResolvedValue('cleared1'),
-        clearNotionState: jest.fn().mockResolvedValue('cleared2'),
-        setSavedPageData: jest.fn().mockResolvedValue('set'),
-        savePageDataAndHighlights: jest.fn().mockResolvedValue('saved'),
-        updateHighlights: jest.fn().mockResolvedValue('updated'),
-      };
-
-      return {
-        mockStorage,
-        mockNotion: {
-          checkPageExists: jest.fn().mockResolvedValue(true),
-        },
-        restrictedUrlMock: jest.fn().mockReturnValue(true),
-        recoverableErrorMock: jest.fn().mockReturnValue(false),
-      };
-    }
-
-    function snapshotUnderlyingStorageMocks(mockStorage) {
-      return {
-        clearPageState: mockStorage.clearPageState,
-        clearNotionState: mockStorage.clearNotionState,
-        setSavedPageData: mockStorage.setSavedPageData,
-        savePageDataAndHighlights: mockStorage.savePageDataAndHighlights,
-        updateHighlights: mockStorage.updateHighlights,
-      };
-    }
-
-    function exposeNativeTabServiceDependencyMocks({
-      mockStorage,
-      mockNotion,
-      restrictedUrlMock,
-      recoverableErrorMock,
-    }) {
-      globalThis.__backgroundTestStorageServiceInstance = mockStorage;
-      globalThis.__backgroundTestNotionServiceInstance = mockNotion;
-      globalThis.__backgroundTestIsRestrictedInjectionUrl = restrictedUrlMock;
-      globalThis.__backgroundTestIsRecoverableInjectionError = recoverableErrorMock;
-    }
 
     function registerTabServiceDependencyMocks(dependencyMocks) {
       const { mockStorage, mockNotion } = dependencyMocks;
