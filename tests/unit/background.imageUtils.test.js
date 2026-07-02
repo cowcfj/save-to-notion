@@ -14,10 +14,7 @@ beforeAll(async () => {
     delete globalThis.window.ImageUtils;
   }
 
-  await import('../../scripts/utils/imageUtils.js');
-
-  const imageUtils = globalThis.ImageUtils || globalThis.window?.ImageUtils || {};
-  ({ cleanImageUrl, isValidImageUrl } = imageUtils);
+  ({ cleanImageUrl, isValidImageUrl } = await import('../../scripts/utils/imageUtils.js'));
 });
 
 // 無需 afterAll 清理，因為不再依賴 background.js 的 cleanupInterval

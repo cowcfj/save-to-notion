@@ -12,10 +12,7 @@ beforeAll(async () => {
   delete globalThis.ImageUtils;
   delete globalThis.window?.ImageUtils;
 
-  await import('../../../scripts/utils/imageUtils.js');
-
-  const imageUtils = globalThis.ImageUtils || globalThis.window?.ImageUtils || {};
-  ({ cleanImageUrl, isValidImageUrl } = imageUtils);
+  ({ cleanImageUrl, isValidImageUrl } = await import('../../../scripts/utils/imageUtils.js'));
 });
 
 describe('cleanImageUrl', () => {
