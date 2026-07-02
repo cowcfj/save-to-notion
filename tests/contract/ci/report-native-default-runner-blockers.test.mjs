@@ -246,6 +246,17 @@ const babelHoistedMockOrderingCohort2AuthAdjacent = [
   'tests/unit/utils/notionAuth.test.js',
 ];
 
+const babelHoistedMockOrderingCohort3LeafRuntime = [
+  'tests/unit/legacy/MigrationExecutor.test.js',
+  'tests/unit/performance/PerformanceOptimizer.test.js',
+  'tests/unit/imageUtils.utils.test.js',
+];
+
+const babelHoistedMockOrderingCohort3HighlighterIndex = [
+  'tests/unit/highlighter/highlighter-index-skipRestore.test.js',
+  'tests/unit/highlighter/highlighter-index.test.js',
+];
+
 // This live-repo cohort intentionally tracks the one retained contained-CJS suite
 // in the current classifier ledger. If it fails, inspect the suite's require()
 // calls and update the cohort only after confirming the ledger changed.
@@ -258,6 +269,8 @@ const promotedNativeDefaultCohort = [
   ...babelHoistedMockOrderingCohort1,
   ...babelHoistedMockOrderingCohort2Drive,
   ...babelHoistedMockOrderingCohort2AuthAdjacent,
+  ...babelHoistedMockOrderingCohort3LeafRuntime,
+  ...babelHoistedMockOrderingCohort3HighlighterIndex,
 ];
 
 const countPathsByRoot = suitePaths =>
@@ -476,6 +489,26 @@ describe('tools/report-native-default-runner-blockers', () => {
       );
     }
     for (const suitePath of babelHoistedMockOrderingCohort2AuthAdjacent) {
+      expect(promotedCohortReport.files).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            path: suitePath,
+            signals: expect.not.arrayContaining(['babel-hoisted-mock']),
+          }),
+        ])
+      );
+    }
+    for (const suitePath of babelHoistedMockOrderingCohort3LeafRuntime) {
+      expect(promotedCohortReport.files).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            path: suitePath,
+            signals: expect.not.arrayContaining(['babel-hoisted-mock']),
+          }),
+        ])
+      );
+    }
+    for (const suitePath of babelHoistedMockOrderingCohort3HighlighterIndex) {
       expect(promotedCohortReport.files).toEqual(
         expect.arrayContaining([
           expect.objectContaining({

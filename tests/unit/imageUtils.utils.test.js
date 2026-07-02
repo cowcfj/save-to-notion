@@ -1,45 +1,68 @@
 // 圖片處理工具函數測試
 // 測試 scripts/utils/imageUtils.js 中的函數
 
-jest.mock('../../scripts/utils/Logger.js', () => ({
+const loggerMock = {
+  debug: jest.fn(),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+  info: jest.fn(),
+  log: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+};
+
+jest.unstable_mockModule('../../scripts/utils/Logger.js', () => ({
   __esModule: true,
-  default: {
-    debug: jest.fn(),
-    success: jest.fn(),
-    start: jest.fn(),
-    ready: jest.fn(),
-    info: jest.fn(),
-    log: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-  },
+  default: loggerMock,
+}));
+
+jest.doMock('../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: loggerMock,
 }));
 
 // 先設置 Chrome Mock,再導入源碼
-import '../mocks/chrome.cjs';
-import Logger from '../../scripts/utils/Logger.js';
+require('../mocks/chrome.cjs');
 
-// 刪除 presetup.js 設定的 mock，讓 IIFE 能正常初始化
-delete globalThis.ImageUtils;
-delete globalThis.window?.ImageUtils;
+let Logger = null;
+let cleanImageUrl = null;
+let isValidImageUrl = null;
+let extractImageSrc = null;
+let extractBestUrlFromSrcset = null;
+let extractFromPicture = null;
+let extractFromBackgroundImage = null;
+let extractFromNoscript = null;
+let isValidCleanedImageUrl = null;
+let generateImageCacheKey = null;
+let IMAGE_ATTRIBUTES = null;
+let IMAGE_VALIDATION = null;
 
-// 載入原始 IIFE 模組（會將函數掛載到 global.ImageUtils）
-require('../../scripts/utils/imageUtils.js');
+beforeAll(async () => {
+  ({ default: Logger } = await import('../../scripts/utils/Logger.js'));
 
-// 從 global.ImageUtils 獲取函數
-const {
-  cleanImageUrl,
-  isValidImageUrl,
-  extractImageSrc,
-  extractBestUrlFromSrcset,
-  extractFromPicture,
-  extractFromBackgroundImage,
-  extractFromNoscript,
-  isValidCleanedImageUrl,
-  generateImageCacheKey,
-  IMAGE_ATTRIBUTES,
-  IMAGE_VALIDATION,
-} = globalThis.ImageUtils || globalThis.window?.ImageUtils || {};
+  // 刪除 presetup.js 設定的 mock，讓 IIFE 能正常初始化
+  delete globalThis.ImageUtils;
+  delete globalThis.window?.ImageUtils;
+
+  // 載入原始 IIFE 模組（會將函數掛載到 global.ImageUtils）
+  await import('../../scripts/utils/imageUtils.js');
+
+  // 從 global.ImageUtils 獲取函數
+  ({
+    cleanImageUrl,
+    isValidImageUrl,
+    extractImageSrc,
+    extractBestUrlFromSrcset,
+    extractFromPicture,
+    extractFromBackgroundImage,
+    extractFromNoscript,
+    isValidCleanedImageUrl,
+    generateImageCacheKey,
+    IMAGE_ATTRIBUTES,
+    IMAGE_VALIDATION,
+  } = globalThis.ImageUtils || globalThis.window?.ImageUtils || {});
+});
 
 describe('ImageUtils - cleanImageUrl', () => {
   describe('基本功能', () => {

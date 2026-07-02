@@ -62,21 +62,78 @@ const mockStorage = {
   restore: jest.fn(),
 };
 
-// Mock modules
-jest.mock('../../../scripts/highlighter/core/HighlightManager.js', () => ({
-  HighlightManager: jest.fn(() => mockManager),
-}));
+const registerHighlighterMocks = () => {
+  const managerModuleMock = {
+    HighlightManager: jest.fn(() => mockManager),
+  };
+  const storageModuleMock = {
+    HighlightStorage: jest.fn(() => mockStorage),
+    RestoreManager: jest.fn(() => mockStorage),
+  };
+  const styleManagerModuleMock = {
+    StyleManager: jest.fn(() => ({})),
+  };
+  const interactionModuleMock = {
+    HighlightInteraction: jest.fn(() => ({})),
+  };
+  const migrationModuleMock = {
+    HighlightMigration: jest.fn(() => ({})),
+  };
+  const toastModuleMock = {
+    Toast: jest.fn(() => ({})),
+  };
+  const urlUtilsModuleMock = {
+    normalizeUrl: jest.fn(url => url),
+  };
 
-jest.mock('../../../scripts/highlighter/core/HighlightStorage.js', () => ({
-  HighlightStorage: jest.fn(() => mockStorage),
-  RestoreManager: jest.fn(() => mockStorage),
-}));
+  jest.unstable_mockModule(
+    '../../../scripts/highlighter/core/HighlightManager.js',
+    () => managerModuleMock
+  );
+  jest.unstable_mockModule(
+    '../../../scripts/highlighter/core/HighlightStorage.js',
+    () => storageModuleMock
+  );
+  jest.unstable_mockModule(
+    '../../../scripts/highlighter/core/StyleManager.js',
+    () => styleManagerModuleMock
+  );
+  jest.unstable_mockModule(
+    '../../../scripts/highlighter/core/HighlightInteraction.js',
+    () => interactionModuleMock
+  );
+  jest.unstable_mockModule(
+    '../../../scripts/highlighter/core/HighlightMigration.js',
+    () => migrationModuleMock
+  );
+  jest.unstable_mockModule('../../../scripts/highlighter/ui/Toast.js', () => toastModuleMock);
+  jest.unstable_mockModule('../../../scripts/utils/urlUtils.js', () => urlUtilsModuleMock);
+  jest.doMock('../../../scripts/highlighter/core/HighlightManager.js', () => managerModuleMock);
+  jest.doMock('../../../scripts/highlighter/core/HighlightStorage.js', () => storageModuleMock);
+  jest.doMock('../../../scripts/highlighter/core/StyleManager.js', () => styleManagerModuleMock);
+  jest.doMock(
+    '../../../scripts/highlighter/core/HighlightInteraction.js',
+    () => interactionModuleMock
+  );
+  jest.doMock('../../../scripts/highlighter/core/HighlightMigration.js', () => migrationModuleMock);
+  jest.doMock('../../../scripts/highlighter/ui/Toast.js', () => toastModuleMock);
+  jest.doMock('../../../scripts/utils/urlUtils.js', () => urlUtilsModuleMock);
+};
+
+const registerWindowAPIMock = mountWindowAPI => {
+  const windowAPIModuleMock = {
+    mountWindowAPI,
+  };
+
+  jest.unstable_mockModule('../../../scripts/highlighter/windowAPI.js', () => windowAPIModuleMock);
+  jest.doMock('../../../scripts/highlighter/windowAPI.js', () => windowAPIModuleMock);
+};
 
 describe('Highlighter Index', () => {
   let initHighlighter = null;
   let highlighterModule = null;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
 
     // 清除全局 HighlighterV2
@@ -92,9 +149,10 @@ describe('Highlighter Index', () => {
     // 重新設置 mock
     globalThis.Logger = mockLogger;
     globalThis.chrome = mockChrome;
+    registerHighlighterMocks();
 
     // 載入模組
-    highlighterModule = require('../../../scripts/highlighter/index.js');
+    highlighterModule = await import('../../../scripts/highlighter/index.js');
     initHighlighter = highlighterModule.initHighlighter;
   });
 
@@ -188,24 +246,23 @@ describe('Highlighter Index', () => {
   });
 
   describe('setupHighlighter Edge Cases', () => {
-    test('能正常初始化並傳遞正確參數，包含掛載別名函數', () => {
-      jest.isolateModules(() => {
-        jest.mock('../../../scripts/highlighter/windowAPI.js', () => ({
-          mountWindowAPI: jest.fn(),
-        }));
-        const indexMock = require('../../../scripts/highlighter/index.js');
-        const windowAPIMock = require('../../../scripts/highlighter/windowAPI.js');
+    test('能正常初始化並傳遞正確參數，包含掛載別名函數', async () => {
+      await jest.isolateModulesAsync(async () => {
+        const mountWindowAPI = jest.fn();
+        registerHighlighterMocks();
+        registerWindowAPIMock(mountWindowAPI);
+        const indexMock = await import('../../../scripts/highlighter/index.js');
 
         const { setupHighlighter } = indexMock;
         setupHighlighter({ skipRestore: true });
 
-        expect(windowAPIMock.mountWindowAPI).toHaveBeenCalled();
+        expect(mountWindowAPI).toHaveBeenCalled();
 
-        const mountOptions = windowAPIMock.mountWindowAPI.mock.calls[0][0];
+        const mountOptions = mountWindowAPI.mock.calls[0][0];
         const funcs = mountOptions.fns;
 
         funcs.init();
-        expect(windowAPIMock.mountWindowAPI).toHaveBeenCalledTimes(2);
+        expect(mountWindowAPI).toHaveBeenCalledTimes(2);
       });
     });
   });
