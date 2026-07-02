@@ -12,40 +12,61 @@
  * @see scripts/auth/accountSession.js
  */
 
-jest.mock('../../../scripts/config/env/index.js', () => ({
+const envMockModule = {
   __esModule: true,
   BUILD_ENV: {
     OAUTH_SERVER_URL: 'https://test-server.example.com',
   },
-}));
+};
 
-jest.mock('../../../scripts/utils/Logger.js', () => ({
+const loggerMock = {
+  debug: jest.fn(),
+  log: jest.fn(),
+  info: jest.fn(),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+};
+const loggerMockModule = {
   __esModule: true,
-  default: {
-    debug: jest.fn(),
-    log: jest.fn(),
-    info: jest.fn(),
-    success: jest.fn(),
-    start: jest.fn(),
-    ready: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-  },
-}));
+  default: loggerMock,
+  ...loggerMock,
+};
 
-import {
-  getAccountSession,
-  setAccountSession,
-  clearAccountSession,
-  getAccountAccessToken,
-  isAccountSessionExpired,
-  buildAccountAuthHeaders,
-  getAccountProfile,
-  setAccountProfile,
-  refreshAccountSession,
-  ACCOUNT_STORAGE_KEYS,
-} from '../../../scripts/auth/accountSession.js';
-import Logger from '../../../scripts/utils/Logger.js';
+jest.unstable_mockModule('../../../scripts/config/env/index.js', () => envMockModule);
+jest.unstable_mockModule('../../../scripts/utils/Logger.js', () => loggerMockModule);
+jest.doMock('../../../scripts/config/env/index.js', () => envMockModule);
+jest.doMock('../../../scripts/utils/Logger.js', () => loggerMockModule);
+
+let getAccountSession;
+let setAccountSession;
+let clearAccountSession;
+let getAccountAccessToken;
+let isAccountSessionExpired;
+let buildAccountAuthHeaders;
+let getAccountProfile;
+let setAccountProfile;
+let refreshAccountSession;
+let ACCOUNT_STORAGE_KEYS;
+let Logger;
+
+beforeAll(async () => {
+  ({
+    getAccountSession,
+    setAccountSession,
+    clearAccountSession,
+    getAccountAccessToken,
+    isAccountSessionExpired,
+    buildAccountAuthHeaders,
+    getAccountProfile,
+    setAccountProfile,
+    refreshAccountSession,
+    ACCOUNT_STORAGE_KEYS,
+  } = await import('../../../scripts/auth/accountSession.js'));
+  ({ default: Logger } = await import('../../../scripts/utils/Logger.js'));
+});
 
 // =============================================================================
 // chrome.storage.local mock
@@ -472,15 +493,15 @@ describe('refreshAccountSession（Phase 2 驗證）', () => {
   // ──── Phase 2 Step 2.1 ────
   describe('[Phase2-2.1] refresh 成功時應更新三個 storage key', () => {
     test.each([
-      ['accountAccessToken', ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN, newAccessToken],
-      ['accountRefreshToken', ACCOUNT_STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken],
-      ['accountAccessTokenExpiresAt', ACCOUNT_STORAGE_KEYS.EXPIRES_AT, newExpiresAt],
-    ])('refresh 成功後應覆寫 %s', async (_label, storageKey, expectedValue) => {
+      ['accountAccessToken', () => ACCOUNT_STORAGE_KEYS.ACCESS_TOKEN, newAccessToken],
+      ['accountRefreshToken', () => ACCOUNT_STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken],
+      ['accountAccessTokenExpiresAt', () => ACCOUNT_STORAGE_KEYS.EXPIRES_AT, newExpiresAt],
+    ])('refresh 成功後應覆寫 %s', async (_label, getStorageKey, expectedValue) => {
       await setExpiredAccountSession();
       mockRefreshSuccess();
       await refreshAccountSession();
 
-      expect(storageFake[storageKey]).toBe(expectedValue);
+      expect(storageFake[getStorageKey()]).toBe(expectedValue);
       expect(Logger.success).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
