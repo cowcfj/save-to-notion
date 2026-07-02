@@ -622,7 +622,7 @@ Variants：
 }
 
 function isCutoverVariant(variantName) {
-  return Object.prototype.hasOwnProperty.call(CUTOVER_VARIANTS, variantName);
+  return Object.hasOwn(CUTOVER_VARIANTS, variantName);
 }
 
 function writeSummaries(summary, options) {

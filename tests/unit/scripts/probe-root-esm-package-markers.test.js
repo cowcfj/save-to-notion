@@ -25,6 +25,123 @@ const writeFile = (rootDir, relativePath, content = '') => {
   fs.writeFileSync(filePath, content, 'utf8');
 };
 
+const readUtf8File = filePath => {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
+  return fs.readFileSync(filePath, 'utf8');
+};
+
+const readJsonFile = filePath => JSON.parse(readUtf8File(filePath));
+
+const pathExists = filePath => {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
+  return fs.existsSync(filePath);
+};
+
+const createCutoverSourceFixture = rootDir => {
+  const sourceRoot = path.join(rootDir, 'source');
+  writeFile(
+    sourceRoot,
+    'package.json',
+    JSON.stringify({ type: 'commonjs', scripts: { test: 'jest --config jest.config.js' } })
+  );
+  writeFile(sourceRoot, 'pages/popup/package.json', JSON.stringify({ type: 'module' }));
+  writeFile(sourceRoot, 'scripts/content/package.json', JSON.stringify({ type: 'module' }));
+  writeFile(sourceRoot, 'tests/helpers/package.json', JSON.stringify({ type: 'module' }));
+  writeFile(
+    sourceRoot,
+    'scripts/postinstall.js',
+    [
+      "const fs = require('node:fs');",
+      "const path = require('node:path');",
+      "console.log(path.join('scripts', fs.existsSync('package.json') ? 'ok' : 'missing'));",
+    ].join('\n')
+  );
+  writeFile(
+    sourceRoot,
+    'jest.config.js',
+    [
+      'const SWC_JEST_TRANSFORM = [',
+      "  '@swc/jest',",
+      '  { module: { type: "commonjs" } },',
+      '];',
+      'module.exports = {',
+      String.raw`  transform: { '^.+\\.[tj]sx?$': SWC_JEST_TRANSFORM },`,
+      '};',
+    ].join('\n')
+  );
+
+  return sourceRoot;
+};
+
+const createSuccessfulSpawnSync = () =>
+  jest.fn(() => ({
+    status: 0,
+    signal: null,
+    stdout: '',
+    stderr: '',
+  }));
+
+const runCutoverCoreProbe = sourceRoot => {
+  const spawnSync = createSuccessfulSpawnSync();
+  const mockedProbe = loadProbeWithSpawnSync(spawnSync);
+  const summary = mockedProbe.runProbe({ variant: 'cutover-core', keepTemp: true }, sourceRoot);
+
+  return {
+    summary,
+    spawnSync,
+    probeTempRoot: path.dirname(summary.roots.probe),
+  };
+};
+
+const readCutoverProbeArtifacts = summary => ({
+  baselinePackage: readJsonFile(path.join(summary.roots.baseline, 'package.json')),
+  probePackage: readJsonFile(path.join(summary.roots.probe, 'package.json')),
+  probePostinstall: readUtf8File(path.join(summary.roots.probe, 'scripts/postinstall.js')),
+  probeJestConfig: readUtf8File(path.join(summary.roots.probe, 'jest.config.js')),
+});
+
+const expectCutoverPackageMarkers = (summary, artifacts) => {
+  expect(artifacts.baselinePackage.type).toBe('commonjs');
+  expect(artifacts.probePackage.type).toBe('module');
+  expect(pathExists(path.join(summary.roots.baseline, 'pages/popup/package.json'))).toBe(true);
+  expect(pathExists(path.join(summary.roots.probe, 'pages/popup/package.json'))).toBe(false);
+  expect(pathExists(path.join(summary.roots.probe, 'tests/helpers/package.json'))).toBe(true);
+};
+
+const expectCutoverConfigTransforms = artifacts => {
+  expect(artifacts.probePostinstall).toContain("import fs from 'node:fs';");
+  expect(artifacts.probePostinstall).toContain("import path from 'node:path';");
+  expect(artifacts.probePostinstall).not.toContain("require('node:fs')");
+  expect(artifacts.probeJestConfig).toContain('const config = {');
+  expect(artifacts.probeJestConfig).toContain('export default config;');
+  expect(artifacts.probeJestConfig).not.toContain('module.exports');
+};
+
+const expectCutoverSummary = summary => {
+  expect(summary.variants).toEqual([
+    expect.objectContaining({
+      name: 'cutover-core',
+      kind: 'cutover-rehearsal',
+      removedMarkers: ['pages/popup/package.json', 'scripts/content/package.json'],
+      actions: expect.arrayContaining([
+        'set-root-package-type-module',
+        'transform-scripts-postinstall-to-esm',
+        'transform-jest-config-to-esm',
+      ]),
+    }),
+  ]);
+  expect(summary.gates).toEqual(
+    expect.arrayContaining([{ id: 'cutover-rehearsal', status: 'pass' }])
+  );
+};
+
+const expectCutoverPostinstallCommand = (spawnSync, summary) => {
+  expect(spawnSync).toHaveBeenCalledWith(
+    'node scripts/postinstall.js',
+    expect.objectContaining({ cwd: summary.roots.probe })
+  );
+};
+
 describe('tools/probe-root-esm-package-markers.mjs', () => {
   let tempRoot;
 
@@ -260,103 +377,20 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
   });
 
   test('cutover-core rehearses root type and config transforms only in the probe copy', () => {
-    const sourceRoot = path.join(tempRoot, 'source');
-    writeFile(
-      sourceRoot,
-      'package.json',
-      JSON.stringify({ type: 'commonjs', scripts: { test: 'jest --config jest.config.js' } })
-    );
-    writeFile(sourceRoot, 'pages/popup/package.json', JSON.stringify({ type: 'module' }));
-    writeFile(sourceRoot, 'scripts/content/package.json', JSON.stringify({ type: 'module' }));
-    writeFile(sourceRoot, 'tests/helpers/package.json', JSON.stringify({ type: 'module' }));
-    writeFile(
-      sourceRoot,
-      'scripts/postinstall.js',
-      [
-        "const fs = require('node:fs');",
-        "const path = require('node:path');",
-        "console.log(path.join('scripts', fs.existsSync('package.json') ? 'ok' : 'missing'));",
-      ].join('\n')
-    );
-    writeFile(
-      sourceRoot,
-      'jest.config.js',
-      [
-        'const SWC_JEST_TRANSFORM = [',
-        "  '@swc/jest',",
-        '  { module: { type: "commonjs" } },',
-        '];',
-        'module.exports = {',
-        String.raw`  transform: { '^.+\\.[tj]sx?$': SWC_JEST_TRANSFORM },`,
-        '};',
-      ].join('\n')
-    );
-    const spawnSync = jest.fn(() => ({
-      status: 0,
-      signal: null,
-      stdout: '',
-      stderr: '',
-    }));
-    const mockedProbe = loadProbeWithSpawnSync(spawnSync);
+    expect.hasAssertions();
 
-    const summary = mockedProbe.runProbe({ variant: 'cutover-core', keepTemp: true }, sourceRoot);
-    const probeTempRoot = path.dirname(summary.roots.probe);
+    const sourceRoot = createCutoverSourceFixture(tempRoot);
+    const { summary, spawnSync, probeTempRoot } = runCutoverCoreProbe(sourceRoot);
 
-    /* eslint-disable security/detect-non-literal-fs-filename */
     try {
-      const baselinePackage = JSON.parse(
-        fs.readFileSync(path.join(summary.roots.baseline, 'package.json'), 'utf8')
-      );
-      const probePackage = JSON.parse(
-        fs.readFileSync(path.join(summary.roots.probe, 'package.json'), 'utf8')
-      );
-      const probePostinstall = fs.readFileSync(
-        path.join(summary.roots.probe, 'scripts/postinstall.js'),
-        'utf8'
-      );
-      const probeJestConfig = fs.readFileSync(
-        path.join(summary.roots.probe, 'jest.config.js'),
-        'utf8'
-      );
-
-      expect(baselinePackage.type).toBe('commonjs');
-      expect(probePackage.type).toBe('module');
-      expect(fs.existsSync(path.join(summary.roots.baseline, 'pages/popup/package.json'))).toBe(
-        true
-      );
-      expect(fs.existsSync(path.join(summary.roots.probe, 'pages/popup/package.json'))).toBe(false);
-      expect(fs.existsSync(path.join(summary.roots.probe, 'tests/helpers/package.json'))).toBe(
-        true
-      );
-      expect(probePostinstall).toContain("import fs from 'node:fs';");
-      expect(probePostinstall).toContain("import path from 'node:path';");
-      expect(probePostinstall).not.toContain("require('node:fs')");
-      expect(probeJestConfig).toContain('const config = {');
-      expect(probeJestConfig).toContain('export default config;');
-      expect(probeJestConfig).not.toContain('module.exports');
-      expect(summary.variants).toEqual([
-        expect.objectContaining({
-          name: 'cutover-core',
-          kind: 'cutover-rehearsal',
-          removedMarkers: ['pages/popup/package.json', 'scripts/content/package.json'],
-          actions: expect.arrayContaining([
-            'set-root-package-type-module',
-            'transform-scripts-postinstall-to-esm',
-            'transform-jest-config-to-esm',
-          ]),
-        }),
-      ]);
-      expect(summary.gates).toEqual(
-        expect.arrayContaining([{ id: 'cutover-rehearsal', status: 'pass' }])
-      );
-      expect(spawnSync).toHaveBeenCalledWith(
-        'node scripts/postinstall.js',
-        expect.objectContaining({ cwd: summary.roots.probe })
-      );
+      const artifacts = readCutoverProbeArtifacts(summary);
+      expectCutoverPackageMarkers(summary, artifacts);
+      expectCutoverConfigTransforms(artifacts);
+      expectCutoverSummary(summary);
+      expectCutoverPostinstallCommand(spawnSync, summary);
     } finally {
       fs.rmSync(probeTempRoot, { recursive: true, force: true });
     }
-    /* eslint-enable security/detect-non-literal-fs-filename */
   });
 
   test('cutover transform helpers refuse to run against the source repository root', () => {
