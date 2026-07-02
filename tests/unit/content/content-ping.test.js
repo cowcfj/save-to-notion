@@ -121,6 +121,27 @@ describe('Content Script PING Handler', () => {
     return globalThis.chrome.runtime.onMessage.addListener.mock.calls.map(c => c[0]);
   };
 
+  const dispatchPreloaderResponse = metadata => {
+    document.dispatchEvent(
+      new CustomEvent('notion-preloader-response', {
+        detail: {
+          ...globalThis.__NOTION_PRELOADER_CACHE__,
+          ...metadata,
+        },
+      })
+    );
+  };
+
+  const getRegisteredMessageHandlers = () =>
+    globalThis.chrome.runtime.onMessage.addListener.mock.calls.map(c => c[0]);
+
+  const sendRuntimeActionToHandlers = (handlers, action) => {
+    const sendResponse = jest.fn();
+    const results = handlers.map(h => h({ action }, {}, sendResponse));
+
+    return { results, sendResponse };
+  };
+
   beforeEach(() => {
     preloaderHandler = null;
   });
@@ -136,22 +157,15 @@ describe('Content Script PING Handler', () => {
   test('PING 應該返回 shortlink 和 nextRouteInfo', async () => {
     await loadContentPingEntrypoint();
 
-    // Dispatch a fresh cache object with updated values
-    document.dispatchEvent(
-      new CustomEvent('notion-preloader-response', {
-        detail: {
-          ...globalThis.__NOTION_PRELOADER_CACHE__,
-          nextRouteInfo: { page: '/test', query: { id: '1' } },
-          shortlink: 'https://example.com/?p=7741',
-        },
-      })
-    );
+    dispatchPreloaderResponse({
+      nextRouteInfo: { page: '/test', query: { id: '1' } },
+      shortlink: 'https://example.com/?p=7741',
+    });
 
-    const handlers = globalThis.chrome.runtime.onMessage.addListener.mock.calls.map(c => c[0]);
+    const handlers = getRegisteredMessageHandlers();
     expect(handlers.length).toBeGreaterThan(0);
 
-    const sendResponse = jest.fn();
-    const results = handlers.map(h => h({ action: 'PING' }, {}, sendResponse));
+    const { results, sendResponse } = sendRuntimeActionToHandlers(handlers, 'PING');
 
     expect(results).toContain(true);
     expect(sendResponse).toHaveBeenCalledWith(
@@ -172,13 +186,10 @@ describe('Content Script PING Handler', () => {
     // 因此我們不能假設只有一個監聽器，也不能假設第一個就是我們的。
     // 我們遍歷所有監聽器，並確保其中 *有一個* 正確處理了 PING 請求。
 
-    const handlers = globalThis.chrome.runtime.onMessage.addListener.mock.calls.map(c => c[0]);
+    const handlers = getRegisteredMessageHandlers();
     expect(handlers.length).toBeGreaterThan(0);
 
-    const sendResponse = jest.fn();
-
-    // 對每個 handler 嘗試發送 PING
-    const results = handlers.map(h => h({ action: 'PING' }, {}, sendResponse));
+    const { results, sendResponse } = sendRuntimeActionToHandlers(handlers, 'PING');
 
     // 驗證是否有 handler 返回了 true (表示異步處理)
     const handled = results.includes(true);
@@ -196,20 +207,13 @@ describe('Content Script PING Handler', () => {
   test('當元數據部分缺失時，PING 應該正確返回', async () => {
     await loadContentPingEntrypoint();
 
-    // Dispatch a fresh cache object with only shortlink
-    document.dispatchEvent(
-      new CustomEvent('notion-preloader-response', {
-        detail: {
-          ...globalThis.__NOTION_PRELOADER_CACHE__,
-          nextRouteInfo: null,
-          shortlink: 'https://example.com/?p=123',
-        },
-      })
-    );
+    dispatchPreloaderResponse({
+      nextRouteInfo: null,
+      shortlink: 'https://example.com/?p=123',
+    });
 
-    const handlers = globalThis.chrome.runtime.onMessage.addListener.mock.calls.map(c => c[0]);
-    const sendResponse = jest.fn();
-    const results = handlers.map(h => h({ action: 'PING' }, {}, sendResponse));
+    const handlers = getRegisteredMessageHandlers();
+    const { results, sendResponse } = sendRuntimeActionToHandlers(handlers, 'PING');
 
     expect(results).toContain(true);
     expect(sendResponse).toHaveBeenCalledWith(
@@ -224,9 +228,8 @@ describe('Content Script PING Handler', () => {
   test('應該忽略非 PING 的未知 Action', async () => {
     await loadContentPingEntrypoint();
 
-    const handlers = globalThis.chrome.runtime.onMessage.addListener.mock.calls.map(c => c[0]);
-    const sendResponse = jest.fn();
-    const results = handlers.map(h => h({ action: 'UNKNOWN_ACTION' }, {}, sendResponse));
+    const handlers = getRegisteredMessageHandlers();
+    const { results, sendResponse } = sendRuntimeActionToHandlers(handlers, 'UNKNOWN_ACTION');
 
     // 所有 handlers 都應該返回 falsy (undefined, false, 等)
     results.forEach(result => {
