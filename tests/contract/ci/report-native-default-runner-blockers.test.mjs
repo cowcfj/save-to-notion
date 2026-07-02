@@ -349,7 +349,7 @@ const rootCommonjsDispositionCandidates = [
 ];
 
 const forbiddenClearedDispositionBlockers = [
-  'unknown',
+  'unknown-needs-reproduction',
   'test-helper-package-boundary',
   'commonjs-require-production-esm',
   'babel-hoisted-mock',
@@ -765,6 +765,23 @@ describe('tools/report-native-default-runner-blockers', () => {
         },
         ['tests/unit/partial-regression.test.js'],
         ['commonjs-require-production-esm', 'root-commonjs-test-boundary']
+      )
+    ).toThrow();
+  });
+
+  test('disposition candidate helper rejects fallback blocker records', () => {
+    expect(() =>
+      expectDispositionCandidateRecords(
+        {
+          files: [
+            {
+              path: 'tests/unit/fallback-blocker.test.js',
+              primaryBlocker: 'unknown-needs-reproduction',
+            },
+          ],
+        },
+        ['tests/unit/fallback-blocker.test.js'],
+        'unknown-needs-reproduction'
       )
     ).toThrow();
   });
