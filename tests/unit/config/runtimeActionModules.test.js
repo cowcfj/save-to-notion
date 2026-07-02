@@ -1,14 +1,32 @@
-import { CONTENT_BRIDGE_ACTIONS } from '../../../scripts/config/runtimeActions/contentBridgeActions.js';
-import { DIAGNOSTICS_ACTIONS } from '../../../scripts/config/runtimeActions/diagnosticsActions.js';
-import { HIGHLIGHTER_ACTIONS } from '../../../scripts/config/runtimeActions/highlighterActions.js';
-import { PAGE_SAVE_ACTIONS } from '../../../scripts/config/runtimeActions/pageSaveActions.js';
-import { PRELOADER_ACTIONS } from '../../../scripts/config/runtimeActions/preloaderActions.js';
-import { MIGRATION_ACTIONS } from '../../../scripts/config/runtimeActions/migrationActions.js';
-import { DRIVE_SYNC_ACTIONS } from '../../../scripts/config/runtimeActions/driveSyncActions.js';
-import { RUNTIME_ACTIONS } from '../../../scripts/config/shared/runtimeActions.js';
+let CONTENT_BRIDGE_ACTIONS;
+let DIAGNOSTICS_ACTIONS;
+let HIGHLIGHTER_ACTIONS;
+let PAGE_SAVE_ACTIONS;
+let PRELOADER_ACTIONS;
+let MIGRATION_ACTIONS;
+let DRIVE_SYNC_ACTIONS;
+let RUNTIME_ACTIONS;
+
+beforeAll(async () => {
+  ({ CONTENT_BRIDGE_ACTIONS } =
+    await import('../../../scripts/config/runtimeActions/contentBridgeActions.js'));
+  ({ DIAGNOSTICS_ACTIONS } =
+    await import('../../../scripts/config/runtimeActions/diagnosticsActions.js'));
+  ({ HIGHLIGHTER_ACTIONS } =
+    await import('../../../scripts/config/runtimeActions/highlighterActions.js'));
+  ({ PAGE_SAVE_ACTIONS } =
+    await import('../../../scripts/config/runtimeActions/pageSaveActions.js'));
+  ({ PRELOADER_ACTIONS } =
+    await import('../../../scripts/config/runtimeActions/preloaderActions.js'));
+  ({ MIGRATION_ACTIONS } =
+    await import('../../../scripts/config/runtimeActions/migrationActions.js'));
+  ({ DRIVE_SYNC_ACTIONS } =
+    await import('../../../scripts/config/runtimeActions/driveSyncActions.js'));
+  ({ RUNTIME_ACTIONS } = await import('../../../scripts/config/shared/runtimeActions.js'));
+});
 
 describe('runtime action 模組拆分', () => {
-  const expectedModules = [
+  const getExpectedModules = () => [
     {
       registry: PRELOADER_ACTIONS,
       keys: ['USER_ACTIVATE_SHORTCUT', 'PING', 'INIT_BUNDLE', 'REPLAY_BUFFERED_EVENTS'],
@@ -80,7 +98,7 @@ describe('runtime action 模組拆分', () => {
   ];
 
   test('拆分模組應輸出凍結的 action registry，且值與 aggregate registry 一致', () => {
-    for (const { registry: actionRegistry, keys } of expectedModules) {
+    for (const { registry: actionRegistry, keys } of getExpectedModules()) {
       expect(actionRegistry).toBeDefined();
       expect(Object.isFrozen(actionRegistry)).toBe(true);
       expect(Object.keys(actionRegistry).toSorted((a, b) => a.localeCompare(b))).toEqual(

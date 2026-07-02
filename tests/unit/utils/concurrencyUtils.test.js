@@ -2,7 +2,11 @@
  * @jest-environment node
  */
 
-import { pMap } from '../../../scripts/utils/concurrencyUtils.js';
+let pMap;
+
+beforeAll(async () => {
+  ({ pMap } = await import('../../../scripts/utils/concurrencyUtils.js'));
+});
 
 describe('concurrencyUtils', () => {
   describe('pMap', () => {

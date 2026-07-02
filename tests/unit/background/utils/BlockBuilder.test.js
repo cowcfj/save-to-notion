@@ -4,25 +4,47 @@
  * 測試 Notion 區塊構建工具函數
  */
 
-import {
-  MAX_TEXT_LENGTH,
-  createRichText,
-  createParagraph,
-  createHeading,
-  createImage,
-  createCodeBlock,
-  createBulletItem,
-  createNumberedItem,
-  createQuote,
-  createDivider,
-  buildHighlightBlocks,
-  splitTextForHighlight,
-  textToParagraphs,
-  createFallbackBlocks,
-  isValidBlock,
-} from '../../../../scripts/background/utils/BlockBuilder.js';
-import { NOTION_CODE_LANGUAGE_PLAIN_TEXT } from '../../../../scripts/config/shared/notionCodeLanguages.js';
-import { EXTRACTION_FALLBACK_MESSAGES } from '../../../../scripts/config/messages/extractionFallbackMessages.js';
+let MAX_TEXT_LENGTH;
+let createRichText;
+let createParagraph;
+let createHeading;
+let createImage;
+let createCodeBlock;
+let createBulletItem;
+let createNumberedItem;
+let createQuote;
+let createDivider;
+let buildHighlightBlocks;
+let splitTextForHighlight;
+let textToParagraphs;
+let createFallbackBlocks;
+let isValidBlock;
+let NOTION_CODE_LANGUAGE_PLAIN_TEXT;
+let EXTRACTION_FALLBACK_MESSAGES;
+
+beforeAll(async () => {
+  ({
+    MAX_TEXT_LENGTH,
+    createRichText,
+    createParagraph,
+    createHeading,
+    createImage,
+    createCodeBlock,
+    createBulletItem,
+    createNumberedItem,
+    createQuote,
+    createDivider,
+    buildHighlightBlocks,
+    splitTextForHighlight,
+    textToParagraphs,
+    createFallbackBlocks,
+    isValidBlock,
+  } = await import('../../../../scripts/background/utils/BlockBuilder.js'));
+  ({ NOTION_CODE_LANGUAGE_PLAIN_TEXT } =
+    await import('../../../../scripts/config/shared/notionCodeLanguages.js'));
+  ({ EXTRACTION_FALLBACK_MESSAGES } =
+    await import('../../../../scripts/config/messages/extractionFallbackMessages.js'));
+});
 
 describe('BlockBuilder', () => {
   describe('createRichText', () => {

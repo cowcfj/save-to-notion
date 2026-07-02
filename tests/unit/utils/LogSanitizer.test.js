@@ -1,9 +1,13 @@
-import {
-  LogSanitizer,
-  sanitizeUrlForLogging,
-  LOG_TRACKING_PARAMS,
-} from '../../../scripts/utils/LogSanitizer.js';
-import { URL_NORMALIZATION } from '../../../scripts/config/shared/content.js';
+let LogSanitizer;
+let sanitizeUrlForLogging;
+let LOG_TRACKING_PARAMS;
+let URL_NORMALIZATION;
+
+beforeAll(async () => {
+  ({ LogSanitizer, sanitizeUrlForLogging, LOG_TRACKING_PARAMS } =
+    await import('../../../scripts/utils/LogSanitizer.js'));
+  ({ URL_NORMALIZATION } = await import('../../../scripts/config/shared/content.js'));
+});
 
 describe('LogSanitizer', () => {
   describe('sanitize()', () => {

@@ -1,10 +1,16 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import {
-  RUNTIME_ACTIONS,
-  RUNTIME_ERROR_MESSAGES,
-} from '../../../scripts/config/shared/runtimeActions.js';
-import { PAGE_SAVE_ACTIONS } from '../../../scripts/config/runtimeActions/pageSaveActions.js';
+const fs = require('node:fs');
+const path = require('node:path');
+
+let RUNTIME_ACTIONS;
+let RUNTIME_ERROR_MESSAGES;
+let PAGE_SAVE_ACTIONS;
+
+beforeAll(async () => {
+  ({ RUNTIME_ACTIONS, RUNTIME_ERROR_MESSAGES } =
+    await import('../../../scripts/config/shared/runtimeActions.js'));
+  ({ PAGE_SAVE_ACTIONS } =
+    await import('../../../scripts/config/runtimeActions/pageSaveActions.js'));
+});
 
 describe('runtimeActions', () => {
   test('應集中收錄目前 extension 使用的 runtime action', () => {

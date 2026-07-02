@@ -3,14 +3,18 @@
  * 測試簡化後的錯誤處理系統
  */
 
-import { ERROR_MESSAGES } from '../../../scripts/config/shared/messages.js';
-import {
-  ErrorHandler,
-  ErrorTypes,
-  ErrorSeverity,
-  AppError,
-  Errors,
-} from '../../../scripts/utils/ErrorHandler';
+let ERROR_MESSAGES;
+let ErrorHandler;
+let ErrorTypes;
+let ErrorSeverity;
+let AppError;
+let Errors;
+
+beforeAll(async () => {
+  ({ ERROR_MESSAGES } = await import('../../../scripts/config/shared/messages.js'));
+  ({ ErrorHandler, ErrorTypes, ErrorSeverity, AppError, Errors } =
+    await import('../../../scripts/utils/ErrorHandler.js'));
+});
 
 describe('ErrorHandler - 測試', () => {
   // 保存原始的 console 方法

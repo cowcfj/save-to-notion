@@ -5,11 +5,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import * as reporter from '../../../tools/report-native-default-runner-blockers-core.cjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const require = createRequire(import.meta.url);
 
 const createDirectory = directoryPath => {
   fs.mkdirSync(directoryPath, { recursive: true });
@@ -288,6 +290,71 @@ const commonjsRequireProductionEsmLoggerCohort = [
 // calls and update the cohort only after confirming the ledger changed.
 const containedCjsRequireCohort = ['tests/unit/background/updateNotificationVersion.test.js'];
 
+const globalRuntimeSurfaceDispositionCandidates = [
+  'tests/unit/background/notification-handlers.test.js',
+  'tests/unit/content/isContentGood.test.js',
+  'tests/unit/highlighter/highlighter-dom-stability.test.js',
+  'tests/unit/imageUtils.boundary.test.js',
+  'tests/unit/logger.advanced.test.js',
+  'tests/unit/performance/PerformanceOptimizer.advanced.test.mjs',
+];
+
+const rootCommonjsPureOrStaticDispositionCandidates = [
+  'tests/unit/background/htmlSanitizerBoundary.test.js',
+  'tests/unit/background/utils/BlockBuilder.test.js',
+  'tests/unit/background/utils/migrationMetadataUtils.test.js',
+  'tests/unit/config/contentSafe.test.js',
+  'tests/unit/config/extensionConstants.test.js',
+  'tests/unit/config/runtimeActionModules.test.js',
+  'tests/unit/config/runtimeActions.test.js',
+  'tests/unit/content/runtimeMessageHandlers.test.js',
+  'tests/unit/content/sanitizers/htmlSanitizer.test.js',
+  'tests/unit/driveSnapshotHash.test.js',
+  'tests/unit/utils/ApiErrorSanitizer.test.js',
+  'tests/unit/utils/LogBuffer.dirty.test.js',
+  'tests/unit/utils/LogBuffer.test.js',
+  'tests/unit/utils/LogExportValidator.test.js',
+  'tests/unit/utils/LogSanitizer.test.js',
+  'tests/unit/utils/accountDisplayUtils.test.js',
+  'tests/unit/utils/concurrencyUtils.test.js',
+  'tests/unit/utils/contentUtils.test.js',
+  'tests/unit/utils/mergeUniqueImages.test.js',
+  'tests/unit/utils/temporaryImageUrl.test.js',
+  'tests/unit/utils/urlNormalization.regression.test.js',
+];
+
+const rootCommonjsGlobalOverlapDispositionCandidates = [
+  'tests/unit/background/background-state.test.js',
+  'tests/unit/background/exportDebugLogs.test.js',
+  'tests/unit/background/notion-page-operations.test.js',
+  'tests/unit/background/tab-listeners.test.js',
+  'tests/unit/config/saveStatus.test.js',
+  'tests/unit/driveAlarmScheduler.test.js',
+  'tests/unit/driveClientPhaseB.test.js',
+  'tests/unit/driveSnapshot.test.js',
+  'tests/unit/highlighter/windowAPI.clearPageHighlights.test.js',
+  'tests/unit/highlighter/windowAPI.test.js',
+  'tests/unit/popup.test.js',
+  'tests/unit/utils/ErrorHandler.test.js',
+  'tests/unit/utils/LogBufferPersistence.test.js',
+  'tests/unit/utils/securityUtils.test.js',
+];
+
+const rootCommonjsRetainedCutoverCandidates = ['tests/unit/performance/timingHelpers.test.js'];
+
+const rootCommonjsDispositionCandidates = [
+  ...rootCommonjsPureOrStaticDispositionCandidates,
+  ...rootCommonjsGlobalOverlapDispositionCandidates,
+  ...rootCommonjsRetainedCutoverCandidates,
+];
+
+const forbiddenClearedDispositionBlockers = [
+  'unknown',
+  'test-helper-package-boundary',
+  'commonjs-require-production-esm',
+  'babel-hoisted-mock',
+];
+
 const testHelperBoundaryPlatformCohort = [
   'tests/unit/auth/accountLogin.test.js',
   'tests/unit/auth/auth.test.js',
@@ -455,6 +522,9 @@ const promotedNativeDefaultCohort = [
   ...phase2ProbePassingNativeDefaultCohort,
   ...cjsEsmRequireProductionEsmCohort,
   ...cjsEsmRequireProductionEsmCohort2,
+  ...globalRuntimeSurfaceDispositionCandidates,
+  ...rootCommonjsPureOrStaticDispositionCandidates,
+  ...rootCommonjsGlobalOverlapDispositionCandidates,
   ...babelHoistedMockOrderingCohort1,
   ...babelHoistedMockOrderingCohort2Drive,
   ...babelHoistedMockOrderingCohort2AuthAdjacent,
@@ -604,6 +674,18 @@ const expectRetainedContainedCjsReport = report => {
     expect.arrayContaining(['contained-cjs-require', 'root-commonjs-test-boundary'])
   );
   expect(report.files[0].signals).not.toContain('commonjs-require-production-esm');
+};
+
+const expectDispositionCandidateRecords = (report, candidatePaths, expectedBlocker) => {
+  const recordsByPath = new Map(report.files.map(file => [file.path, file]));
+
+  for (const suitePath of candidatePaths) {
+    expect(recordsByPath.has(suitePath)).toBe(true);
+
+    const record = recordsByPath.get(suitePath);
+    expect(record.primaryBlocker).toBe(expectedBlocker);
+    expect(forbiddenClearedDispositionBlockers).not.toContain(record.primaryBlocker);
+  }
 };
 
 describe('tools/report-native-default-runner-blockers', () => {
@@ -763,6 +845,50 @@ describe('tools/report-native-default-runner-blockers', () => {
     );
 
     expectRetainedContainedCjsReport(containedCjsReport);
+  });
+
+  test('目前 repo 的 root/global disposition candidates 保持在明確 closure scope', () => {
+    expect.hasAssertions();
+
+    const allDispositionCandidates = [
+      ...globalRuntimeSurfaceDispositionCandidates,
+      ...rootCommonjsDispositionCandidates,
+    ];
+    const uniqueCandidates = new Set(allDispositionCandidates);
+    const report = buildClassificationReport(reporter, projectRoot, allDispositionCandidates);
+
+    expect(uniqueCandidates.size).toBe(42);
+    expect(report.files).toHaveLength(allDispositionCandidates.length);
+    expectDispositionCandidateRecords(
+      report,
+      globalRuntimeSurfaceDispositionCandidates,
+      'already-native-default'
+    );
+    expectDispositionCandidateRecords(
+      report,
+      rootCommonjsPureOrStaticDispositionCandidates,
+      'already-native-default'
+    );
+    expectDispositionCandidateRecords(
+      report,
+      rootCommonjsGlobalOverlapDispositionCandidates,
+      'already-native-default'
+    );
+    expectDispositionCandidateRecords(
+      report,
+      rootCommonjsRetainedCutoverCandidates,
+      'root-commonjs-test-boundary'
+    );
+  });
+
+  test('native-default runner config stays outside coverage ownership', () => {
+    const nativeDefaultConfig = require(path.join(projectRoot, 'jest.native-default.config.cjs'));
+
+    expect(nativeDefaultConfig).not.toHaveProperty('coverageProvider');
+    expect(nativeDefaultConfig).not.toHaveProperty('coverageDirectory');
+    expect(nativeDefaultConfig).not.toHaveProperty('coverageReporters');
+    expect(nativeDefaultConfig).not.toHaveProperty('collectCoverageFrom');
+    expect(nativeDefaultConfig).not.toHaveProperty('coverageThreshold');
   });
 
   test('目前 repo 的 test-helper package boundary cohort 已完成 native-default ownership', () => {
