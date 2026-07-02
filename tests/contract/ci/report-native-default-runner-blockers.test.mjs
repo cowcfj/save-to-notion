@@ -288,6 +288,169 @@ const commonjsRequireProductionEsmLoggerCohort = [
 // calls and update the cohort only after confirming the ledger changed.
 const containedCjsRequireCohort = ['tests/unit/background/updateNotificationVersion.test.js'];
 
+const testHelperBoundaryPlatformCohort = [
+  'tests/unit/auth/accountLogin.test.js',
+  'tests/unit/auth/auth.test.js',
+  'tests/unit/auth/callbackStatusView.test.js',
+  'tests/unit/auth/notionOAuthCompleter.test.js',
+  'tests/unit/auth/notionOAuthInitiator.test.js',
+  'tests/unit/background/handlers/MessageHandler.test.js',
+  'tests/unit/background/handlers/accountAuthHandler.test.js',
+  'tests/unit/background/handlers/actionHandlers.edge-cases.test.js',
+  'tests/unit/background/handlers/handlerGuard.test.js',
+  'tests/unit/background/handlers/handlerUtils.test.js',
+  'tests/unit/background/handlers/highlightHandlers.test.js',
+  'tests/unit/background/handlers/logHandlers.test.js',
+  'tests/unit/background/handlers/migrationHandlers.test.js',
+  'tests/unit/background/handlers/notionHandlers.test.js',
+  'tests/unit/background/handlers/notionHandlers_params.test.js',
+  'tests/unit/background/handlers/saveHandlers.actions.test.js',
+  'tests/unit/background/handlers/saveHandlers.savePage.test.js',
+  'tests/unit/background/handlers/saveHandlers.status.test.js',
+  'tests/unit/background/handlers/sidepanelHandlers.test.js',
+  'tests/unit/background/handlers/toastUtils.test.js',
+  'tests/unit/background/services/ImageService.test.js',
+  'tests/unit/background/services/InjectionService.test.js',
+  'tests/unit/background/services/MigrationService.test.js',
+  'tests/unit/background/services/NotionService.auth-retry.test.js',
+  'tests/unit/background/services/NotionService.block-operations.test.js',
+  'tests/unit/background/services/NotionService.highlight-section.test.js',
+  'tests/unit/background/services/NotionService.page-data.test.js',
+  'tests/unit/background/services/NotionService.retry.test.js',
+  'tests/unit/background/services/NotionService.test.js',
+  'tests/unit/background/services/NotionService_Parallel_Safety.test.js',
+  'tests/unit/background/services/PageContentService.test.js',
+  'tests/unit/background/services/SaveStatusCoordinator.test.js',
+  'tests/unit/background/services/StorageMigrationScanner.test.js',
+  'tests/unit/background/services/StorageService.canonical-lock.test.js',
+  'tests/unit/background/services/StorageService.highlights.test.js',
+  'tests/unit/background/services/StorageService.notion-state.test.js',
+  'tests/unit/background/services/StorageService.read-upgrade.test.js',
+  'tests/unit/background/services/StorageService.test.js',
+  'tests/unit/background/services/TabService.migration.test.js',
+  'tests/unit/background/services/TabService.test.js',
+  'tests/unit/options/AuthManager.test.js',
+  'tests/unit/options/DataSourceManager.test.js',
+  'tests/unit/options/DataSourceManagerError.test.js',
+  'tests/unit/options/DriveCloudSyncController.init.test.js',
+  'tests/unit/options/DriveCloudSyncController.refresh.test.js',
+  'tests/unit/options/DriveCloudSyncController.render.test.js',
+  'tests/unit/options/DriveCloudSyncController.uploadPreflight.test.js',
+  'tests/unit/options/MigrationScanner.test.js',
+  'tests/unit/options/MigrationTool.test.js',
+  'tests/unit/options/SearchableDatabaseSelector.test.js',
+  'tests/unit/options/StorageManager.cleanup.test.js',
+  'tests/unit/options/StorageManager.display.test.js',
+  'tests/unit/options/StorageManager.test.js',
+  'tests/unit/options/UIManager.test.js',
+  'tests/unit/options/confirmDialog.test.js',
+  'tests/unit/options/optionsAccountUI.test.js',
+  'tests/unit/options/optionsController.test.js',
+  'tests/unit/options/optionsDestinationProfiles.test.js',
+  'tests/unit/options/optionsHtmlStructure.test.js',
+  'tests/unit/options/optionsInitialization.test.js',
+  'tests/unit/options/optionsLogExport.test.js',
+  'tests/unit/options/optionsStaticMessages.test.js',
+  'tests/unit/options/preferenceControls.test.js',
+  'tests/unit/options/storageDataUtils.test.js',
+  'tests/unit/sidepanel/sidepanel.dom-contract.test.js',
+  'tests/unit/sidepanel/sidepanel.interactions.test.js',
+  'tests/unit/sidepanel/sidepanel.test.js',
+  'tests/unit/sidepanel/sidepanel.unsynced.test.js',
+  'tests/unit/sidepanel/sidepanelUI.test.js',
+];
+
+const testHelperBoundaryContentAndHighlighterCohort = [
+  'tests/unit/content/converters/ContentBridge.test.js',
+  'tests/unit/content/converters/ConverterFactory.test.js',
+  'tests/unit/content/converters/DomConverter.edge-cases.test.js',
+  'tests/unit/content/converters/DomConverter.richtext.test.js',
+  'tests/unit/content/converters/DomConverter.test.js',
+  'tests/unit/content/converters/DomConverterNestedLinks.test.js',
+  'tests/unit/content/extractors/ContentExtractor.test.js',
+  'tests/unit/content/extractors/ImageCollector.collection-strategies.test.js',
+  'tests/unit/content/extractors/ImageCollector.process-images.test.js',
+  'tests/unit/content/extractors/ImageCollector.size-resolution.test.js',
+  'tests/unit/content/extractors/ImageCollector.temporary-images.test.js',
+  'tests/unit/content/extractors/ImageCollector.test.js',
+  'tests/unit/content/extractors/MarkdownExtractor.test.js',
+  'tests/unit/content/extractors/MetadataExtractor.test.js',
+  'tests/unit/content/extractors/NextJsDataResolver.rsc.test.js',
+  'tests/unit/content/extractors/NextJsDataResolver.scoring.test.js',
+  'tests/unit/content/extractors/NextJsExtractor.blocks.test.js',
+  'tests/unit/content/extractors/NextJsExtractor.test.js',
+  'tests/unit/content/extractors/ReadabilityAdapter.extended.test.js',
+  'tests/unit/content/extractors/ReadabilityAdapter.smartCleaning.test.js',
+  'tests/unit/content/extractors/ReadabilityAdapter.test.js',
+  'tests/unit/content/extractors/blocks/BbcBlockConverter.test.js',
+  'tests/unit/content/extractors/blocks/StoryAtomsConverter.test.js',
+  'tests/unit/content/extractors/temporaryImagePlaceholder.test.js',
+  'tests/unit/highlighter/autoInit/initializationInputs.test.js',
+  'tests/unit/highlighter/autoInit/lateStableUrlRestore.test.js',
+  'tests/unit/highlighter/autoInit/persistentListeners.test.js',
+  'tests/unit/highlighter/core/HighlightInteraction.test.js',
+  'tests/unit/highlighter/core/HighlightLookupResolver.contract-matrix.test.js',
+  'tests/unit/highlighter/core/HighlightLookupResolver.test.js',
+  'tests/unit/highlighter/core/HighlightManager.deleteRecursionGuard.test.js',
+  'tests/unit/highlighter/core/HighlightManager.test.js',
+  'tests/unit/highlighter/core/HighlightMigration.test.js',
+  'tests/unit/highlighter/core/HighlightStorage.test.js',
+  'tests/unit/highlighter/core/HighlightStorageGateway.clearHighlights.improved.test.js',
+  'tests/unit/highlighter/core/HighlightStorageGateway.extended.test.js',
+  'tests/unit/highlighter/core/Range.edge-cases.test.js',
+  'tests/unit/highlighter/core/Range.test.js',
+  'tests/unit/highlighter/core/StyleManager.namespace.test.js',
+  'tests/unit/highlighter/core/StyleManager.test.js',
+  'tests/unit/highlighter/core/highlightCleanupHelper.test.js',
+  'tests/unit/highlighter/ui/FloatingRail.actions.test.js',
+  'tests/unit/highlighter/ui/FloatingRail.events.test.js',
+  'tests/unit/highlighter/ui/FloatingRail.lifecycle.test.js',
+  'tests/unit/highlighter/ui/FloatingRail.settings.test.js',
+  'tests/unit/highlighter/ui/FloatingRailAnimations.test.js',
+  'tests/unit/highlighter/ui/FloatingRailRuntime.node.test.js',
+  'tests/unit/highlighter/ui/FloatingRailRuntime.test.js',
+  'tests/unit/highlighter/ui/FloatingRailState.test.js',
+  'tests/unit/highlighter/ui/FloatingRailUI.test.js',
+  'tests/unit/highlighter/ui/Toast.test.js',
+  'tests/unit/highlighter/ui/components/ColorPicker.test.js',
+  'tests/unit/highlighter/ui/components/FloatingRailContainer.test.js',
+  'tests/unit/highlighter/ui/components/ToastContainer.test.js',
+  'tests/unit/highlighter/ui/styles/floatingRailStyles.test.js',
+  'tests/unit/highlighter/ui/styles/toastStyles.test.js',
+  'tests/unit/highlighter/utils/color.edge-cases.test.js',
+  'tests/unit/highlighter/utils/color.test.js',
+  'tests/unit/highlighter/utils/dom.edge-cases.test.js',
+  'tests/unit/highlighter/utils/dom.test.js',
+  'tests/unit/highlighter/utils/domStability.edge-cases.test.js',
+  'tests/unit/highlighter/utils/domStability.test.js',
+  'tests/unit/highlighter/utils/floatingRailAvailability.test.js',
+  'tests/unit/highlighter/utils/path.edge-cases.test.js',
+  'tests/unit/highlighter/utils/path.test.js',
+  'tests/unit/highlighter/utils/safeIcon.test.js',
+  'tests/unit/highlighter/utils/textSearch.edge-cases.test.js',
+  'tests/unit/highlighter/utils/textSearch.test.js',
+  'tests/unit/highlighter/utils/validation.edge-cases.test.js',
+  'tests/unit/highlighter/utils/validation.test.js',
+  'tests/unit/onboarding/onboarding-entry.test.js',
+  'tests/unit/onboarding/onboardingController.test.js',
+];
+
+const retainedTestHelperBoundaryMarkerFiles = [
+  'tests/helpers/package.json',
+  'tests/unit/auth/package.json',
+  'tests/unit/background/handlers/package.json',
+  'tests/unit/background/services/package.json',
+  'tests/unit/content/converters/package.json',
+  'tests/unit/content/extractors/package.json',
+  'tests/unit/highlighter/autoInit/package.json',
+  'tests/unit/highlighter/core/package.json',
+  'tests/unit/highlighter/ui/package.json',
+  'tests/unit/highlighter/utils/package.json',
+  'tests/unit/onboarding/package.json',
+  'tests/unit/options/package.json',
+  'tests/unit/sidepanel/package.json',
+];
+
 const promotedNativeDefaultCohort = [
   ...phase2ProbePassingNativeDefaultCohort,
   ...cjsEsmRequireProductionEsmCohort,
@@ -600,6 +763,31 @@ describe('tools/report-native-default-runner-blockers', () => {
     );
 
     expectRetainedContainedCjsReport(containedCjsReport);
+  });
+
+  test('目前 repo 的 test-helper package boundary cohort 已完成 native-default ownership', () => {
+    expect.hasAssertions();
+
+    const cohortPaths = [
+      ...testHelperBoundaryPlatformCohort,
+      ...testHelperBoundaryContentAndHighlighterCohort,
+    ];
+    const cohortReport = buildClassificationReport(reporter, projectRoot, cohortPaths);
+
+    for (const markerPath of retainedTestHelperBoundaryMarkerFiles) {
+      expect(fs.existsSync(path.join(projectRoot, markerPath))).toBe(true);
+    }
+    expect(cohortReport.files).toHaveLength(cohortPaths.length);
+    for (const suitePath of cohortPaths) {
+      const record = cohortReport.files.find(file => file.path === suitePath);
+      expect(record).toEqual(
+        expect.objectContaining({
+          path: suitePath,
+          primaryBlocker: 'already-native-default',
+          disposition: 'already-native-default',
+        })
+      );
+    }
   });
 
   test('classifies custom root suites under the caller-provided roots', () => {
