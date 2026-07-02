@@ -363,9 +363,7 @@ describe('Sidepanel user interactions', () => {
     it('should trigger sync click gracefully when fails', async () => {
       await loadSavedLegacyHighlightsTab();
 
-      chrome.runtime.sendMessage.mockImplementation(() => {
-        throw new Error('Extension error message!');
-      });
+      chrome.runtime.sendMessage.mockRejectedValue(new Error('Extension error message!'));
 
       const syncBtn = document.querySelector('#sync-button');
       syncBtn.click();
@@ -494,9 +492,7 @@ describe('Sidepanel user interactions', () => {
 
     it('應該在 runtime sendMessage reject 時顯示格式化後的 startHighlight 錯誤', async () => {
       const runtimeError = new Error('Network error');
-      chrome.runtime.sendMessage.mockImplementation(() => {
-        throw runtimeError;
-      });
+      chrome.runtime.sendMessage.mockRejectedValue(runtimeError);
 
       const startBtn = document.querySelector('#start-highlight-button');
       startBtn.click();
@@ -518,9 +514,7 @@ describe('Sidepanel user interactions', () => {
     });
 
     it('should re-enable start highlight button using named debounce constant', async () => {
-      chrome.runtime.sendMessage.mockImplementation(() => {
-        throw new Error('Extension error message!');
-      });
+      chrome.runtime.sendMessage.mockRejectedValue(new Error('Extension error message!'));
 
       const timeoutSpy = jest.spyOn(globalThis, 'setTimeout');
       const startBtn = document.querySelector('#start-highlight-button');
