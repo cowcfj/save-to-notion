@@ -8,6 +8,8 @@
  * 驗證 options.skipRestore 是否正確傳遞給 HighlightManager.initialize()
  */
 
+const { registerHighlighterMocks } = require('./helpers/highlighterIndexMocks.cjs');
+
 // Mock Logger
 const mockLogger = {
   log: jest.fn(),
@@ -48,29 +50,20 @@ const mockStorage = {
   restore: jest.fn(),
 };
 
-// Mock modules
-jest.mock('../../../scripts/highlighter/core/HighlightManager.js', () => ({
-  HighlightManager: jest.fn(() => mockManager),
-}));
-
-jest.mock('../../../scripts/highlighter/core/HighlightStorage.js', () => ({
-  HighlightStorage: jest.fn(() => mockStorage),
-  RestoreManager: jest.fn(() => mockStorage),
-}));
-
 describe('initHighlighter skipRestore 參數傳遞', () => {
   let initHighlighter;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
     jest.resetModules();
 
     // 重新設置 mock
     globalThis.Logger = mockLogger;
     globalThis.chrome = mockChrome;
+    registerHighlighterMocks({ jest, mockManager, mockStorage });
 
     // 載入模組
-    const highlighterModule = require('../../../scripts/highlighter/index.js');
+    const highlighterModule = await import('../../../scripts/highlighter/index.js');
     initHighlighter = highlighterModule.initHighlighter;
   });
 

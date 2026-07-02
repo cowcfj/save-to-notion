@@ -199,6 +199,16 @@ function makeLoggerMock() {
   };
 }
 
+function setupBackgroundEntrypointGlobals({
+  chrome = makeDefaultChrome(),
+  logger = makeLoggerMock(),
+} = {}) {
+  globalThis.module = { exports: {} };
+  globalThis.chrome = chrome;
+  globalThis.Logger = logger;
+  return { chrome, logger };
+}
+
 function unwrapTestExports(moduleNamespace) {
   const testSurface = backgroundLifecycleTestSurfaceModule?.getBackgroundLifecycleTestSurface?.();
   if (testSurface) {
@@ -259,5 +269,6 @@ export {
   importBackgroundEntrypoint,
   makeDefaultChrome,
   makeLoggerMock,
+  setupBackgroundEntrypointGlobals,
   unwrapTestExports,
 };
