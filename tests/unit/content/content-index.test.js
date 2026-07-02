@@ -2,22 +2,25 @@
  * @jest-environment jsdom
  */
 
-import { extractPageContent } from '../../../scripts/content/index.js';
-import { ContentExtractor } from '../../../scripts/content/extractors/ContentExtractor.js';
-import { ConverterFactory } from '../../../scripts/content/converters/ConverterFactory.js';
-import { ImageCollector } from '../../../scripts/content/extractors/ImageCollector.js';
-import { mergeUniqueImages } from '../../../scripts/utils/imageUtils.js';
-import Logger from '../../../scripts/utils/Logger.js';
-import { CONTENT_QUALITY } from '../../../scripts/config/shared/content.js';
-import { DATA_SOURCE_MESSAGES } from '../../../scripts/config/messages/dataSourceMessages.js';
-import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
+const CONTENT_INDEX_MODULE = '../../../scripts/content/index.js';
+const CONTENT_EXTRACTOR_MODULE = '../../../scripts/content/extractors/ContentExtractor.js';
+const CONVERTER_FACTORY_MODULE = '../../../scripts/content/converters/ConverterFactory.js';
+const IMAGE_COLLECTOR_MODULE = '../../../scripts/content/extractors/ImageCollector.js';
+const IMAGE_UTILS_MODULE = '../../../scripts/utils/imageUtils.js';
+const LOGGER_MODULE = '../../../scripts/utils/Logger.js';
+const HIGHLIGHTER_ENTRY_AUTO_INIT_MODULE = '../../../scripts/highlighter/entryAutoInit.js';
 
-// Mock dependencies
-jest.mock('../../../scripts/content/extractors/ContentExtractor.js');
-jest.mock('../../../scripts/content/converters/ConverterFactory.js');
-jest.mock('../../../scripts/content/extractors/ImageCollector.js');
-jest.mock('../../../scripts/utils/imageUtils.js');
-jest.mock('../../../scripts/utils/Logger.js', () => ({
+let extractPageContent;
+let ContentExtractor;
+let ConverterFactory;
+let ImageCollector;
+let mergeUniqueImages;
+let Logger;
+let CONTENT_QUALITY;
+let DATA_SOURCE_MESSAGES;
+let UI_MESSAGES;
+
+const createLoggerMock = () => ({
   log: jest.fn(),
   info: jest.fn(),
   warn: jest.fn(),
@@ -26,7 +29,83 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
   success: jest.fn(),
   start: jest.fn(),
   ready: jest.fn(),
-}));
+});
+
+const createContentMocks = () => {
+  ContentExtractor = {
+    extractAsync: jest.fn(),
+  };
+  ConverterFactory = {
+    getConverter: jest.fn(),
+  };
+  ImageCollector = {
+    collectAdditionalImages: jest.fn(),
+  };
+  mergeUniqueImages = jest.fn();
+  Logger = createLoggerMock();
+};
+
+const registerContentMocks = async () => {
+  const contentExtractorFactory = () => ({
+    ContentExtractor,
+  });
+  const converterFactory = () => ({
+    ConverterFactory,
+  });
+  const imageCollectorFactory = () => ({
+    ImageCollector,
+  });
+  const imageUtilsFactory = () => ({
+    mergeUniqueImages,
+  });
+  const loggerFactory = () => ({
+    default: Logger,
+    ...Logger,
+    __esModule: true,
+  });
+  const highlighterEntryAutoInitFactory = () => ({});
+
+  jest.doMock(CONTENT_EXTRACTOR_MODULE, contentExtractorFactory);
+  jest.doMock(CONVERTER_FACTORY_MODULE, converterFactory);
+  jest.doMock(IMAGE_COLLECTOR_MODULE, imageCollectorFactory);
+  jest.doMock(IMAGE_UTILS_MODULE, imageUtilsFactory);
+  jest.doMock(LOGGER_MODULE, loggerFactory);
+  jest.doMock(HIGHLIGHTER_ENTRY_AUTO_INIT_MODULE, highlighterEntryAutoInitFactory);
+  jest.unstable_mockModule(CONTENT_EXTRACTOR_MODULE, contentExtractorFactory);
+  jest.unstable_mockModule(CONVERTER_FACTORY_MODULE, converterFactory);
+  jest.unstable_mockModule(IMAGE_COLLECTOR_MODULE, imageCollectorFactory);
+  jest.unstable_mockModule(IMAGE_UTILS_MODULE, imageUtilsFactory);
+  jest.unstable_mockModule(LOGGER_MODULE, loggerFactory);
+  jest.unstable_mockModule(HIGHLIGHTER_ENTRY_AUTO_INIT_MODULE, highlighterEntryAutoInitFactory);
+};
+
+const prepareContentModuleMocks = async () => {
+  jest.resetModules();
+  createContentMocks();
+  await registerContentMocks();
+};
+
+const importContentEntrypoint = async () => {
+  const contentModule = await import(CONTENT_INDEX_MODULE);
+  extractPageContent = contentModule.extractPageContent;
+  return contentModule;
+};
+
+const loadContentEntrypoint = async ({ resetMocks = true } = {}) => {
+  if (resetMocks) {
+    await prepareContentModuleMocks();
+  }
+  const contentModule = await importContentEntrypoint();
+
+  const allHandlers = globalThis.chrome.runtime.onMessage.addListener.mock.calls.map(c => c[0]);
+  const messageHandler = allHandlers.find(h => {
+    const mockSend = jest.fn();
+    const result = h({ action: 'PING' }, {}, mockSend);
+    return result === true && mockSend.mock.calls.length > 0;
+  });
+
+  return { contentModule, messageHandler };
+};
 
 function createDeferred() {
   let resolveDeferred;
@@ -37,6 +116,13 @@ function createDeferred() {
   });
 
   return { promise, resolve: resolveDeferred, reject: rejectDeferred };
+}
+
+function createHandledRejectedPromise(error) {
+  const deferred = createDeferred();
+  deferred.promise.catch(() => {});
+  deferred.reject(error);
+  return deferred.promise;
 }
 
 async function flushPromises() {
@@ -74,8 +160,14 @@ function mockReadabilityExtraction({
 }
 
 describe('Content Script Entry (index.js)', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
+  beforeAll(async () => {
+    ({ CONTENT_QUALITY } = await import('../../../scripts/config/shared/content.js'));
+    ({ DATA_SOURCE_MESSAGES } =
+      await import('../../../scripts/config/messages/dataSourceMessages.js'));
+    ({ UI_MESSAGES } = await import('../../../scripts/config/shared/messages.js'));
+  });
+
+  beforeEach(async () => {
     delete globalThis.HighlighterV2;
     delete globalThis.__NOTION_RAIL_READY__;
     delete globalThis.notionHighlighter;
@@ -132,7 +224,7 @@ describe('Content Script Entry (index.js)', () => {
       error: '浮動側欄尚未初始化',
     };
 
-    beforeEach(() => {
+    beforeEach(async () => {
       sendMessageMock = jest.fn();
       globalThis.chrome.runtime.onMessage.addListener = jest.fn();
       globalThis.chrome.runtime.onMessage.removeListener = jest.fn();
@@ -151,17 +243,7 @@ describe('Content Script Entry (index.js)', () => {
       };
       document.addEventListener('notion-preloader-request', preloaderHandler);
 
-      jest.isolateModules(() => {
-        require('../../../scripts/content/index.js');
-      });
-
-      // content/index.js 的 handler 是能回應 PING 的那個
-      const allHandlers = globalThis.chrome.runtime.onMessage.addListener.mock.calls.map(c => c[0]);
-      messageHandler = allHandlers.find(h => {
-        const mockSend = jest.fn();
-        const result = h({ action: 'PING' }, {}, mockSend);
-        return result === true && mockSend.mock.calls.length > 0;
-      });
+      ({ messageHandler } = await loadContentEntrypoint());
     });
 
     afterEach(() => {
@@ -508,7 +590,7 @@ describe('Content Script Entry (index.js)', () => {
       {
         title:
           '[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在 ready promise reject 時應回傳通用錯誤',
-        createReadyPromise: () => Promise.reject(new Error('boom')),
+        createReadyPromise: () => createHandledRejectedPromise(new Error('boom')),
         response: railInitializationFailure,
       },
     ])('$title', async ({ createReadyPromise, response }) => {
@@ -800,6 +882,14 @@ describe('Content Script Entry (index.js)', () => {
   });
 
   describe('extractPageContent', () => {
+    beforeEach(async () => {
+      await prepareContentModuleMocks();
+      extractPageContent = async (...args) => {
+        const contentModule = await importContentEntrypoint();
+        return contentModule.extractPageContent(...args);
+      };
+    });
+
     test('應該成功提取並轉換內容', async () => {
       mockReadabilityExtraction();
 
@@ -993,9 +1083,7 @@ describe('Content Script Entry (index.js)', () => {
       });
       mergeUniqueImages.mockReturnValue([]);
 
-      jest.isolateModules(() => {
-        require('../../../scripts/content/index.js');
-      });
+      await loadContentEntrypoint({ resetMocks: false });
       await flushPromises();
 
       expect(globalThis.__notion_extraction_result).toEqual(
@@ -1013,20 +1101,11 @@ describe('Content Script Entry (index.js)', () => {
   describe('SHOW_TOAST handler', () => {
     let messageHandler;
 
-    beforeEach(() => {
+    beforeEach(async () => {
       globalThis.chrome.runtime.onMessage.addListener = jest.fn();
       globalThis.chrome.runtime.sendMessage = jest.fn();
 
-      jest.isolateModules(() => {
-        require('../../../scripts/content/index.js');
-      });
-
-      const allHandlers = globalThis.chrome.runtime.onMessage.addListener.mock.calls.map(c => c[0]);
-      messageHandler = allHandlers.find(h => {
-        const mockSend = jest.fn();
-        const result = h({ action: 'PING' }, {}, mockSend);
-        return result === true && mockSend.mock.calls.length > 0;
-      });
+      ({ messageHandler } = await loadContentEntrypoint());
     });
 
     test('SHOW_TOAST 應呼叫 HighlighterV2.toast.show 並傳入 messageKey 與 level', () => {
