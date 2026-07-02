@@ -267,6 +267,22 @@ const babelHoistedMockOrderingCohort4Entrypoints = [
   'tests/unit/highlighter/entryAutoInit.test.js',
 ];
 
+const commonjsRequireProductionEsmImageIifeCohort = [
+  'tests/unit/background.imageUtils.test.js',
+  'tests/unit/imageExtraction/imageUtils.test.js',
+];
+
+const commonjsRequireProductionEsmLifecycleCohort = [
+  'tests/unit/content/content-ping.test.js',
+  'tests/unit/performance/preloader.test.js',
+];
+
+const commonjsRequireProductionEsmLoggerCohort = [
+  'tests/unit/logger.test.js',
+  'tests/unit/utils/Logger.background.test.js',
+  'tests/unit/utils/Logger.test.js',
+];
+
 // This live-repo cohort intentionally tracks the one retained contained-CJS suite
 // in the current classifier ledger. If it fails, inspect the suite's require()
 // calls and update the cohort only after confirming the ledger changed.
@@ -283,6 +299,9 @@ const promotedNativeDefaultCohort = [
   ...babelHoistedMockOrderingCohort3HighlighterIndex,
   ...babelHoistedMockOrderingCohort3BackgroundEntrypoint,
   ...babelHoistedMockOrderingCohort4Entrypoints,
+  ...commonjsRequireProductionEsmImageIifeCohort,
+  ...commonjsRequireProductionEsmLifecycleCohort,
+  ...commonjsRequireProductionEsmLoggerCohort,
 ];
 
 const countPathsByRoot = suitePaths =>
@@ -546,6 +565,15 @@ describe('tools/report-native-default-runner-blockers', () => {
     );
     expectCohortSignalsAbsent(promotedCohortReport, babelHoistedMockOrderingCohort4Entrypoints, [
       'babel-hoisted-mock',
+    ]);
+    expectCohortSignalsAbsent(promotedCohortReport, commonjsRequireProductionEsmImageIifeCohort, [
+      'commonjs-require-production-esm',
+    ]);
+    expectCohortSignalsAbsent(promotedCohortReport, commonjsRequireProductionEsmLifecycleCohort, [
+      'commonjs-require-production-esm',
+    ]);
+    expectCohortSignalsAbsent(promotedCohortReport, commonjsRequireProductionEsmLoggerCohort, [
+      'commonjs-require-production-esm',
     ]);
     expect(report.files.filter(file => file.primaryBlocker === 'babel-hoisted-mock')).toEqual([]);
     expect(promotedCohortReport.files).toEqual(

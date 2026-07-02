@@ -2,11 +2,77 @@
  * @jest-environment jsdom
  */
 
+const CONTENT_INDEX_MODULE = '../../../scripts/content/index.js';
+const CONTENT_EXTRACTOR_MODULE = '../../../scripts/content/extractors/ContentExtractor.js';
+const CONVERTER_FACTORY_MODULE = '../../../scripts/content/converters/ConverterFactory.js';
+const IMAGE_COLLECTOR_MODULE = '../../../scripts/content/extractors/ImageCollector.js';
+const IMAGE_UTILS_MODULE = '../../../scripts/utils/imageUtils.js';
+const LOGGER_MODULE = '../../../scripts/utils/Logger.js';
+const HIGHLIGHTER_ENTRY_AUTO_INIT_MODULE = '../../../scripts/highlighter/entryAutoInit.js';
+
 describe('Content Script PING Handler', () => {
   let preloaderHandler;
 
-  beforeEach(() => {
+  const Logger = {
+    log: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+  };
+
+  const registerContentEntrypointMocks = async () => {
+    const contentExtractorFactory = () => ({
+      ContentExtractor: {
+        extractAsync: jest.fn(),
+      },
+    });
+    const converterFactory = () => ({
+      ConverterFactory: {
+        getConverter: jest.fn(),
+      },
+    });
+    const imageCollectorFactory = () => ({
+      ImageCollector: {
+        collectAdditionalImages: jest.fn(),
+      },
+    });
+    const imageUtilsFactory = () => ({
+      mergeUniqueImages: jest.fn(),
+    });
+    const loggerFactory = () => ({
+      default: Logger,
+      ...Logger,
+      __esModule: true,
+    });
+    const highlighterEntryAutoInitFactory = () => ({});
+
+    jest.doMock(CONTENT_EXTRACTOR_MODULE, contentExtractorFactory);
+    jest.doMock(CONVERTER_FACTORY_MODULE, converterFactory);
+    jest.doMock(IMAGE_COLLECTOR_MODULE, imageCollectorFactory);
+    jest.doMock(IMAGE_UTILS_MODULE, imageUtilsFactory);
+    jest.doMock(LOGGER_MODULE, loggerFactory);
+    jest.doMock(HIGHLIGHTER_ENTRY_AUTO_INIT_MODULE, highlighterEntryAutoInitFactory);
+    jest.unstable_mockModule(CONTENT_EXTRACTOR_MODULE, contentExtractorFactory);
+    jest.unstable_mockModule(CONVERTER_FACTORY_MODULE, converterFactory);
+    jest.unstable_mockModule(IMAGE_COLLECTOR_MODULE, imageCollectorFactory);
+    jest.unstable_mockModule(IMAGE_UTILS_MODULE, imageUtilsFactory);
+    jest.unstable_mockModule(LOGGER_MODULE, loggerFactory);
+    jest.unstable_mockModule(HIGHLIGHTER_ENTRY_AUTO_INIT_MODULE, highlighterEntryAutoInitFactory);
+  };
+
+  const createPreloaderCache = () => ({
+    article: {},
+    timestamp: Date.now(),
+  });
+
+  const loadContentPingEntrypoint = async ({ preloaderCache = createPreloaderCache() } = {}) => {
     jest.resetModules();
+    jest.clearAllMocks();
+    await registerContentEntrypointMocks();
 
     // Mock chrome
     globalThis.chrome = {
@@ -18,12 +84,18 @@ describe('Content Script PING Handler', () => {
       },
     };
 
-    // Preloader cache can be set on globalThis
-    // globalThis.__NOTION_PRELOADER_CACHE__ needs to be set BEFORE require
-    globalThis.__NOTION_PRELOADER_CACHE__ = {
-      article: {},
-      timestamp: Date.now(),
-    };
+    if (preloaderHandler) {
+      document.removeEventListener('notion-preloader-request', preloaderHandler);
+      preloaderHandler = null;
+    }
+
+    if (preloaderCache == null) {
+      delete globalThis.__NOTION_PRELOADER_CACHE__;
+    } else {
+      // Preloader cache can be set on globalThis
+      // globalThis.__NOTION_PRELOADER_CACHE__ needs to be set BEFORE import
+      globalThis.__NOTION_PRELOADER_CACHE__ = preloaderCache;
+    }
 
     // Respond to preloader requests with the global cache object
     // This perfectly emulates the decouple phase logic that sends the cache
@@ -37,13 +109,20 @@ describe('Content Script PING Handler', () => {
     document.addEventListener('notion-preloader-request', preloaderHandler);
 
     // Mock document methods
-    jest.spyOn(document, 'querySelector').mockImplementation(() => null);
+    if (jest.isMockFunction(document.querySelector)) {
+      document.querySelector.mockImplementation(() => null);
+    } else {
+      jest.spyOn(document, 'querySelector').mockImplementation(() => null);
+    }
 
-    // Load module
-    // We use require to force execution of the top-level code (like addListener)
-    jest.isolateModules(() => {
-      require('../../../scripts/content/index.js');
+    await jest.isolateModulesAsync(async () => {
+      await import(CONTENT_INDEX_MODULE);
     });
+    return globalThis.chrome.runtime.onMessage.addListener.mock.calls.map(c => c[0]);
+  };
+
+  beforeEach(() => {
+    preloaderHandler = null;
   });
 
   afterEach(() => {
@@ -54,7 +133,9 @@ describe('Content Script PING Handler', () => {
     jest.restoreAllMocks();
   });
 
-  test('PING 應該返回 shortlink 和 nextRouteInfo', () => {
+  test('PING 應該返回 shortlink 和 nextRouteInfo', async () => {
+    await loadContentPingEntrypoint();
+
     // Dispatch a fresh cache object with updated values
     document.dispatchEvent(
       new CustomEvent('notion-preloader-response', {
@@ -82,17 +163,9 @@ describe('Content Script PING Handler', () => {
     );
   });
 
-  test('當 Preloader Cache 缺失時，PING 應該返回 null 元數據', () => {
+  test('當 Preloader Cache 缺失時，PING 應該返回 null 元數據', async () => {
     // 重新初始化環境而不設定 cache
-    jest.resetModules();
-    delete globalThis.__NOTION_PRELOADER_CACHE__;
-
-    // 清除之前的監聽器記錄，確保這次 require 是唯一的
-    globalThis.chrome.runtime.onMessage.addListener.mockClear();
-
-    jest.isolateModules(() => {
-      require('../../../scripts/content/index.js');
-    });
+    await loadContentPingEntrypoint({ preloaderCache: null });
 
     // 從所有註冊的監聽器中找到 PING 處理程序
     // 由於引入了 highlighter runtime entry，可能會有其他監聽器被註冊 (例如 entryAutoInit.js)
@@ -120,7 +193,9 @@ describe('Content Script PING Handler', () => {
     );
   });
 
-  test('當元數據部分缺失時，PING 應該正確返回', () => {
+  test('當元數據部分缺失時，PING 應該正確返回', async () => {
+    await loadContentPingEntrypoint();
+
     // Dispatch a fresh cache object with only shortlink
     document.dispatchEvent(
       new CustomEvent('notion-preloader-response', {
@@ -146,7 +221,9 @@ describe('Content Script PING Handler', () => {
     );
   });
 
-  test('應該忽略非 PING 的未知 Action', () => {
+  test('應該忽略非 PING 的未知 Action', async () => {
+    await loadContentPingEntrypoint();
+
     const handlers = globalThis.chrome.runtime.onMessage.addListener.mock.calls.map(c => c[0]);
     const sendResponse = jest.fn();
     const results = handlers.map(h => h({ action: 'UNKNOWN_ACTION' }, {}, sendResponse));
