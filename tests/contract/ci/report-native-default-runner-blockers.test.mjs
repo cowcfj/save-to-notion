@@ -488,6 +488,10 @@ describe('tools/report-native-default-runner-blockers', () => {
     expect(promotedCohortReport.files).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
+          path: 'tests/unit/scripts/accountSession.test.js',
+          signals: expect.not.arrayContaining(['jest-require-actual-esm']),
+        }),
+        expect.objectContaining({
           path: 'tests/unit/utils/notionAuth.test.js',
           signals: expect.not.arrayContaining(['jest-require-actual-esm']),
         }),

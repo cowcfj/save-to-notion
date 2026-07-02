@@ -3,6 +3,7 @@
  */
 
 const envMockModule = {
+  __esModule: true,
   BUILD_ENV: {
     OAUTH_SERVER_URL: 'https://test-server.example.com',
   },
