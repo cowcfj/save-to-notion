@@ -1,19 +1,19 @@
 // 圖片 URL 處理函數測試
 // 測試 cleanImageUrl 和 isValidImageUrl 函數
 
-// 先設置 Chrome Mock,再導入源碼
-import '../../mocks/chrome.cjs';
+let cleanImageUrl;
+let isValidImageUrl;
 
-// 刪除 presetup.js 設定的 mock，讓 IIFE 能正常初始化
-delete globalThis.ImageUtils;
-delete globalThis.window?.ImageUtils;
+beforeAll(async () => {
+  // 先設置 Chrome Mock,再導入源碼
+  await import('../../mocks/chrome.cjs');
 
-// 載入原始 IIFE 模組（會將函數掛載到 global.ImageUtils）
-require('../../../scripts/utils/imageUtils.js');
+  // 刪除 presetup.js 設定的 mock，讓 IIFE 能正常初始化
+  delete globalThis.ImageUtils;
+  delete globalThis.window?.ImageUtils;
 
-// 從 global.ImageUtils 獲取函數
-const { cleanImageUrl, isValidImageUrl } =
-  globalThis.ImageUtils || globalThis.window?.ImageUtils || {};
+  ({ cleanImageUrl, isValidImageUrl } = await import('../../../scripts/utils/imageUtils.js'));
+});
 
 describe('cleanImageUrl', () => {
   describe('基本功能', () => {

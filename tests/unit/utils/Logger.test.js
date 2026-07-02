@@ -12,11 +12,11 @@
  * - 錯誤過濾
  */
 
-function loadInDevelopmentMode(loader) {
+async function loadInDevelopmentMode(loader) {
   const previousNodeEnv = process.env.NODE_ENV;
   process.env.NODE_ENV = 'development';
   try {
-    return loader();
+    return await loader();
   } finally {
     process.env.NODE_ENV = previousNodeEnv;
   }
@@ -71,12 +71,12 @@ describe('Logger', () => {
   });
 
   describe('在非擴展環境中', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       // 模擬非擴展環境
       globalThis.chrome = undefined;
 
       // 載入 Logger 模組
-      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
+      await loadInDevelopmentMode(() => import('../../../scripts/utils/Logger.js'));
       Logger = globalThis.window.Logger;
     });
 
@@ -159,7 +159,7 @@ describe('Logger', () => {
   });
 
   describe('在模擬擴展環境中（開發版本）', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       // 模擬 Chrome 擴展環境（開發版本）
       globalThis.chrome = {
         runtime: {
@@ -186,7 +186,7 @@ describe('Logger', () => {
       };
 
       // 載入 Logger 模組
-      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
+      await loadInDevelopmentMode(() => import('../../../scripts/utils/Logger.js'));
       Logger = globalThis.window.Logger;
     });
 
@@ -228,7 +228,7 @@ describe('Logger', () => {
   });
 
   describe('在模擬擴展環境中（生產版本）', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       // 模擬 Chrome 擴展環境（生產版本）
       globalThis.chrome = {
         runtime: {
@@ -250,7 +250,7 @@ describe('Logger', () => {
         },
       };
 
-      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
+      await loadInDevelopmentMode(() => import('../../../scripts/utils/Logger.js'));
       Logger = globalThis.window.Logger;
     });
 
@@ -260,7 +260,7 @@ describe('Logger', () => {
   });
 
   describe('Storage 配置覆蓋', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       // 模擬 Chrome 擴展環境，storage 配置啟用調試
       globalThis.chrome = {
         runtime: {
@@ -284,7 +284,7 @@ describe('Logger', () => {
         },
       };
 
-      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
+      await loadInDevelopmentMode(() => import('../../../scripts/utils/Logger.js'));
       Logger = globalThis.window.Logger;
     });
 
@@ -344,7 +344,7 @@ describe('Logger', () => {
   });
 
   describe('Storage 初始化錯誤防禦', () => {
-    test('storage.sync.get callback 遇到 runtime.lastError 時應讀取並忽略結果', () => {
+    test('storage.sync.get callback 遇到 runtime.lastError 時應讀取並忽略結果', async () => {
       let lastErrorWasRead = false;
       const runtime = {
         id: 'test-extension-id',
@@ -375,7 +375,7 @@ describe('Logger', () => {
         },
       };
 
-      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
+      await loadInDevelopmentMode(() => import('../../../scripts/utils/Logger.js'));
       Logger = globalThis.window.Logger;
 
       expect(lastErrorWasRead).toBe(true);
@@ -384,9 +384,9 @@ describe('Logger', () => {
   });
 
   describe('消息格式化', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       globalThis.chrome = undefined;
-      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
+      await loadInDevelopmentMode(() => import('../../../scripts/utils/Logger.js'));
       Logger = globalThis.window.Logger;
     });
 
@@ -402,7 +402,7 @@ describe('Logger', () => {
   });
 
   describe('sendToBackground 功能', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       // Setup default mock specifically for this suite
       globalThis.chrome = {
         runtime: {
@@ -428,7 +428,7 @@ describe('Logger', () => {
         },
       };
 
-      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
+      await loadInDevelopmentMode(() => import('../../../scripts/utils/Logger.js'));
       Logger = globalThis.window.Logger;
     });
 
@@ -685,9 +685,9 @@ describe('Logger', () => {
   });
 
   describe('語法糖方法 (success, start, ready)', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       globalThis.chrome = undefined;
-      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
+      await loadInDevelopmentMode(() => import('../../../scripts/utils/Logger.js'));
       Logger = globalThis.window.Logger;
     });
 
@@ -708,7 +708,7 @@ describe('Logger', () => {
   });
 
   describe('批量轉發機制 (_queueForBackground & _flushToBackground)', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       globalThis.chrome = {
         runtime: {
           id: 'test-extension-id',
@@ -733,7 +733,7 @@ describe('Logger', () => {
         },
       };
 
-      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
+      await loadInDevelopmentMode(() => import('../../../scripts/utils/Logger.js'));
       Logger = globalThis.window.Logger;
 
       jest.useFakeTimers();
@@ -825,9 +825,9 @@ describe('Logger', () => {
   describe('parseArgsToContext 直接匯出函數', () => {
     let parseArgsToContext;
 
-    beforeEach(() => {
+    beforeEach(async () => {
       globalThis.chrome = undefined;
-      const mod = loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
+      const mod = await loadInDevelopmentMode(() => import('../../../scripts/utils/Logger.js'));
       parseArgsToContext = mod.parseArgsToContext;
     });
 
@@ -881,7 +881,7 @@ describe('Logger', () => {
   });
 
   describe('manifest 錯誤處理', () => {
-    test('當 getManifest 拋出錯誤時應該優雅處理', () => {
+    test('當 getManifest 拋出錯誤時應該優雅處理', async () => {
       globalThis.chrome = {
         runtime: {
           id: 'test-extension-id',
@@ -902,9 +902,9 @@ describe('Logger', () => {
       };
 
       // 不應該拋出錯誤
-      expect(() => {
-        loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
-      }).not.toThrow();
+      await expect(
+        loadInDevelopmentMode(() => import('../../../scripts/utils/Logger.js'))
+      ).resolves.toBeDefined();
 
       Logger = globalThis.window.Logger;
       expect(Logger.debugEnabled).toBe(false);
@@ -912,7 +912,7 @@ describe('Logger', () => {
   });
 
   describe('頁面卸載沖刷機制 (visibilitychange & beforeunload)', () => {
-    test('應在非 Background 環境中註冊 visibilitychange 與 beforeunload 監聽器', () => {
+    test('應在非 Background 環境中註冊 visibilitychange 與 beforeunload 監聽器', async () => {
       const docSpy = jest.spyOn(document, 'addEventListener');
       const winSpy = jest.spyOn(globalThis, 'addEventListener');
 
@@ -933,7 +933,7 @@ describe('Logger', () => {
         },
       };
 
-      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
+      await loadInDevelopmentMode(() => import('../../../scripts/utils/Logger.js'));
 
       const visibilityCall = docSpy.mock.calls.find(call => call[0] === 'visibilitychange');
       expect(visibilityCall).toBeDefined();
@@ -945,7 +945,7 @@ describe('Logger', () => {
       winSpy.mockRestore();
     });
 
-    test('visibilitychange 回調在頁面隱藏時應觸發批量發送', () => {
+    test('visibilitychange 回調在頁面隱藏時應觸發批量發送', async () => {
       const docSpy = jest.spyOn(document, 'addEventListener');
 
       globalThis.chrome = {
@@ -969,7 +969,7 @@ describe('Logger', () => {
         },
       };
 
-      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
+      await loadInDevelopmentMode(() => import('../../../scripts/utils/Logger.js'));
       const LoadedLogger = globalThis.window.Logger;
 
       // 將一條日誌加入佇列
@@ -997,7 +997,7 @@ describe('Logger', () => {
       docSpy.mockRestore();
     });
 
-    test('beforeunload 回調應觸發批量發送', () => {
+    test('beforeunload 回調應觸發批量發送', async () => {
       const winSpy = jest.spyOn(globalThis, 'addEventListener');
 
       globalThis.chrome = {
@@ -1021,7 +1021,7 @@ describe('Logger', () => {
         },
       };
 
-      loadInDevelopmentMode(() => require('../../../scripts/utils/Logger.js'));
+      await loadInDevelopmentMode(() => import('../../../scripts/utils/Logger.js'));
       const LoadedLogger = globalThis.window.Logger;
 
       // 將一條日誌加入佇列
