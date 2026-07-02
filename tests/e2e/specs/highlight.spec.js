@@ -1,82 +1,66 @@
 import { test, expect } from '../fixtures.js';
 
-test.describe('Highlighting Feature', () => {
-  test('should inject highlighter script via direct Service Worker injection', async ({
-    context,
-    extensionId,
-  }) => {
-    const page = await context.newPage();
-    await page.goto('https://example.com');
+const EXAMPLE_URL = 'https://example.com';
+const EXAMPLE_URL_WITH_SLASH = 'https://example.com/';
+const OPTIONS_PAGE_PATH = 'pages/options/options.html';
+const FLOATING_RAIL_SELECTOR = '[id^="notion-floating-rail-host-"][data-rail-owner="true"]';
+const SHOW_TOOLBAR_RETRY_COUNT = 15;
+const SHOW_TOOLBAR_RETRY_DELAY_MS = 200;
 
-    // 0. 初始化 Extension Storage State & 獲取 Target Tab ID
-    const optionsPage = await context.newPage();
-    await optionsPage.goto(`chrome-extension://${extensionId}/pages/options/options.html`);
+const getOptionsPageUrl = extensionId => `chrome-extension://${extensionId}/${OPTIONS_PAGE_PATH}`;
 
-    const targetTabId = await optionsPage.evaluate(async () => {
-      const mockUrl = 'https://example.com/';
-      const mockPageId = 'test-page-id';
+const seedHighlightStateAndResolveTabId = async ({ context, extensionId }) => {
+  const optionsPage = await context.newPage();
+  await optionsPage.goto(getOptionsPageUrl(extensionId));
 
-      // 1. Set API Config
-      await new Promise(resolve => {
-        chrome.storage.sync.set(
-          {
-            notionApiKey: 'notion_test_key',
-            notionDatabaseId: 'test_db_id',
-          },
-          resolve
-        );
-      });
+  const targetTabId = await optionsPage.evaluate(async mockUrl => {
+    const mockPageId = 'test-page-id';
 
-      // 2. Set Saved Page State
-      await new Promise(resolve => {
-        chrome.storage.local.set(
-          {
-            [`saved_${mockUrl}`]: {
-              notionPageId: mockPageId,
-              notionUrl: 'https://notion.so/test-page',
-              title: 'Example Domain',
-              savedAt: Date.now(),
-              lastVerifiedAt: Date.now(),
-            },
-          },
-          resolve
-        );
-      });
-
-      // 3. Get the ID of the target page (example.com)
-      return new Promise(resolve => {
-        chrome.tabs.query({}, tabs => {
-          const target = tabs.find(tab => tab.url?.includes('example.com'));
-          resolve(target ? target.id : null);
-        });
-      });
+    await chrome.storage.sync.set({
+      notionApiKey: 'notion_test_key',
+      notionDatabaseId: 'test_db_id',
     });
-    await optionsPage.close();
 
-    expect(targetTabId).not.toBeNull();
+    await chrome.storage.local.set({
+      [`saved_${mockUrl}`]: {
+        notionPageId: mockPageId,
+        notionUrl: 'https://notion.so/test-page',
+        title: 'Example Domain',
+        savedAt: Date.now(),
+        lastVerifiedAt: Date.now(),
+      },
+    });
 
-    // 獲取 Service Worker
-    let serviceWorker = context.serviceWorkers()[0];
-    if (!serviceWorker) {
-      serviceWorker = await context.waitForEvent('serviceworker');
-    }
+    const tabs = await chrome.tabs.query({});
+    const target = tabs.find(tab => tab.url?.includes('example.com'));
+    return target ? target.id : null;
+  }, EXAMPLE_URL_WITH_SLASH);
 
-    // === 方案A：直接在Service Worker中注入腳本 ===
-    // 繞過startHighlight訊息處理器，直接呼叫chrome.scripting.executeScript()
-    const injectionResult = await serviceWorker.evaluate(async tabId => {
+  await optionsPage.close();
+  return targetTabId;
+};
+
+const getServiceWorker = async context => {
+  let serviceWorker = context.serviceWorkers()[0];
+  if (!serviceWorker) {
+    serviceWorker = await context.waitForEvent('serviceworker');
+  }
+  return serviceWorker;
+};
+
+const injectContentBundleAndShowToolbar = async (serviceWorker, targetTabId) => {
+  return serviceWorker.evaluate(
+    async ({ tabId, retryCount, retryDelayMs }) => {
       try {
-        // 1. 注入 content.bundle.js
         await chrome.scripting.executeScript({
           target: { tabId },
           files: ['dist/content.bundle.js'],
         });
 
-        // 2. 透過標準擴充功能訊息機制觸發 UI (取代在 Main World 中呼叫)
-        // 使用重試邏輯等待 notionHighlighter 初始化完成（監聽器已同步就緒，但物件需非同步建立）
         let showToolbarResult = null;
-        for (let attempt = 0; attempt < 15; attempt++) {
+        for (let attempt = 0; attempt < retryCount; attempt++) {
           if (attempt > 0) {
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise(resolve => setTimeout(resolve, retryDelayMs));
           }
           try {
             showToolbarResult = await chrome.tabs.sendMessage(tabId, { action: 'showToolbar' });
@@ -86,9 +70,8 @@ test.describe('Highlighting Feature', () => {
           } catch (error) {
             const msg = error?.message ?? '';
             if (!msg.includes('Could not establish connection')) {
-              throw error; // 非暫態錯誤立即向上拋出
+              throw error;
             }
-            // 暫態錯誤：連線尚未就緒，繼續重試
           }
         }
         if (!showToolbarResult?.success) {
@@ -101,37 +84,55 @@ test.describe('Highlighting Feature', () => {
       } catch (error) {
         return { success: false, error: error.message };
       }
-    }, targetTabId);
-
-    if (!injectionResult.success) {
-      throw new Error(`Injection failed: ${injectionResult.error}`);
+    },
+    {
+      tabId: targetTabId,
+      retryCount: SHOW_TOOLBAR_RETRY_COUNT,
+      retryDelayMs: SHOW_TOOLBAR_RETRY_DELAY_MS,
     }
+  );
+};
 
-    // 4. 驗證 Floating Rail 存在
-    await page.waitForSelector('[id^="notion-floating-rail-host-"][data-rail-owner="true"]', {
+const readToastWireState = async (serviceWorker, targetTabId) => {
+  return serviceWorker.evaluate(async tabId => {
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => {
+        const v2 = globalThis.HighlighterV2;
+        return {
+          hasV2: Boolean(v2),
+          hasToast: Boolean(v2?.toast),
+          toastShowIsFn: typeof v2?.toast?.show === 'function',
+          managerToastIsSameInstance: v2?.manager?.toast === v2?.toast,
+        };
+      },
+    });
+    return result.result;
+  }, targetTabId);
+};
+
+test.describe('Highlighting Feature', () => {
+  test('should inject highlighter script via direct Service Worker injection', async ({
+    context,
+    extensionId,
+  }) => {
+    const page = await context.newPage();
+    await page.goto(EXAMPLE_URL);
+
+    const targetTabId = await seedHighlightStateAndResolveTabId({ context, extensionId });
+    expect(targetTabId).not.toBeNull();
+
+    const serviceWorker = await getServiceWorker(context);
+    const injectionResult = await injectContentBundleAndShowToolbar(serviceWorker, targetTabId);
+
+    expect(injectionResult.success, `Injection failed: ${injectionResult.error}`).toBe(true);
+
+    await page.waitForSelector(FLOATING_RAIL_SELECTOR, {
       timeout: 5000,
       state: 'attached',
     });
 
-    // 5. 驗證 Toast 已 wire 進 HighlighterV2 與 manager（issue #534）。
-    //    刻意不真的呼叫 toast.show()——那會在 example.com 留下 DOM 影響後續斷言；
-    //    僅做鴨子型別與 instance identity 檢查，補 unit test 涵蓋不到的整合風險：
-    //    「toast 暴露給 windowAPI 卻沒注入 manager」這種 wire 斷裂只能在真實 Chrome 抓到。
-    const toastWireResult = await serviceWorker.evaluate(async tabId => {
-      const [result] = await chrome.scripting.executeScript({
-        target: { tabId },
-        func: () => {
-          const v2 = globalThis.HighlighterV2;
-          return {
-            hasV2: Boolean(v2),
-            hasToast: Boolean(v2?.toast),
-            toastShowIsFn: typeof v2?.toast?.show === 'function',
-            managerToastIsSameInstance: v2?.manager?.toast === v2?.toast,
-          };
-        },
-      });
-      return result.result;
-    }, targetTabId);
+    const toastWireResult = await readToastWireState(serviceWorker, targetTabId);
 
     expect(toastWireResult.hasV2).toBe(true);
     expect(toastWireResult.hasToast).toBe(true);

@@ -1,9 +1,16 @@
 import { test, expect } from '../fixtures.js';
 
-test('Should save page to Notion successfully', async ({ page, extensionId, context }) => {
-  // 1. Mock Notion API
-  // Use context.route to intercept service worker requests
-  await context.route('https://api.notion.com/v1/pages', async route => {
+const NOTION_PAGES_URL = 'https://api.notion.com/v1/pages';
+const EXAMPLE_URL = 'https://example.com';
+const OPTIONS_PAGE_PATH = 'pages/options/options.html';
+const POPUP_PAGE_PATH = 'pages/popup/popup.html';
+const SAVE_TIMEOUT_MS = 30_000;
+
+const getExtensionPageUrl = (extensionId, pagePath) =>
+  `chrome-extension://${extensionId}/${pagePath}`;
+
+const mockNotionPageCreation = async context => {
+  await context.route(NOTION_PAGES_URL, async route => {
     const request = route.request();
     const postData = request.postDataJSON();
 
@@ -18,15 +25,16 @@ test('Should save page to Notion successfully', async ({ page, extensionId, cont
           properties: postData.properties,
         }),
       });
-    } else {
-      await route.abort();
+      return;
     }
-  });
 
-  // 2. Seed Storage - 設置 API 密鑰和資料庫 ID
-  const optionsUrl = `chrome-extension://${extensionId}/pages/options/options.html`;
+    await route.abort();
+  });
+};
+
+const seedNotionOptions = async ({ context, extensionId }) => {
   const optionsPage = await context.newPage();
-  await optionsPage.goto(optionsUrl);
+  await optionsPage.goto(getExtensionPageUrl(extensionId, OPTIONS_PAGE_PATH));
   await optionsPage.evaluate(async () => {
     await chrome.storage.sync.set({
       notionApiKey: 'secret_mock_key',
@@ -35,42 +43,34 @@ test('Should save page to Notion successfully', async ({ page, extensionId, cont
     });
   });
   await optionsPage.close();
+};
 
-  // 3. Navigate target page
-  await page.goto('https://example.com');
-  await page.bringToFront();
-
-  // 4. 獲取 target tab ID，用於 mock chrome.tabs.query
+const resolveExampleTabId = async ({ context, extensionId }) => {
   const setupPage = await context.newPage();
-  await setupPage.goto(optionsUrl);
-  const actualTabId = await setupPage.evaluate(() => {
-    // 獲取 example.com 頁面的 tab ID
-    return new Promise(resolve => {
-      chrome.tabs.query({}, tabs => {
-        const target = tabs.find(tab => tab.url?.includes('example.com'));
-        resolve(target ? target.id : null);
-      });
-    });
+  await setupPage.goto(getExtensionPageUrl(extensionId, OPTIONS_PAGE_PATH));
+
+  const actualTabId = await setupPage.evaluate(async () => {
+    const tabs = await chrome.tabs.query({});
+    const target = tabs.find(tab => tab.url?.includes('example.com'));
+    return target ? target.id : null;
   });
 
-  // Fail-fast：確保成功獲取 target tab ID
-  expect(
-    actualTabId,
-    'example.com tab not found: cannot proceed with mocking chrome.tabs.query'
-  ).not.toBeNull();
-
   await setupPage.close();
+  return actualTabId;
+};
 
-  // 5. Mock Service Worker 中的 chrome.tabs.query
+const getServiceWorker = async context => {
   let [worker] = context.serviceWorkers();
   if (!worker) {
     worker = await context.waitForEvent('serviceworker');
   }
+  return worker;
+};
 
+const mockActiveExampleTabQuery = async (worker, actualTabId) => {
   await worker.evaluate(mockId => {
     const originalQuery = chrome.tabs.query;
     chrome.tabs.query = function (queryInfo, onQuery) {
-      // Manifest V3 支持：同時支持 callback 和 Promise 模式
       if (queryInfo.active && queryInfo.currentWindow) {
         const mockTab = {
           id: mockId,
@@ -79,39 +79,35 @@ test('Should save page to Notion successfully', async ({ page, extensionId, cont
           active: true,
           windowId: 1,
         };
-        // 如果提供了 callback，呼叫它並返回 Promise
         if (onQuery) {
           onQuery([mockTab]);
         }
         return Promise.resolve([mockTab]);
       }
 
-      // 委派給原始 query
       if (originalQuery) {
         const result = originalQuery.call(this, queryInfo, onQuery);
         return result ?? Promise.resolve([]);
       }
 
-      // Fallback
       if (onQuery) {
         onQuery([]);
       }
       return Promise.resolve([]);
     };
   }, actualTabId);
+};
 
-  // 6. 透過 Popup 頁面發送 savePage 消息（公開介面）
-  // 這模擬了真實用戶點擊「Save」按鈕的流程
+const triggerSavePageFromPopup = async ({ context, extensionId }) => {
   const popup = await context.newPage();
-  await popup.goto(`chrome-extension://${extensionId}/pages/popup/popup.html`);
+  await popup.goto(getExtensionPageUrl(extensionId, POPUP_PAGE_PATH));
   await popup.waitForLoadState('networkidle');
 
-  // 使用 chrome.runtime.sendMessage 發送保存請求
-  const response = await popup.evaluate(() => {
+  const response = await popup.evaluate(timeoutMs => {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error('Save timeout'));
-      }, 30_000);
+      }, timeoutMs);
 
       chrome.runtime.sendMessage({ action: 'savePage' }, response => {
         clearTimeout(timeout);
@@ -122,14 +118,32 @@ test('Should save page to Notion successfully', async ({ page, extensionId, cont
         }
       });
     });
-  });
+  }, SAVE_TIMEOUT_MS);
 
   await popup.close();
+  return response;
+};
 
-  // 7. Assertions
+test('Should save page to Notion successfully', async ({ page, extensionId, context }) => {
+  await mockNotionPageCreation(context);
+  await seedNotionOptions({ context, extensionId });
+
+  await page.goto(EXAMPLE_URL);
+  await page.bringToFront();
+
+  const actualTabId = await resolveExampleTabId({ context, extensionId });
+  expect(
+    actualTabId,
+    'example.com tab not found: cannot proceed with mocking chrome.tabs.query'
+  ).not.toBeNull();
+
+  const worker = await getServiceWorker(context);
+  await mockActiveExampleTabQuery(worker, actualTabId);
+
+  const response = await triggerSavePageFromPopup({ context, extensionId });
+
   expect(response.success).toBe(true);
   expect(response.created).toBe(true);
-  // blockCount 应為數字且在 Mock 環境下可能為 0（example.com 內容極少）
   expect(typeof response.blockCount).toBe('number');
   expect(response.blockCount).toBeGreaterThanOrEqual(0);
 });
