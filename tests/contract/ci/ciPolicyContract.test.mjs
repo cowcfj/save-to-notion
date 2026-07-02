@@ -17,6 +17,8 @@ const retiredIncumbentCiScript = 'test:ci:' + 'incumbent';
 const retiredThresholdSimulationScript = ['test:coverage:native-esm', 'threshold-simulation'].join(
   ':'
 );
+const releasePleaseNode24ActionRef =
+  'googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0';
 
 function readWorkflow(relativePath) {
   return fs.readFileSync(path.join(activeWorkflowDir, relativePath), 'utf8');
@@ -132,6 +134,14 @@ describe('CI policy contract', () => {
     runtimeExtensionSurfaces.forEach(runtimePath => {
       expect(rootPackageConfig['exclude-paths']).not.toContain(runtimePath);
     });
+  });
+
+  test('release-please uses the Node 24 native action without runner-level forcing', () => {
+    const workflowSource = readWorkflow('release-please.yml');
+
+    expect(workflowSource).toContain(`uses: ${releasePleaseNode24ActionRef}`);
+    expect(workflowSource).not.toContain('FORCE_JAVASCRIPT_ACTIONS_TO_NODE24');
+    expect(workflowSource).not.toContain('googleapis/release-please-action@5c625bfb');
   });
 
   test('active coverage scripts do not expose retired incumbent coverage lanes', () => {
