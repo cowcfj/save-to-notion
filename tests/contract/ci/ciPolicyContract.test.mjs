@@ -18,7 +18,7 @@ const retiredThresholdSimulationScript = ['test:coverage:native-esm', 'threshold
   ':'
 );
 const releasePleaseNode24ActionRef =
-  'googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0';
+  'googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7';
 
 function readWorkflow(relativePath) {
   return fs.readFileSync(path.join(activeWorkflowDir, relativePath), 'utf8');
