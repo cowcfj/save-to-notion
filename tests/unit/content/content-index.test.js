@@ -119,7 +119,11 @@ function createDeferred() {
 }
 
 function createHandledRejectedPromise(error) {
-  return Promise.reject(error);
+  /* eslint-disable promise/no-promise-in-callback -- This fixture intentionally creates a rejected promise. */
+  const promise = Promise.reject(error);
+  promise.catch(() => {});
+  /* eslint-enable promise/no-promise-in-callback */
+  return promise;
 }
 
 async function flushPromises() {
@@ -199,6 +203,20 @@ describe('Content Script Entry (index.js)', () => {
   test('content default page title uses centralized zh-TW fallback copy', () => {
     expect(CONTENT_QUALITY.DEFAULT_PAGE_TITLE).toBe(DATA_SOURCE_MESSAGES.UNTITLED_PAGE);
     expect(DATA_SOURCE_MESSAGES.UNTITLED_PAGE).toBe(UI_MESSAGES.DATA_SOURCE.UNTITLED_PAGE);
+  });
+
+  test('createHandledRejectedPromise 在回傳前應先標記 rejection 已處理', async () => {
+    const catchSpy = jest.spyOn(Promise.prototype, 'catch');
+    const error = new Error('boom');
+
+    const promise = createHandledRejectedPromise(error);
+    const helperCatchCount = catchSpy.mock.calls.length;
+    const observedRejection = promise.catch(caughtError => caughtError);
+
+    expect(helperCatchCount).toBe(1);
+    expect(catchSpy.mock.contexts[0]).toBe(promise);
+    expect(catchSpy.mock.calls[0][0]).toEqual(expect.any(Function));
+    await expect(observedRejection).resolves.toBe(error);
   });
 
   describe('Message Handlers & Side Effects', () => {
