@@ -262,6 +262,11 @@ const babelHoistedMockOrderingCohort3BackgroundEntrypoint = [
   'tests/unit/background.test.js',
 ];
 
+const babelHoistedMockOrderingCohort4Entrypoints = [
+  'tests/unit/content/content-index.test.js',
+  'tests/unit/highlighter/entryAutoInit.test.js',
+];
+
 // This live-repo cohort intentionally tracks the one retained contained-CJS suite
 // in the current classifier ledger. If it fails, inspect the suite's require()
 // calls and update the cohort only after confirming the ledger changed.
@@ -277,6 +282,7 @@ const promotedNativeDefaultCohort = [
   ...babelHoistedMockOrderingCohort3LeafRuntime,
   ...babelHoistedMockOrderingCohort3HighlighterIndex,
   ...babelHoistedMockOrderingCohort3BackgroundEntrypoint,
+  ...babelHoistedMockOrderingCohort4Entrypoints,
 ];
 
 const countPathsByRoot = suitePaths =>
@@ -538,6 +544,10 @@ describe('tools/report-native-default-runner-blockers', () => {
       babelHoistedMockOrderingCohort3BackgroundEntrypoint,
       ['babel-hoisted-mock']
     );
+    expectCohortSignalsAbsent(promotedCohortReport, babelHoistedMockOrderingCohort4Entrypoints, [
+      'babel-hoisted-mock',
+    ]);
+    expect(report.files.filter(file => file.primaryBlocker === 'babel-hoisted-mock')).toEqual([]);
     expect(promotedCohortReport.files).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
