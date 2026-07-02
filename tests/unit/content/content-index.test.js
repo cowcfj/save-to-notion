@@ -119,10 +119,7 @@ function createDeferred() {
 }
 
 function createHandledRejectedPromise(error) {
-  const deferred = createDeferred();
-  deferred.promise.catch(() => {});
-  deferred.reject(error);
-  return deferred.promise;
+  return Promise.reject(error);
 }
 
 async function flushPromises() {
