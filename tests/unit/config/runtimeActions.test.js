@@ -1,15 +1,302 @@
-const fs = require('node:fs');
-const path = require('node:path');
+import fs from 'node:fs';
+import path from 'node:path';
 
 let RUNTIME_ACTIONS;
 let RUNTIME_ERROR_MESSAGES;
 let PAGE_SAVE_ACTIONS;
+let runtimeActionsSource;
+
+const projectRoot = path.resolve(__dirname, '../../..');
+const runtimeActionsRegistryFile = path.join(
+  projectRoot,
+  'scripts/config/shared/runtimeActions.js'
+);
+const messageBusFile = path.join(projectRoot, '.agents/.shared/knowledge/message_bus.json');
+const PRODUCTION_RUNTIME_ACTION_ROOTS = ['scripts', 'pages'];
+const RUNTIME_ACTION_REGISTRY_IDENTIFIERS = [
+  'RUNTIME_ACTIONS',
+  'PRELOADER_ACTIONS',
+  'CONTENT_BRIDGE_ACTIONS',
+  'HIGHLIGHTER_ACTIONS',
+  'PAGE_SAVE_ACTIONS',
+  'DIAGNOSTICS_ACTIONS',
+  'MIGRATION_ACTIONS',
+  'DRIVE_SYNC_ACTIONS',
+];
+const RUNTIME_ACTION_USAGE_ALIASES = {
+  CONTENT_BRIDGE_SHOW_FLOATING_RAIL: ['CONTENT_BRIDGE_ACTIONS.SHOW_FLOATING_RAIL'],
+};
+const ACTION_TYPE_CONTRACTS = [
+  {
+    actionKey: 'CHECK_PAGE_STATUS',
+    requestType: 'CheckPageStatusRequest',
+    responseType: 'CheckPageStatusResponse',
+  },
+  {
+    actionKey: 'PAGE_SAVE_HINT',
+    requestType: 'PageSaveHintRequest',
+    responseType: 'PageSaveHintResponse',
+  },
+  {
+    actionKey: 'GET_STABLE_URL',
+    requestType: 'GetStableUrlRequest',
+    responseType: 'GetStableUrlResponse',
+  },
+  {
+    actionKey: 'SET_STABLE_URL',
+    requestType: 'SetStableUrlRequest',
+    responseType: 'SetStableUrlResponse',
+  },
+  { actionKey: 'SAVE_PAGE', requestType: 'SavePageRequest', responseType: 'SavePageResponse' },
+  {
+    actionKey: 'SAVE_PAGE_FROM_TOOLBAR',
+    requestType: 'SavePageFromToolbarRequest',
+    responseType: 'SavePageFromToolbarResponse',
+  },
+  {
+    actionKey: 'OPEN_NOTION_PAGE',
+    requestType: 'OpenNotionPageRequest',
+    responseType: 'OpenNotionPageResponse',
+  },
+  {
+    actionKey: 'CHECK_NOTION_PAGE_EXISTS',
+    requestType: 'CheckNotionPageExistsRequest',
+    responseType: 'CheckNotionPageExistsResponse',
+  },
+  {
+    actionKey: 'SEARCH_NOTION',
+    requestType: 'SearchNotionRequest',
+    responseType: 'SearchNotionResponse',
+  },
+  {
+    actionKey: 'START_HIGHLIGHT',
+    requestType: 'StartHighlightRequest',
+    responseType: 'StartHighlightResponse',
+  },
+  {
+    actionKey: 'SYNC_HIGHLIGHTS',
+    requestType: 'SyncHighlightsRequest',
+    responseType: 'SyncHighlightsResponse',
+  },
+  {
+    actionKey: 'UPDATE_REMOTE_HIGHLIGHTS',
+    requestType: 'UpdateRemoteHighlightsRequest',
+    responseType: 'UpdateRemoteHighlightsResponse',
+  },
+  {
+    actionKey: 'UPDATE_HIGHLIGHTS',
+    requestType: 'UpdateHighlightsRequest',
+    responseType: 'UpdateHighlightsResponse',
+  },
+  {
+    actionKey: 'CLEAR_HIGHLIGHTS',
+    requestType: 'ClearHighlightsRequest',
+    responseType: 'ClearHighlightsResponse',
+  },
+  {
+    actionKey: 'SHOW_TOOLBAR',
+    requestType: 'ShowToolbarRequest',
+    responseType: 'ShowToolbarResponse',
+  },
+  {
+    actionKey: 'SHOW_HIGHLIGHTER',
+    requestType: 'ShowHighlighterRequest',
+    responseType: 'ShowHighlighterResponse',
+  },
+  {
+    actionKey: 'REMOVE_HIGHLIGHT_DOM',
+    requestType: 'RemoveHighlightDomRequest',
+    responseType: 'RemoveHighlightDomResponse',
+  },
+  {
+    actionKey: 'USER_ACTIVATE_SHORTCUT',
+    requestType: 'UserActivateShortcutRequest',
+    responseType: 'UserActivateShortcutResponse',
+  },
+  {
+    actionKey: 'MIGRATION_EXECUTE',
+    requestType: 'MigrationExecuteRequest',
+    responseType: 'MigrationExecuteResponse',
+  },
+  {
+    actionKey: 'MIGRATION_DELETE',
+    requestType: 'MigrationDeleteRequest',
+    responseType: 'MigrationDeleteResponse',
+  },
+  {
+    actionKey: 'MIGRATION_BATCH',
+    requestType: 'MigrationBatchRequest',
+    responseType: 'MigrationBatchResponse',
+  },
+  {
+    actionKey: 'MIGRATION_BATCH_DELETE',
+    requestType: 'MigrationBatchDeleteRequest',
+    responseType: 'MigrationBatchDeleteResponse',
+  },
+  {
+    actionKey: 'MIGRATION_GET_PENDING',
+    requestType: 'MigrationGetPendingRequest',
+    responseType: 'MigrationGetPendingResponse',
+  },
+  {
+    actionKey: 'MIGRATION_DELETE_FAILED',
+    requestType: 'MigrationDeleteFailedRequest',
+    responseType: 'MigrationDeleteFailedResponse',
+  },
+  {
+    actionKey: 'OAUTH_SUCCESS',
+    requestType: 'OAuthSuccessRequest',
+    responseType: 'OAuthSuccessResponse',
+  },
+  {
+    actionKey: 'OAUTH_FAILED',
+    requestType: 'OAuthFailedRequest',
+    responseType: 'OAuthFailedResponse',
+  },
+  {
+    actionKey: 'REFRESH_OAUTH_TOKEN',
+    requestType: 'RefreshOAuthTokenRequest',
+    responseType: 'RefreshOAuthTokenResponse',
+  },
+  {
+    actionKey: 'ACCOUNT_SESSION_UPDATED',
+    requestType: 'AccountSessionUpdatedRequest',
+    responseType: 'AccountSessionUpdatedResponse',
+  },
+  {
+    actionKey: 'ACCOUNT_SESSION_CLEARED',
+    requestType: 'AccountSessionClearedRequest',
+    responseType: 'AccountSessionClearedResponse',
+  },
+  {
+    actionKey: 'DRIVE_SYNC_STATUS_UPDATED',
+    requestType: 'DriveSyncStatusUpdatedRequest',
+    responseType: 'DriveSyncStatusUpdatedResponse',
+  },
+  {
+    actionKey: 'DRIVE_SYNC_MANUAL_UPLOAD',
+    requestType: 'DriveSyncManualUploadRequest',
+    responseType: 'DriveSyncManualUploadResponse',
+  },
+  {
+    actionKey: 'DRIVE_SYNC_MANUAL_DOWNLOAD',
+    requestType: 'DriveSyncManualDownloadRequest',
+    responseType: 'DriveSyncManualDownloadResponse',
+  },
+  {
+    actionKey: 'DRIVE_SYNC_CONFLICT',
+    requestType: 'DriveSyncConflictRequest',
+    responseType: 'DriveSyncConflictResponse',
+  },
+  {
+    actionKey: 'DRIVE_SYNC_SCHEDULE_UPDATED',
+    requestType: 'DriveSyncScheduleUpdatedRequest',
+    responseType: 'DriveSyncScheduleUpdatedResponse',
+  },
+  {
+    actionKey: 'OPEN_SIDE_PANEL',
+    requestType: 'OpenSidePanelRequest',
+    responseType: 'OpenSidePanelResponse',
+  },
+  {
+    actionKey: 'EXPORT_DEBUG_LOGS',
+    requestType: 'ExportDebugLogsRequest',
+    responseType: 'ExportDebugLogsResponse',
+  },
+  {
+    actionKey: 'DEV_LOG_SINK',
+    requestType: 'DevLogSinkRequest',
+    responseType: 'DevLogSinkResponse',
+  },
+  {
+    actionKey: 'DEV_LOG_SINK_BATCH',
+    requestType: 'DevLogSinkBatchRequest',
+    responseType: 'DevLogSinkBatchResponse',
+  },
+  { actionKey: 'PING', requestType: 'PingRequest', responseType: 'PingResponse' },
+  {
+    actionKey: 'INIT_BUNDLE',
+    requestType: 'InitBundleRequest',
+    responseType: 'InitBundleResponse',
+  },
+  {
+    actionKey: 'REPLAY_BUFFERED_EVENTS',
+    requestType: 'ReplayBufferedEventsRequest',
+    responseType: 'ReplayBufferedEventsResponse',
+  },
+  {
+    actionKey: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL',
+    requestType: 'ContentBridgeShowFloatingRailRequest',
+    responseType: 'ContentBridgeShowFloatingRailResponse',
+  },
+];
+
+function escapeRegex(value) {
+  return value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+}
+
+function readUtf8File(filePath) {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
+  return fs.readFileSync(filePath, 'utf8');
+}
+
+function collectJavaScriptFiles(dir) {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
+  if (!fs.existsSync(dir)) {
+    return [];
+  }
+
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+    if (entry.name === 'node_modules' || entry.name.startsWith('.')) {
+      return [];
+    }
+
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      return collectJavaScriptFiles(full);
+    }
+    if (entry.name.endsWith('.js') && full !== runtimeActionsRegistryFile) {
+      return [full];
+    }
+    return [];
+  });
+}
+
+function collectProductionRuntimeActionFiles() {
+  return PRODUCTION_RUNTIME_ACTION_ROOTS.flatMap(rootDir =>
+    collectJavaScriptFiles(path.join(projectRoot, rootDir))
+  );
+}
+
+function hasDirectRuntimeActionUsage(codebase, key) {
+  return RUNTIME_ACTION_REGISTRY_IDENTIFIERS.some(identifier =>
+    new RegExp(String.raw`\b${escapeRegex(identifier)}\.${escapeRegex(key)}\b`).test(codebase)
+  );
+}
+
+function hasAliasRuntimeActionUsage(codebase, key) {
+  return (RUNTIME_ACTION_USAGE_ALIASES[key] ?? []).some(alias =>
+    new RegExp(String.raw`\b${escapeRegex(alias)}\b`).test(codebase)
+  );
+}
+
+function isUnusedRuntimeActionKey(codebase, key) {
+  return !hasDirectRuntimeActionUsage(codebase, key) && !hasAliasRuntimeActionUsage(codebase, key);
+}
+
+function getRuntimeActionsRegistryKeys(source) {
+  const propertyPattern =
+    /@property \{[^}]+\} ([A-Z0-9_]+) - Request: \{@link [^}]+\}; Response: \{@link [^}]+\}/g;
+  return new Set([...source.matchAll(propertyPattern)].map(([, actionKey]) => actionKey));
+}
 
 beforeAll(async () => {
   ({ RUNTIME_ACTIONS, RUNTIME_ERROR_MESSAGES } =
     await import('../../../scripts/config/shared/runtimeActions.js'));
   ({ PAGE_SAVE_ACTIONS } =
     await import('../../../scripts/config/runtimeActions/pageSaveActions.js'));
+  runtimeActionsSource = readUtf8File(runtimeActionsRegistryFile);
 });
 
 describe('runtimeActions', () => {
@@ -86,28 +373,23 @@ describe('runtimeActions', () => {
   });
 
   test('bridge actions 應與 diagnostics actions 分組分離', () => {
-    const projectRoot = path.resolve(__dirname, '../../..');
-    const registryFile = path.join(projectRoot, 'scripts/config/shared/runtimeActions.js');
-    const source = fs.readFileSync(registryFile, 'utf8');
-
-    expect(source).toMatch(/const BRIDGE_ACTIONS = \{/);
-    expect(source).toMatch(
+    expect(runtimeActionsSource).toMatch(/const BRIDGE_ACTIONS = \{/);
+    expect(runtimeActionsSource).toMatch(
       /const BRIDGE_ACTIONS = \{[\s\S]*CONTENT_BRIDGE_SHOW_FLOATING_RAIL: CONTENT_BRIDGE_ACTIONS.SHOW_FLOATING_RAIL[\s\S]*\}/
     );
-    expect(source).not.toMatch(/const DIAGNOSTICS_ACTIONS = \{/);
-    expect(source).toMatch(/\.{3}BRIDGE_ACTIONS,/);
-    expect(source).toMatch(/\.{3}DIAGNOSTICS_ACTIONS,/);
+    expect(runtimeActionsSource).not.toMatch(/const DIAGNOSTICS_ACTIONS = \{/);
+    expect(runtimeActionsSource).toMatch(/\.{3}BRIDGE_ACTIONS,/);
+    expect(runtimeActionsSource).toMatch(/\.{3}DIAGNOSTICS_ACTIONS,/);
   });
 
   test('OPEN_SIDE_PANEL 應來自 page save action module，不保留 deprecated sidepanel alias', () => {
-    const projectRoot = path.resolve(__dirname, '../../..');
-    const registryFile = path.join(projectRoot, 'scripts/config/shared/runtimeActions.js');
-    const source = fs.readFileSync(registryFile, 'utf8');
     const deprecatedAliasName = ['SIDE', 'PANEL_ACTIONS'].join('');
 
     expect(RUNTIME_ACTIONS.OPEN_SIDE_PANEL).toBe(PAGE_SAVE_ACTIONS.OPEN_SIDE_PANEL);
-    expect(source).not.toMatch(new RegExp(String.raw`const ${deprecatedAliasName} = \{`));
-    expect(source).not.toContain(`...${deprecatedAliasName},`);
+    expect(runtimeActionsSource).not.toMatch(
+      new RegExp(String.raw`const ${deprecatedAliasName} = \{`)
+    );
+    expect(runtimeActionsSource).not.toContain(`...${deprecatedAliasName},`);
   });
 
   test('應暴露一致命名的 runtime 錯誤訊息', () => {
@@ -124,95 +406,27 @@ describe('runtimeActions', () => {
     );
   });
 
-  test('應在聚合 registry 保留具名 action 與 Request/Response typedef 的對照註釋', () => {
-    const projectRoot = path.resolve(__dirname, '../../..');
-    const registryFile = path.join(projectRoot, 'scripts/config/shared/runtimeActions.js');
-    const source = fs.readFileSync(registryFile, 'utf8');
-    const actionTypePairs = [
-      ['CHECK_PAGE_STATUS', 'CheckPageStatusRequest', 'CheckPageStatusResponse'],
-      ['PAGE_SAVE_HINT', 'PageSaveHintRequest', 'PageSaveHintResponse'],
-      ['GET_STABLE_URL', 'GetStableUrlRequest', 'GetStableUrlResponse'],
-      ['SET_STABLE_URL', 'SetStableUrlRequest', 'SetStableUrlResponse'],
-      ['SAVE_PAGE', 'SavePageRequest', 'SavePageResponse'],
-      ['SAVE_PAGE_FROM_TOOLBAR', 'SavePageFromToolbarRequest', 'SavePageFromToolbarResponse'],
-      ['OPEN_NOTION_PAGE', 'OpenNotionPageRequest', 'OpenNotionPageResponse'],
-      ['CHECK_NOTION_PAGE_EXISTS', 'CheckNotionPageExistsRequest', 'CheckNotionPageExistsResponse'],
-      ['SEARCH_NOTION', 'SearchNotionRequest', 'SearchNotionResponse'],
-      ['START_HIGHLIGHT', 'StartHighlightRequest', 'StartHighlightResponse'],
-      ['SYNC_HIGHLIGHTS', 'SyncHighlightsRequest', 'SyncHighlightsResponse'],
-      [
-        'UPDATE_REMOTE_HIGHLIGHTS',
-        'UpdateRemoteHighlightsRequest',
-        'UpdateRemoteHighlightsResponse',
-      ],
-      ['UPDATE_HIGHLIGHTS', 'UpdateHighlightsRequest', 'UpdateHighlightsResponse'],
-      ['CLEAR_HIGHLIGHTS', 'ClearHighlightsRequest', 'ClearHighlightsResponse'],
-      ['SHOW_TOOLBAR', 'ShowToolbarRequest', 'ShowToolbarResponse'],
-      ['SHOW_HIGHLIGHTER', 'ShowHighlighterRequest', 'ShowHighlighterResponse'],
-      ['REMOVE_HIGHLIGHT_DOM', 'RemoveHighlightDomRequest', 'RemoveHighlightDomResponse'],
-      ['USER_ACTIVATE_SHORTCUT', 'UserActivateShortcutRequest', 'UserActivateShortcutResponse'],
-      ['MIGRATION_EXECUTE', 'MigrationExecuteRequest', 'MigrationExecuteResponse'],
-      ['MIGRATION_DELETE', 'MigrationDeleteRequest', 'MigrationDeleteResponse'],
-      ['MIGRATION_BATCH', 'MigrationBatchRequest', 'MigrationBatchResponse'],
-      ['MIGRATION_BATCH_DELETE', 'MigrationBatchDeleteRequest', 'MigrationBatchDeleteResponse'],
-      ['MIGRATION_GET_PENDING', 'MigrationGetPendingRequest', 'MigrationGetPendingResponse'],
-      ['MIGRATION_DELETE_FAILED', 'MigrationDeleteFailedRequest', 'MigrationDeleteFailedResponse'],
-      ['OAUTH_SUCCESS', 'OAuthSuccessRequest', 'OAuthSuccessResponse'],
-      ['OAUTH_FAILED', 'OAuthFailedRequest', 'OAuthFailedResponse'],
-      ['REFRESH_OAUTH_TOKEN', 'RefreshOAuthTokenRequest', 'RefreshOAuthTokenResponse'],
-      ['ACCOUNT_SESSION_UPDATED', 'AccountSessionUpdatedRequest', 'AccountSessionUpdatedResponse'],
-      ['ACCOUNT_SESSION_CLEARED', 'AccountSessionClearedRequest', 'AccountSessionClearedResponse'],
-      [
-        'DRIVE_SYNC_STATUS_UPDATED',
-        'DriveSyncStatusUpdatedRequest',
-        'DriveSyncStatusUpdatedResponse',
-      ],
-      ['DRIVE_SYNC_MANUAL_UPLOAD', 'DriveSyncManualUploadRequest', 'DriveSyncManualUploadResponse'],
-      [
-        'DRIVE_SYNC_MANUAL_DOWNLOAD',
-        'DriveSyncManualDownloadRequest',
-        'DriveSyncManualDownloadResponse',
-      ],
-      ['DRIVE_SYNC_CONFLICT', 'DriveSyncConflictRequest', 'DriveSyncConflictResponse'],
-      [
-        'DRIVE_SYNC_SCHEDULE_UPDATED',
-        'DriveSyncScheduleUpdatedRequest',
-        'DriveSyncScheduleUpdatedResponse',
-      ],
-      ['OPEN_SIDE_PANEL', 'OpenSidePanelRequest', 'OpenSidePanelResponse'],
-      ['EXPORT_DEBUG_LOGS', 'ExportDebugLogsRequest', 'ExportDebugLogsResponse'],
-      ['DEV_LOG_SINK', 'DevLogSinkRequest', 'DevLogSinkResponse'],
-      ['DEV_LOG_SINK_BATCH', 'DevLogSinkBatchRequest', 'DevLogSinkBatchResponse'],
-      ['PING', 'PingRequest', 'PingResponse'],
-      ['INIT_BUNDLE', 'InitBundleRequest', 'InitBundleResponse'],
-      ['REPLAY_BUFFERED_EVENTS', 'ReplayBufferedEventsRequest', 'ReplayBufferedEventsResponse'],
-      [
-        'CONTENT_BRIDGE_SHOW_FLOATING_RAIL',
-        'ContentBridgeShowFloatingRailRequest',
-        'ContentBridgeShowFloatingRailResponse',
-      ],
-    ];
-
-    expect(source).toContain('@typedef {object} RuntimeActionsRegistry');
-    for (const [actionKey, requestType, responseType] of actionTypePairs) {
-      const actionPropertyPattern = new RegExp(
-        String.raw`@property \{${requestType}\['action'\]\} ${actionKey} - Request: \{@link ${requestType}\}; Response: \{@link ${responseType}\}`
-      );
-      expect(source).toMatch(actionPropertyPattern);
-    }
-
-    const propertyPattern =
-      /@property \{[^}]+\} ([A-Z0-9_]+) - Request: \{@link [^}]+\}; Response: \{@link [^}]+\}/g;
-    const runtimeActionsRegistryKeys = new Set(
-      [...source.matchAll(propertyPattern)].map(([, actionKey]) => actionKey)
+  describe('RuntimeActionsRegistry typedef contract', () => {
+    test.each(ACTION_TYPE_CONTRACTS)(
+      '$actionKey typedef 應對齊 Request/Response link',
+      ({ actionKey, requestType, responseType }) => {
+        expect(runtimeActionsSource).toContain('@typedef {object} RuntimeActionsRegistry');
+        const actionPropertyPattern = new RegExp(
+          String.raw`@property \{${requestType}\['action'\]\} ${actionKey} - Request: \{@link ${requestType}\}; Response: \{@link ${responseType}\}`
+        );
+        expect(runtimeActionsSource).toMatch(actionPropertyPattern);
+      }
     );
-    expect(runtimeActionsRegistryKeys).toEqual(new Set(Object.keys(RUNTIME_ACTIONS)));
+
+    test('typedef key set 應與 aggregate runtime actions 完全一致', () => {
+      expect(getRuntimeActionsRegistryKeys(runtimeActionsSource)).toEqual(
+        new Set(Object.keys(RUNTIME_ACTIONS))
+      );
+    });
   });
 
   test('message bus migration batch results schema 應與 runtimeActions typedef 對齊', () => {
-    const projectRoot = path.resolve(__dirname, '../../..');
-    const messageBusFile = path.join(projectRoot, '.agents/.shared/knowledge/message_bus.json');
-    const messageBus = JSON.parse(fs.readFileSync(messageBusFile, 'utf8'));
+    const messageBus = JSON.parse(readUtf8File(messageBusFile));
     const migrationActions = messageBus.actions.migration;
 
     expect(migrationActions.migration_batch.response.results).toEqual({
@@ -258,62 +472,12 @@ describe('runtimeActions', () => {
   // 防止 dead-action：registry 的每個條目都必須在 scripts/ 或 pages/ 中透過
   // aggregate registry 或拆分後的小型 action registry 實際被引用。
   test('每個 RUNTIME_ACTIONS 條目都必須在 scripts/ 或 pages/ 中實際被引用', () => {
-    const projectRoot = path.resolve(__dirname, '../../..');
-    const registryFile = path.join(projectRoot, 'scripts/config/shared/runtimeActions.js');
-
-    const collectJsFiles = (dir, out = []) => {
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
-      if (!fs.existsSync(dir)) {
-        return out;
-      }
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
-      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-        if (entry.name === 'node_modules' || entry.name.startsWith('.')) {
-          continue;
-        }
-        const full = path.join(dir, entry.name);
-        if (entry.isDirectory()) {
-          collectJsFiles(full, out);
-        } else if (entry.name.endsWith('.js') && full !== registryFile) {
-          out.push(full);
-        }
-      }
-      return out;
-    };
-
-    const sourceFiles = [
-      ...collectJsFiles(path.join(projectRoot, 'scripts')),
-      ...collectJsFiles(path.join(projectRoot, 'pages')),
-    ];
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
-    const codebase = sourceFiles.map(f => fs.readFileSync(f, 'utf8')).join('\n');
-
-    const registryIdentifiers = [
-      'RUNTIME_ACTIONS',
-      'PRELOADER_ACTIONS',
-      'CONTENT_BRIDGE_ACTIONS',
-      'HIGHLIGHTER_ACTIONS',
-      'PAGE_SAVE_ACTIONS',
-      'DIAGNOSTICS_ACTIONS',
-      'MIGRATION_ACTIONS',
-      'DRIVE_SYNC_ACTIONS',
-    ];
-
-    const escapeRegex = value => value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-
-    const runtimeActionUsageAliases = {
-      CONTENT_BRIDGE_SHOW_FLOATING_RAIL: ['CONTENT_BRIDGE_ACTIONS.SHOW_FLOATING_RAIL'],
-    };
-
-    const unused = Object.keys(RUNTIME_ACTIONS).filter(key => {
-      const directUsage = registryIdentifiers.some(identifier =>
-        new RegExp(String.raw`\b${escapeRegex(identifier)}\.${escapeRegex(key)}\b`).test(codebase)
-      );
-      const aliasUsage = (runtimeActionUsageAliases[key] ?? []).some(alias =>
-        new RegExp(String.raw`\b${escapeRegex(alias)}\b`).test(codebase)
-      );
-      return !directUsage && !aliasUsage;
-    });
+    const codebase = collectProductionRuntimeActionFiles()
+      .map(filePath => readUtf8File(filePath))
+      .join('\n');
+    const unused = Object.keys(RUNTIME_ACTIONS).filter(key =>
+      isUnusedRuntimeActionKey(codebase, key)
+    );
 
     expect(unused).toEqual([]);
   });

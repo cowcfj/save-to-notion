@@ -1,6 +1,6 @@
-const fs = require('node:fs');
-const path = require('node:path');
-const { pathToFileURL } = require('node:url');
+import fs from 'node:fs';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 let SHARED_TOOLBAR_SELECTORS;
 let UI_ICONS;
