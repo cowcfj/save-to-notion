@@ -394,10 +394,13 @@ const expectCohortSignalsAbsent = (report, cohortPaths, signals) => {
       expect.arrayContaining([
         expect.objectContaining({
           path: suitePath,
-          signals: expect.not.arrayContaining(signals),
         }),
       ])
     );
+    const suiteRecord = report.files.find(file => file.path === suitePath);
+    for (const signal of signals) {
+      expect(suiteRecord.signals).not.toContain(signal);
+    }
   }
 };
 
@@ -477,6 +480,23 @@ describe('tools/report-native-default-runner-blockers', () => {
         'root-commonjs-test-boundary',
       ])
     );
+  });
+
+  test('cohort signal absence helper rejects each forbidden signal independently', () => {
+    expect(() =>
+      expectCohortSignalsAbsent(
+        {
+          files: [
+            {
+              path: 'tests/unit/partial-regression.test.js',
+              signals: ['commonjs-require-production-esm'],
+            },
+          ],
+        },
+        ['tests/unit/partial-regression.test.js'],
+        ['commonjs-require-production-esm', 'root-commonjs-test-boundary']
+      )
+    ).toThrow();
   });
 
   test('目前 repo 在 Phase 2 cohort promoted 後沒有未知 blockers', () => {

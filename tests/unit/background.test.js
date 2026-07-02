@@ -391,6 +391,21 @@ function exposeNativeTabServiceDependencyMocks({
   globalThis.__backgroundTestIsRecoverableInjectionError = recoverableErrorMock;
 }
 
+const BACKGROUND_TEST_GLOBALS = [
+  '__backgroundTestStorageServiceInstance',
+  '__backgroundTestNotionServiceInstance',
+  '__backgroundTestIsRestrictedInjectionUrl',
+  '__backgroundTestIsRecoverableInjectionError',
+  '__backgroundTestActualTabServiceDeps',
+  '__backgroundTestAccountAuthHandler',
+];
+
+function cleanupBackgroundTestGlobals() {
+  for (const globalName of BACKGROUND_TEST_GLOBALS) {
+    delete globalThis[globalName];
+  }
+}
+
 let shouldShowUpdateNotification;
 let handleExtensionUpdate;
 let handleExtensionInstall;
@@ -456,6 +471,10 @@ describe('Background Script Lifecycle', () => {
     globalThis.Logger = mockLogger;
   });
 
+  afterEach(() => {
+    cleanupBackgroundTestGlobals();
+  });
+
   describe('shouldShowUpdateNotification', () => {
     test.each([
       ['major version upgrade', '1.0.0', '2.0.0', true],
@@ -515,33 +534,32 @@ describe('Background Script Lifecycle', () => {
     });
 
     test('production 環境載入 background 時不應暴露 lifecycle test surface', async () => {
-      if (isNativeDefaultRuntime()) {
-        expect.hasAssertions();
-        const sentinelSurface = { sentinel: true };
-        const lifecycleSurface = await loadBackgroundLifecycleTestSurfaceForRuntime(
-          createDriveAlarmStartupChromeMock({ frequency: 'off' })
-        );
-        expect(lifecycleSurface).not.toBe(sentinelSurface);
-        return;
-      }
       const originalNodeEnv = process.env.NODE_ENV;
-      const lifecycleSurfaceModule = loadBackgroundLifecycleSurfaceModule();
-      const originalSurface = lifecycleSurfaceModule.getBackgroundLifecycleTestSurface();
+      let lifecycleSurfaceModule;
+      let originalSurface;
       const sentinelSurface = { sentinel: true };
 
       try {
-        lifecycleSurfaceModule.setBackgroundLifecycleTestSurface(sentinelSurface);
         process.env.NODE_ENV = 'production';
         jest.resetModules();
+        lifecycleSurfaceModule = isNativeDefaultRuntime()
+          ? await import('../../scripts/background/backgroundLifecycleTestSurface.js')
+          : loadBackgroundLifecycleSurfaceModule();
+        originalSurface = lifecycleSurfaceModule.getBackgroundLifecycleTestSurface();
+        lifecycleSurfaceModule.setBackgroundLifecycleTestSurface(sentinelSurface);
         globalThis.chrome = createDriveAlarmStartupChromeMock({ frequency: 'off' });
         globalThis.Logger = mockLogger;
 
-        require(BACKGROUND_ENTRYPOINT_PATH);
+        if (isNativeDefaultRuntime()) {
+          await loadBackgroundLifecycleTestSurfaceForRuntime(globalThis.chrome);
+        } else {
+          require(BACKGROUND_ENTRYPOINT_PATH);
+        }
 
         expect(lifecycleSurfaceModule.getBackgroundLifecycleTestSurface()).toBe(sentinelSurface);
       } finally {
         process.env.NODE_ENV = originalNodeEnv;
-        lifecycleSurfaceModule.setBackgroundLifecycleTestSurface(originalSurface);
+        lifecycleSurfaceModule?.setBackgroundLifecycleTestSurface(originalSurface);
         jest.resetModules();
       }
     });
@@ -781,6 +799,10 @@ describe('Background Script Lifecycle', () => {
 
       ({ actualTabServiceDeps, storageServiceMock, notionServiceMock, injectionServiceMock } =
         await loadTabServiceDependenciesForRuntime(dependencyMocks));
+    });
+
+    afterEach(() => {
+      cleanupBackgroundTestGlobals();
     });
 
     test('getSavedPageData maps to StorageService.getSavedPageData', async () => {

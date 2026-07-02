@@ -65,12 +65,11 @@ const makeChromeMock = () => ({
 
 const installChromeMock = chromeMock => {
   globalThis.chrome = chromeMock;
-  globalThis.chrome = chromeMock;
   if (globalThis.window !== undefined) {
-    globalThis.chrome = chromeMock;
+    globalThis.window.chrome = chromeMock;
   }
   if (globalThis.self !== undefined) {
-    globalThis.chrome = chromeMock;
+    globalThis.self.chrome = chromeMock;
   }
 };
 
@@ -171,34 +170,63 @@ const registerBackgroundEntrypointMocks = async () => {
     accountAuthMockFactory
   );
 
-  await jest.unstable_mockModule('../../../scripts/utils/notionAuth.js', () => ({
+  const notionAuthMockFactory = () => ({
     getActiveNotionToken: jest.fn(async () => ({ token: 'token' })),
-  }));
-  await jest.unstable_mockModule('../../../scripts/background/handlers/driveAutoSync.js', () => ({
+  });
+  jest.doMock('../../../scripts/utils/notionAuth.js', notionAuthMockFactory);
+  await jest.unstable_mockModule('../../../scripts/utils/notionAuth.js', notionAuthMockFactory);
+
+  const driveAutoSyncMockFactory = () => ({
     runAutoUpload: jest.fn(async () => undefined),
-  }));
+  });
+  jest.doMock('../../../scripts/background/handlers/driveAutoSync.js', driveAutoSyncMockFactory);
+  await jest.unstable_mockModule(
+    '../../../scripts/background/handlers/driveAutoSync.js',
+    driveAutoSyncMockFactory
+  );
+
+  const driveAlarmSchedulerMockFactory = () => ({
+    DRIVE_AUTO_SYNC_ALARM: 'drive-auto-sync',
+    FREQUENCY_PERIOD_MINUTES: { daily: 1440 },
+    setupDriveAlarm: jest.fn(async () => undefined),
+  });
+  jest.doMock(
+    '../../../scripts/background/handlers/driveAlarmScheduler.js',
+    driveAlarmSchedulerMockFactory
+  );
   await jest.unstable_mockModule(
     '../../../scripts/background/handlers/driveAlarmScheduler.js',
-    () => ({
-      DRIVE_AUTO_SYNC_ALARM: 'drive-auto-sync',
-      FREQUENCY_PERIOD_MINUTES: { daily: 1440 },
-      setupDriveAlarm: jest.fn(async () => undefined),
-    })
+    driveAlarmSchedulerMockFactory
   );
-  await jest.unstable_mockModule('../../../scripts/auth/driveClient.js', () => ({
+
+  const driveClientMockFactory = () => ({
     DRIVE_SYNC_FREQUENCIES: ['off', 'daily', 'weekly', 'monthly'],
     DRIVE_SYNC_STORAGE_KEYS: { FREQUENCY: 'frequency' },
     markDriveDirty: jest.fn(),
-  }));
-  await jest.unstable_mockModule('../../../scripts/destinations/ProfileStore.js', () => ({
+  });
+  jest.doMock('../../../scripts/auth/driveClient.js', driveClientMockFactory);
+  await jest.unstable_mockModule('../../../scripts/auth/driveClient.js', driveClientMockFactory);
+
+  const profileStoreMockFactory = () => ({
     AccountGatedDestinationEntitlementProvider: jest.fn(),
     LocalDestinationProfileRepository: jest.fn(),
-  }));
-  await jest.unstable_mockModule('../../../scripts/destinations/ProfileResolver.js', () => ({
+  });
+  jest.doMock('../../../scripts/destinations/ProfileStore.js', profileStoreMockFactory);
+  await jest.unstable_mockModule(
+    '../../../scripts/destinations/ProfileStore.js',
+    profileStoreMockFactory
+  );
+
+  const profileResolverMockFactory = () => ({
     ProfileResolver: jest.fn().mockImplementation(() => ({
       resolve: jest.fn(async () => ({ id: 'default' })),
     })),
-  }));
+  });
+  jest.doMock('../../../scripts/destinations/ProfileResolver.js', profileResolverMockFactory);
+  await jest.unstable_mockModule(
+    '../../../scripts/destinations/ProfileResolver.js',
+    profileResolverMockFactory
+  );
 };
 
 let background;
