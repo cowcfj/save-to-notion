@@ -39,14 +39,9 @@ const config = {
       testMatch: [
         '<rootDir>/tests/unit/**/*.test.js',
         '<rootDir>/tests/unit/**/*.spec.js',
-        '<rootDir>/tests/unit/incumbent/helpers/**/*.test.mjs',
-        '<rootDir>/tests/unit/incumbent/performance/PerformanceOptimizer.comprehensive.test.mjs',
-        '<rootDir>/tests/unit/incumbent/scripts/check-size-gates.test.mjs',
-        '<rootDir>/tests/unit/incumbent/scripts/inject-manifest-key.test.mjs',
-        '<rootDir>/tests/unit/incumbent/scripts/package-extension.test.mjs',
+        '<rootDir>/tests/unit/incumbent/**/*.test.mjs',
         '<rootDir>/tests/contract/**/*.test.js',
-        '<rootDir>/tests/contract/incumbent/ci/ciPolicyContract.test.mjs',
-        '<rootDir>/tests/contract/incumbent/module-surfaces/RetryManager.contract.test.mjs'
+        '<rootDir>/tests/contract/incumbent/**/*.test.mjs'
       ],
       setupFiles: ['<rootDir>/tests/presetup.cjs'],
       setupFilesAfterEnv: ['<rootDir>/tests/setup.cjs'],
@@ -63,7 +58,7 @@ const config = {
       testMatch: [
         '<rootDir>/tests/integration/**/*.test.js',
         '<rootDir>/tests/integration/**/*.spec.js',
-        '<rootDir>/tests/integration/incumbent/helpers/**/*.test.mjs'
+        '<rootDir>/tests/integration/incumbent/**/*.test.mjs'
       ],
       setupFiles: ['<rootDir>/tests/presetup.cjs'],
       setupFilesAfterEnv: ['<rootDir>/tests/setup.cjs'],

@@ -23,7 +23,7 @@ const writeFile = (rootDir, relativePath, content = '') => {
 };
 
 describe('tools/report-native-esm-scope-parity.mjs', () => {
-  const projectRoot = path.resolve(__dirname, '../../..');
+  const projectRoot = path.resolve(__dirname, '../../../..');
   const tempRoot = path.join(projectRoot, '.tmp/test-scope-parity');
   const cliPath = path.join(projectRoot, 'tools/report-native-esm-scope-parity.mjs');
   const testNativeCoverageRelativePath =
@@ -33,7 +33,7 @@ describe('tools/report-native-esm-scope-parity.mjs', () => {
   let reporter;
 
   const loadReporter = () => {
-    reporter = require('../../../tools/report-native-esm-scope-parity-core.cjs');
+    reporter = require('../../../../tools/report-native-esm-scope-parity-core.cjs');
   };
 
   const runCliWithArgs = args =>

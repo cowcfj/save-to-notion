@@ -205,7 +205,15 @@ const rejectedSymlinkOutputCases = [
   },
 ];
 
-const classificationRoots = ['tests/unit', 'tests/contract', 'tests/native-esm'];
+const classificationRoots = ['tests/unit', 'tests/integration', 'tests/contract', 'tests/native-esm'];
+
+const phase2OwnerPathNativeDefaultCohort = [
+  'tests/integration/native-default/background/background-require.integration.test.mjs',
+  'tests/unit/native-default/content/content-script.require.test.js',
+  'tests/unit/native-default/scripts/assert-native-esm-line-hits.test.mjs',
+  'tests/unit/native-default/scripts/postinstall.test.js',
+  'tests/unit/native-default/scripts/report-native-esm-scope-parity.test.mjs',
+];
 
 const phase2ProbePassingNativeDefaultCohort = [
   'tests/unit/background/core-functions.test.js',
@@ -230,7 +238,6 @@ const cjsEsmRequireProductionEsmCohort2 = [
 ];
 
 const babelHoistedMockOrderingCohort1 = [
-  'tests/unit/content/content-script.require.test.js',
   'tests/unit/utils/LogExporter.test.js',
   'tests/unit/utils/uiUtils.test.js',
   'tests/unit/destinations/profile-domain.test.js',
@@ -518,6 +525,7 @@ const retainedTestHelperBoundaryMarkerFiles = [
 ];
 
 const retainedNativeDefaultCohort = [
+  ...phase2OwnerPathNativeDefaultCohort,
   ...phase2ProbePassingNativeDefaultCohort.filter(
     suitePath =>
       ![
@@ -798,6 +806,10 @@ describe('tools/report-native-default-runner-blockers', () => {
 
     expect(report.totals.unknown).toBe(0);
     expectPromotedCohortRecords(promotedCohortReport, retainedNativeDefaultCohort);
+    expectPromotedCohortRecords(
+      buildClassificationReport(reporter, projectRoot, phase2OwnerPathNativeDefaultCohort),
+      phase2OwnerPathNativeDefaultCohort
+    );
     expectCohortSignalsAbsent(
       promotedCohortReport,
       [...cjsEsmRequireProductionEsmCohort, ...cjsEsmRequireProductionEsmCohort2],

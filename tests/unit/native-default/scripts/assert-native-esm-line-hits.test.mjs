@@ -68,7 +68,7 @@ const createExpandedNativeEsmCohortManifest = () => [
 ];
 
 describe('tools/assert-native-esm-line-hits.mjs', () => {
-  const projectRoot = path.resolve(__dirname, '../../..');
+  const projectRoot = path.resolve(__dirname, '../../../..');
   const scriptPath = path.join(projectRoot, 'tools/assert-native-esm-line-hits.mjs');
   const allowedCoverageRoot = path.join(projectRoot, 'coverage/native-esm');
   const allowedManifestRoot = path.join(projectRoot, 'tests/native-esm');

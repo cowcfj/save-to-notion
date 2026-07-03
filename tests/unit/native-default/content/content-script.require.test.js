@@ -47,12 +47,12 @@ const entryAutoInitMock = {};
 
 function registerContentScriptMocks() {
   const mocks = [
-    ['../../../scripts/content/extractors/ContentExtractor.js', contentExtractorMock],
-    ['../../../scripts/content/converters/ConverterFactory.js', converterFactoryMock],
-    ['../../../scripts/content/extractors/ImageCollector.js', imageCollectorMock],
-    ['../../../scripts/utils/imageUtils.js', imageUtilsMock],
-    ['../../../scripts/utils/Logger.js', loggerMockModule],
-    ['../../../scripts/highlighter/entryAutoInit.js', entryAutoInitMock],
+    ['../../../../scripts/content/extractors/ContentExtractor.js', contentExtractorMock],
+    ['../../../../scripts/content/converters/ConverterFactory.js', converterFactoryMock],
+    ['../../../../scripts/content/extractors/ImageCollector.js', imageCollectorMock],
+    ['../../../../scripts/utils/imageUtils.js', imageUtilsMock],
+    ['../../../../scripts/utils/Logger.js', loggerMockModule],
+    ['../../../../scripts/highlighter/entryAutoInit.js', entryAutoInitMock],
   ];
 
   for (const [specifier, moduleFactory] of mocks) {
@@ -64,11 +64,12 @@ function registerContentScriptMocks() {
 async function loadFreshDeps() {
   registerContentScriptMocks();
   const { ContentExtractor } =
-    await import('../../../scripts/content/extractors/ContentExtractor.js');
+    await import('../../../../scripts/content/extractors/ContentExtractor.js');
   const { ConverterFactory } =
-    await import('../../../scripts/content/converters/ConverterFactory.js');
-  const { ImageCollector } = await import('../../../scripts/content/extractors/ImageCollector.js');
-  const { mergeUniqueImages } = await import('../../../scripts/utils/imageUtils.js');
+    await import('../../../../scripts/content/converters/ConverterFactory.js');
+  const { ImageCollector } =
+    await import('../../../../scripts/content/extractors/ImageCollector.js');
+  const { mergeUniqueImages } = await import('../../../../scripts/utils/imageUtils.js');
   return { ContentExtractor, ConverterFactory, ImageCollector, mergeUniqueImages };
 }
 
@@ -123,7 +124,7 @@ describe('content script source IIFE auto-execution', () => {
     const deps = await loadFreshDeps();
     setupExtractionMocks(deps, 'Source Require Test');
 
-    await import('../../../scripts/content/index.js');
+    await import('../../../../scripts/content/index.js');
 
     const result = await globalThis.__notion_extraction_promise;
 
@@ -137,7 +138,7 @@ describe('content script source IIFE auto-execution', () => {
     setupExtractionMocks(deps, 'Fresh Result');
     globalThis.__notion_extraction_result = { title: 'stale-result' };
 
-    await import('../../../scripts/content/index.js');
+    await import('../../../../scripts/content/index.js');
 
     const result = await globalThis.__notion_extraction_promise;
 

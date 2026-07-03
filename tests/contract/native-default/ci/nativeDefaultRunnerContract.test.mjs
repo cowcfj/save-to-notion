@@ -32,12 +32,15 @@ const phase3BNativeDefaultCohort = [
   '<rootDir>/tests/native-esm/destinations/destinations.native-esm.test.mjs',
 ];
 
-const incumbentMainstreamMjsPatterns = [
-  '<rootDir>/tests/unit/incumbent/helpers/**/*.test.mjs',
-  '<rootDir>/tests/integration/incumbent/helpers/**/*.test.mjs',
+const incumbentOwnerMjsPatterns = [
+  '<rootDir>/tests/unit/incumbent/**/*.test.mjs',
+  '<rootDir>/tests/contract/incumbent/**/*.test.mjs',
+  '<rootDir>/tests/integration/incumbent/**/*.test.mjs',
 ];
 
-const incumbentMainstreamMjsExactEntries = [
+const retiredIncumbentOwnerExactEntries = [
+  '<rootDir>/tests/unit/incumbent/helpers/**/*.test.mjs',
+  '<rootDir>/tests/integration/incumbent/helpers/**/*.test.mjs',
   '<rootDir>/tests/contract/incumbent/ci/ciPolicyContract.test.mjs',
   '<rootDir>/tests/contract/incumbent/module-surfaces/RetryManager.contract.test.mjs',
   '<rootDir>/tests/unit/incumbent/scripts/check-size-gates.test.mjs',
@@ -92,19 +95,47 @@ const rootCommonJsRetainedCutoverCandidates = [
   '<rootDir>/tests/unit/performance/timingHelpers.test.js',
 ];
 
-const nativeDefaultDiagnosticSentinelCohort = [
+const nativeEsmCrossLaneSentinelEntries = [
+  '<rootDir>/tests/native-esm/background/handlers/backgroundHandlers.native-esm.test.mjs',
+  '<rootDir>/tests/native-esm/background/services/backgroundServices.native-esm.test.mjs',
+  '<rootDir>/tests/native-esm/background/support/background-support-native-siblings.native-esm.test.mjs',
+  '<rootDir>/tests/native-esm/background/utils/backgroundUtils.native-esm.test.mjs',
+  '<rootDir>/tests/native-esm/config/configConstants.native-esm.test.mjs',
+  '<rootDir>/tests/native-esm/destinations/destinations.native-esm.test.mjs',
+  '<rootDir>/tests/native-esm/highlighter/utils/domText.native-esm.test.mjs',
+  '<rootDir>/tests/native-esm/highlighter/utils/pureUtils.native-esm.test.mjs',
+  '<rootDir>/tests/native-esm/utils/root-url-and-page-complexity.native-esm.test.mjs',
+  '<rootDir>/tests/native-esm/utils/root-utils-runtime.native-esm.test.mjs',
+  '<rootDir>/tests/native-esm/utils/rootUtils.native-esm.test.mjs',
+];
+
+const nativeDefaultOwnerPathEntries = [
   '<rootDir>/tests/contract/native-default/ci/nativeDefaultRunnerContract.test.mjs',
   '<rootDir>/tests/contract/native-default/ci/report-native-default-runner-blockers.test.mjs',
-  '<rootDir>/tests/integration/background/background-require.integration.test.mjs',
-  '<rootDir>/tests/unit/background.test.js',
-  '<rootDir>/tests/unit/background/extension-lifecycle.test.js',
+  '<rootDir>/tests/integration/native-default/background/background-require.integration.test.mjs',
   '<rootDir>/tests/unit/native-default/config/env.test.mjs',
-  '<rootDir>/tests/unit/content/content-script.require.test.js',
-  '<rootDir>/tests/unit/pageComplexityDetector.node-env.test.js',
+  '<rootDir>/tests/unit/native-default/content/content-script.require.test.js',
   '<rootDir>/tests/unit/native-default/performance/PerformanceOptimizer.advanced.test.mjs',
-  '<rootDir>/tests/unit/scripts/assert-native-esm-line-hits.test.mjs',
-  '<rootDir>/tests/unit/scripts/postinstall.test.js',
-  '<rootDir>/tests/unit/scripts/report-native-esm-scope-parity.test.mjs',
+  '<rootDir>/tests/unit/native-default/scripts/assert-native-esm-line-hits.test.mjs',
+  '<rootDir>/tests/unit/native-default/scripts/postinstall.test.js',
+  '<rootDir>/tests/unit/native-default/scripts/report-native-esm-scope-parity.test.mjs',
+];
+
+const retainedLegacyNativeDefaultExactEntries = [
+  '<rootDir>/tests/unit/background/core-functions.test.js',
+  '<rootDir>/tests/unit/background/image-processing.test.js',
+  '<rootDir>/tests/unit/config/messages.test.js',
+  '<rootDir>/tests/unit/config/storageKeys.test.js',
+  '<rootDir>/tests/unit/highlighter/highlighter-path-compression.test.js',
+  '<rootDir>/tests/unit/highlighter/highlighter-storage-optimization.test.js',
+  '<rootDir>/tests/unit/normalizeUrl.test.js',
+  '<rootDir>/tests/unit/background/buildHighlightBlocks.test.js',
+  '<rootDir>/tests/unit/background/extension-lifecycle.test.js',
+  '<rootDir>/tests/unit/background.test.js',
+  '<rootDir>/tests/unit/pageComplexityDetector.node-env.test.js',
+  '<rootDir>/tests/unit/splitTextForHighlight.test.js',
+  '<rootDir>/tests/unit/background/processContentResult.test.js',
+  '<rootDir>/tests/unit/performance/PerformanceOptimizer.batchProcessing.test.js',
 ];
 
 function readPackageScripts() {
@@ -180,7 +211,9 @@ describe('native default Jest runner contract', () => {
         ...retainedNativeDefaultCohort,
         ...cjsEsmRequireProductionEsmCohort,
         ...cjsEsmRequireProductionEsmCohort2,
-        ...nativeDefaultDiagnosticSentinelCohort,
+        ...nativeDefaultOwnerPathEntries,
+        ...retainedLegacyNativeDefaultExactEntries,
+        ...nativeEsmCrossLaneSentinelEntries,
       ])
     );
     for (const reassignedSuite of reassignedToIncumbentMjsCohort) {
@@ -194,15 +227,13 @@ describe('native default Jest runner contract', () => {
     );
   });
 
-  test('incumbent Jest config directly owns mainstream correctness .mjs suites and still excludes native-esm-only cohorts', async () => {
+  test('incumbent Jest config owns mainstream correctness .mjs suites through owner globs and still excludes native-esm-only cohorts', async () => {
     const incumbentConfig = await loadConfig(path.join(rootDir, 'jest.config.js'));
     const incumbentProjectMatches = incumbentConfig.projects.flatMap(project => project.testMatch);
 
+    expect(incumbentProjectMatches).toEqual(expect.arrayContaining(incumbentOwnerMjsPatterns));
     expect(incumbentProjectMatches).toEqual(
-      expect.arrayContaining([
-        ...incumbentMainstreamMjsPatterns,
-        ...incumbentMainstreamMjsExactEntries,
-      ])
+      expect.not.arrayContaining(retiredIncumbentOwnerExactEntries)
     );
     for (const nativeOnlyCohortMatch of [
       ...phase3NativeDefaultCohort,
@@ -235,8 +266,16 @@ describe('native default Jest runner contract', () => {
     });
     expect(config.testMatch).toEqual(
       expect.arrayContaining([
-        '<rootDir>/tests/native-esm/config/configConstants.native-esm.test.mjs',
+        ...nativeDefaultOwnerPathEntries,
+        ...retainedLegacyNativeDefaultExactEntries,
+        ...nativeEsmCrossLaneSentinelEntries,
       ])
+    );
+    expect(config.testMatch.filter(entry => entry.includes('/native-default/'))).toEqual(
+      nativeDefaultOwnerPathEntries
+    );
+    expect(config.testMatch.filter(entry => entry.includes('/tests/native-esm/'))).toEqual(
+      nativeEsmCrossLaneSentinelEntries
     );
 
     expect(config).not.toHaveProperty('coverageProvider');
