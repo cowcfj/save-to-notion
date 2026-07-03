@@ -111,6 +111,13 @@ function createImageUtilitiesMock() {
   };
 }
 
+function extractBlockPlainText(blocks) {
+  return blocks
+    .flatMap(block => block?.[block.type]?.rich_text ?? [])
+    .map(richText => richText?.plain_text ?? richText?.text?.content ?? '')
+    .join('\n');
+}
+
 function setupContentTestDocument() {
   document.documentElement.innerHTML = loadContentTestPageHtml();
 
@@ -287,12 +294,25 @@ describe('內容腳本整合測試', () => {
       expect(executionContext.__NOTION_BUNDLE_READY__).toBe(true);
       expect(typeof executionContext.extractPageContent).toBe('function');
       expect(typeof executionContext.ContentScript?.extractPageContent).toBe('function');
+      expect(typeof executionContext.__notion_extraction_promise?.then).toBe('function');
 
       const result = await waitForExtractionResult(executionContext, browserWindow);
+      const promisedResult = await executionContext.__notion_extraction_promise;
 
       expect(result).toBeDefined();
+      expect(promisedResult).toBe(result);
+      expect(executionContext.__notion_extraction_result).toBe(result);
+      expect(result.extractionStatus).not.toBe('failed');
       expect(result.title).toBe('Test Page');
-      expect(Array.isArray(result.blocks)).toBe(true);
+      expect(result.blocks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            object: 'block',
+            type: 'paragraph',
+          }),
+        ])
+      );
+      expect(extractBlockPlainText(result.blocks)).toMatch(/content\s+extraction pipeline/);
     },
     TEST_TIMEOUT_MS
   );
