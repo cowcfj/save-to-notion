@@ -55,7 +55,7 @@
   ],
   "author": "Cow Chan",
   "license": "GPL-3.0",
-  "type": "commonjs",
+  "type": "module",
   "private": true,
   "engines": {
     "node": ">=20"
