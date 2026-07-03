@@ -116,9 +116,9 @@
       "minimatch": "^3.1.3"
     },
     "glob@10": {
-      "minimatch": "^9.0.6",
-      "minipass": "7.1.2"
+      "minimatch": "^9.0.6"
     },
+    "minipass": "7.1.2",
     "@typescript-eslint/typescript-estree": {
       "minimatch": "^9.0.6"
     },
