@@ -12,7 +12,7 @@ export default {
   input: 'scripts/content/index.js',
   output: {
     file: 'dist/content.bundle.js',
-    format: 'umd',
+    format: 'iife',
     name: 'ContentScript',
     sourcemap: isDev ? 'inline' : false,
     banner: '/* eslint-disable */\n/* Save to Notion - Content Script */',
