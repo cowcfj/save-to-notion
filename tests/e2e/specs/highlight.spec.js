@@ -1,11 +1,15 @@
 import { test, expect } from '../fixtures.js';
+import {
+  ensureHighlighterReadyInTab,
+  getServiceWorker,
+  SHOW_TOOLBAR_RETRY_COUNT,
+  SHOW_TOOLBAR_RETRY_DELAY_MS,
+} from '../toolbarRetryHelper.js';
 
 const EXAMPLE_URL = 'https://example.com';
 const EXAMPLE_URL_WITH_SLASH = 'https://example.com/';
 const OPTIONS_PAGE_PATH = 'pages/options/options.html';
 const FLOATING_RAIL_SELECTOR = '[id^="notion-floating-rail-host-"][data-rail-owner="true"]';
-const SHOW_TOOLBAR_RETRY_COUNT = 15;
-const SHOW_TOOLBAR_RETRY_DELAY_MS = 200;
 
 const getOptionsPageUrl = extensionId => `chrome-extension://${extensionId}/${OPTIONS_PAGE_PATH}`;
 
@@ -40,71 +44,14 @@ const seedHighlightStateAndResolveTabId = async ({ context, extensionId }) => {
   return targetTabId;
 };
 
-const getServiceWorker = async context => {
-  let serviceWorker = context.serviceWorkers()[0];
-  if (!serviceWorker) {
-    serviceWorker = await context.waitForEvent('serviceworker');
-  }
-  return serviceWorker;
-};
-
-async function injectBundleAndRequestToolbar({ tabId, retryCount, retryDelayMs }) {
-  const isMissingContentScriptConnection = error => {
-    const message = error?.message ?? '';
-    return message.includes('Could not establish connection');
-  };
-
-  const waitForRetry = async attempt => {
-    if (attempt > 0) {
-      await new Promise(resolve => setTimeout(resolve, retryDelayMs));
-    }
-  };
-
-  const sendShowToolbarMessage = async () => {
-    try {
-      return await chrome.tabs.sendMessage(tabId, { action: 'showToolbar' });
-    } catch (error) {
-      if (isMissingContentScriptConnection(error)) {
-        return null;
-      }
-      throw error;
-    }
-  };
-
-  const requestToolbarWithRetry = async () => {
-    let lastResult = null;
-    for (let attempt = 0; attempt < retryCount; attempt++) {
-      await waitForRetry(attempt);
-
-      lastResult = await sendShowToolbarMessage();
-      if (lastResult?.success) {
-        return lastResult;
-      }
-    }
-    return lastResult;
-  };
-
-  await chrome.scripting.executeScript({
-    target: { tabId },
-    files: ['dist/content.bundle.js'],
-  });
-
-  const showToolbarResult = await requestToolbarWithRetry();
-  if (!showToolbarResult?.success) {
-    throw new Error(
-      `showToolbar failed after retries: ${showToolbarResult?.error ?? 'no response'}`
-    );
-  }
-
-  return { success: true };
-}
-
 const injectContentBundleAndShowToolbar = async (serviceWorker, targetTabId) => {
   try {
-    return await serviceWorker.evaluate(injectBundleAndRequestToolbar, {
+    return await serviceWorker.evaluate(ensureHighlighterReadyInTab, {
       tabId: targetTabId,
       retryCount: SHOW_TOOLBAR_RETRY_COUNT,
       retryDelayMs: SHOW_TOOLBAR_RETRY_DELAY_MS,
+      bundleInjectionMode: 'always',
+      throwOnFailure: true,
     });
   } catch (error) {
     return { success: false, error: error.message };

@@ -213,7 +213,7 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
 
   test('refuses destructive probe operations against the live repo root', () => {
     expect(() => probe.assertSafeProbeRoot(projectRoot, projectRoot)).toThrow(
-      /refusing to mutate the source repository/i
+      '拒絕將來源 repository 當作 probe root 進行變更。'
     );
     expect(() => probe.assertSafeProbeRoot(tempRoot, projectRoot)).not.toThrow();
   });
@@ -361,18 +361,21 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
 
     const markdown = probe.formatMarkdownSummary(summary);
 
-    expect(markdown).toContain('# Root ESM package marker 探測：production');
+    expect(markdown).toContain('# Root ESM 套件標記探測：production');
     expect(markdown).toContain('- 產生時間：');
+    expect(markdown).toContain('- production 標記數：1');
+    expect(markdown).toContain('- test 標記數：0');
+    expect(markdown).toContain('- 已選變體移除標記數：1');
     expect(markdown).toContain('## 關卡');
     expect(markdown).toContain('| 關卡 | 狀態 |');
-    expect(markdown).toContain('| commands-pass | fail |');
-    expect(markdown).toContain('## Marker 處置');
-    expect(markdown).toContain('| Marker | 範圍 | 處置 |');
+    expect(markdown).toContain('| commands-pass | 失敗 |');
+    expect(markdown).toContain('## 套件標記處置');
+    expect(markdown).toContain('| 套件標記 | 範圍 | 處置 |');
     expect(markdown).toContain(
       '| `pages/popup/package.json` | production | remove-at-root-esm-cutover |'
     );
-    expect(markdown).toContain('## Variant 結果');
-    expect(markdown).toContain('| Variant | 移除 markers | 命令失敗數 | 輸出漂移數 |');
+    expect(markdown).toContain('## 變體結果');
+    expect(markdown).toContain('| 變體 | 移除標記數 | 命令失敗數 | 輸出漂移數 |');
     expect(markdown).toContain('| pages-only | 1 | 1 | 1 |');
   });
 
@@ -421,7 +424,20 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
 
   test('cutover transform helpers refuse to run against the source repository root', () => {
     expect(() => probe.applyCutoverTransforms(projectRoot, projectRoot)).toThrow(
-      /refusing to mutate the source repository/i
+      '拒絕將來源 repository 當作 probe root 進行變更。'
+    );
+  });
+
+  test('cutover transform source mismatch errors are user-visible zh-TW', () => {
+    const sourceRoot = path.join(tempRoot, 'source');
+    const probeRoot = path.join(tempRoot, 'probe');
+    writeFile(sourceRoot, 'package.json', JSON.stringify({ type: 'commonjs' }));
+    writeFile(sourceRoot, 'scripts/postinstall.js', "console.log('沒有 require source');");
+    writeFile(probeRoot, 'package.json', JSON.stringify({ type: 'module' }));
+    writeFile(probeRoot, 'scripts/postinstall.js', "console.log('沒有 require source');");
+
+    expect(() => probe.applyCutoverTransforms(probeRoot, sourceRoot)).toThrow(
+      "scripts/postinstall.js 缺少預期 source 片段：const fs = require('node:fs');"
     );
   });
 
@@ -459,8 +475,8 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
 
     const markdown = probe.formatMarkdownSummary(summary);
 
-    expect(markdown).toContain('## Cutover rehearsal');
-    expect(markdown).toContain('| Variant | Actions |');
+    expect(markdown).toContain('## 切換演練');
+    expect(markdown).toContain('| 變體 | 動作 |');
     expect(markdown).toContain(
       '| cutover-core | set-root-package-type-module, transform-scripts-postinstall-to-esm, transform-jest-config-to-esm |'
     );

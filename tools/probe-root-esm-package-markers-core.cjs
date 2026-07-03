@@ -210,10 +210,10 @@ function assertSafeProbeRoot(probeRoot, sourceRoot) {
   const resolvedProbeRoot = path.resolve(probeRoot);
   const resolvedSourceRoot = path.resolve(sourceRoot);
   if (resolvedProbeRoot === resolvedSourceRoot) {
-    throw new Error('Refusing to mutate the source repository as a probe root.');
+    throw new Error('拒絕將來源 repository 當作 probe root 進行變更。');
   }
   if (resolvedProbeRoot.startsWith(`${resolvedSourceRoot}${path.sep}`)) {
-    throw new Error('Refusing to create a probe root inside the source repository.');
+    throw new Error('拒絕在來源 repository 內建立 probe root。');
   }
 }
 
@@ -293,7 +293,7 @@ function removeMarkers(rootDir, markers) {
 
 function replaceRequiredSource(source, searchValue, replacementValue, fileLabel) {
   if (!source.includes(searchValue)) {
-    throw new Error(`${fileLabel} does not contain expected source: ${searchValue}`);
+    throw new Error(`${fileLabel} 缺少預期 source 片段：${searchValue}`);
   }
   return source.replace(searchValue, replacementValue);
 }
@@ -440,7 +440,7 @@ function buildSharedBaselineRun({ sourceRoot, tempRoot, commands }) {
   createProbeCopy(sourceRoot, baselineRoot, []);
   return {
     root: baselineRoot,
-    commands: runCommands(commands, baselineRoot, 'production baseline'),
+    commands: runCommands(commands, baselineRoot, 'production 基準'),
   };
 }
 
@@ -463,8 +463,8 @@ function buildVariantRun({
   createProbeCopy(sourceRoot, probeRoot, removedMarkers);
 
   const baselineCommands =
-    sharedBaselineRun?.commands ?? runCommands(commands, baselineRoot, `${variantName} baseline`);
-  const probeCommands = runCommands(commands, probeRoot, `${variantName} probe`);
+    sharedBaselineRun?.commands ?? runCommands(commands, baselineRoot, `${variantName} 基準`);
+  const probeCommands = runCommands(commands, probeRoot, `${variantName} 探測`);
   const comparisons = compareOutputs
     ? ['dist', '.tmp/extension-unpacked'].map(relativePath =>
         compareOutputTrees(baselineRoot, probeRoot, relativePath)
@@ -490,9 +490,9 @@ function buildCutoverVariantRun({ sourceRoot, tempRoot, variantName, markers }) 
   createCutoverProbeCopy(sourceRoot, probeRoot, removedMarkers);
 
   const baselineCommands = config.runBaselineCommands
-    ? runCommands(config.commands, baselineRoot, `${variantName} baseline`)
+    ? runCommands(config.commands, baselineRoot, `${variantName} 基準`)
     : [];
-  const probeCommands = runCommands(config.commands, probeRoot, `${variantName} probe`);
+  const probeCommands = runCommands(config.commands, probeRoot, `${variantName} 探測`);
   const comparisons = config.compareOutputs
     ? ['dist', '.tmp/extension-unpacked'].map(relativePath =>
         compareOutputTrees(baselineRoot, probeRoot, relativePath)
@@ -510,24 +510,37 @@ function buildCutoverVariantRun({ sourceRoot, tempRoot, variantName, markers }) 
   };
 }
 
+function formatGateStatus(status) {
+  if (status === 'pass') {
+    return '通過';
+  }
+  if (status === 'fail') {
+    return '失敗';
+  }
+  if (status === 'not_evaluated') {
+    return '未評估';
+  }
+  return status;
+}
+
 function formatMarkdownSummary(summary) {
   const lines = [
-    `# Root ESM package marker 探測：${summary.variant}`,
+    `# Root ESM 套件標記探測：${summary.variant}`,
     '',
     `- 產生時間：${summary.generatedAt}`,
-    `- production marker 數：${summary.totals.productionMarkers}`,
-    `- test marker 數：${summary.totals.testMarkers}`,
-    `- 已選 variant 移除 marker 數：${summary.totals.removedMarkers}`,
+    `- production 標記數：${summary.totals.productionMarkers}`,
+    `- test 標記數：${summary.totals.testMarkers}`,
+    `- 已選變體移除標記數：${summary.totals.removedMarkers}`,
     '',
     '## 關卡',
     '',
     '| 關卡 | 狀態 |',
     '| --- | --- |',
-    ...summary.gates.map(gate => `| ${gate.id} | ${gate.status} |`),
+    ...summary.gates.map(gate => `| ${gate.id} | ${formatGateStatus(gate.status)} |`),
     '',
-    '## Marker 處置',
+    '## 套件標記處置',
     '',
-    '| Marker | 範圍 | 處置 |',
+    '| 套件標記 | 範圍 | 處置 |',
     '| --- | --- | --- |',
     ...summary.markers.map(
       marker => `| \`${marker.relativePath}\` | ${marker.scope} | ${marker.disposition} |`
@@ -537,9 +550,9 @@ function formatMarkdownSummary(summary) {
   if (summary.variants.length > 0) {
     lines.push(
       '',
-      '## Variant 結果',
+      '## 變體結果',
       '',
-      '| Variant | 移除 markers | 命令失敗數 | 輸出漂移數 |',
+      '| 變體 | 移除標記數 | 命令失敗數 | 輸出漂移數 |',
       '| --- | ---: | ---: | ---: |'
     );
     for (const variant of summary.variants) {
@@ -555,7 +568,7 @@ function formatMarkdownSummary(summary) {
 
   const cutoverVariants = summary.variants.filter(variant => variant.kind === 'cutover-rehearsal');
   if (cutoverVariants.length > 0) {
-    lines.push('', '## Cutover rehearsal', '', '| Variant | Actions |', '| --- | --- |');
+    lines.push('', '## 切換演練', '', '| 變體 | 動作 |', '| --- | --- |');
     for (const variant of cutoverVariants) {
       lines.push(`| ${variant.name} | ${(variant.actions || []).join(', ')} |`);
     }
@@ -606,7 +619,7 @@ function parseArgs(argv) {
 function printHelp() {
   console.log(`用法：node tools/probe-root-esm-package-markers.mjs --variant=<variant> [--summary-json=path] [--summary-md=path] [--keep-temp]
 
-Variants：
+變體：
   production                         執行 pages-only、scripts-production-without-performance、scripts-performance-only 與 scripts-and-pages。
   tests                              在 root ESM probe copy 中移除 tests/** package markers。
   pages-only                         只移除 pages/** package markers。
