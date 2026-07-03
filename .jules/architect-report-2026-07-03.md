@@ -4,24 +4,24 @@ JULES_CONTEXT_V1
 
 ## 模塊 1: 資料流地圖 (Data Flow Map)
 
-- **用戶配置更新:** 操作於 `pages/options/options.js:232` -> 更新 `chrome.storage.sync` 並可能影響 `pages/options/AuthManager.js:232` 與 `pages/options/StorageManager.js:84`。
-- **內容圖片收集:** `scripts/content/index.js:50` -> 委派給 `scripts/content/extractors/ImageCollector.js:42`
-- **資料儲存至 Notion:** 用戶操作觸發 `chrome.runtime.sendMessage` -> 接收於 `scripts/background/handlers/saveHandlers.js:561` -> 呼叫 `scripts/background/services/NotionService.js:1282` -> 使用 `@notionhq/client`。
+- **用戶配置更新:** 偏好設定自動保存於 `pages/options/options.js:287` -> 寫入 `chrome.storage.sync`；認證與資料來源狀態刷新由 `pages/options/AuthManager.js:359` 讀取 `chrome.storage.local` / `chrome.storage.sync`。
+- **內容圖片收集:** `scripts/content/index.js:316` -> 委派給 `scripts/content/extractors/ImageCollector.js:828`
+- **資料儲存至 Notion:** 用戶操作觸發 `chrome.runtime.sendMessage` -> 接收於 `scripts/background/handlers/saveHandlers.js:1279` -> `scripts/background/handlers/saveHandlers.js:917` 呼叫 `scripts/background/services/NotionService.js:841` -> 使用 `@notionhq/client`。
 
 ## 模塊 2: 熱點清單 (Hotspot Table)
 
-| 檔案 (File)                                    | 行數 (Lines) | 耦合問題 (Concerns Tangled)                                                                   | 計畫級別 (Plan Level) | 需要 ADR (ADR Need)       | 測試覆蓋率 (Test Coverage)          | 風險評估 (Risk) |
-| ---------------------------------------------- | ------------ | --------------------------------------------------------------------------------------------- | --------------------- | ------------------------- | ----------------------------------- | --------------- |
-| `scripts/content/extractors/ImageCollector.js` | 1449         | 圖片尋找邏輯 (如 42 行 DOM 提取) 與驗證規則 (如 78 行)、批次邏輯混雜。                        | Standard              | N                         | High (`ImageCollector.test.js`, 等) | 低 (Low)        |
-| `pages/options/options.js`                     | 1187         | 側邊欄 UI 結構切換 (如 120 行) 與直接操作 `chrome.storage.sync` 的設定保存 (如 287 行) 混雜。 | Deep                  | Y (涉及 storage keys)     | High                                | 中 (Medium)     |
-| `scripts/background/handlers/saveHandlers.js`  | 1557         | Message 驗證 (如 266 行) 與 核心 Notion 儲存邏輯、錯誤 UI 格式化 (如 196 行) 混雜。           | Deep                  | Y (涉及 Message Contract) | High                                | 高 (High)       |
+| 檔案 (File)                                    | 行數 (Lines) | 耦合問題 (Concerns Tangled)                                                                                 | 計畫級別 (Plan Level) | 需要 ADR (ADR Need)       | 測試覆蓋率 (Test Coverage)          | 風險評估 (Risk) |
+| ---------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------- | --------------------- | ------------------------- | ----------------------------------- | --------------- |
+| `scripts/content/extractors/ImageCollector.js` | 1449         | 圖片尋找邏輯 (如 85 行 DOM 提取) 與驗證規則 (如 208 / 444 行)、批次邏輯 (如 1416 行) 混雜。                 | Standard              | N                         | High (`ImageCollector.test.js`, 等) | 低 (Low)        |
+| `pages/options/options.js`                     | 1187         | 側邊欄 UI 結構切換 (如 120 / 1011 行) 與直接操作 `chrome.storage.sync` 的設定保存 (如 287 行) 混雜。        | Deep                  | Y (涉及 storage keys)     | High                                | 中 (Medium)     |
+| `scripts/background/handlers/saveHandlers.js`  | 1557         | Message 驗證 (如 721 / 1279 行) 與核心 Notion 儲存邏輯 (如 917 行)、錯誤 UI 格式化 (如 196 / 200 行) 混雜。 | Deep                  | Y (涉及 Message Contract) | High                                | 高 (High)       |
 
 ## 模塊 3: 針對性重構提案 (Per-Hotspot Proposal)
 
 ### 熱點 1: `scripts/content/extractors/ImageCollector.js`
 
-- **當前職責 (What it does today):** 負責尋找、驗證、計算尺寸、過濾並組織頁面上的所有圖片。包含原生的 DOM 操作 (line 42)、NextJS JSON 解析以及批次執行的編排。
-- **違反 SRP 原因 (Why it violates SRP):** 將從不同來源取得圖片的機制與圖片的驗證和尺寸限制邏輯 (line 78)、以及最終的批次流程編排混為一談。
+- **當前職責 (What it does today):** 負責尋找、驗證、計算尺寸、過濾並組織頁面上的所有圖片。包含原生的 DOM 操作 (line 85 / 171)、NextJS JSON 解析 (line 1079) 以及批次執行的編排 (line 1416)。
+- **違反 SRP 原因 (Why it violates SRP):** 將從不同來源取得圖片的機制與圖片的驗證和尺寸限制邏輯 (line 208 / 444)、以及最終的批次流程編排混為一談。
 - **重構提案 (Proposed split):**
   - `ImageDiscovery.js` (負責不同來源的圖片獲取策略)
   - `ImageEvaluation.js` (負責 URL 驗證與尺寸評估)
@@ -68,4 +68,4 @@ JULES_CONTEXT_V1
 
 ## 模塊 5: 範圍外發現 (Out-of-scope findings)
 
-- `pages/options/AuthManager.js` 是一個超過 1100 行的檔案，嚴重混雜了 OAuth 流程 (line 232)、API 測試和 UI 更新。由於修改 OAuth 與 Token 相關路徑被明確標記為高風險，並在此次任務中設定為 Out-of-scope，故暫不列入重構提案。
+- `pages/options/AuthManager.js` 是一個超過 1100 行的檔案，嚴重混雜了 OAuth 流程 (line 858)、API 測試和 UI 更新。由於修改 OAuth 與 Token 相關路徑被明確標記為高風險，並在此次任務中設定為 Out-of-scope，故暫不列入重構提案。
