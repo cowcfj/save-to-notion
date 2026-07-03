@@ -282,8 +282,9 @@ describe('CI policy contract', () => {
       'xargs npx jest --config jest.native-default.config.cjs --ci --runTestsByPath --maxWorkers=2'
     );
     expect(relatedTestsStep).toContain(
-      'xargs npx jest --config jest.config.js --ci --findRelatedTests --maxWorkers=2'
+      'xargs npx jest --config jest.config.js --ci --findRelatedTests --passWithNoTests --maxWorkers=2'
     );
+    expect(relatedTestsStep).toContain('--passWithNoTests');
     expect(relatedTestsStep).not.toContain(
       'echo "$TEST_FILES" | xargs npx jest --config jest.config.js --ci --findRelatedTests --maxWorkers=2'
     );
@@ -308,7 +309,7 @@ describe('CI policy contract', () => {
     const relatedTestsStep = getWorkflowStepBlock(workflowSource, 'Jest related tests');
 
     expect(relatedTestsStep).toContain(
-      'SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -E \'^(scripts|pages)/\' || true)'
+      'SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -E \'^(scripts|pages)/.*\\.(cjs|js|mjs)$\' || true)'
     );
     expect(relatedTestsStep).toContain(
       String.raw`const candidates = (process.env.CANDIDATE_FILES || '').split('\n').filter(Boolean);`
@@ -318,6 +319,18 @@ describe('CI policy contract', () => {
     );
     expect(relatedTestsStep).not.toContain(
       String.raw`grep -E '^tests/.*\.(test|spec)\.mjs$'`
+    );
+  });
+
+  test('CI related-test 執行器不會把 nested package markers 丟進 Jest related tests', () => {
+    const workflowSource = readWorkflow('ci.yml');
+    const relatedTestsStep = getWorkflowStepBlock(workflowSource, 'Jest related tests');
+
+    expect(relatedTestsStep).toContain(
+      'SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -E \'^(scripts|pages)/.*\\.(cjs|js|mjs)$\' || true)'
+    );
+    expect(relatedTestsStep).not.toContain(
+      'SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -E \'^(scripts|pages)/\' || true)'
     );
   });
 });

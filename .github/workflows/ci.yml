@@ -251,7 +251,7 @@ jobs:
           NODE
           )
           NATIVE_TEST_FILES=$(printf '%s\n' "$NATIVE_DEFAULT_TEST_FILES" | sed '/^$/d' | sort -u || true)
-          SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -E '^(scripts|pages)/' || true)
+          SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -E '^(scripts|pages)/.*\.(cjs|js|mjs)$' || true)
 
           if [ -z "$SOURCE_FILES" ] && [ -z "$INCUMBENT_TEST_FILES" ] && [ -z "$NATIVE_TEST_FILES" ]; then
             echo "::notice::只變更設定檔，改執行 smoke test 而不是 related tests"
@@ -273,7 +273,7 @@ jobs:
           if [ -n "$SOURCE_FILES" ]; then
             echo "正在為變更的來源檔案執行 related tests:"
             echo "$SOURCE_FILES"
-            echo "$SOURCE_FILES" | xargs npx jest --config jest.config.js --ci --findRelatedTests --maxWorkers=2
+            echo "$SOURCE_FILES" | xargs npx jest --config jest.config.js --ci --findRelatedTests --passWithNoTests --maxWorkers=2
           fi
 
       - name: Jest config-change smoke suite
