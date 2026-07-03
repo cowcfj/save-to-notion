@@ -48,49 +48,67 @@ const getServiceWorker = async context => {
   return serviceWorker;
 };
 
-const injectContentBundleAndShowToolbar = async (serviceWorker, targetTabId) => {
-  return serviceWorker.evaluate(
-    async ({ tabId, retryCount, retryDelayMs }) => {
-      try {
-        await chrome.scripting.executeScript({
-          target: { tabId },
-          files: ['dist/content.bundle.js'],
-        });
+async function injectBundleAndRequestToolbar({ tabId, retryCount, retryDelayMs }) {
+  const isMissingContentScriptConnection = error => {
+    const message = error?.message ?? '';
+    return message.includes('Could not establish connection');
+  };
 
-        let showToolbarResult = null;
-        for (let attempt = 0; attempt < retryCount; attempt++) {
-          if (attempt > 0) {
-            await new Promise(resolve => setTimeout(resolve, retryDelayMs));
-          }
-          try {
-            showToolbarResult = await chrome.tabs.sendMessage(tabId, { action: 'showToolbar' });
-            if (showToolbarResult?.success) {
-              break;
-            }
-          } catch (error) {
-            const msg = error?.message ?? '';
-            if (!msg.includes('Could not establish connection')) {
-              throw error;
-            }
-          }
-        }
-        if (!showToolbarResult?.success) {
-          throw new Error(
-            `showToolbar failed after retries: ${showToolbarResult?.error ?? 'no response'}`
-          );
-        }
+  const waitForRetry = async attempt => {
+    if (attempt > 0) {
+      await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+    }
+  };
 
-        return { success: true };
-      } catch (error) {
-        return { success: false, error: error.message };
+  const sendShowToolbarMessage = async () => {
+    try {
+      return await chrome.tabs.sendMessage(tabId, { action: 'showToolbar' });
+    } catch (error) {
+      if (isMissingContentScriptConnection(error)) {
+        return null;
       }
-    },
-    {
+      throw error;
+    }
+  };
+
+  const requestToolbarWithRetry = async () => {
+    let lastResult = null;
+    for (let attempt = 0; attempt < retryCount; attempt++) {
+      await waitForRetry(attempt);
+
+      lastResult = await sendShowToolbarMessage();
+      if (lastResult?.success) {
+        return lastResult;
+      }
+    }
+    return lastResult;
+  };
+
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    files: ['dist/content.bundle.js'],
+  });
+
+  const showToolbarResult = await requestToolbarWithRetry();
+  if (!showToolbarResult?.success) {
+    throw new Error(
+      `showToolbar failed after retries: ${showToolbarResult?.error ?? 'no response'}`
+    );
+  }
+
+  return { success: true };
+}
+
+const injectContentBundleAndShowToolbar = async (serviceWorker, targetTabId) => {
+  try {
+    return await serviceWorker.evaluate(injectBundleAndRequestToolbar, {
       tabId: targetTabId,
       retryCount: SHOW_TOOLBAR_RETRY_COUNT,
       retryDelayMs: SHOW_TOOLBAR_RETRY_DELAY_MS,
-    }
-  );
+    });
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
 };
 
 const readToastWireState = async (serviceWorker, targetTabId) => {
