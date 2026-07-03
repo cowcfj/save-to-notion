@@ -309,7 +309,7 @@ describe('CI policy contract', () => {
     const relatedTestsStep = getWorkflowStepBlock(workflowSource, 'Jest related tests');
 
     expect(relatedTestsStep).toContain(
-      'SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -E \'^(scripts|pages)/.*\\.(cjs|js|mjs)$\' || true)'
+      String.raw`SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -E '^(scripts|pages)/.*\.(cjs|js|mjs)$' || true)`
     );
     expect(relatedTestsStep).toContain(
       String.raw`const candidates = (process.env.CANDIDATE_FILES || '').split('\n').filter(Boolean);`
@@ -327,7 +327,7 @@ describe('CI policy contract', () => {
     const relatedTestsStep = getWorkflowStepBlock(workflowSource, 'Jest related tests');
 
     expect(relatedTestsStep).toContain(
-      'SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -E \'^(scripts|pages)/.*\\.(cjs|js|mjs)$\' || true)'
+      String.raw`SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -E '^(scripts|pages)/.*\.(cjs|js|mjs)$' || true)`
     );
     expect(relatedTestsStep).not.toContain(
       'SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -E \'^(scripts|pages)/\' || true)'
