@@ -386,6 +386,7 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
     const { summary, spawnSync, probeTempRoot } = runCutoverCoreProbe(sourceRoot);
 
     try {
+      expect(summary.variants).toHaveLength(1);
       const artifacts = readCutoverProbeArtifacts(summary);
       expectCutoverPackageMarkers(summary, artifacts);
       expectCutoverConfigTransforms(artifacts);
