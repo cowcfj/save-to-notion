@@ -6,6 +6,7 @@ import packageJson from '../../../package.json';
 const BABEL_PACKAGE_NAMES = ['babel-jest', '@babel/core', '@babel/preset-env'];
 const SWC_PACKAGE_NAMES = ['@swc/core', '@swc/jest'];
 const RETIRED_BABEL_CONFIG_FILE = 'babel.config.js';
+const ROOT_ESM_CUTOVER_PROBE_FILE = 'tools/probe-root-esm-package-markers-core.cjs';
 const JS_TS_TRANSFORM_FIXTURE_PATHS = [
   'transform-fixture.js',
   'transform-fixture.jsx',
@@ -45,6 +46,17 @@ function matchesJsTsTransformPattern(pattern) {
 }
 
 describe('Jest transformer contract', () => {
+  test('live root Jest config is ESM after the cutover lands', () => {
+    const jestConfigSource = fs.readFileSync('jest.config.js', 'utf8');
+    const cutoverProbeSource = fs.readFileSync(ROOT_ESM_CUTOVER_PROBE_FILE, 'utf8');
+
+    expect(packageJson.type).toBe('module');
+    expect(jestConfigSource).toContain('export default config');
+    expect(jestConfigSource).not.toContain('module.exports = {');
+    expect(cutoverProbeSource).toContain("'cutover-core'");
+    expect(cutoverProbeSource).toContain('transform-jest-config-to-esm');
+  });
+
   test('repo-owned devDependencies use SWC instead of direct Babel packages', () => {
     const { devDependencies } = packageJson;
 
@@ -124,7 +136,7 @@ describe('Jest transformer contract', () => {
       fs.readFileSync('.github/workflows/ci.yml', 'utf8'),
       fs.readFileSync('.github/workflows/coverage-gate.yml', 'utf8'),
       fs.readFileSync('release-please-config.json', 'utf8'),
-      fs.readFileSync('tests/contract/ci/ciPolicyContract.test.mjs', 'utf8'),
+      fs.readFileSync('tests/contract/incumbent/ci/ciPolicyContract.test.mjs', 'utf8'),
     ].forEach(policyFileSource => {
       expect(policyFileSource).not.toContain(RETIRED_BABEL_CONFIG_FILE);
     });

@@ -85,6 +85,12 @@ function dispatchStablePageStorageChange(onStorageChanged, savedStore, unsavedSt
   );
 }
 
+function createRejectedSendMessageMock(message) {
+  const sendMessageFailure = Promise.reject(new Error(message));
+  sendMessageFailure.catch(() => {});
+  chrome.runtime.sendMessage.mockReturnValue(sendMessageFailure);
+}
+
 async function loadCurrentTabAndClickFirstDelete() {
   const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
   await onActivated({ tabId: 600 });
@@ -363,7 +369,7 @@ describe('Sidepanel user interactions', () => {
     it('should trigger sync click gracefully when fails', async () => {
       await loadSavedLegacyHighlightsTab();
 
-      chrome.runtime.sendMessage.mockRejectedValue(new Error('Extension error message!'));
+      createRejectedSendMessageMock('Extension error message!');
 
       const syncBtn = document.querySelector('#sync-button');
       syncBtn.click();
@@ -514,7 +520,7 @@ describe('Sidepanel user interactions', () => {
     });
 
     it('should re-enable start highlight button using named debounce constant', async () => {
-      chrome.runtime.sendMessage.mockRejectedValue(new Error('Extension error message!'));
+      createRejectedSendMessageMock('Extension error message!');
 
       const timeoutSpy = jest.spyOn(globalThis, 'setTimeout');
       const startBtn = document.querySelector('#start-highlight-button');

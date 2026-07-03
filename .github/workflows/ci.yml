@@ -204,23 +204,54 @@ jobs:
 
           # 配置檔案無法用 --findRelatedTests；測試檔要直接 run-by-path。
           CANDIDATE_FILES=$(echo "$CHANGED_FILES" | grep -v -E '^(package\.json|package-lock\.json|jest\.config(\..*)?\.js)$' || true)
-          INCUMBENT_TEST_FILES=$(echo "$CANDIDATE_FILES" | grep -E '^tests/(unit|contract|integration)/.*\.(test|spec)\.js$' || true)
-          NATIVE_TEST_CANDIDATES=$(echo "$CANDIDATE_FILES" | grep -E '^tests/.*\.(test|spec)\.mjs$' || true)
-          NATIVE_DEFAULT_TEST_FILES=$(node - <<'NODE'
+          INCUMBENT_TEST_FILES=$(CANDIDATE_FILES="$CANDIDATE_FILES" node - <<'NODE'
+          (async () => {
+            const { default: config } = await import('./jest.config.js');
+            const candidates = (process.env.CANDIDATE_FILES || '').split('\n').filter(Boolean);
+            const rootPrefix = '<rootDir>/';
+            const patterns = (config.projects || []).flatMap(project => project.testMatch || []);
+
+            function globToRegex(glob) {
+              let normalized = glob.startsWith(rootPrefix) ? glob.slice(rootPrefix.length) : glob;
+              normalized = normalized.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+              normalized = normalized.replace(/\*\*\//g, '(?:.+/)?');
+              normalized = normalized.replace(/\*\*/g, '.*');
+              normalized = normalized.replace(/\*/g, '[^/]*');
+              return new RegExp(`^${normalized}$`);
+            }
+
+            const regexes = patterns.map(globToRegex);
+            for (const candidate of candidates) {
+              if (regexes.some(regex => regex.test(candidate))) {
+                console.log(candidate);
+              }
+            }
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+          )
+          NATIVE_DEFAULT_TEST_FILES=$(CANDIDATE_FILES="$CANDIDATE_FILES" node - <<'NODE'
           const config = require('./jest.native-default.config.cjs');
+          const candidates = (process.env.CANDIDATE_FILES || '').split('\n').filter(Boolean);
           const rootPrefix = '<rootDir>/';
+          const allowlisted = new Set();
           for (const pattern of config.testMatch || []) {
             const normalized = pattern.startsWith(rootPrefix)
               ? pattern.slice(rootPrefix.length)
               : pattern.replace(/^\.\//, '');
-            if (normalized.endsWith('.mjs')) {
-              console.log(normalized);
+            allowlisted.add(normalized);
+          }
+          for (const candidate of candidates) {
+            if (allowlisted.has(candidate)) {
+              console.log(candidate);
             }
           }
           NODE
           )
-          NATIVE_TEST_FILES=$(comm -12 <(printf '%s\n' "$NATIVE_TEST_CANDIDATES" | sed '/^$/d' | sort -u) <(printf '%s\n' "$NATIVE_DEFAULT_TEST_FILES" | sed '/^$/d' | sort -u) || true)
-          SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -E '^(scripts|pages)/' || true)
+          NATIVE_TEST_FILES=$(printf '%s\n' "$NATIVE_DEFAULT_TEST_FILES" | sed '/^$/d' | sort -u || true)
+          SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -E '^(scripts|pages)/.*\.(cjs|js|mjs)$' || true)
 
           if [ -z "$SOURCE_FILES" ] && [ -z "$INCUMBENT_TEST_FILES" ] && [ -z "$NATIVE_TEST_FILES" ]; then
             echo "::notice::只變更設定檔，改執行 smoke test 而不是 related tests"
@@ -242,7 +273,7 @@ jobs:
           if [ -n "$SOURCE_FILES" ]; then
             echo "正在為變更的來源檔案執行 related tests:"
             echo "$SOURCE_FILES"
-            echo "$SOURCE_FILES" | xargs npx jest --config jest.config.js --ci --findRelatedTests --maxWorkers=2
+            echo "$SOURCE_FILES" | xargs npx jest --config jest.config.js --ci --findRelatedTests --passWithNoTests --maxWorkers=2
           fi
 
       - name: Jest config-change smoke suite

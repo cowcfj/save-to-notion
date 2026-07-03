@@ -20,7 +20,7 @@ const JEST_MODULE_NAME_MAPPER = {
   '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.cjs'
 };
 
-module.exports = {
+const config = {
   cacheDirectory: '<rootDir>/.jest-cache',
   // 測試環境 - 使用 jsdom 環境來支持 DOM 測試
   testEnvironment: 'jsdom',
@@ -39,13 +39,15 @@ module.exports = {
       testMatch: [
         '<rootDir>/tests/unit/**/*.test.js',
         '<rootDir>/tests/unit/**/*.spec.js',
-        '<rootDir>/tests/contract/**/*.test.js'
+        '<rootDir>/tests/unit/incumbent/**/*.test.mjs',
+        '<rootDir>/tests/contract/**/*.test.js',
+        '<rootDir>/tests/contract/incumbent/**/*.test.mjs'
       ],
       setupFiles: ['<rootDir>/tests/presetup.cjs'],
       setupFilesAfterEnv: ['<rootDir>/tests/setup.cjs'],
       moduleNameMapper: JEST_MODULE_NAME_MAPPER,
       transform: {
-        '^.+\\.[tj]sx?$': SWC_JEST_TRANSFORM,
+        '^.+\\.(m?[tj]sx?)$': SWC_JEST_TRANSFORM,
       },
       transformIgnorePatterns: ESM_TRANSFORM_IGNORE_PATTERNS
     },
@@ -55,13 +57,14 @@ module.exports = {
       testEnvironment: 'jsdom',
       testMatch: [
         '<rootDir>/tests/integration/**/*.test.js',
-        '<rootDir>/tests/integration/**/*.spec.js'
+        '<rootDir>/tests/integration/**/*.spec.js',
+        '<rootDir>/tests/integration/incumbent/**/*.test.mjs'
       ],
       setupFiles: ['<rootDir>/tests/presetup.cjs'],
       setupFilesAfterEnv: ['<rootDir>/tests/setup.cjs'],
       moduleNameMapper: JEST_MODULE_NAME_MAPPER,
       transform: {
-        '^.+\\.[tj]sx?$': SWC_JEST_TRANSFORM,
+        '^.+\\.(m?[tj]sx?)$': SWC_JEST_TRANSFORM,
       },
       transformIgnorePatterns: ESM_TRANSFORM_IGNORE_PATTERNS
     }
@@ -122,7 +125,7 @@ module.exports = {
 
   // 轉換配置（如果需要）
   transform: {
-    '^.+\\.[tj]sx?$': SWC_JEST_TRANSFORM,
+    '^.+\\.(m?[tj]sx?)$': SWC_JEST_TRANSFORM,
   },
 
   // 轉換 node_modules 中的 ES 模組
@@ -154,3 +157,5 @@ module.exports = {
   bail: false, // 不在第一個失敗時停止，繼續執行所有測試
   verbose: false // 關閉詳細輸出以提升速度
 };
+
+export default config;

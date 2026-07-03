@@ -2,9 +2,7 @@
  * @jest-environment jsdom
  */
 
-import loggerMock from '../../helpers/loggerMock.cjs';
-
-const { createLoggerMock } = loggerMock;
+const { createLoggerMock } = require('../../helpers/loggerMock.cjs');
 
 let CONTENT_BRIDGE_ACTIONS;
 let HIGHLIGHTER_ACTIONS;

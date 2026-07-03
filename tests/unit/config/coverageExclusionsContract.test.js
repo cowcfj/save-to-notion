@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { loadConfig } = require('../../helpers/nodeConfigLoader.cjs');
 
 const rootDir = path.resolve(__dirname, '../../..');
 
@@ -19,8 +20,8 @@ function readSonarProperties() {
     .filter(line => line && !line.startsWith('#'));
 }
 
-function readJestCoverageExclusions() {
-  const { collectCoverageFrom } = require('../../../jest.config.js');
+async function readJestCoverageExclusions() {
+  const { collectCoverageFrom } = await readJestConfig();
   return new Set(
     collectCoverageFrom
       .filter(pattern => pattern.startsWith('!'))
@@ -29,9 +30,13 @@ function readJestCoverageExclusions() {
   );
 }
 
-function readJestProjectCacheDirectories() {
-  const { projects } = require('../../../jest.config.js');
+async function readJestProjectCacheDirectories() {
+  const { projects } = await readJestConfig();
   return projects.map(project => project.cacheDirectory);
+}
+
+async function readJestConfig() {
+  return loadConfig(path.join(rootDir, 'jest.config.js'));
 }
 
 function escapeRegExp(value) {
@@ -102,8 +107,8 @@ describe('coverage exclusion contract', () => {
     expect(readCommaSeparatedSonarProperty(sonarProperties, 'sonar.sources')).toEqual(['site']);
   });
 
-  test('Jest keeps production coverage exclusions explicit', () => {
-    const jestExclusions = readJestCoverageExclusions();
+  test('Jest keeps production coverage exclusions explicit', async () => {
+    const jestExclusions = await readJestCoverageExclusions();
     const productionCoverageExclusions = [
       'scripts/config/index.js',
       'scripts/config/extension/**/*.js',
@@ -132,15 +137,15 @@ describe('coverage exclusion contract', () => {
     expect(hasSonarProperty(sonarProperties, 'sonar.coverage.exclusions')).toBe(false);
   });
 
-  test('unit spec files remain excluded from Jest coverage accounting', () => {
-    const jestExclusions = readJestCoverageExclusions();
+  test('unit spec files remain excluded from Jest coverage accounting', async () => {
+    const jestExclusions = await readJestCoverageExclusions();
 
     expect(jestExclusions.has('scripts/**/*.test.js')).toBe(true);
     expect(jestExclusions.has('scripts/**/*.spec.js')).toBe(true);
   });
 
-  test('Jest project cache directories align with the GitHub Actions cache path', () => {
-    expect(readJestProjectCacheDirectories()).toEqual([
+  test('Jest project cache directories align with the GitHub Actions cache path', async () => {
+    await expect(readJestProjectCacheDirectories()).resolves.toEqual([
       '<rootDir>/.jest-cache',
       '<rootDir>/.jest-cache',
     ]);
