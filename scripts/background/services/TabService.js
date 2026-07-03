@@ -1276,22 +1276,31 @@ function _migrationScript(trackingParams) {
     }
   };
 
+  const highlightKeyPrefix = 'highlights_';
+  const isHighlightStorageKey = key =>
+    typeof key === 'string' && key.startsWith(highlightKeyPrefix);
+  const extractHighlightStorageUrl = key => key.slice(highlightKeyPrefix.length);
+  const isSameOriginHighlightKey = (currentOrigin, keyOrigin) =>
+    Boolean(currentOrigin && keyOrigin === currentOrigin);
+  const shouldKeepLegacyFallbackCandidate = (currentOrigin, keyOrigin) =>
+    !currentOrigin || !keyOrigin;
+  const keepFirstLegacyFallbackCandidate = (currentCandidate, key) => currentCandidate ?? key;
+
   const findLegacyHighlightFallbackKey = currentOrigin => {
     let legacyCandidate = null;
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (!k?.startsWith('highlights_')) {
+    for (let index = 0; index < localStorage.length; index++) {
+      const key = localStorage.key(index);
+      if (!isHighlightStorageKey(key)) {
         continue;
       }
 
-      const keyUrl = k.replace('highlights_', '');
-      const keyOrigin = parseOrigin(keyUrl);
-      if (currentOrigin && keyOrigin === currentOrigin) {
-        return k;
+      const keyOrigin = parseOrigin(extractHighlightStorageUrl(key));
+      if (isSameOriginHighlightKey(currentOrigin, keyOrigin)) {
+        return key;
       }
 
-      if (!currentOrigin || !keyOrigin) {
-        legacyCandidate ||= k;
+      if (shouldKeepLegacyFallbackCandidate(currentOrigin, keyOrigin)) {
+        legacyCandidate = keepFirstLegacyFallbackCandidate(legacyCandidate, key);
       }
     }
     return legacyCandidate;

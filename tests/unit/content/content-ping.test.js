@@ -142,6 +142,46 @@ describe('Content Script PING Handler', () => {
     return { results, sendResponse };
   };
 
+  const sendPingMessage = async ({ loadOptions, preloaderMetadata } = {}) => {
+    await loadContentPingEntrypoint(loadOptions);
+
+    if (preloaderMetadata) {
+      dispatchPreloaderResponse(preloaderMetadata);
+    }
+
+    const handlers = getRegisteredMessageHandlers();
+    const { results, sendResponse } = sendRuntimeActionToHandlers(handlers, 'PING');
+
+    return { handlerCount: handlers.length, results, sendResponse };
+  };
+
+  const pingMetadataCases = [
+    {
+      name: 'PING 應該返回 shortlink 和 nextRouteInfo',
+      preloaderMetadata: {
+        nextRouteInfo: { page: '/test', query: { id: '1' } },
+        shortlink: 'https://example.com/?p=7741',
+      },
+      expectedResponse: {
+        status: 'bundle_ready',
+        shortlink: 'https://example.com/?p=7741',
+        nextRouteInfo: { page: '/test', query: { id: '1' } },
+      },
+    },
+    {
+      name: '當元數據部分缺失時，PING 應該正確返回',
+      preloaderMetadata: {
+        nextRouteInfo: null,
+        shortlink: 'https://example.com/?p=123',
+      },
+      expectedResponse: {
+        status: 'bundle_ready',
+        shortlink: 'https://example.com/?p=123',
+        nextRouteInfo: null,
+      },
+    },
+  ];
+
   beforeEach(() => {
     preloaderHandler = null;
   });
@@ -154,72 +194,26 @@ describe('Content Script PING Handler', () => {
     jest.restoreAllMocks();
   });
 
-  test('PING 應該返回 shortlink 和 nextRouteInfo', async () => {
-    await loadContentPingEntrypoint();
+  test.each(pingMetadataCases)('$name', async ({ preloaderMetadata, expectedResponse }) => {
+    const { handlerCount, results, sendResponse } = await sendPingMessage({ preloaderMetadata });
 
-    dispatchPreloaderResponse({
-      nextRouteInfo: { page: '/test', query: { id: '1' } },
-      shortlink: 'https://example.com/?p=7741',
-    });
-
-    const handlers = getRegisteredMessageHandlers();
-    expect(handlers.length).toBeGreaterThan(0);
-
-    const { results, sendResponse } = sendRuntimeActionToHandlers(handlers, 'PING');
-
+    expect(handlerCount).toBeGreaterThan(0);
     expect(results).toContain(true);
-    expect(sendResponse).toHaveBeenCalledWith(
-      expect.objectContaining({
-        status: 'bundle_ready',
-        shortlink: 'https://example.com/?p=7741',
-        nextRouteInfo: { page: '/test', query: { id: '1' } },
-      })
-    );
+    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining(expectedResponse));
   });
 
   test('當 Preloader Cache 缺失時，PING 應該返回 null 元數據', async () => {
-    // 重新初始化環境而不設定 cache
-    await loadContentPingEntrypoint({ preloaderCache: null });
+    const { handlerCount, results, sendResponse } = await sendPingMessage({
+      loadOptions: { preloaderCache: null },
+    });
 
-    // 從所有註冊的監聽器中找到 PING 處理程序
-    // 由於引入了 highlighter runtime entry，可能會有其他監聽器被註冊 (例如 entryAutoInit.js)
-    // 因此我們不能假設只有一個監聽器，也不能假設第一個就是我們的。
-    // 我們遍歷所有監聽器，並確保其中 *有一個* 正確處理了 PING 請求。
-
-    const handlers = getRegisteredMessageHandlers();
-    expect(handlers.length).toBeGreaterThan(0);
-
-    const { results, sendResponse } = sendRuntimeActionToHandlers(handlers, 'PING');
-
-    // 驗證是否有 handler 返回了 true (表示異步處理)
-    const handled = results.includes(true);
-    expect(handled).toBe(true);
+    expect(handlerCount).toBeGreaterThan(0);
+    expect(results).toContain(true);
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'bundle_ready',
         hasPreloaderCache: false,
         shortlink: null,
-        nextRouteInfo: null,
-      })
-    );
-  });
-
-  test('當元數據部分缺失時，PING 應該正確返回', async () => {
-    await loadContentPingEntrypoint();
-
-    dispatchPreloaderResponse({
-      nextRouteInfo: null,
-      shortlink: 'https://example.com/?p=123',
-    });
-
-    const handlers = getRegisteredMessageHandlers();
-    const { results, sendResponse } = sendRuntimeActionToHandlers(handlers, 'PING');
-
-    expect(results).toContain(true);
-    expect(sendResponse).toHaveBeenCalledWith(
-      expect.objectContaining({
-        status: 'bundle_ready',
-        shortlink: 'https://example.com/?p=123',
         nextRouteInfo: null,
       })
     );
