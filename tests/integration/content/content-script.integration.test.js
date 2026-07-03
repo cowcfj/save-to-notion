@@ -24,7 +24,7 @@ function createExecutionContext(
   chromeMock,
   loggerMock,
   readabilityMock,
-  imageUtilsMock
+  imageUtilitiesMock
 ) {
   return vm.createContext(
     Object.assign(Object.create(globalThis), {
@@ -53,14 +53,14 @@ function createExecutionContext(
       chrome: chromeMock,
       Logger: loggerMock,
       Readability: readabilityMock,
-      ImageUtils: imageUtilsMock,
+      ImageUtils: imageUtilitiesMock,
       __UNIT_TESTING__: true,
     })
   );
 }
 
 async function waitForExtractionResult(executionContext, browserWindow) {
-  for (let i = 0; i < POLL_RETRY_COUNT; i++) {
+  for (let index = 0; index < POLL_RETRY_COUNT; index++) {
     await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
 
     if (executionContext.__notion_extraction_result) {
@@ -144,9 +144,9 @@ describe('內容腳本整合測試', () => {
   beforeEach(() => {
     const sendMessage = jest.fn();
     const onMessageAddListener = jest.fn();
-    const storageSyncGet = jest.fn((keys, cb) => {
+    const storageSyncGet = jest.fn((keys, callback) => {
       const result = {};
-      cb(result);
+      callback(result);
     });
     const storageOnChangedAddListener = jest.fn();
 
@@ -183,10 +183,10 @@ describe('內容腳本整合測試', () => {
     jest.clearAllMocks();
 
     if (globalThis.window) {
-      delete globalThis.window.__UNIT_TESTING__;
-      delete globalThis.window.__notion_extraction_result;
-      delete globalThis.window.Readability;
-      delete globalThis.window.ImageUtils;
+      delete globalThis.__UNIT_TESTING__;
+      delete globalThis.__notion_extraction_result;
+      delete globalThis.Readability;
+      delete globalThis.ImageUtils;
     }
   });
 
@@ -201,15 +201,15 @@ describe('內容腳本整合測試', () => {
       const html = loadContentTestPageHtml();
 
       document.documentElement.innerHTML = html;
-      const browserWindow = globalThis.window;
+      const browserWindow = globalThis;
 
-      const readabilityMock = function (doc) {
-        const safeDoc = doc || browserWindow.document;
+      const readabilityMock = function (document_) {
+        const safeDocument = document_ || browserWindow.document;
 
         return {
           parse() {
             return {
-              title: safeDoc.title || 'Test Page',
+              title: safeDocument.title || 'Test Page',
               content: '<p>Mock content</p>',
               length: 300,
             };
@@ -217,15 +217,15 @@ describe('內容腳本整合測試', () => {
         };
       };
 
-      const imageUtilsMock = {
+      const imageUtilitiesMock = {
         cleanImageUrl: url => url,
-        isValidImageUrl: (..._args) => true,
+        isValidImageUrl: (..._arguments) => true,
         extractImageSrc: img => (img?.getAttribute ? img.getAttribute('src') || '' : null),
         generateImageCacheKey: img => (img?.getAttribute ? img.getAttribute('src') || '' : ''),
       };
 
       browserWindow.Readability = readabilityMock;
-      browserWindow.ImageUtils = imageUtilsMock;
+      browserWindow.ImageUtils = imageUtilitiesMock;
       browserWindow.__UNIT_TESTING__ = true;
 
       const scriptPath = path.resolve(__dirname, '../../../dist/content.bundle.js');
@@ -235,11 +235,15 @@ describe('內容腳本整合測試', () => {
         chromeMock,
         loggerMock,
         readabilityMock,
-        imageUtilsMock
+        imageUtilitiesMock
       );
 
       // eslint-disable-next-line sonarjs/code-eval -- Intentional VM execution of local bundled content script in an isolated test context.
       vm.runInContext(scriptCode, executionContext, { filename: scriptPath });
+
+      expect(executionContext.__NOTION_BUNDLE_READY__).toBe(true);
+      expect(typeof executionContext.extractPageContent).toBe('function');
+      expect(typeof executionContext.ContentScript?.extractPageContent).toBe('function');
 
       const result = await waitForExtractionResult(executionContext, browserWindow);
 
