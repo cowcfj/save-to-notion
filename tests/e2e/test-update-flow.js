@@ -1,7 +1,7 @@
 // 測試更新通知完整流程
 console.log('🧪 開始測試更新通知功能');
 
-import updateNotificationVersion from '../../scripts/background/utils/updateNotificationVersion.cjs';
+const updateNotificationVersion = require('../../scripts/background/utils/updateNotificationVersion.cjs');
 
 const { shouldShowUpdateNotification } = updateNotificationVersion;
 
