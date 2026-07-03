@@ -8,11 +8,11 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const testFilePath = fileURLToPath(import.meta.url);
+const testDir = path.dirname(testFilePath);
 
 describe('tools/inject-manifest-key.mjs', () => {
-  const scriptPath = path.resolve(__dirname, '../../../tools/inject-manifest-key.mjs');
+  const scriptPath = path.resolve(testDir, '../../../tools/inject-manifest-key.mjs');
   let tempRoot;
 
   beforeEach(() => {

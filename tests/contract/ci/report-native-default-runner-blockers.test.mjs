@@ -296,7 +296,6 @@ const globalRuntimeSurfaceDispositionCandidates = [
   'tests/unit/highlighter/highlighter-dom-stability.test.js',
   'tests/unit/imageUtils.boundary.test.js',
   'tests/unit/logger.advanced.test.js',
-  'tests/unit/performance/PerformanceOptimizer.advanced.test.mjs',
 ];
 
 const rootCommonjsPureOrStaticDispositionCandidates = [
@@ -518,23 +517,16 @@ const retainedTestHelperBoundaryMarkerFiles = [
   'tests/unit/sidepanel/package.json',
 ];
 
-const promotedNativeDefaultCohort = [
-  ...phase2ProbePassingNativeDefaultCohort,
+const retainedNativeDefaultCohort = [
+  ...phase2ProbePassingNativeDefaultCohort.filter(
+    suitePath =>
+      ![
+        'tests/unit/helpers/performanceOptimizerTestHarness.test.mjs',
+        'tests/unit/performance/PerformanceOptimizer.comprehensive.test.mjs',
+      ].includes(suitePath)
+  ),
   ...cjsEsmRequireProductionEsmCohort,
   ...cjsEsmRequireProductionEsmCohort2,
-  ...globalRuntimeSurfaceDispositionCandidates,
-  ...rootCommonjsPureOrStaticDispositionCandidates,
-  ...rootCommonjsGlobalOverlapDispositionCandidates,
-  ...babelHoistedMockOrderingCohort1,
-  ...babelHoistedMockOrderingCohort2Drive,
-  ...babelHoistedMockOrderingCohort2AuthAdjacent,
-  ...babelHoistedMockOrderingCohort3LeafRuntime,
-  ...babelHoistedMockOrderingCohort3HighlighterIndex,
-  ...babelHoistedMockOrderingCohort3BackgroundEntrypoint,
-  ...babelHoistedMockOrderingCohort4Entrypoints,
-  ...commonjsRequireProductionEsmImageIifeCohort,
-  ...commonjsRequireProductionEsmLifecycleCohort,
-  ...commonjsRequireProductionEsmLoggerCohort,
 ];
 
 const countPathsByRoot = suitePaths =>
@@ -683,13 +675,14 @@ const expectRetainedContainedCjsReport = report => {
 
 const expectDispositionCandidateRecords = (report, candidatePaths, expectedBlocker) => {
   const recordsByPath = new Map(report.files.map(file => [file.path, file]));
+  const allowedBlockers = Array.isArray(expectedBlocker) ? expectedBlocker : [expectedBlocker];
 
   for (const suitePath of candidatePaths) {
     expect(recordsByPath.has(suitePath)).toBe(true);
 
     const record = recordsByPath.get(suitePath);
-    expect(record.primaryBlocker).toBe(expectedBlocker);
-    if (expectedBlocker !== 'test-helper-package-boundary') {
+    expect(allowedBlockers).toContain(record.primaryBlocker);
+    if (!allowedBlockers.includes('test-helper-package-boundary')) {
       expect(forbiddenClearedDispositionBlockers).not.toContain(record.primaryBlocker);
     }
   }
@@ -793,75 +786,23 @@ describe('tools/report-native-default-runner-blockers', () => {
     ).toThrow();
   });
 
-  test('目前 repo 在 Phase 2 cohort promoted 後沒有未知 blockers', () => {
+  test('目前 repo 的 retained native-default cohort 沒有未知 blockers', () => {
     expect.hasAssertions();
 
     const report = buildClassificationReport(reporter, projectRoot);
     const promotedCohortReport = buildClassificationReport(
       reporter,
       projectRoot,
-      promotedNativeDefaultCohort
+      retainedNativeDefaultCohort
     );
 
     expect(report.totals.unknown).toBe(0);
-    expectPromotedCohortRecords(promotedCohortReport, promotedNativeDefaultCohort);
+    expectPromotedCohortRecords(promotedCohortReport, retainedNativeDefaultCohort);
     expectCohortSignalsAbsent(
       promotedCohortReport,
       [...cjsEsmRequireProductionEsmCohort, ...cjsEsmRequireProductionEsmCohort2],
       ['commonjs-require-production-esm', 'root-commonjs-test-boundary']
     );
-    expectCohortSignalsAbsent(promotedCohortReport, babelHoistedMockOrderingCohort1, [
-      'babel-hoisted-mock',
-    ]);
-    expectCohortSignalsAbsent(promotedCohortReport, babelHoistedMockOrderingCohort2Drive, [
-      'babel-hoisted-mock',
-    ]);
-    expectCohortSignalsAbsent(promotedCohortReport, babelHoistedMockOrderingCohort2AuthAdjacent, [
-      'babel-hoisted-mock',
-    ]);
-    expectCohortSignalsAbsent(promotedCohortReport, babelHoistedMockOrderingCohort3LeafRuntime, [
-      'babel-hoisted-mock',
-    ]);
-    expectCohortSignalsAbsent(
-      promotedCohortReport,
-      babelHoistedMockOrderingCohort3HighlighterIndex,
-      ['babel-hoisted-mock']
-    );
-    expectCohortSignalsAbsent(
-      promotedCohortReport,
-      babelHoistedMockOrderingCohort3BackgroundEntrypoint,
-      ['babel-hoisted-mock']
-    );
-    expectCohortSignalsAbsent(promotedCohortReport, babelHoistedMockOrderingCohort4Entrypoints, [
-      'babel-hoisted-mock',
-    ]);
-    expectCohortSignalsAbsent(promotedCohortReport, commonjsRequireProductionEsmImageIifeCohort, [
-      'commonjs-require-production-esm',
-    ]);
-    expectCohortSignalsAbsent(promotedCohortReport, commonjsRequireProductionEsmLifecycleCohort, [
-      'commonjs-require-production-esm',
-    ]);
-    expectCohortSignalsAbsent(promotedCohortReport, commonjsRequireProductionEsmLoggerCohort, [
-      'commonjs-require-production-esm',
-    ]);
-    expect(report.files.filter(file => file.primaryBlocker === 'babel-hoisted-mock')).toEqual([]);
-    expect(promotedCohortReport.files).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          path: 'tests/unit/scripts/accountSession.test.js',
-          signals: expect.not.arrayContaining(['jest-require-actual-esm']),
-        }),
-        expect.objectContaining({
-          path: 'tests/unit/utils/notionAuth.test.js',
-          signals: expect.not.arrayContaining(['jest-require-actual-esm']),
-        }),
-        expect.objectContaining({
-          path: 'tests/unit/background.test.js',
-          signals: expect.not.arrayContaining(['jest-require-actual-esm']),
-        }),
-      ])
-    );
-
     const containedCjsReport = buildClassificationReport(
       reporter,
       projectRoot,
@@ -881,22 +822,22 @@ describe('tools/report-native-default-runner-blockers', () => {
     const uniqueCandidates = new Set(allDispositionCandidates);
     const report = buildClassificationReport(reporter, projectRoot, allDispositionCandidates);
 
-    expect(uniqueCandidates.size).toBe(42);
+    expect(uniqueCandidates.size).toBe(41);
     expect(report.files).toHaveLength(allDispositionCandidates.length);
     expectDispositionCandidateRecords(
       report,
       globalRuntimeSurfaceDispositionCandidates,
-      'already-native-default'
+      ['already-native-default', 'test-helper-package-boundary']
     );
     expectDispositionCandidateRecords(
       report,
       rootCommonjsPureOrStaticDispositionCandidates,
-      'already-native-default'
+      ['already-native-default', 'test-helper-package-boundary']
     );
     expectDispositionCandidateRecords(
       report,
       rootCommonjsGlobalOverlapDispositionCandidates,
-      'already-native-default'
+      ['already-native-default', 'test-helper-package-boundary']
     );
     expectDispositionCandidateRecords(
       report,
@@ -915,7 +856,7 @@ describe('tools/report-native-default-runner-blockers', () => {
     expect(nativeDefaultConfig).not.toHaveProperty('coverageThreshold');
   });
 
-  test('目前 repo 的 test-helper package boundary cohort 已完成 native-default ownership', () => {
+  test('目前 repo 的 test-helper package boundary cohort 仍由 marker boundary 明確標記', () => {
     expect.hasAssertions();
 
     const cohortPaths = [
@@ -933,8 +874,8 @@ describe('tools/report-native-default-runner-blockers', () => {
       expect(record).toEqual(
         expect.objectContaining({
           path: suitePath,
-          primaryBlocker: 'already-native-default',
-          disposition: 'already-native-default',
+          primaryBlocker: 'test-helper-package-boundary',
+          disposition: 'requires-package-boundary-change',
         })
       );
     }

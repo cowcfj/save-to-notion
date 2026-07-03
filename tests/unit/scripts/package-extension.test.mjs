@@ -6,9 +6,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const rootDir = path.resolve(__dirname, '../../..');
+const testFilePath = fileURLToPath(import.meta.url);
+const testDir = path.dirname(testFilePath);
+const rootDir = path.resolve(testDir, '../../..');
 
 describe('tools/package-extension.sh regressions', () => {
   let packageScript;

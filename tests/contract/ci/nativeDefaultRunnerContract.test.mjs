@@ -32,29 +32,30 @@ const phase3BNativeDefaultCohort = [
   '<rootDir>/tests/native-esm/destinations/destinations.native-esm.test.mjs',
 ];
 
-const phase3DPolicyLifecycleCohort = [
+const incumbentMainstreamMjsPatterns = [
+  '<rootDir>/tests/unit/helpers/**/*.test.mjs',
+  '<rootDir>/tests/integration/helpers/**/*.test.mjs',
+];
+
+const incumbentMainstreamMjsExactEntries = [
   '<rootDir>/tests/contract/ci/ciPolicyContract.test.mjs',
-  '<rootDir>/tests/contract/ci/nativeDefaultRunnerContract.test.mjs',
-  '<rootDir>/tests/contract/ci/report-native-default-runner-blockers.test.mjs',
   '<rootDir>/tests/contract/module-surfaces/RetryManager.contract.test.mjs',
-  '<rootDir>/tests/integration/background/background-require.integration.test.mjs',
-  '<rootDir>/tests/integration/helpers/integration-test-helper.test.mjs',
-  '<rootDir>/tests/unit/config/auth.callback-page.test.js',
-  '<rootDir>/tests/unit/config/coverageExclusionsContract.test.js',
-  '<rootDir>/tests/unit/config/env.test.mjs',
-  '<rootDir>/tests/unit/config/manifest.auth.test.js',
-  '<rootDir>/tests/unit/config/manifest.permissions.test.js',
-  '<rootDir>/tests/unit/helpers/storageServiceTestHarness.test.mjs',
-  '<rootDir>/tests/unit/scripts/assert-native-esm-line-hits.test.mjs',
-  '<rootDir>/tests/unit/scripts/check-message-boundaries.test.js',
   '<rootDir>/tests/unit/scripts/check-size-gates.test.mjs',
   '<rootDir>/tests/unit/scripts/inject-manifest-key.test.mjs',
   '<rootDir>/tests/unit/scripts/package-extension.test.mjs',
-  '<rootDir>/tests/unit/scripts/postinstall.test.js',
-  '<rootDir>/tests/unit/scripts/report-native-esm-scope-parity.test.mjs',
-  '<rootDir>/tests/unit/utils.dateFormat.test.js',
-  '<rootDir>/tests/unit/utils/chrome-mock.test.js',
-  '<rootDir>/tests/unit/utils/css-color-mock-shape.test.js',
+  '<rootDir>/tests/unit/performance/PerformanceOptimizer.comprehensive.test.mjs',
+];
+
+const reassignedToIncumbentMjsCohort = [
+  '<rootDir>/tests/contract/ci/ciPolicyContract.test.mjs',
+  '<rootDir>/tests/contract/module-surfaces/RetryManager.contract.test.mjs',
+  '<rootDir>/tests/integration/helpers/integration-test-helper.test.mjs',
+  '<rootDir>/tests/unit/helpers/performanceOptimizerTestHarness.test.mjs',
+  '<rootDir>/tests/unit/helpers/storageServiceTestHarness.test.mjs',
+  '<rootDir>/tests/unit/performance/PerformanceOptimizer.comprehensive.test.mjs',
+  '<rootDir>/tests/unit/scripts/check-size-gates.test.mjs',
+  '<rootDir>/tests/unit/scripts/inject-manifest-key.test.mjs',
+  '<rootDir>/tests/unit/scripts/package-extension.test.mjs',
 ];
 
 const retiredIncumbentCoverageSurfaces = [
@@ -67,13 +68,11 @@ const retiredThresholdSimulationSuites = [
   `<rootDir>/tests/unit/scripts/${retiredThresholdSimulationTestFile}`,
 ];
 
-const phase2ProbePassingNativeDefaultCohort = [
+const retainedNativeDefaultCohort = [
   '<rootDir>/tests/unit/background/core-functions.test.js',
   '<rootDir>/tests/unit/background/image-processing.test.js',
-  '<rootDir>/tests/unit/helpers/performanceOptimizerTestHarness.test.mjs',
   '<rootDir>/tests/unit/highlighter/highlighter-path-compression.test.js',
   '<rootDir>/tests/unit/highlighter/highlighter-storage-optimization.test.js',
-  '<rootDir>/tests/unit/performance/PerformanceOptimizer.comprehensive.test.mjs',
 ];
 
 const cjsEsmRequireProductionEsmCohort = [
@@ -91,6 +90,21 @@ const cjsEsmRequireProductionEsmCohort2 = [
 
 const rootCommonJsRetainedCutoverCandidates = [
   '<rootDir>/tests/unit/performance/timingHelpers.test.js',
+];
+
+const nativeDefaultDiagnosticSentinelCohort = [
+  '<rootDir>/tests/contract/ci/nativeDefaultRunnerContract.test.mjs',
+  '<rootDir>/tests/contract/ci/report-native-default-runner-blockers.test.mjs',
+  '<rootDir>/tests/integration/background/background-require.integration.test.mjs',
+  '<rootDir>/tests/unit/background.test.js',
+  '<rootDir>/tests/unit/background/extension-lifecycle.test.js',
+  '<rootDir>/tests/unit/config/env.test.mjs',
+  '<rootDir>/tests/unit/content/content-script.require.test.js',
+  '<rootDir>/tests/unit/pageComplexityDetector.node-env.test.js',
+  '<rootDir>/tests/unit/performance/PerformanceOptimizer.advanced.test.mjs',
+  '<rootDir>/tests/unit/scripts/assert-native-esm-line-hits.test.mjs',
+  '<rootDir>/tests/unit/scripts/postinstall.test.js',
+  '<rootDir>/tests/unit/scripts/report-native-esm-scope-parity.test.mjs',
 ];
 
 function readPackageScripts() {
@@ -163,12 +177,15 @@ describe('native default Jest runner contract', () => {
       expect.arrayContaining([
         ...phase3NativeDefaultCohort,
         ...phase3BNativeDefaultCohort,
-        ...phase3DPolicyLifecycleCohort,
-        ...phase2ProbePassingNativeDefaultCohort,
+        ...retainedNativeDefaultCohort,
         ...cjsEsmRequireProductionEsmCohort,
         ...cjsEsmRequireProductionEsmCohort2,
+        ...nativeDefaultDiagnosticSentinelCohort,
       ])
     );
+    for (const reassignedSuite of reassignedToIncumbentMjsCohort) {
+      expect(nativeDefaultConfig.testMatch).not.toContain(reassignedSuite);
+    }
     expect(nativeDefaultConfig.testMatch).toEqual(
       expect.not.arrayContaining(rootCommonJsRetainedCutoverCandidates)
     );
@@ -177,10 +194,16 @@ describe('native default Jest runner contract', () => {
     );
   });
 
-  test('incumbent Jest config does not directly allowlist the native-only Phase 3 and Phase 3B cohorts', async () => {
+  test('incumbent Jest config directly owns mainstream correctness .mjs suites and still excludes native-esm-only cohorts', async () => {
     const incumbentConfig = await loadConfig(path.join(rootDir, 'jest.config.js'));
     const incumbentProjectMatches = incumbentConfig.projects.flatMap(project => project.testMatch);
 
+    expect(incumbentProjectMatches).toEqual(
+      expect.arrayContaining([
+        ...incumbentMainstreamMjsPatterns,
+        ...incumbentMainstreamMjsExactEntries,
+      ])
+    );
     for (const nativeOnlyCohortMatch of [
       ...phase3NativeDefaultCohort,
       ...phase3BNativeDefaultCohort,

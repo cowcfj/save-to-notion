@@ -4,15 +4,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import nodeConfigLoader from '../../helpers/nodeConfigLoader.cjs';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const contractFilePath = fileURLToPath(import.meta.url);
+const contractDir = path.dirname(contractFilePath);
 const require = createRequire(import.meta.url);
 const { loadConfig } = nodeConfigLoader;
-const rootDir = path.resolve(__dirname, '../../..');
+const rootDir = path.resolve(contractDir, '../../..');
 const activeWorkflowDir = path.join(rootDir, '.github/workflows');
 const activeSonarWorkflow = path.join(activeWorkflowDir, 'sonarcloud.yml');
-const incumbentJestTestFilePattern = String.raw`^tests/(unit|contract|integration)/.*\.(test|spec)\.js$`;
-const anyJestTestFilePattern = String.raw`^tests/.*\.(test|spec)\.(js|mjs)$`;
 // Keep these retired script names computed so global scans do not flag this contract test itself.
 const retiredIncumbentCoverageScript = 'test:coverage:' + 'incumbent';
 const retiredIncumbentCiScript = 'test:ci:' + 'incumbent';
@@ -269,10 +267,14 @@ describe('CI policy contract', () => {
     expect(relatedTestsStep).toContain('INCUMBENT_TEST_FILES=');
     expect(relatedTestsStep).toContain('NATIVE_TEST_FILES=');
     expect(relatedTestsStep).toContain('NATIVE_DEFAULT_TEST_FILES=');
+    expect(relatedTestsStep).toContain('CANDIDATE_FILES="$CANDIDATE_FILES" node - <<\'NODE\'');
+    expect(relatedTestsStep).toContain("await import('./jest.config.js')");
     expect(relatedTestsStep).toContain("require('./jest.native-default.config.cjs')");
     expect(relatedTestsStep).toContain('config.testMatch');
-    expect(relatedTestsStep).toContain('NATIVE_TEST_CANDIDATES=');
-    expect(relatedTestsStep).toContain('comm -12');
+    expect(relatedTestsStep).toContain("process.env.CANDIDATE_FILES || ''");
+    expect(relatedTestsStep).toContain('filter(Boolean);');
+    expect(relatedTestsStep).toContain('function globToRegex(glob)');
+    expect(relatedTestsStep).toContain('const allowlisted = new Set();');
     expect(relatedTestsStep).toContain(
       'xargs npx jest --config jest.config.js --ci --runTestsByPath --maxWorkers=2'
     );
@@ -286,6 +288,7 @@ describe('CI policy contract', () => {
       'echo "$TEST_FILES" | xargs npx jest --config jest.config.js --ci --findRelatedTests --maxWorkers=2'
     );
     expect(relatedTestsStep).not.toContain('NATIVE_TEST_FILES=$(echo "$CANDIDATE_FILES" | grep -E');
+    expect(relatedTestsStep).not.toContain('INCUMBENT_TEST_FILES=$(echo "$CANDIDATE_FILES" | grep -E');
     expect(relatedTestsStep).toContain(
       '::notice::只變更設定檔，改執行 smoke test 而不是 related tests'
     );
@@ -305,17 +308,12 @@ describe('CI policy contract', () => {
     const relatedTestsStep = getWorkflowStepBlock(workflowSource, 'Jest related tests');
 
     expect(relatedTestsStep).toContain(
-      'INCUMBENT_TEST_FILES=$(echo "$CANDIDATE_FILES" | grep -E \'' +
-        incumbentJestTestFilePattern +
-        "' || true)"
-    );
-    expect(relatedTestsStep).toContain(
       'SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -E \'^(scripts|pages)/\' || true)'
     );
-    expect(relatedTestsStep).not.toContain(
-      'SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -v -E \'' +
-        anyJestTestFilePattern +
-        "' || true)"
+    expect(relatedTestsStep).toContain(
+      "const candidates = (process.env.CANDIDATE_FILES || '').split('\\n').filter(Boolean);"
     );
+    expect(relatedTestsStep).not.toContain("grep -E '^tests/(unit|contract|integration)/.*\\.(test|spec)\\.js$'");
+    expect(relatedTestsStep).not.toContain("grep -E '^tests/.*\\.(test|spec)\\.mjs$'");
   });
 });

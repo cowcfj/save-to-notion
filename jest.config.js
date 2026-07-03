@@ -39,13 +39,20 @@ const config = {
       testMatch: [
         '<rootDir>/tests/unit/**/*.test.js',
         '<rootDir>/tests/unit/**/*.spec.js',
-        '<rootDir>/tests/contract/**/*.test.js'
+        '<rootDir>/tests/unit/helpers/**/*.test.mjs',
+        '<rootDir>/tests/unit/performance/PerformanceOptimizer.comprehensive.test.mjs',
+        '<rootDir>/tests/unit/scripts/check-size-gates.test.mjs',
+        '<rootDir>/tests/unit/scripts/inject-manifest-key.test.mjs',
+        '<rootDir>/tests/unit/scripts/package-extension.test.mjs',
+        '<rootDir>/tests/contract/**/*.test.js',
+        '<rootDir>/tests/contract/ci/ciPolicyContract.test.mjs',
+        '<rootDir>/tests/contract/module-surfaces/RetryManager.contract.test.mjs'
       ],
       setupFiles: ['<rootDir>/tests/presetup.cjs'],
       setupFilesAfterEnv: ['<rootDir>/tests/setup.cjs'],
       moduleNameMapper: JEST_MODULE_NAME_MAPPER,
       transform: {
-        '^.+\\.[tj]sx?$': SWC_JEST_TRANSFORM,
+        '^.+\\.(m?[tj]sx?)$': SWC_JEST_TRANSFORM,
       },
       transformIgnorePatterns: ESM_TRANSFORM_IGNORE_PATTERNS
     },
@@ -55,13 +62,14 @@ const config = {
       testEnvironment: 'jsdom',
       testMatch: [
         '<rootDir>/tests/integration/**/*.test.js',
-        '<rootDir>/tests/integration/**/*.spec.js'
+        '<rootDir>/tests/integration/**/*.spec.js',
+        '<rootDir>/tests/integration/helpers/**/*.test.mjs'
       ],
       setupFiles: ['<rootDir>/tests/presetup.cjs'],
       setupFilesAfterEnv: ['<rootDir>/tests/setup.cjs'],
       moduleNameMapper: JEST_MODULE_NAME_MAPPER,
       transform: {
-        '^.+\\.[tj]sx?$': SWC_JEST_TRANSFORM,
+        '^.+\\.(m?[tj]sx?)$': SWC_JEST_TRANSFORM,
       },
       transformIgnorePatterns: ESM_TRANSFORM_IGNORE_PATTERNS
     }
@@ -122,7 +130,7 @@ const config = {
 
   // 轉換配置（如果需要）
   transform: {
-    '^.+\\.[tj]sx?$': SWC_JEST_TRANSFORM,
+    '^.+\\.(m?[tj]sx?)$': SWC_JEST_TRANSFORM,
   },
 
   // 轉換 node_modules 中的 ES 模組
