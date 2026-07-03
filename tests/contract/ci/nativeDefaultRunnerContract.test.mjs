@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
+import nodeConfigLoader from '../../helpers/nodeConfigLoader.cjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -9,6 +10,7 @@ const rootDir = path.resolve(__dirname, '../../..');
 const nativeDefaultConfigPath = path.join(rootDir, 'jest.native-default.config.cjs');
 const packageJsonPath = path.join(rootDir, 'package.json');
 const require = createRequire(import.meta.url);
+const { loadConfig } = nodeConfigLoader;
 const retiredIncumbentCoverageScript = 'test:coverage:' + 'incumbent';
 const retiredIncumbentCiScript = 'test:ci:' + 'incumbent';
 const retiredThresholdSimulationScript = ['test:coverage:native-esm', 'threshold-simulation'].join(
@@ -101,19 +103,6 @@ function readPackageJson() {
 
 function isCutoverProbeRoot() {
   return rootDir.includes(`${path.sep}root-esm-package-markers-`);
-}
-
-async function loadConfig(configPath) {
-  try {
-    const config = require(configPath);
-    return config.default ?? config;
-  } catch (error) {
-    if (!/Must use import to load ES Module|ERR_REQUIRE_ESM/.test(String(error?.message))) {
-      throw error;
-    }
-    const config = await import(pathToFileURL(configPath).href);
-    return config.default ?? config;
-  }
 }
 
 describe('native default Jest runner contract', () => {

@@ -1,11 +1,13 @@
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
+import nodeConfigLoader from '../../helpers/nodeConfigLoader.cjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const require = createRequire(import.meta.url);
+const { loadConfig } = nodeConfigLoader;
 const rootDir = path.resolve(__dirname, '../../..');
 const activeWorkflowDir = path.join(rootDir, '.github/workflows');
 const activeSonarWorkflow = path.join(activeWorkflowDir, 'sonarcloud.yml');
@@ -30,20 +32,6 @@ function readRootText(relativePath) {
 
 function readRootJson(relativePath) {
   return JSON.parse(readRootText(relativePath));
-}
-
-async function loadConfig(relativePath) {
-  const configPath = path.join(rootDir, relativePath);
-  try {
-    const config = require(configPath);
-    return config.default ?? config;
-  } catch (error) {
-    if (!/Must use import to load ES Module|ERR_REQUIRE_ESM/.test(String(error?.message))) {
-      throw error;
-    }
-    const config = await import(pathToFileURL(configPath).href);
-    return config.default ?? config;
-  }
 }
 
 function listActiveWorkflowFiles() {
@@ -188,7 +176,7 @@ describe('CI policy contract', () => {
   });
 
   test('incumbent Jest config remains a non-coverage default runner config', async () => {
-    const incumbentConfig = await loadConfig('jest.config.js');
+    const incumbentConfig = await loadConfig(path.join(rootDir, 'jest.config.js'));
 
     expect(incumbentConfig.coverageThreshold.global).toEqual({
       branches: 0,
