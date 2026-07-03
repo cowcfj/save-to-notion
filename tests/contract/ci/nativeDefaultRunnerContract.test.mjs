@@ -7,6 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '../../..');
 const nativeDefaultConfigPath = path.join(rootDir, 'jest.native-default.config.cjs');
+const packageJsonPath = path.join(rootDir, 'package.json');
 const require = createRequire(import.meta.url);
 const retiredIncumbentCoverageScript = 'test:coverage:' + 'incumbent';
 const retiredIncumbentCiScript = 'test:ci:' + 'incumbent';
@@ -91,14 +92,18 @@ const rootCommonJsRetainedCutoverCandidates = [
 ];
 
 function readPackageScripts() {
-  const packageJson = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8'));
-  return packageJson.scripts;
+  return readPackageJson().scripts;
+}
+
+function readPackageJson() {
+  return JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 }
 
 describe('native default Jest runner contract', () => {
   test('incumbent default scripts remain on jest.config.js', () => {
     const scripts = readPackageScripts();
 
+    expect(readPackageJson().type).toBe('commonjs');
     expect(scripts.test).toBe('jest --config jest.config.js');
     expect(scripts['test:quick']).toBe('jest --config jest.config.js --onlyChanged');
   });

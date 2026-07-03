@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-skipped-tests */
-import { test, expect } from '../fixtures';
+import { test, expect } from '../fixtures.js';
 
 test.describe('Preloader E2E Tests', () => {
   /**

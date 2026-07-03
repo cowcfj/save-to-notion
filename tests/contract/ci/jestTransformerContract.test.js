@@ -6,6 +6,7 @@ import packageJson from '../../../package.json';
 const BABEL_PACKAGE_NAMES = ['babel-jest', '@babel/core', '@babel/preset-env'];
 const SWC_PACKAGE_NAMES = ['@swc/core', '@swc/jest'];
 const RETIRED_BABEL_CONFIG_FILE = 'babel.config.js';
+const ROOT_ESM_CUTOVER_PROBE_FILE = 'tools/probe-root-esm-package-markers-core.cjs';
 const JS_TS_TRANSFORM_FIXTURE_PATHS = [
   'transform-fixture.js',
   'transform-fixture.jsx',
@@ -45,6 +46,22 @@ function matchesJsTsTransformPattern(pattern) {
 }
 
 describe('Jest transformer contract', () => {
+  test('live root Jest config remains CommonJS until the cutover rehearsal is approved', () => {
+    const jestConfigSource = fs.readFileSync('jest.config.js', 'utf8');
+    const cutoverProbeSource = fs.readFileSync(ROOT_ESM_CUTOVER_PROBE_FILE, 'utf8');
+
+    if (packageJson.type === 'commonjs') {
+      expect(jestConfigSource).toContain('module.exports = {');
+      expect(jestConfigSource).not.toContain('export default config');
+    } else {
+      expect(packageJson.type).toBe('module');
+      expect(jestConfigSource).toContain('export default config');
+      expect(jestConfigSource).not.toContain('module.exports = {');
+    }
+    expect(cutoverProbeSource).toContain("'cutover-core'");
+    expect(cutoverProbeSource).toContain('transform-jest-config-to-esm');
+  });
+
   test('repo-owned devDependencies use SWC instead of direct Babel packages', () => {
     const { devDependencies } = packageJson;
 

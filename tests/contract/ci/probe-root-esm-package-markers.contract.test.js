@@ -25,6 +25,123 @@ const writeFile = (rootDir, relativePath, content = '') => {
   fs.writeFileSync(filePath, content, 'utf8');
 };
 
+const readUtf8File = filePath => {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
+  return fs.readFileSync(filePath, 'utf8');
+};
+
+const readJsonFile = filePath => JSON.parse(readUtf8File(filePath));
+
+const pathExists = filePath => {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
+  return fs.existsSync(filePath);
+};
+
+const createCutoverSourceFixture = rootDir => {
+  const sourceRoot = path.join(rootDir, 'source');
+  writeFile(
+    sourceRoot,
+    'package.json',
+    JSON.stringify({ type: 'commonjs', scripts: { test: 'jest --config jest.config.js' } })
+  );
+  writeFile(sourceRoot, 'pages/popup/package.json', JSON.stringify({ type: 'module' }));
+  writeFile(sourceRoot, 'scripts/content/package.json', JSON.stringify({ type: 'module' }));
+  writeFile(sourceRoot, 'tests/helpers/package.json', JSON.stringify({ type: 'module' }));
+  writeFile(
+    sourceRoot,
+    'scripts/postinstall.js',
+    [
+      "const fs = require('node:fs');",
+      "const path = require('node:path');",
+      "console.log(path.join('scripts', fs.existsSync('package.json') ? 'ok' : 'missing'));",
+    ].join('\n')
+  );
+  writeFile(
+    sourceRoot,
+    'jest.config.js',
+    [
+      'const SWC_JEST_TRANSFORM = [',
+      "  '@swc/jest',",
+      '  { module: { type: "commonjs" } },',
+      '];',
+      'module.exports = {',
+      String.raw`  transform: { '^.+\\.[tj]sx?$': SWC_JEST_TRANSFORM },`,
+      '};',
+    ].join('\n')
+  );
+
+  return sourceRoot;
+};
+
+const createSuccessfulSpawnSync = () =>
+  jest.fn(() => ({
+    status: 0,
+    signal: null,
+    stdout: '',
+    stderr: '',
+  }));
+
+const runCutoverCoreProbe = sourceRoot => {
+  const spawnSync = createSuccessfulSpawnSync();
+  const mockedProbe = loadProbeWithSpawnSync(spawnSync);
+  const summary = mockedProbe.runProbe({ variant: 'cutover-core', keepTemp: true }, sourceRoot);
+
+  return {
+    summary,
+    spawnSync,
+    probeTempRoot: path.dirname(summary.roots.probe),
+  };
+};
+
+const readCutoverProbeArtifacts = summary => ({
+  baselinePackage: readJsonFile(path.join(summary.roots.baseline, 'package.json')),
+  probePackage: readJsonFile(path.join(summary.roots.probe, 'package.json')),
+  probePostinstall: readUtf8File(path.join(summary.roots.probe, 'scripts/postinstall.js')),
+  probeJestConfig: readUtf8File(path.join(summary.roots.probe, 'jest.config.js')),
+});
+
+const expectCutoverPackageMarkers = (summary, artifacts) => {
+  expect(artifacts.baselinePackage.type).toBe('commonjs');
+  expect(artifacts.probePackage.type).toBe('module');
+  expect(pathExists(path.join(summary.roots.baseline, 'pages/popup/package.json'))).toBe(true);
+  expect(pathExists(path.join(summary.roots.probe, 'pages/popup/package.json'))).toBe(false);
+  expect(pathExists(path.join(summary.roots.probe, 'tests/helpers/package.json'))).toBe(true);
+};
+
+const expectCutoverConfigTransforms = artifacts => {
+  expect(artifacts.probePostinstall).toContain("import fs from 'node:fs';");
+  expect(artifacts.probePostinstall).toContain("import path from 'node:path';");
+  expect(artifacts.probePostinstall).not.toContain("require('node:fs')");
+  expect(artifacts.probeJestConfig).toContain('const config = {');
+  expect(artifacts.probeJestConfig).toContain('export default config;');
+  expect(artifacts.probeJestConfig).not.toContain('module.exports');
+};
+
+const expectCutoverSummary = summary => {
+  expect(summary.variants).toEqual([
+    expect.objectContaining({
+      name: 'cutover-core',
+      kind: 'cutover-rehearsal',
+      removedMarkers: ['pages/popup/package.json', 'scripts/content/package.json'],
+      actions: expect.arrayContaining([
+        'set-root-package-type-module',
+        'transform-scripts-postinstall-to-esm',
+        'transform-jest-config-to-esm',
+      ]),
+    }),
+  ]);
+  expect(summary.gates).toEqual(
+    expect.arrayContaining([{ id: 'cutover-core-cutover-rehearsal', status: 'pass' }])
+  );
+};
+
+const expectCutoverPostinstallCommand = (spawnSync, summary) => {
+  expect(spawnSync).toHaveBeenCalledWith(
+    'node scripts/postinstall.js',
+    expect.objectContaining({ cwd: summary.roots.probe })
+  );
+};
+
 describe('tools/probe-root-esm-package-markers.mjs', () => {
   let tempRoot;
 
@@ -96,7 +213,7 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
 
   test('refuses destructive probe operations against the live repo root', () => {
     expect(() => probe.assertSafeProbeRoot(projectRoot, projectRoot)).toThrow(
-      /refusing to mutate the source repository/i
+      '拒絕將來源 repository 當作 probe root 進行變更。'
     );
     expect(() => probe.assertSafeProbeRoot(tempRoot, projectRoot)).not.toThrow();
   });
@@ -244,19 +361,125 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
 
     const markdown = probe.formatMarkdownSummary(summary);
 
-    expect(markdown).toContain('# Root ESM package marker 探測：production');
+    expect(markdown).toContain('# Root ESM 套件標記探測：production');
     expect(markdown).toContain('- 產生時間：');
+    expect(markdown).toContain('- production 標記數：1');
+    expect(markdown).toContain('- test 標記數：0');
+    expect(markdown).toContain('- 已選變體移除標記數：1');
     expect(markdown).toContain('## 關卡');
     expect(markdown).toContain('| 關卡 | 狀態 |');
-    expect(markdown).toContain('| commands-pass | fail |');
-    expect(markdown).toContain('## Marker 處置');
-    expect(markdown).toContain('| Marker | 範圍 | 處置 |');
+    expect(markdown).toContain('| commands-pass | 失敗 |');
+    expect(markdown).toContain('## 套件標記處置');
+    expect(markdown).toContain('| 套件標記 | 範圍 | 處置 |');
     expect(markdown).toContain(
       '| `pages/popup/package.json` | production | remove-at-root-esm-cutover |'
     );
-    expect(markdown).toContain('## Variant 結果');
-    expect(markdown).toContain('| Variant | 移除 markers | 命令失敗數 | 輸出漂移數 |');
+    expect(markdown).toContain('## 變體結果');
+    expect(markdown).toContain('| 變體 | 移除標記數 | 命令失敗數 | 輸出漂移數 |');
     expect(markdown).toContain('| pages-only | 1 | 1 | 1 |');
+  });
+
+  test('cutover-core rehearses root type and config transforms only in the probe copy', () => {
+    expect.hasAssertions();
+
+    const sourceRoot = createCutoverSourceFixture(tempRoot);
+    const { summary, spawnSync, probeTempRoot } = runCutoverCoreProbe(sourceRoot);
+
+    try {
+      const artifacts = readCutoverProbeArtifacts(summary);
+      expectCutoverPackageMarkers(summary, artifacts);
+      expectCutoverConfigTransforms(artifacts);
+      expectCutoverSummary(summary);
+      expectCutoverPostinstallCommand(spawnSync, summary);
+    } finally {
+      fs.rmSync(probeTempRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('cutover package-output gate fails when output comparison drifts', () => {
+    const summary = probe.buildProbeSummary({
+      variant: 'cutover-package-output',
+      sourceRoot: projectRoot,
+      baselineRoot: path.join(tempRoot, 'baseline'),
+      probeRoot: path.join(tempRoot, 'probe'),
+      markers: [],
+      removedMarkers: [],
+      variants: [
+        {
+          name: 'cutover-package-output',
+          kind: 'cutover-rehearsal',
+          commands: [{ status: 0 }],
+          comparisons: [
+            { path: 'dist', status: 'match' },
+            { path: '.tmp/extension-unpacked', status: 'drift' },
+          ],
+        },
+      ],
+    });
+
+    expect(summary.gates).toEqual(
+      expect.arrayContaining([{ id: 'cutover-package-output-cutover-rehearsal', status: 'fail' }])
+    );
+  });
+
+  test('cutover transform helpers refuse to run against the source repository root', () => {
+    expect(() => probe.applyCutoverTransforms(projectRoot, projectRoot)).toThrow(
+      '拒絕將來源 repository 當作 probe root 進行變更。'
+    );
+  });
+
+  test('cutover transform source mismatch errors are user-visible zh-TW', () => {
+    const sourceRoot = path.join(tempRoot, 'source');
+    const probeRoot = path.join(tempRoot, 'probe');
+    writeFile(sourceRoot, 'package.json', JSON.stringify({ type: 'commonjs' }));
+    writeFile(sourceRoot, 'scripts/postinstall.js', "console.log('沒有 require source');");
+    writeFile(probeRoot, 'package.json', JSON.stringify({ type: 'module' }));
+    writeFile(probeRoot, 'scripts/postinstall.js', "console.log('沒有 require source');");
+
+    expect(() => probe.applyCutoverTransforms(probeRoot, sourceRoot)).toThrow(
+      "scripts/postinstall.js 缺少預期 source 片段：const fs = require('node:fs');"
+    );
+  });
+
+  test('formats cutover rehearsal rows separately from marker-only proofs', () => {
+    const summary = probe.buildProbeSummary({
+      variant: 'cutover-core',
+      sourceRoot: projectRoot,
+      baselineRoot: path.join(tempRoot, 'baseline'),
+      probeRoot: path.join(tempRoot, 'probe'),
+      markers: [
+        {
+          relativePath: 'scripts/content/package.json',
+          scope: 'production',
+          disposition: 'remove-at-root-esm-cutover',
+        },
+      ],
+      removedMarkers: ['scripts/content/package.json'],
+      commands: [{ label: 'probe', command: 'node scripts/postinstall.js', status: 0 }],
+      comparisons: [],
+      variants: [
+        {
+          name: 'cutover-core',
+          kind: 'cutover-rehearsal',
+          removedMarkers: ['scripts/content/package.json'],
+          commands: [{ status: 0 }],
+          comparisons: [],
+          actions: [
+            'set-root-package-type-module',
+            'transform-scripts-postinstall-to-esm',
+            'transform-jest-config-to-esm',
+          ],
+        },
+      ],
+    });
+
+    const markdown = probe.formatMarkdownSummary(summary);
+
+    expect(markdown).toContain('## 切換演練');
+    expect(markdown).toContain('| 變體 | 動作 |');
+    expect(markdown).toContain(
+      '| cutover-core | set-root-package-type-module, transform-scripts-postinstall-to-esm, transform-jest-config-to-esm |'
+    );
   });
 
   test('passes an explicit timeout to spawned probe commands and reports timed-out diagnostics', () => {
