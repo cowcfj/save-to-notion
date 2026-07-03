@@ -7,10 +7,11 @@ let CONTENT_QUALITY;
 let HIGHLIGHT_STYLE_OPTIONS;
 
 beforeAll(async () => {
-  ({ processContentResult } = await import('../../../scripts/background/handlers/saveHandlers.js'));
-  ({ CONTENT_QUALITY } = await import('../../../scripts/config/shared/content.js'));
+  ({ processContentResult } =
+    await import('../../../../scripts/background/handlers/saveHandlers.js'));
+  ({ CONTENT_QUALITY } = await import('../../../../scripts/config/shared/content.js'));
   ({ HIGHLIGHT_STYLE_OPTIONS } =
-    await import('../../../scripts/background/utils/highlightStyleMerger.js'));
+    await import('../../../../scripts/background/utils/highlightStyleMerger.js'));
 });
 
 describe('processContentResult', () => {

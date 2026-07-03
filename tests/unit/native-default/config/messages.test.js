@@ -16,7 +16,7 @@ let HIGHLIGHTER_MESSAGES;
 let DATA_SOURCE_MESSAGES;
 
 function readProjectSource(relativePath) {
-  return fs.readFileSync(path.resolve(__dirname, '../../..', relativePath), 'utf8');
+  return fs.readFileSync(path.resolve(__dirname, '../../../..', relativePath), 'utf8');
 }
 
 function collectJsFiles(dir) {
@@ -39,15 +39,15 @@ describe('配置模組 - messages.js 動態函式', () => {
     // eslint-disable-next-line unicorn/import-style
     ({ default: path } = await import('node:path'));
     ({ UI_MESSAGES, ERROR_MESSAGES, ERROR_TYPES, API_ERROR_PATTERNS } =
-      await import('../../../scripts/config/shared/messages.js'));
-    ({ ErrorHandler } = await import('../../../scripts/utils/ErrorHandler.js'));
-    ({ deepFreeze } = await import('../../../scripts/config/shared/deepFreeze.js'));
+      await import('../../../../scripts/config/shared/messages.js'));
+    ({ ErrorHandler } = await import('../../../../scripts/utils/ErrorHandler.js'));
+    ({ deepFreeze } = await import('../../../../scripts/config/shared/deepFreeze.js'));
     ({ BACKGROUND_MESSAGES } =
-      await import('../../../scripts/config/messages/backgroundMessages.js'));
+      await import('../../../../scripts/config/messages/backgroundMessages.js'));
     ({ HIGHLIGHTER_MESSAGES } =
-      await import('../../../scripts/config/messages/highlighterMessages.js'));
+      await import('../../../../scripts/config/messages/highlighterMessages.js'));
     ({ DATA_SOURCE_MESSAGES } =
-      await import('../../../scripts/config/messages/dataSourceMessages.js'));
+      await import('../../../../scripts/config/messages/dataSourceMessages.js'));
   });
 
   const SEARCH_TERM = '測試關鍵字';
@@ -463,8 +463,9 @@ describe('配置模組 - messages.js 動態函式', () => {
     });
 
     test('門面 re-exports 的 error registry 欄位應與 errorMessages.js 完全一致', async () => {
-      const errorMessagesModule = await import('../../../scripts/config/messages/errorMessages.js');
-      const facadeModule = await import('../../../scripts/config/shared/messages.js');
+      const errorMessagesModule =
+        await import('../../../../scripts/config/messages/errorMessages.js');
+      const facadeModule = await import('../../../../scripts/config/shared/messages.js');
 
       expect(facadeModule.LOG_LEVELS).toBe(errorMessagesModule.LOG_LEVELS);
       expect(facadeModule.ERROR_TYPES).toBe(errorMessagesModule.ERROR_TYPES);
@@ -477,7 +478,7 @@ describe('配置模組 - messages.js 動態函式', () => {
     });
 
     test('生產程式碼不應引用舊的訊息葉路徑', () => {
-      const projectRoot = path.resolve(__dirname, '../../..');
+      const projectRoot = path.resolve(__dirname, '../../../..');
       const scriptsDir = path.join(projectRoot, 'scripts');
 
       const jsFiles = collectJsFiles(scriptsDir);

@@ -215,26 +215,22 @@ const phase2OwnerPathNativeDefaultCohort = [
   'tests/unit/native-default/scripts/report-native-esm-scope-parity.test.mjs',
 ];
 
-const phase2ProbePassingNativeDefaultCohort = [
+const phase2BIncumbentOwnedProbeSuites = [
   'tests/unit/background/core-functions.test.js',
   'tests/unit/background/image-processing.test.js',
-  'tests/unit/incumbent/helpers/performanceOptimizerTestHarness.test.mjs',
   'tests/unit/highlighter/highlighter-path-compression.test.js',
   'tests/unit/highlighter/highlighter-storage-optimization.test.js',
-  'tests/unit/incumbent/performance/PerformanceOptimizer.comprehensive.test.mjs',
 ];
 
-const cjsEsmRequireProductionEsmCohort = [
-  'tests/unit/config/messages.test.js',
-  'tests/unit/config/storageKeys.test.js',
-  'tests/unit/normalizeUrl.test.js',
-  'tests/unit/background/buildHighlightBlocks.test.js',
-];
-
-const cjsEsmRequireProductionEsmCohort2 = [
-  'tests/unit/pageComplexityDetector.node-env.test.js',
-  'tests/unit/splitTextForHighlight.test.js',
-  'tests/unit/background/processContentResult.test.js',
+const phase2BNativeDefaultOwnerPathCohort = [
+  'tests/unit/native-default/config/messages.test.js',
+  'tests/unit/native-default/config/storageKeys.test.js',
+  'tests/unit/native-default/utils/normalizeUrl.test.js',
+  'tests/unit/native-default/background/buildHighlightBlocks.test.js',
+  'tests/unit/native-default/utils/pageComplexityDetector.node-env.test.js',
+  'tests/unit/native-default/utils/splitTextForHighlight.test.js',
+  'tests/unit/native-default/background/processContentResult.test.js',
+  'tests/unit/native-default/performance/PerformanceOptimizer.batchProcessing.test.js',
 ];
 
 const babelHoistedMockOrderingCohort1 = [
@@ -526,15 +522,8 @@ const retainedTestHelperBoundaryMarkerFiles = [
 
 const retainedNativeDefaultCohort = [
   ...phase2OwnerPathNativeDefaultCohort,
-  ...phase2ProbePassingNativeDefaultCohort.filter(
-    suitePath =>
-      ![
-        'tests/unit/incumbent/helpers/performanceOptimizerTestHarness.test.mjs',
-        'tests/unit/incumbent/performance/PerformanceOptimizer.comprehensive.test.mjs',
-      ].includes(suitePath)
-  ),
-  ...cjsEsmRequireProductionEsmCohort,
-  ...cjsEsmRequireProductionEsmCohort2,
+  ...phase2BNativeDefaultOwnerPathCohort,
+  ...babelHoistedMockOrderingCohort3BackgroundEntrypoint,
 ];
 
 const countPathsByRoot = suitePaths =>
@@ -810,11 +799,24 @@ describe('tools/report-native-default-runner-blockers', () => {
       buildClassificationReport(reporter, projectRoot, phase2OwnerPathNativeDefaultCohort),
       phase2OwnerPathNativeDefaultCohort
     );
+    expectPromotedCohortRecords(
+      buildClassificationReport(reporter, projectRoot, phase2BNativeDefaultOwnerPathCohort),
+      phase2BNativeDefaultOwnerPathCohort
+    );
     expectCohortSignalsAbsent(
       promotedCohortReport,
-      [...cjsEsmRequireProductionEsmCohort, ...cjsEsmRequireProductionEsmCohort2],
-      ['commonjs-require-production-esm', 'root-commonjs-test-boundary']
+      phase2BNativeDefaultOwnerPathCohort,
+      ['commonjs-require-production-esm']
     );
+    const incumbentOwnedProbeReport = buildClassificationReport(
+      reporter,
+      projectRoot,
+      phase2BIncumbentOwnedProbeSuites
+    );
+    for (const suiteRecord of incumbentOwnedProbeReport.files) {
+      expect(suiteRecord.primaryBlocker).not.toBe('already-native-default');
+      expect(suiteRecord.disposition).not.toBe('already-native-default');
+    }
     const containedCjsReport = buildClassificationReport(
       reporter,
       projectRoot,

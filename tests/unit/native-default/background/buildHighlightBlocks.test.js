@@ -6,7 +6,8 @@ let buildHighlightBlocks;
 
 describe('buildHighlightBlocks', () => {
   beforeAll(async () => {
-    ({ buildHighlightBlocks } = await import('../../../scripts/background/utils/BlockBuilder.js'));
+    ({ buildHighlightBlocks } =
+      await import('../../../../scripts/background/utils/BlockBuilder.js'));
   });
 
   it('should return empty array for null input', () => {

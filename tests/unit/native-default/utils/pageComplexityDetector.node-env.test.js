@@ -5,7 +5,7 @@
 let detectPageComplexity;
 
 beforeAll(async () => {
-  ({ detectPageComplexity } = await import('../../scripts/utils/pageComplexityDetector.js'));
+  ({ detectPageComplexity } = await import('../../../../scripts/utils/pageComplexityDetector.js'));
 });
 
 describe('pageComplexityDetector non-browser environment regression', () => {

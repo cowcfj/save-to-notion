@@ -10,7 +10,8 @@ globalThis.cancelIdleCallback = clearTimeout;
 let PerformanceOptimizer;
 
 beforeAll(async () => {
-  ({ PerformanceOptimizer } = await import('../../../scripts/performance/PerformanceOptimizer.js'));
+  ({ PerformanceOptimizer } =
+    await import('../../../../scripts/performance/PerformanceOptimizer.js'));
 });
 
 describe('PerformanceOptimizer - 批次處理邏輯', () => {

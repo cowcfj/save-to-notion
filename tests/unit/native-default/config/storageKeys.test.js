@@ -30,7 +30,7 @@ const buildDataSourceConfig = (overrides = {}) => ({
 
 describe('配置模組 - storageKeys.js', () => {
   beforeAll(async () => {
-    ({ mergeDataSourceConfig } = await import('../../../scripts/config/shared/storage.js'));
+    ({ mergeDataSourceConfig } = await import('../../../../scripts/config/shared/storage.js'));
   });
 
   describe('mergeDataSourceConfig', () => {

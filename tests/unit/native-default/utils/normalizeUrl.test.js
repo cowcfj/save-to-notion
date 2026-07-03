@@ -6,8 +6,8 @@ let normalizeUrl;
 describe('normalizeUrl', () => {
   beforeAll(async () => {
     // 先設置 Chrome Mock,再導入源碼
-    await import('../mocks/chrome.cjs');
-    ({ normalizeUrl } = await import('../../scripts/utils/urlUtils.js'));
+    await import('../../../mocks/chrome.cjs');
+    ({ normalizeUrl } = await import('../../../../scripts/utils/urlUtils.js'));
   });
 
   describe('基本功能', () => {

@@ -71,24 +71,22 @@ const retiredThresholdSimulationSuites = [
   `<rootDir>/tests/unit/scripts/${retiredThresholdSimulationTestFile}`,
 ];
 
-const retainedNativeDefaultCohort = [
+const phase2BRemovedIncumbentOwnedSuites = [
   '<rootDir>/tests/unit/background/core-functions.test.js',
   '<rootDir>/tests/unit/background/image-processing.test.js',
   '<rootDir>/tests/unit/highlighter/highlighter-path-compression.test.js',
   '<rootDir>/tests/unit/highlighter/highlighter-storage-optimization.test.js',
 ];
 
-const cjsEsmRequireProductionEsmCohort = [
-  '<rootDir>/tests/unit/config/messages.test.js',
-  '<rootDir>/tests/unit/config/storageKeys.test.js',
-  '<rootDir>/tests/unit/normalizeUrl.test.js',
-  '<rootDir>/tests/unit/background/buildHighlightBlocks.test.js',
-];
-
-const cjsEsmRequireProductionEsmCohort2 = [
-  '<rootDir>/tests/unit/pageComplexityDetector.node-env.test.js',
-  '<rootDir>/tests/unit/splitTextForHighlight.test.js',
-  '<rootDir>/tests/unit/background/processContentResult.test.js',
+const phase2BNativeDefaultOwnerPathEntries = [
+  '<rootDir>/tests/unit/native-default/config/messages.test.js',
+  '<rootDir>/tests/unit/native-default/config/storageKeys.test.js',
+  '<rootDir>/tests/unit/native-default/utils/normalizeUrl.test.js',
+  '<rootDir>/tests/unit/native-default/background/buildHighlightBlocks.test.js',
+  '<rootDir>/tests/unit/native-default/utils/pageComplexityDetector.node-env.test.js',
+  '<rootDir>/tests/unit/native-default/utils/splitTextForHighlight.test.js',
+  '<rootDir>/tests/unit/native-default/background/processContentResult.test.js',
+  '<rootDir>/tests/unit/native-default/performance/PerformanceOptimizer.batchProcessing.test.js',
 ];
 
 const rootCommonJsRetainedCutoverCandidates = [
@@ -114,28 +112,24 @@ const nativeDefaultOwnerPathEntries = [
   '<rootDir>/tests/contract/native-default/ci/report-native-default-runner-blockers.test.mjs',
   '<rootDir>/tests/integration/native-default/background/background-require.integration.test.mjs',
   '<rootDir>/tests/unit/native-default/config/env.test.mjs',
+  '<rootDir>/tests/unit/native-default/config/messages.test.js',
+  '<rootDir>/tests/unit/native-default/config/storageKeys.test.js',
   '<rootDir>/tests/unit/native-default/content/content-script.require.test.js',
+  '<rootDir>/tests/unit/native-default/utils/normalizeUrl.test.js',
+  '<rootDir>/tests/unit/native-default/background/buildHighlightBlocks.test.js',
+  '<rootDir>/tests/unit/native-default/utils/pageComplexityDetector.node-env.test.js',
+  '<rootDir>/tests/unit/native-default/utils/splitTextForHighlight.test.js',
+  '<rootDir>/tests/unit/native-default/background/processContentResult.test.js',
   '<rootDir>/tests/unit/native-default/performance/PerformanceOptimizer.advanced.test.mjs',
+  '<rootDir>/tests/unit/native-default/performance/PerformanceOptimizer.batchProcessing.test.js',
   '<rootDir>/tests/unit/native-default/scripts/assert-native-esm-line-hits.test.mjs',
   '<rootDir>/tests/unit/native-default/scripts/postinstall.test.js',
   '<rootDir>/tests/unit/native-default/scripts/report-native-esm-scope-parity.test.mjs',
 ];
 
-const retainedLegacyNativeDefaultExactEntries = [
-  '<rootDir>/tests/unit/background/core-functions.test.js',
-  '<rootDir>/tests/unit/background/image-processing.test.js',
-  '<rootDir>/tests/unit/config/messages.test.js',
-  '<rootDir>/tests/unit/config/storageKeys.test.js',
-  '<rootDir>/tests/unit/highlighter/highlighter-path-compression.test.js',
-  '<rootDir>/tests/unit/highlighter/highlighter-storage-optimization.test.js',
-  '<rootDir>/tests/unit/normalizeUrl.test.js',
-  '<rootDir>/tests/unit/background/buildHighlightBlocks.test.js',
+const retainedBackgroundEntrypointHarnessEntries = [
   '<rootDir>/tests/unit/background/extension-lifecycle.test.js',
   '<rootDir>/tests/unit/background.test.js',
-  '<rootDir>/tests/unit/pageComplexityDetector.node-env.test.js',
-  '<rootDir>/tests/unit/splitTextForHighlight.test.js',
-  '<rootDir>/tests/unit/background/processContentResult.test.js',
-  '<rootDir>/tests/unit/performance/PerformanceOptimizer.batchProcessing.test.js',
 ];
 
 function readPackageScripts() {
@@ -208,11 +202,8 @@ describe('native default Jest runner contract', () => {
       expect.arrayContaining([
         ...phase3NativeDefaultCohort,
         ...phase3BNativeDefaultCohort,
-        ...retainedNativeDefaultCohort,
-        ...cjsEsmRequireProductionEsmCohort,
-        ...cjsEsmRequireProductionEsmCohort2,
         ...nativeDefaultOwnerPathEntries,
-        ...retainedLegacyNativeDefaultExactEntries,
+        ...retainedBackgroundEntrypointHarnessEntries,
         ...nativeEsmCrossLaneSentinelEntries,
       ])
     );
@@ -224,6 +215,9 @@ describe('native default Jest runner contract', () => {
     );
     expect(nativeDefaultConfig.testMatch).toEqual(
       expect.not.arrayContaining(retiredThresholdSimulationSuites)
+    );
+    expect(nativeDefaultConfig.testMatch).toEqual(
+      expect.not.arrayContaining(phase2BRemovedIncumbentOwnedSuites)
     );
   });
 
@@ -267,7 +261,7 @@ describe('native default Jest runner contract', () => {
     expect(config.testMatch).toEqual(
       expect.arrayContaining([
         ...nativeDefaultOwnerPathEntries,
-        ...retainedLegacyNativeDefaultExactEntries,
+        ...retainedBackgroundEntrypointHarnessEntries,
         ...nativeEsmCrossLaneSentinelEntries,
       ])
     );
@@ -277,6 +271,11 @@ describe('native default Jest runner contract', () => {
     expect(config.testMatch.filter(entry => entry.includes('/tests/native-esm/'))).toEqual(
       nativeEsmCrossLaneSentinelEntries
     );
+    expect(
+      config.testMatch.filter(
+        entry => entry.includes('/tests/unit/') && !entry.includes('/native-default/')
+      )
+    ).toEqual(retainedBackgroundEntrypointHarnessEntries);
 
     expect(config).not.toHaveProperty('coverageProvider');
     expect(config).not.toHaveProperty('coverageDirectory');
