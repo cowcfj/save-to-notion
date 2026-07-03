@@ -311,9 +311,13 @@ describe('CI policy contract', () => {
       'SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -E \'^(scripts|pages)/\' || true)'
     );
     expect(relatedTestsStep).toContain(
-      "const candidates = (process.env.CANDIDATE_FILES || '').split('\\n').filter(Boolean);"
+      String.raw`const candidates = (process.env.CANDIDATE_FILES || '').split('\n').filter(Boolean);`
     );
-    expect(relatedTestsStep).not.toContain("grep -E '^tests/(unit|contract|integration)/.*\\.(test|spec)\\.js$'");
-    expect(relatedTestsStep).not.toContain("grep -E '^tests/.*\\.(test|spec)\\.mjs$'");
+    expect(relatedTestsStep).not.toContain(
+      String.raw`grep -E '^tests/(unit|contract|integration)/.*\.(test|spec)\.js$'`
+    );
+    expect(relatedTestsStep).not.toContain(
+      String.raw`grep -E '^tests/.*\.(test|spec)\.mjs$'`
+    );
   });
 });
