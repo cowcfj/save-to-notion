@@ -1280,11 +1280,6 @@ function _migrationScript(trackingParams) {
   const isHighlightStorageKey = key =>
     typeof key === 'string' && key.startsWith(highlightKeyPrefix);
   const extractHighlightStorageUrl = key => key.slice(highlightKeyPrefix.length);
-  const isSameOriginHighlightKey = (currentOrigin, keyOrigin) =>
-    Boolean(currentOrigin && keyOrigin === currentOrigin);
-  const shouldKeepLegacyFallbackCandidate = (currentOrigin, keyOrigin) =>
-    !currentOrigin || !keyOrigin;
-  const keepFirstLegacyFallbackCandidate = (currentCandidate, key) => currentCandidate ?? key;
 
   const findLegacyHighlightFallbackKey = currentOrigin => {
     let legacyCandidate = null;
@@ -1295,13 +1290,15 @@ function _migrationScript(trackingParams) {
       }
 
       const keyOrigin = parseOrigin(extractHighlightStorageUrl(key));
-      if (isSameOriginHighlightKey(currentOrigin, keyOrigin)) {
+      if (currentOrigin && keyOrigin === currentOrigin) {
         return key;
       }
 
-      if (shouldKeepLegacyFallbackCandidate(currentOrigin, keyOrigin)) {
-        legacyCandidate = keepFirstLegacyFallbackCandidate(legacyCandidate, key);
+      if (currentOrigin && keyOrigin) {
+        continue;
       }
+
+      legacyCandidate ??= key;
     }
     return legacyCandidate;
   };
