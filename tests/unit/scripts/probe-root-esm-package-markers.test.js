@@ -131,7 +131,7 @@ const expectCutoverSummary = summary => {
     }),
   ]);
   expect(summary.gates).toEqual(
-    expect.arrayContaining([{ id: 'cutover-rehearsal', status: 'pass' }])
+    expect.arrayContaining([{ id: 'cutover-core-cutover-rehearsal', status: 'pass' }])
   );
 };
 
@@ -391,6 +391,32 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
     } finally {
       fs.rmSync(probeTempRoot, { recursive: true, force: true });
     }
+  });
+
+  test('cutover package-output gate fails when output comparison drifts', () => {
+    const summary = probe.buildProbeSummary({
+      variant: 'cutover-package-output',
+      sourceRoot: projectRoot,
+      baselineRoot: path.join(tempRoot, 'baseline'),
+      probeRoot: path.join(tempRoot, 'probe'),
+      markers: [],
+      removedMarkers: [],
+      variants: [
+        {
+          name: 'cutover-package-output',
+          kind: 'cutover-rehearsal',
+          commands: [{ status: 0 }],
+          comparisons: [
+            { path: 'dist', status: 'match' },
+            { path: '.tmp/extension-unpacked', status: 'drift' },
+          ],
+        },
+      ],
+    });
+
+    expect(summary.gates).toEqual(
+      expect.arrayContaining([{ id: 'cutover-package-output-cutover-rehearsal', status: 'fail' }])
+    );
   });
 
   test('cutover transform helpers refuse to run against the source repository root', () => {

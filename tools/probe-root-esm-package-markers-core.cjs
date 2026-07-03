@@ -237,16 +237,16 @@ function buildProbeSummary({
   const cutoverGates =
     cutoverVariants.length === 0
       ? []
-      : [
-          {
-            id: 'cutover-rehearsal',
-            status: cutoverVariants.every(item =>
-              item.commands.every(command => command.status === 0)
-            )
-              ? 'pass'
-              : 'fail',
-          },
-        ];
+      : cutoverVariants.map(variant => {
+          const commandsPass = variant.commands.every(command => command.status === 0);
+          const comparisonsPass = (variant.comparisons || []).every(
+            comp => comp.status === 'match'
+          );
+          return {
+            id: `${variant.name}-cutover-rehearsal`,
+            status: commandsPass && comparisonsPass ? 'pass' : 'fail',
+          };
+        });
 
   return {
     schemaVersion: 1,
