@@ -1,5 +1,5 @@
-import fs from 'node:fs';
-import path from 'node:path';
+const fs = require('node:fs');
+const path = require('node:path');
 
 let RUNTIME_ACTIONS;
 let RUNTIME_ERROR_MESSAGES;

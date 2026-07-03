@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import nodeConfigLoader from '../../helpers/nodeConfigLoader.cjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -9,6 +10,7 @@ const rootDir = path.resolve(__dirname, '../../..');
 const nativeDefaultConfigPath = path.join(rootDir, 'jest.native-default.config.cjs');
 const packageJsonPath = path.join(rootDir, 'package.json');
 const require = createRequire(import.meta.url);
+const { loadConfig } = nodeConfigLoader;
 const retiredIncumbentCoverageScript = 'test:coverage:' + 'incumbent';
 const retiredIncumbentCiScript = 'test:ci:' + 'incumbent';
 const retiredThresholdSimulationScript = ['test:coverage:native-esm', 'threshold-simulation'].join(
@@ -99,11 +101,15 @@ function readPackageJson() {
   return JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 }
 
+function isCutoverProbeRoot() {
+  return rootDir.includes(`${path.sep}root-esm-package-markers-`);
+}
+
 describe('native default Jest runner contract', () => {
   test('incumbent default scripts remain on jest.config.js', () => {
     const scripts = readPackageScripts();
 
-    expect(readPackageJson().type).toBe('commonjs');
+    expect(readPackageJson().type).toBe(isCutoverProbeRoot() ? 'module' : 'commonjs');
     expect(scripts.test).toBe('jest --config jest.config.js');
     expect(scripts['test:quick']).toBe('jest --config jest.config.js --onlyChanged');
   });
@@ -175,8 +181,8 @@ describe('native default Jest runner contract', () => {
     );
   });
 
-  test('incumbent Jest config does not directly allowlist the native-only Phase 3 and Phase 3B cohorts', () => {
-    const incumbentConfig = require(path.join(rootDir, 'jest.config.js'));
+  test('incumbent Jest config does not directly allowlist the native-only Phase 3 and Phase 3B cohorts', async () => {
+    const incumbentConfig = await loadConfig(path.join(rootDir, 'jest.config.js'));
     const incumbentProjectMatches = incumbentConfig.projects.flatMap(project => project.testMatch);
 
     for (const nativeOnlyCohortMatch of [

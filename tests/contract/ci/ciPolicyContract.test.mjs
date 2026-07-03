@@ -2,10 +2,12 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import nodeConfigLoader from '../../helpers/nodeConfigLoader.cjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const require = createRequire(import.meta.url);
+const { loadConfig } = nodeConfigLoader;
 const rootDir = path.resolve(__dirname, '../../..');
 const activeWorkflowDir = path.join(rootDir, '.github/workflows');
 const activeSonarWorkflow = path.join(activeWorkflowDir, 'sonarcloud.yml');
@@ -173,8 +175,8 @@ describe('CI policy contract', () => {
     });
   });
 
-  test('incumbent Jest config remains a non-coverage default runner config', () => {
-    const incumbentConfig = require('../../../jest.config.js');
+  test('incumbent Jest config remains a non-coverage default runner config', async () => {
+    const incumbentConfig = await loadConfig(path.join(rootDir, 'jest.config.js'));
 
     expect(incumbentConfig.coverageThreshold.global).toEqual({
       branches: 0,
