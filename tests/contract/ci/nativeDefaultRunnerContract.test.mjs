@@ -101,15 +101,11 @@ function readPackageJson() {
   return JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 }
 
-function isCutoverProbeRoot() {
-  return rootDir.includes(`${path.sep}root-esm-package-markers-`);
-}
-
 describe('native default Jest runner contract', () => {
   test('incumbent default scripts remain on jest.config.js', () => {
     const scripts = readPackageScripts();
 
-    expect(readPackageJson().type).toBe(isCutoverProbeRoot() ? 'module' : 'commonjs');
+    expect(readPackageJson().type).toBe('module');
     expect(scripts.test).toBe('jest --config jest.config.js');
     expect(scripts['test:quick']).toBe('jest --config jest.config.js --onlyChanged');
   });

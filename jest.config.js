@@ -20,7 +20,7 @@ const JEST_MODULE_NAME_MAPPER = {
   '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.cjs'
 };
 
-module.exports = {
+const config = {
   cacheDirectory: '<rootDir>/.jest-cache',
   // 測試環境 - 使用 jsdom 環境來支持 DOM 測試
   testEnvironment: 'jsdom',
@@ -154,3 +154,5 @@ module.exports = {
   bail: false, // 不在第一個失敗時停止，繼續執行所有測試
   verbose: false // 關閉詳細輸出以提升速度
 };
+
+export default config;

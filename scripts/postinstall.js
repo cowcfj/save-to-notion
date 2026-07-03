@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 
-const fs = require('node:fs');
-const path = require('node:path');
+import fs from 'node:fs';
+import path from 'node:path';
 
 const projectRoot = process.cwd();
 const targetPath = path.join(projectRoot, 'scripts', 'config', 'env', 'build.js');

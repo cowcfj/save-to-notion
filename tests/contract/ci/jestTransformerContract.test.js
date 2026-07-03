@@ -46,18 +46,13 @@ function matchesJsTsTransformPattern(pattern) {
 }
 
 describe('Jest transformer contract', () => {
-  test('live root Jest config remains CommonJS until the cutover rehearsal is approved', () => {
+  test('live root Jest config is ESM after the cutover lands', () => {
     const jestConfigSource = fs.readFileSync('jest.config.js', 'utf8');
     const cutoverProbeSource = fs.readFileSync(ROOT_ESM_CUTOVER_PROBE_FILE, 'utf8');
 
-    if (packageJson.type === 'commonjs') {
-      expect(jestConfigSource).toContain('module.exports = {');
-      expect(jestConfigSource).not.toContain('export default config');
-    } else {
-      expect(packageJson.type).toBe('module');
-      expect(jestConfigSource).toContain('export default config');
-      expect(jestConfigSource).not.toContain('module.exports = {');
-    }
+    expect(packageJson.type).toBe('module');
+    expect(jestConfigSource).toContain('export default config');
+    expect(jestConfigSource).not.toContain('module.exports = {');
     expect(cutoverProbeSource).toContain("'cutover-core'");
     expect(cutoverProbeSource).toContain('transform-jest-config-to-esm');
   });
