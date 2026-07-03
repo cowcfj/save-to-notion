@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,6 +30,20 @@ function readRootText(relativePath) {
 
 function readRootJson(relativePath) {
   return JSON.parse(readRootText(relativePath));
+}
+
+async function loadConfig(relativePath) {
+  const configPath = path.join(rootDir, relativePath);
+  try {
+    const config = require(configPath);
+    return config.default ?? config;
+  } catch (error) {
+    if (!/Must use import to load ES Module|ERR_REQUIRE_ESM/.test(String(error?.message))) {
+      throw error;
+    }
+    const config = await import(pathToFileURL(configPath).href);
+    return config.default ?? config;
+  }
 }
 
 function listActiveWorkflowFiles() {
@@ -173,8 +187,8 @@ describe('CI policy contract', () => {
     });
   });
 
-  test('incumbent Jest config remains a non-coverage default runner config', () => {
-    const incumbentConfig = require('../../../jest.config.js');
+  test('incumbent Jest config remains a non-coverage default runner config', async () => {
+    const incumbentConfig = await loadConfig('jest.config.js');
 
     expect(incumbentConfig.coverageThreshold.global).toEqual({
       branches: 0,

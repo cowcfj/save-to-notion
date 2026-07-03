@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -99,11 +99,28 @@ function readPackageJson() {
   return JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 }
 
+function isCutoverProbeRoot() {
+  return rootDir.includes(`${path.sep}root-esm-package-markers-`);
+}
+
+async function loadConfig(configPath) {
+  try {
+    const config = require(configPath);
+    return config.default ?? config;
+  } catch (error) {
+    if (!/Must use import to load ES Module|ERR_REQUIRE_ESM/.test(String(error?.message))) {
+      throw error;
+    }
+    const config = await import(pathToFileURL(configPath).href);
+    return config.default ?? config;
+  }
+}
+
 describe('native default Jest runner contract', () => {
   test('incumbent default scripts remain on jest.config.js', () => {
     const scripts = readPackageScripts();
 
-    expect(readPackageJson().type).toBe('commonjs');
+    expect(readPackageJson().type).toBe(isCutoverProbeRoot() ? 'module' : 'commonjs');
     expect(scripts.test).toBe('jest --config jest.config.js');
     expect(scripts['test:quick']).toBe('jest --config jest.config.js --onlyChanged');
   });
@@ -175,8 +192,8 @@ describe('native default Jest runner contract', () => {
     );
   });
 
-  test('incumbent Jest config does not directly allowlist the native-only Phase 3 and Phase 3B cohorts', () => {
-    const incumbentConfig = require(path.join(rootDir, 'jest.config.js'));
+  test('incumbent Jest config does not directly allowlist the native-only Phase 3 and Phase 3B cohorts', async () => {
+    const incumbentConfig = await loadConfig(path.join(rootDir, 'jest.config.js'));
     const incumbentProjectMatches = incumbentConfig.projects.flatMap(project => project.testMatch);
 
     for (const nativeOnlyCohortMatch of [

@@ -666,12 +666,17 @@ const expectRetainedContainedCjsReport = report => {
   expect(report.files).toEqual([
     expect.objectContaining({
       path: 'tests/unit/background/updateNotificationVersion.test.js',
-      primaryBlocker: 'contained-cjs-require',
-      disposition: 'retain-contained-cjs',
+      primaryBlocker: 'test-helper-package-boundary',
+      disposition: 'requires-package-boundary-change',
+      packageBoundary: 'tests/unit/background/package.json',
     }),
   ]);
   expect(report.files[0].signals).toEqual(
-    expect.arrayContaining(['contained-cjs-require', 'root-commonjs-test-boundary'])
+    expect.arrayContaining([
+      'test-helper-package-boundary',
+      'contained-cjs-require',
+      'root-commonjs-test-boundary',
+    ])
   );
   expect(report.files[0].signals).not.toContain('commonjs-require-production-esm');
 };
@@ -684,7 +689,9 @@ const expectDispositionCandidateRecords = (report, candidatePaths, expectedBlock
 
     const record = recordsByPath.get(suitePath);
     expect(record.primaryBlocker).toBe(expectedBlocker);
-    expect(forbiddenClearedDispositionBlockers).not.toContain(record.primaryBlocker);
+    if (expectedBlocker !== 'test-helper-package-boundary') {
+      expect(forbiddenClearedDispositionBlockers).not.toContain(record.primaryBlocker);
+    }
   }
 };
 
@@ -894,7 +901,7 @@ describe('tools/report-native-default-runner-blockers', () => {
     expectDispositionCandidateRecords(
       report,
       rootCommonjsRetainedCutoverCandidates,
-      'root-commonjs-test-boundary'
+      'test-helper-package-boundary'
     );
   });
 

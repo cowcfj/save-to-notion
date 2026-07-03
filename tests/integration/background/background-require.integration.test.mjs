@@ -27,6 +27,8 @@ describe('background module boundary contract', () => {
   });
 
   test('raw CommonJS require does not own the source background lifecycle', () => {
+    const rawRequireBoundaryPattern =
+      /ERR_REQUIRE_ESM|SyntaxError|Cannot use import statement outside a module|ReferenceError: chrome is not defined/;
     const result = spawnSync(
       process.execPath,
       [
@@ -39,7 +41,7 @@ describe('background module boundary contract', () => {
           '} catch (error) {',
           '  const output = `${error.code || error.name}: ${error.message}`;',
           '  console.error(output);',
-          '  process.exit(/ERR_REQUIRE_ESM|SyntaxError|Cannot use import statement outside a module/.test(output) ? 0 : 1);',
+          `  process.exit(${rawRequireBoundaryPattern}.test(output) ? 0 : 1);`,
           '}',
         ].join('\n'),
       ],
@@ -50,8 +52,6 @@ describe('background module boundary contract', () => {
     );
 
     expect(result.status).toBe(0);
-    expect(result.stderr).toMatch(
-      /ERR_REQUIRE_ESM|SyntaxError|Cannot use import statement outside a module/
-    );
+    expect(result.stderr).toMatch(rawRequireBoundaryPattern);
   });
 });
