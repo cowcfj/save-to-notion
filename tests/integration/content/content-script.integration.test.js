@@ -114,7 +114,7 @@ function createImageUtilitiesMock() {
 function setupContentTestDocument() {
   document.documentElement.innerHTML = loadContentTestPageHtml();
 
-  return globalThis;
+  return document.defaultView;
 }
 
 function installContentScriptTestGlobals(browserWindow, { readabilityMock, imageUtilitiesMock }) {
@@ -252,11 +252,13 @@ describe('內容腳本整合測試', () => {
   afterEach(() => {
     jest.clearAllMocks();
 
-    if (globalThis.window) {
-      delete globalThis.__UNIT_TESTING__;
-      delete globalThis.__notion_extraction_result;
-      delete globalThis.Readability;
-      delete globalThis.ImageUtils;
+    const browserWindow = document.defaultView;
+
+    if (browserWindow) {
+      delete browserWindow.__UNIT_TESTING__;
+      delete browserWindow.__notion_extraction_result;
+      delete browserWindow.Readability;
+      delete browserWindow.ImageUtils;
     }
   });
 
