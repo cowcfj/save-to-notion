@@ -123,7 +123,7 @@ describe('Root utils native ESM diagnostics', () => {
     const buffer = new LogBuffer(10);
     buffer.push({ message: 'log 1', level: 'info' });
     const logs = buffer.getAll();
-    expect(logs.length).toBe(1);
+    expect(logs).toHaveLength(1);
     expect(logs[0].message).toBe('log 1');
   });
 
