@@ -4,7 +4,7 @@
 import {
   createStorageServiceHarness,
   mockStorageLookup,
-} from '../../helpers/storageServiceTestHarness.js';
+} from '../../../helpers/storageServiceTestHarness.js';
 
 describe('storageServiceTestHarness', () => {
   describe('mockStorageLookup', () => {

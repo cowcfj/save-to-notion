@@ -1,4 +1,4 @@
-import { createSendResponseWaiter } from '../../helpers/integration-test-helper.js';
+import { createSendResponseWaiter } from '../../../helpers/integration-test-helper.js';
 
 describe('integration-test-helper', () => {
   afterEach(() => {

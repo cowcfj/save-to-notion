@@ -3,7 +3,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import vm from 'node:vm';
 
-import { RetryManager, withRetry, fetchWithRetry } from '../../../scripts/utils/RetryManager.js';
+import { RetryManager, withRetry, fetchWithRetry } from '../../../../scripts/utils/RetryManager.js';
 
 const repoRoot = process.cwd();
 const retryManagerSourcePath = path.resolve(repoRoot, 'scripts/utils/RetryManager.js');

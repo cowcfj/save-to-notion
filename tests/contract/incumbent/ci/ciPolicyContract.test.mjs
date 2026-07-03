@@ -2,13 +2,13 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import nodeConfigLoader from '../../helpers/nodeConfigLoader.cjs';
+import nodeConfigLoader from '../../../helpers/nodeConfigLoader.cjs';
 
 const contractFilePath = fileURLToPath(import.meta.url);
 const contractDir = path.dirname(contractFilePath);
 const require = createRequire(import.meta.url);
 const { loadConfig } = nodeConfigLoader;
-const rootDir = path.resolve(contractDir, '../../..');
+const rootDir = path.resolve(contractDir, '../../../..');
 const activeWorkflowDir = path.join(rootDir, '.github/workflows');
 const activeSonarWorkflow = path.join(activeWorkflowDir, 'sonarcloud.yml');
 // Keep these retired script names computed so global scans do not flag this contract test itself.
@@ -156,7 +156,7 @@ describe('CI policy contract', () => {
 
   test('native ESM coverage owns official local thresholds and emits LCOV in the official V8 directory', () => {
     const scripts = readRootJson('package.json').scripts;
-    const nativeConfig = require('../../../jest.native-esm.config.cjs');
+    const nativeConfig = require('../../../../jest.native-esm.config.cjs');
 
     expect(scripts['test:coverage:native-esm']).toMatch(/(?:^| )--ci(?: |$)/);
     expect(scripts['test:coverage:native-esm']).not.toMatch(/(?:^| )--runInBand(?: |$)/);

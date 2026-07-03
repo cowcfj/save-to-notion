@@ -14,7 +14,7 @@ describe('performanceOptimizerTestHarness', () => {
     process.chdir(os.tmpdir());
 
     const { PERFORMANCE_HTML_FIXTURE } =
-      await import('../../helpers/performanceOptimizerTestHarness.js');
+      await import('../../../helpers/performanceOptimizerTestHarness.js');
 
     expect(PERFORMANCE_HTML_FIXTURE).toContain('<h1>Article Title</h1>');
     expect(PERFORMANCE_HTML_FIXTURE).toContain('id="test-id"');

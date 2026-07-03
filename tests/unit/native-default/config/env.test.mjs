@@ -6,7 +6,7 @@
  * env/index.js 配置測試
  */
 
-import * as envModule from '../../../scripts/config/env/index.js';
+import * as envModule from '../../../../scripts/config/env/index.js';
 
 const {
   isExtensionContext,

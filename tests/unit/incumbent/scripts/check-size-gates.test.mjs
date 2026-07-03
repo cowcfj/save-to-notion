@@ -12,7 +12,7 @@ const testFilePath = fileURLToPath(import.meta.url);
 const testDir = path.dirname(testFilePath);
 
 describe('tools/check-size-gates.mjs', () => {
-  const scriptPath = path.resolve(testDir, '../../../tools/check-size-gates.mjs');
+  const scriptPath = path.resolve(testDir, '../../../../tools/check-size-gates.mjs');
   let tempRoot;
 
   const writeSizedFile = (filePath, size) => {
@@ -27,7 +27,7 @@ describe('tools/check-size-gates.mjs', () => {
 
   const runCli = args =>
     execFileSync('node', [scriptPath, ...args], {
-      cwd: path.resolve(testDir, '../../..'),
+      cwd: path.resolve(testDir, '../../../..'),
       encoding: 'utf8',
       stdio: 'pipe',
     });

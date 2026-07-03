@@ -12,7 +12,7 @@ const testFilePath = fileURLToPath(import.meta.url);
 const testDir = path.dirname(testFilePath);
 
 describe('tools/inject-manifest-key.mjs', () => {
-  const scriptPath = path.resolve(testDir, '../../../tools/inject-manifest-key.mjs');
+  const scriptPath = path.resolve(testDir, '../../../../tools/inject-manifest-key.mjs');
   let tempRoot;
 
   beforeEach(() => {
@@ -41,7 +41,7 @@ describe('tools/inject-manifest-key.mjs', () => {
         `--target=${targetPath}`,
         `--key-file=${path.join(tempRoot, 'missing-public-key.txt')}`,
       ],
-      { cwd: path.resolve(__dirname, '../../..') }
+      { cwd: path.resolve(__dirname, '../../../..') }
     );
 
     expect(JSON.parse(fs.readFileSync(targetPath, 'utf8'))).toEqual(manifest);
@@ -68,7 +68,7 @@ describe('tools/inject-manifest-key.mjs', () => {
     execFileSync(
       'node',
       [scriptPath, `--source=${sourcePath}`, `--target=${targetPath}`, `--key-file=${keyPath}`],
-      { cwd: path.resolve(__dirname, '../../..') }
+      { cwd: path.resolve(__dirname, '../../../..') }
     );
 
     expect(JSON.parse(fs.readFileSync(targetPath, 'utf8'))).toEqual(

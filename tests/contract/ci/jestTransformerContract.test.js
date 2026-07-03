@@ -136,7 +136,7 @@ describe('Jest transformer contract', () => {
       fs.readFileSync('.github/workflows/ci.yml', 'utf8'),
       fs.readFileSync('.github/workflows/coverage-gate.yml', 'utf8'),
       fs.readFileSync('release-please-config.json', 'utf8'),
-      fs.readFileSync('tests/contract/ci/ciPolicyContract.test.mjs', 'utf8'),
+      fs.readFileSync('tests/contract/incumbent/ci/ciPolicyContract.test.mjs', 'utf8'),
     ].forEach(policyFileSource => {
       expect(policyFileSource).not.toContain(RETIRED_BABEL_CONFIG_FILE);
     });

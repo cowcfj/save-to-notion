@@ -2,11 +2,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import nodeConfigLoader from '../../helpers/nodeConfigLoader.cjs';
+import nodeConfigLoader from '../../../helpers/nodeConfigLoader.cjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const rootDir = path.resolve(__dirname, '../../..');
+const rootDir = path.resolve(__dirname, '../../../..');
 const nativeDefaultConfigPath = path.join(rootDir, 'jest.native-default.config.cjs');
 const packageJsonPath = path.join(rootDir, 'package.json');
 const require = createRequire(import.meta.url);
@@ -33,29 +33,29 @@ const phase3BNativeDefaultCohort = [
 ];
 
 const incumbentMainstreamMjsPatterns = [
-  '<rootDir>/tests/unit/helpers/**/*.test.mjs',
-  '<rootDir>/tests/integration/helpers/**/*.test.mjs',
+  '<rootDir>/tests/unit/incumbent/helpers/**/*.test.mjs',
+  '<rootDir>/tests/integration/incumbent/helpers/**/*.test.mjs',
 ];
 
 const incumbentMainstreamMjsExactEntries = [
-  '<rootDir>/tests/contract/ci/ciPolicyContract.test.mjs',
-  '<rootDir>/tests/contract/module-surfaces/RetryManager.contract.test.mjs',
-  '<rootDir>/tests/unit/scripts/check-size-gates.test.mjs',
-  '<rootDir>/tests/unit/scripts/inject-manifest-key.test.mjs',
-  '<rootDir>/tests/unit/scripts/package-extension.test.mjs',
-  '<rootDir>/tests/unit/performance/PerformanceOptimizer.comprehensive.test.mjs',
+  '<rootDir>/tests/contract/incumbent/ci/ciPolicyContract.test.mjs',
+  '<rootDir>/tests/contract/incumbent/module-surfaces/RetryManager.contract.test.mjs',
+  '<rootDir>/tests/unit/incumbent/scripts/check-size-gates.test.mjs',
+  '<rootDir>/tests/unit/incumbent/scripts/inject-manifest-key.test.mjs',
+  '<rootDir>/tests/unit/incumbent/scripts/package-extension.test.mjs',
+  '<rootDir>/tests/unit/incumbent/performance/PerformanceOptimizer.comprehensive.test.mjs',
 ];
 
 const reassignedToIncumbentMjsCohort = [
-  '<rootDir>/tests/contract/ci/ciPolicyContract.test.mjs',
-  '<rootDir>/tests/contract/module-surfaces/RetryManager.contract.test.mjs',
-  '<rootDir>/tests/integration/helpers/integration-test-helper.test.mjs',
-  '<rootDir>/tests/unit/helpers/performanceOptimizerTestHarness.test.mjs',
-  '<rootDir>/tests/unit/helpers/storageServiceTestHarness.test.mjs',
-  '<rootDir>/tests/unit/performance/PerformanceOptimizer.comprehensive.test.mjs',
-  '<rootDir>/tests/unit/scripts/check-size-gates.test.mjs',
-  '<rootDir>/tests/unit/scripts/inject-manifest-key.test.mjs',
-  '<rootDir>/tests/unit/scripts/package-extension.test.mjs',
+  '<rootDir>/tests/contract/incumbent/ci/ciPolicyContract.test.mjs',
+  '<rootDir>/tests/contract/incumbent/module-surfaces/RetryManager.contract.test.mjs',
+  '<rootDir>/tests/integration/incumbent/helpers/integration-test-helper.test.mjs',
+  '<rootDir>/tests/unit/incumbent/helpers/performanceOptimizerTestHarness.test.mjs',
+  '<rootDir>/tests/unit/incumbent/helpers/storageServiceTestHarness.test.mjs',
+  '<rootDir>/tests/unit/incumbent/performance/PerformanceOptimizer.comprehensive.test.mjs',
+  '<rootDir>/tests/unit/incumbent/scripts/check-size-gates.test.mjs',
+  '<rootDir>/tests/unit/incumbent/scripts/inject-manifest-key.test.mjs',
+  '<rootDir>/tests/unit/incumbent/scripts/package-extension.test.mjs',
 ];
 
 const retiredIncumbentCoverageSurfaces = [
@@ -93,15 +93,15 @@ const rootCommonJsRetainedCutoverCandidates = [
 ];
 
 const nativeDefaultDiagnosticSentinelCohort = [
-  '<rootDir>/tests/contract/ci/nativeDefaultRunnerContract.test.mjs',
-  '<rootDir>/tests/contract/ci/report-native-default-runner-blockers.test.mjs',
+  '<rootDir>/tests/contract/native-default/ci/nativeDefaultRunnerContract.test.mjs',
+  '<rootDir>/tests/contract/native-default/ci/report-native-default-runner-blockers.test.mjs',
   '<rootDir>/tests/integration/background/background-require.integration.test.mjs',
   '<rootDir>/tests/unit/background.test.js',
   '<rootDir>/tests/unit/background/extension-lifecycle.test.js',
-  '<rootDir>/tests/unit/config/env.test.mjs',
+  '<rootDir>/tests/unit/native-default/config/env.test.mjs',
   '<rootDir>/tests/unit/content/content-script.require.test.js',
   '<rootDir>/tests/unit/pageComplexityDetector.node-env.test.js',
-  '<rootDir>/tests/unit/performance/PerformanceOptimizer.advanced.test.mjs',
+  '<rootDir>/tests/unit/native-default/performance/PerformanceOptimizer.advanced.test.mjs',
   '<rootDir>/tests/unit/scripts/assert-native-esm-line-hits.test.mjs',
   '<rootDir>/tests/unit/scripts/postinstall.test.js',
   '<rootDir>/tests/unit/scripts/report-native-esm-scope-parity.test.mjs',
@@ -248,7 +248,7 @@ describe('native default Jest runner contract', () => {
 
   test('native ESM coverage config remains the only V8 threshold owner', () => {
     const nativeDefaultConfig = require(nativeDefaultConfigPath);
-    const nativeCoverageConfig = require('../../../jest.native-esm.config.cjs');
+    const nativeCoverageConfig = require('../../../../jest.native-esm.config.cjs');
 
     expect(nativeCoverageConfig.coverageProvider).toBe('v8');
     expect(nativeCoverageConfig.coverageThreshold).toEqual(

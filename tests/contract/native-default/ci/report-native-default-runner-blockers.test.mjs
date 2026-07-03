@@ -7,7 +7,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import * as reporter from '../../../tools/report-native-default-runner-blockers-core.cjs';
+import * as reporter from '../../../../tools/report-native-default-runner-blockers-core.cjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -210,10 +210,10 @@ const classificationRoots = ['tests/unit', 'tests/contract', 'tests/native-esm']
 const phase2ProbePassingNativeDefaultCohort = [
   'tests/unit/background/core-functions.test.js',
   'tests/unit/background/image-processing.test.js',
-  'tests/unit/helpers/performanceOptimizerTestHarness.test.mjs',
+  'tests/unit/incumbent/helpers/performanceOptimizerTestHarness.test.mjs',
   'tests/unit/highlighter/highlighter-path-compression.test.js',
   'tests/unit/highlighter/highlighter-storage-optimization.test.js',
-  'tests/unit/performance/PerformanceOptimizer.comprehensive.test.mjs',
+  'tests/unit/incumbent/performance/PerformanceOptimizer.comprehensive.test.mjs',
 ];
 
 const cjsEsmRequireProductionEsmCohort = [
@@ -521,8 +521,8 @@ const retainedNativeDefaultCohort = [
   ...phase2ProbePassingNativeDefaultCohort.filter(
     suitePath =>
       ![
-        'tests/unit/helpers/performanceOptimizerTestHarness.test.mjs',
-        'tests/unit/performance/PerformanceOptimizer.comprehensive.test.mjs',
+        'tests/unit/incumbent/helpers/performanceOptimizerTestHarness.test.mjs',
+        'tests/unit/incumbent/performance/PerformanceOptimizer.comprehensive.test.mjs',
       ].includes(suitePath)
   ),
   ...cjsEsmRequireProductionEsmCohort,
@@ -689,7 +689,7 @@ const expectDispositionCandidateRecords = (report, candidatePaths, expectedBlock
 };
 
 describe('tools/report-native-default-runner-blockers', () => {
-  const projectRoot = path.resolve(__dirname, '../../..');
+  const projectRoot = path.resolve(__dirname, '../../../..');
   const tempRoot = path.join(projectRoot, '.tmp/test-native-default-blockers');
   const allowedOutputRoot = path.join(projectRoot, 'coverage/native-default/test-output');
   const cliPath = path.join(projectRoot, 'tools/report-native-default-runner-blockers.mjs');

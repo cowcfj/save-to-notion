@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const testFilePath = fileURLToPath(import.meta.url);
 const testDir = path.dirname(testFilePath);
-const rootDir = path.resolve(testDir, '../../..');
+const rootDir = path.resolve(testDir, '../../../..');
 
 describe('tools/package-extension.sh regressions', () => {
   let packageScript;

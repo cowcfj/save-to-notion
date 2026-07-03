@@ -4,16 +4,16 @@ import {
   createPerformanceLoggerMock,
   restorePerformanceGlobals,
   setupPerformanceEnvironment,
-} from '../../helpers/performanceOptimizerTestHarness.js';
-import loggerMock from '../../helpers/loggerMock.cjs';
+} from '../../../helpers/performanceOptimizerTestHarness.js';
+import loggerMock from '../../../helpers/loggerMock.cjs';
 
 const { createLoggerMock } = loggerMock;
 
 async function loadPerformanceOptimizerModule() {
-  await jest.unstable_mockModule('../../../scripts/utils/Logger.js', () => ({
+  await jest.unstable_mockModule('../../../../scripts/utils/Logger.js', () => ({
     default: createLoggerMock(),
   }));
-  return import('../../../scripts/performance/PerformanceOptimizer.js');
+  return import('../../../../scripts/performance/PerformanceOptimizer.js');
 }
 
 // =========================================
