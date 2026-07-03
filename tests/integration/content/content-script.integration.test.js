@@ -3,29 +3,32 @@
  * 使用最小化 mock（Readability、ImageUtils），並驗證它會產生
  * 合法的提取結果並暴露到 window.__notion_extraction_result。
  */
-const fs = require('node:fs');
-const path = require('node:path');
-const vm = require('node:vm');
-const childProcess = require('node:child_process');
+import childProcess from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
 
 const BUILD_TIMEOUT_MS = 60_000;
 const TEST_TIMEOUT_MS = 10_000;
 const POLL_RETRY_COUNT = 30;
 const POLL_INTERVAL_MS = 200;
-const PROJECT_ROOT = path.resolve(__dirname, '../../../');
+const TEST_FILE_PATH = fileURLToPath(import.meta.url);
+const TEST_DIRECTORY = path.dirname(TEST_FILE_PATH);
+const PROJECT_ROOT = path.resolve(TEST_DIRECTORY, '../../../');
 const CONTENT_BUNDLE_PATH = path.resolve(PROJECT_ROOT, 'dist/content.bundle.js');
 const CONTENT_TEST_PAGE_FIXTURE_PATH = path.resolve(
   PROJECT_ROOT,
   'tests/fixtures/html/content-script.integration.test-page.html'
 );
 
-function createExecutionContext(
+function createExecutionContext({
   browserWindow,
   chromeMock,
   loggerMock,
   readabilityMock,
-  imageUtilitiesMock
-) {
+  imageUtilitiesMock,
+}) {
   return vm.createContext(
     Object.assign(Object.create(globalThis), {
       window: browserWindow,
@@ -73,6 +76,73 @@ async function waitForExtractionResult(executionContext, browserWindow) {
   }
 
   return null;
+}
+
+function createReadabilityMock(browserWindow) {
+  return function ReadabilityMock(document_) {
+    const safeDocument = document_ || browserWindow.document;
+
+    return {
+      parse() {
+        return {
+          title: safeDocument.title || 'Test Page',
+          content: '<p>Mock content</p>',
+          length: 300,
+        };
+      },
+    };
+  };
+}
+
+function readImageSource(imageElement) {
+  if (typeof imageElement?.getAttribute !== 'function') {
+    return '';
+  }
+
+  return imageElement.getAttribute('src') || '';
+}
+
+function createImageUtilitiesMock() {
+  return {
+    cleanImageUrl: url => url,
+    isValidImageUrl: (..._arguments) => true,
+    extractImageSrc: imageElement => readImageSource(imageElement) || null,
+    generateImageCacheKey: imageElement => readImageSource(imageElement),
+  };
+}
+
+function setupContentTestDocument() {
+  document.documentElement.innerHTML = loadContentTestPageHtml();
+
+  return globalThis;
+}
+
+function installContentScriptTestGlobals(browserWindow, { readabilityMock, imageUtilitiesMock }) {
+  browserWindow.Readability = readabilityMock;
+  browserWindow.ImageUtils = imageUtilitiesMock;
+  browserWindow.__UNIT_TESTING__ = true;
+}
+
+function runContentBundleInTestContext({
+  browserWindow,
+  chromeMock,
+  loggerMock,
+  readabilityMock,
+  imageUtilitiesMock,
+}) {
+  const scriptCode = fs.readFileSync(CONTENT_BUNDLE_PATH, 'utf8');
+  const executionContext = createExecutionContext({
+    browserWindow,
+    chromeMock,
+    loggerMock,
+    readabilityMock,
+    imageUtilitiesMock,
+  });
+
+  // eslint-disable-next-line sonarjs/code-eval -- Intentional VM execution of local bundled content script in an isolated test context.
+  vm.runInContext(scriptCode, executionContext, { filename: CONTENT_BUNDLE_PATH });
+
+  return executionContext;
 }
 
 function ensureFreshContentBundle() {
@@ -198,48 +268,19 @@ describe('內容腳本整合測試', () => {
   test(
     '當 window.__UNIT_TESTING__ 為 true 時執行 content.js 並暴露提取結果',
     async () => {
-      const html = loadContentTestPageHtml();
-
-      document.documentElement.innerHTML = html;
-      const browserWindow = globalThis;
-
-      const readabilityMock = function (document_) {
-        const safeDocument = document_ || browserWindow.document;
-
-        return {
-          parse() {
-            return {
-              title: safeDocument.title || 'Test Page',
-              content: '<p>Mock content</p>',
-              length: 300,
-            };
-          },
-        };
+      const browserWindow = setupContentTestDocument();
+      const contentScriptMocks = {
+        readabilityMock: createReadabilityMock(browserWindow),
+        imageUtilitiesMock: createImageUtilitiesMock(),
       };
 
-      const imageUtilitiesMock = {
-        cleanImageUrl: url => url,
-        isValidImageUrl: (..._arguments) => true,
-        extractImageSrc: img => (img?.getAttribute ? img.getAttribute('src') || '' : null),
-        generateImageCacheKey: img => (img?.getAttribute ? img.getAttribute('src') || '' : ''),
-      };
-
-      browserWindow.Readability = readabilityMock;
-      browserWindow.ImageUtils = imageUtilitiesMock;
-      browserWindow.__UNIT_TESTING__ = true;
-
-      const scriptPath = path.resolve(__dirname, '../../../dist/content.bundle.js');
-      const scriptCode = fs.readFileSync(scriptPath, 'utf8');
-      const executionContext = createExecutionContext(
+      installContentScriptTestGlobals(browserWindow, contentScriptMocks);
+      const executionContext = runContentBundleInTestContext({
         browserWindow,
         chromeMock,
         loggerMock,
-        readabilityMock,
-        imageUtilitiesMock
-      );
-
-      // eslint-disable-next-line sonarjs/code-eval -- Intentional VM execution of local bundled content script in an isolated test context.
-      vm.runInContext(scriptCode, executionContext, { filename: scriptPath });
+        ...contentScriptMocks,
+      });
 
       expect(executionContext.__NOTION_BUNDLE_READY__).toBe(true);
       expect(typeof executionContext.extractPageContent).toBe('function');
