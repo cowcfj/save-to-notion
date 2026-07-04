@@ -14,15 +14,15 @@ describe('tools/package-extension.sh regressions', () => {
   let packageScript;
   let popupHtml;
   let sidepanelHtml;
-  let authHtmlExists;
-  let authHtmlPath;
+  let canonicalAuthHtmlExists;
+  let canonicalAuthHtmlPath;
 
   beforeAll(() => {
     packageScript = fs.readFileSync(path.join(rootDir, 'tools/package-extension.sh'), 'utf8');
     popupHtml = fs.readFileSync(path.join(rootDir, 'pages/popup/popup.html'), 'utf8');
     sidepanelHtml = fs.readFileSync(path.join(rootDir, 'pages/sidepanel/sidepanel.html'), 'utf8');
-    authHtmlPath = path.relative(rootDir, path.join(rootDir, 'pages/auth/auth.html'));
-    authHtmlExists = fs.existsSync(path.join(rootDir, authHtmlPath));
+    canonicalAuthHtmlPath = path.relative(rootDir, path.join(rootDir, 'pages/auth/auth.html'));
+    canonicalAuthHtmlExists = fs.existsSync(path.join(rootDir, canonicalAuthHtmlPath));
   });
 
   test('release package 應打包 dist bundle 而非 scripts 原始碼', () => {
@@ -41,15 +41,17 @@ describe('tools/package-extension.sh regressions', () => {
     expect(sidepanelHtml).toMatch(moduleScript('../../dist/pages/sidepanel.js'));
   });
 
-  test('release package 的 ES module 驗證應覆蓋 auth callback pages', () => {
+  test('release package 的 ES module 驗證應覆蓋 canonical auth callback page', () => {
     const verificationBlock = packageScript.slice(packageScript.indexOf('const htmlDirs = fs'));
 
     expect(verificationBlock).toContain("path.join(pkgDir, 'pages')");
     expect(verificationBlock).toContain("path.join('pages', entry.name)");
     expect(verificationBlock).toContain('path.join(dirPath, file)');
-    expect(verificationBlock).toContain('auth.html');
-    expect(authHtmlPath).toBe('pages/auth/auth.html');
-    expect(authHtmlExists).toBe(true);
+    expect(packageScript).not.toContain('cp -a auth.html');
+    expect(verificationBlock).not.toContain("['auth.html']");
+    expect(packageScript).toContain("find \"$RM_DIR/dist/pages\" -name 'auth-redirect.js' -delete");
+    expect(canonicalAuthHtmlPath).toBe('pages/auth/auth.html');
+    expect(canonicalAuthHtmlExists).toBe(true);
   });
 
   test('打包流程應清理所有 .DS_Store', () => {

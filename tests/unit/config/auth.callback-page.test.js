@@ -10,14 +10,12 @@ const path = require('node:path');
 
 describe('auth callback page regressions', () => {
   let authHtml;
-  let legacyAuthHtml;
   let authJs;
   let rollupPagesConfig;
   let callbackBridgeCss;
 
   beforeAll(() => {
     authHtml = fs.readFileSync(path.resolve(__dirname, '../../../pages/auth/auth.html'), 'utf8');
-    legacyAuthHtml = fs.readFileSync(path.resolve(__dirname, '../../../auth.html'), 'utf8');
     authJs = fs.readFileSync(path.resolve(__dirname, '../../../scripts/auth/auth.js'), 'utf8');
     callbackBridgeCss = fs.readFileSync(
       path.resolve(__dirname, '../../../styles/callback-bridge.css'),
@@ -48,18 +46,13 @@ describe('auth callback page regressions', () => {
 
   test('callback bridge layout 應由共用 stylesheet 維護', () => {
     expect(authHtml).not.toMatch(/<style\b/);
-    expect(legacyAuthHtml).not.toMatch(/<style\b/);
     expect(callbackBridgeCss).toContain('.card');
     expect(callbackBridgeCss).toContain('.logo');
     expect(callbackBridgeCss).toContain('.subtitle');
   });
 
-  test('root auth.html 應直接載入 auth callback bundle，避免 client-side redirect shim', () => {
-    expect(legacyAuthHtml).toMatch(
-      /<script\b(?=[^>]*\bsrc="dist\/pages\/auth\.js")(?=[^>]*\btype="module")[^>]*><\/script>/
-    );
-    expect(legacyAuthHtml).toContain('styles/callback-bridge.css');
-    expect(legacyAuthHtml).not.toContain('dist/pages/auth-redirect.js');
+  test('root auth.html legacy callback page 應已移除', () => {
+    expect(fs.existsSync(path.resolve(__dirname, '../../../auth.html'))).toBe(false);
   });
 
   test('pages bundle 不應再產生 auth-redirect entry', () => {
