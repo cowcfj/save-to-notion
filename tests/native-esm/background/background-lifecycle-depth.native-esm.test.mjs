@@ -235,15 +235,21 @@ describe('background lifecycle native ESM depth coverage', () => {
     chrome.alarms.get.mockResolvedValue(null);
     globalThis.chrome = chrome;
     globalThis.Logger = loggerMock;
+    const setupDriveAlarmReached = new Promise(resolve => {
+      setupDriveAlarmMock.mockImplementationOnce(async (frequency, options) => {
+        resolve({ frequency, options });
+      });
+    });
 
     unwrapTestExports(await importBackgroundEntrypoint());
     const startupListener = chrome.runtime.onStartup.addListener.mock.calls[0]?.[0];
     expect(startupListener).toEqual(expect.any(Function));
 
     startupListener();
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
+    await expect(setupDriveAlarmReached).resolves.toEqual({
+      frequency: 'daily',
+      options: { initialDelayInMinutes: 0.5 },
+    });
 
     expect(setupDriveAlarmMock).toHaveBeenCalledWith('daily', { initialDelayInMinutes: 0.5 });
   });
@@ -251,6 +257,7 @@ describe('background lifecycle native ESM depth coverage', () => {
 
 describe('drive sync handlers native ESM depth coverage', () => {
   test('handles manual upload success and clears dirty metadata with snapshot hash', async () => {
+    const chrome = globalThis.chrome;
     getDriveSyncMetadataMock.mockResolvedValue({
       profileId: 'profile-1',
       lastKnownRemoteUpdatedAt: '2026-01-01T00:00:00.000Z',
@@ -293,6 +300,7 @@ describe('drive sync handlers native ESM depth coverage', () => {
   });
 
   test('reports remote-newer upload conflicts and upload exceptions', async () => {
+    const chrome = globalThis.chrome;
     getDriveSyncMetadataMock.mockResolvedValue({
       profileId: 'profile-1',
       lastKnownRemoteUpdatedAt: null,

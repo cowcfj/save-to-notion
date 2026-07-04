@@ -13,9 +13,12 @@ await jest.unstable_mockModule('../../../scripts/utils/Logger.js', () => ({
 }));
 
 async function loadUiUtils() {
-  jest.resetModules();
   warnMock.mockClear();
-  return import('../../../scripts/utils/uiUtils.js');
+  let uiUtilsModule;
+  await jest.isolateModulesAsync(async () => {
+    uiUtilsModule = await import('../../../scripts/utils/uiUtils.js');
+  });
+  return uiUtilsModule;
 }
 
 function setReadyState(value) {

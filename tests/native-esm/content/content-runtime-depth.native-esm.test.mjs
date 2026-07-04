@@ -6,17 +6,18 @@ import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globa
 
 import { CONTENT_BRIDGE_ACTIONS } from '../../../scripts/config/runtimeActions/contentBridgeActions.js';
 import { HIGHLIGHTER_ACTIONS } from '../../../scripts/config/runtimeActions/highlighterActions.js';
-import {
-  activateFloatingRailHighlighting,
-  createContentRuntimeMessageHandler,
-} from '../../../scripts/content/runtimeMessageHandlers.js';
 
 describe('content runtime message handler native ESM depth coverage', () => {
+  let activateFloatingRailHighlighting;
+  let createContentRuntimeMessageHandler;
   let dependencies;
   let logger;
   let stableUrl;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    ({ activateFloatingRailHighlighting, createContentRuntimeMessageHandler } = await import(
+      '../../../scripts/content/runtimeMessageHandlers.js'
+    ));
     stableUrl = undefined;
     logger = {
       debug: jest.fn(),
@@ -216,6 +217,7 @@ describe('content index listener native ESM depth coverage', () => {
 
   beforeEach(() => {
     jest.resetModules();
+    jest.clearAllMocks();
     globalThis.chrome = {
       runtime: {
         onMessage: { addListener: jest.fn() },

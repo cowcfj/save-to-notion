@@ -52,8 +52,11 @@ function installBackgroundRuntime(options) {
 }
 
 async function importFreshLogger() {
-  jest.resetModules();
-  return import('../../../scripts/utils/Logger.js');
+  let loggerModule;
+  await jest.isolateModulesAsync(async () => {
+    loggerModule = await import('../../../scripts/utils/Logger.js');
+  });
+  return loggerModule;
 }
 
 let consoleSpies;
