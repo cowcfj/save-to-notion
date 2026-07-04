@@ -76,6 +76,7 @@ const config = {
     '<rootDir>/pages/**/*.js',
     '!<rootDir>/scripts/config/index.js',              // 純 re-export barrel file
     '!<rootDir>/scripts/config/extension/**/*.js',     // extension-only 純常量配置與 re-export
+    '!<rootDir>/scripts/config/env/build.example.js',  // build-time template; not browser runtime source coverage
     // Node lifecycle tooling is owned by native-default / contract tests,
     // not browser V8 source coverage.
     '!<rootDir>/scripts/postinstall.js',

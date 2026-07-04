@@ -253,7 +253,6 @@ module.exports = {
     '<rootDir>/scripts/background/utils/migrationMetadataUtils.js',
     '<rootDir>/scripts/config/contentSafe/toolbarIcons.js',
     '<rootDir>/scripts/config/contentSafe/toolbarSelectors.js',
-    '<rootDir>/scripts/config/env/build.example.js',
     '<rootDir>/scripts/config/env/build.js',
     '<rootDir>/scripts/config/env/index.js',
     '<rootDir>/scripts/config/env/runtime.js',
