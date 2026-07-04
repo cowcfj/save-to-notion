@@ -5,18 +5,12 @@ function parseVersionParts(version) {
 
   const parts = version.split('.');
   const hasMajorAndMinor = parts.length >= 2;
-  const numericParts = parts.map(part => {
-    if (!/^\d+$/.test(part)) {
-      return NaN;
-    }
-    return Number(part);
-  });
 
-  if (!hasMajorAndMinor || numericParts.some(part => Number.isNaN(part))) {
+  if (!hasMajorAndMinor || parts.some(part => !/^\d+$/.test(part))) {
     return null;
   }
 
-  return numericParts;
+  return parts.map(Number);
 }
 
 function shouldShowUpdateNotification(previousVersion, currentVersion) {

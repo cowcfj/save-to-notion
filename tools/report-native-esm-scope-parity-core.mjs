@@ -134,6 +134,26 @@ function listJavaScriptSourceFiles(rootDir, roots) {
   return [...new Set(files)].sort();
 }
 
+function applyCoverageMatch(file, isExclusion, included, excluded) {
+  if (isExclusion) {
+    included.delete(file);
+    excluded.add(file);
+    return;
+  }
+  if (!excluded.has(file)) {
+    included.add(file);
+  }
+}
+
+function applyCoveragePattern(files, pattern, included, excluded) {
+  const isExclusion = pattern.trim().startsWith('!');
+  for (const file of files) {
+    if (matchesPattern(file, pattern)) {
+      applyCoverageMatch(file, isExclusion, included, excluded);
+    }
+  }
+}
+
 function evaluateCoveragePatterns(files, patterns) {
   const included = new Set();
   const excluded = new Set();
@@ -144,18 +164,7 @@ function evaluateCoveragePatterns(files, patterns) {
       unsupportedPatterns.push(pattern);
       continue;
     }
-    const isExclusion = pattern.trim().startsWith('!');
-    for (const file of files) {
-      if (!matchesPattern(file, pattern)) {
-        continue;
-      }
-      if (isExclusion) {
-        included.delete(file);
-        excluded.add(file);
-      } else if (!excluded.has(file)) {
-        included.add(file);
-      }
-    }
+    applyCoveragePattern(files, pattern, included, excluded);
   }
 
   return {
@@ -256,39 +265,59 @@ function createFileRecords({
   });
 }
 
+function countFilesWithClassification(files, classification) {
+  return files.filter(file => file.classification === classification).length;
+}
+
+function hasPassingZeroCoverageCanaries(zeroCanaries) {
+  return zeroCanaries.length > 0 && zeroCanaries.every(file => file.nativeCoverageEntry === 'zero');
+}
+
+function buildOfficialScopeParityGate({ missingCount, extraCount }) {
+  const hasScopeParity = missingCount === 0 && extraCount === 0;
+  return {
+    id: 'official-scope-parity',
+    status: hasScopeParity ? 'pass' : 'fail',
+    blocking: false,
+    evidence: hasScopeParity
+      ? 'native candidate 範圍與 official included coverage 範圍一致。'
+      : `native candidate 與 official 範圍不一致：缺少 ${missingCount} 個，多出 ${extraCount} 個。`,
+  };
+}
+
+function buildZeroCoverageCanaryGate(zeroCanaryPass) {
+  return {
+    id: 'zero-coverage-canary',
+    status: zeroCanaryPass ? 'pass' : 'fail',
+    blocking: false,
+    evidence: zeroCanaryPass
+      ? 'zero-coverage canary 已出現在 native coverage output，且命中數為 0。'
+      : 'zero-coverage canary 缺失，或未以零命中檔案呈現。',
+  };
+}
+
+function buildReportIntegrityGate(unsupportedPatterns) {
+  const hasSupportedPatternsOnly = unsupportedPatterns.length === 0;
+  return {
+    id: 'report-integrity',
+    status: hasSupportedPatternsOnly ? 'pass' : 'fail',
+    blocking: true,
+    evidence: hasSupportedPatternsOnly
+      ? 'config、source file、coverage entry 與 output path 都維持在 repo root / coverage/native-esm 範圍內。'
+      : `發現 ${unsupportedPatterns.length} 個不支援的 collectCoverageFrom pattern。`,
+  };
+}
+
 function createGateRecords({ files, unsupportedPatterns }) {
-  const missingCount = files.filter(file => file.classification === 'missing-from-native-candidate').length;
-  const extraCount = files.filter(file => file.classification === 'extra-native-candidate').length;
+  const missingCount = countFilesWithClassification(files, 'missing-from-native-candidate');
+  const extraCount = countFilesWithClassification(files, 'extra-native-candidate');
   const zeroCanaries = files.filter(file => file.classification === 'zero-coverage-canary');
-  const zeroCanaryPass = zeroCanaries.length > 0 && zeroCanaries.every(file => file.nativeCoverageEntry === 'zero');
+  const zeroCanaryPass = hasPassingZeroCoverageCanaries(zeroCanaries);
 
   return [
-    {
-      id: 'official-scope-parity',
-      status: missingCount === 0 && extraCount === 0 ? 'pass' : 'fail',
-      blocking: false,
-      evidence:
-        missingCount === 0 && extraCount === 0
-          ? 'native candidate 範圍與 official included coverage 範圍一致。'
-          : `native candidate 與 official 範圍不一致：缺少 ${missingCount} 個，多出 ${extraCount} 個。`,
-    },
-    {
-      id: 'zero-coverage-canary',
-      status: zeroCanaryPass ? 'pass' : 'fail',
-      blocking: false,
-      evidence: zeroCanaryPass
-        ? 'zero-coverage canary 已出現在 native coverage output，且命中數為 0。'
-        : 'zero-coverage canary 缺失，或未以零命中檔案呈現。',
-    },
-    {
-      id: 'report-integrity',
-      status: unsupportedPatterns.length === 0 ? 'pass' : 'fail',
-      blocking: true,
-      evidence:
-        unsupportedPatterns.length === 0
-          ? 'config、source file、coverage entry 與 output path 都維持在 repo root / coverage/native-esm 範圍內。'
-          : `發現 ${unsupportedPatterns.length} 個不支援的 collectCoverageFrom pattern。`,
-    },
+    buildOfficialScopeParityGate({ missingCount, extraCount }),
+    buildZeroCoverageCanaryGate(zeroCanaryPass),
+    buildReportIntegrityGate(unsupportedPatterns),
   ];
 }
 
