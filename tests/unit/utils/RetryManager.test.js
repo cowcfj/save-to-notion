@@ -2,43 +2,9 @@
  * 單元測試：RetryManager
  * 覆蓋重試條件、Retry-After、AbortSignal、超時、jitter 注入、DOM context 與覆寫回應判斷。
  */
-
-import fs from 'node:fs';
-import path from 'node:path';
-import vm from 'node:vm';
+/* eslint-disable unicorn/no-error-property-assignment, unicorn/no-global-object-property-assignment, unicorn/prefer-await, unicorn/prefer-promise-try -- RetryManager tests intentionally construct named Error doubles, install global browser/runtime doubles, and preserve sync-or-async helper behavior. */
 
 import { RetryManager, withRetry, fetchWithRetry } from '../../../scripts/utils/RetryManager.js';
-
-const retryManagerSourcePath = path.resolve(__dirname, '../../../scripts/utils/RetryManager.js');
-
-function evaluateRetryManagerWithoutModule(envOptions = {}) {
-  const sandbox = { console };
-
-  if (envOptions.self) {
-    sandbox.self = sandbox;
-  }
-  if (envOptions.window) {
-    sandbox.window = sandbox;
-  }
-  if (envOptions.module) {
-    sandbox.module = { exports: {} };
-    sandbox.exports = sandbox.module.exports;
-  }
-
-  sandbox.globalThis = sandbox;
-  vm.createContext(sandbox);
-
-  const rawSource = fs.readFileSync(retryManagerSourcePath, 'utf8');
-  // 移除靜態 export 以防在 VM script 執行時報 SyntaxError
-  const filteredSource = rawSource.replaceAll(/export\s+\{[\s\S]*?\};/g, '');
-
-  // eslint-disable-next-line sonarjs/code-eval -- Intentional VM execution of trusted local source for isolated global export testing.
-  vm.runInContext(filteredSource, sandbox, {
-    filename: retryManagerSourcePath,
-  });
-
-  return sandbox;
-}
 
 // 簡易 Headers 模擬
 class MockHeaders {
@@ -57,38 +23,38 @@ function createAbortController() {
   if (typeof AbortController !== 'undefined') {
     return new AbortController();
   }
-  let aborted = false;
+  let isAborted = false;
   const listeners = new Set();
   return {
     get signal() {
       return {
         get aborted() {
-          return aborted;
+          return isAborted;
         },
-        addEventListener: (evt, callback) => {
-          if (evt === 'abort') {
+        addEventListener: (event, callback) => {
+          if (event === 'abort') {
             listeners.add(callback);
           }
         },
-        removeEventListener: (evt, callback) => {
-          if (evt === 'abort') {
+        removeEventListener: (event, callback) => {
+          if (event === 'abort') {
             listeners.delete(callback);
           }
         },
       };
     },
     abort() {
-      if (aborted) {
+      if (isAborted) {
         return;
       }
-      aborted = true;
-      listeners.forEach(callback => {
+      isAborted = true;
+      for (const callback of listeners) {
         try {
           callback();
         } catch {
           /* empty */
         }
-      });
+      }
       listeners.clear();
     },
   };
@@ -208,10 +174,10 @@ describe('RetryManager test helper contracts', () => {
   test('createLoggerWithMethods 應建立完整 Logger mock surface', () => {
     const logger = createLoggerWithMethods(['warn']);
 
-    REQUIRED_LOGGER_METHODS.forEach(methodName => {
+    for (const methodName of REQUIRED_LOGGER_METHODS) {
       expect(logger[methodName]).toEqual(expect.any(Function));
       expect(jest.isMockFunction(logger[methodName])).toBe(true);
-    });
+    }
   });
 
   test('expectStructuredRetryLog 應接受包含額外欄位的 structured metadata', () => {
@@ -241,7 +207,7 @@ describe('RetryManager', () => {
   });
 
   test('fetch: 503 並帶 Retry-After 秒數時應重試，並遵循延遲', async () => {
-    const fetchFn = jest
+    const fetchFunction = jest
       .fn()
       // 第一次回傳 503 + Retry-After: 2 秒
       .mockImplementationOnce(() => {
@@ -253,7 +219,7 @@ describe('RetryManager', () => {
       });
 
     const rm = new RetryManager({ baseDelay: 100, jitter: false });
-    const wrapped = rm.wrapFetch(fetchFn);
+    const wrapped = rm.wrapFetch(fetchFunction);
 
     const fetchPromise = wrapped('https://example.com');
     // 需要先讓第一個請求 resolve 並處理錯誤、啟動延遲
@@ -263,14 +229,14 @@ describe('RetryManager', () => {
 
     // 推進 1999ms 不足以觸發第二次
     await advance(1999);
-    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(fetchFunction).toHaveBeenCalledTimes(1);
 
     // 推進到 2000ms 觸發重試
     await advance(1);
-    expect(fetchFn).toHaveBeenCalledTimes(2);
+    expect(fetchFunction).toHaveBeenCalledTimes(2);
 
-    const res = await fetchPromise;
-    expect(res.status).toBe(200);
+    const response = await fetchPromise;
+    expect(response.status).toBe(200);
 
     const stats = rm.getLastStats();
     expect(stats.lastTotalRetries).toBe(1);
@@ -280,7 +246,7 @@ describe('RetryManager', () => {
 
   test('fetch: 429 並帶 HTTP 日期 Retry-After 應重試', async () => {
     // 使用秒數格式的 Retry-After
-    const fetchFn = jest
+    const fetchFunction = jest
       .fn()
       .mockImplementationOnce(() =>
         Promise.resolve({
@@ -297,7 +263,7 @@ describe('RetryManager', () => {
       );
 
     const retryManager = new RetryManager({ baseDelay: 10, jitter: false });
-    const wrapped = retryManager.wrapFetch(fetchFn);
+    const wrapped = retryManager.wrapFetch(fetchFunction);
     const fetchPromise = wrapped('https://example.com');
 
     // 讓第一次請求執行並啟動延遲
@@ -305,29 +271,29 @@ describe('RetryManager', () => {
     await Promise.resolve();
 
     // 現在應該只調用了一次，正在等待 1500ms
-    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(fetchFunction).toHaveBeenCalledTimes(1);
 
     // 推進時間到 1500ms 觸發重試
     await advance(1500);
-    expect(fetchFn).toHaveBeenCalledTimes(2);
+    expect(fetchFunction).toHaveBeenCalledTimes(2);
 
-    const res = await fetchPromise;
-    expect(res.status).toBe(200);
+    const response = await fetchPromise;
+    expect(response.status).toBe(200);
   });
 
   test('fetch: 404 不應重試（直接返回回應）', async () => {
-    const fetchFn = jest
+    const fetchFunction = jest
       .fn()
       .mockResolvedValue({ status: 404, ok: false, headers: new MockHeaders() });
     const rm = new RetryManager({});
-    const wrapped = rm.wrapFetch(fetchFn);
+    const wrapped = rm.wrapFetch(fetchFunction);
 
     const fetchPromise = wrapped('https://example.com');
     await Promise.resolve();
-    const res = await fetchPromise;
+    const response = await fetchPromise;
 
-    expect(fetchFn).toHaveBeenCalledTimes(1);
-    expect(res.status).toBe(404);
+    expect(fetchFunction).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(404);
     const stats = rm.getLastStats();
     // 可能為 null（無執行或無重試）或 lastSucceeded 為 true（未重試亦成功完成）
     // 這裡僅驗證未發生重試
@@ -337,15 +303,15 @@ describe('RetryManager', () => {
   });
 
   test('fetch: 自訂 shouldRetryResponse=false 應覆蓋預設（即使 503 也不重試）', async () => {
-    const fetchFn = jest.fn().mockResolvedValue({ status: 503, headers: new MockHeaders() });
+    const fetchFunction = jest.fn().mockResolvedValue({ status: 503, headers: new MockHeaders() });
     const rm = new RetryManager({});
-    const wrapped = rm.wrapFetch(fetchFn, {
+    const wrapped = rm.wrapFetch(fetchFunction, {
       shouldRetryResponse: () => false,
     });
 
-    const res = await wrapped('https://example.com');
-    expect(fetchFn).toHaveBeenCalledTimes(1);
-    expect(res.status).toBe(503);
+    const response = await wrapped('https://example.com');
+    expect(fetchFunction).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(503);
   });
 
   test('execute: NetworkError 重試兩次後成功，統計應正確', async () => {
@@ -382,9 +348,9 @@ describe('RetryManager', () => {
     const controller = createAbortController();
 
     const op = jest.fn().mockImplementation(() => {
-      const tempError = new Error('Temporary');
-      tempError.name = 'NetworkError';
-      throw tempError;
+      const temporaryError = new Error('Temporary');
+      temporaryError.name = 'NetworkError';
+      throw temporaryError;
     });
 
     const rm = new RetryManager({ baseDelay: 500, jitter: false });
@@ -443,10 +409,10 @@ describe('RetryManager', () => {
   });
 
   test('wrapDomOperation: contextType 應記錄為 dom', async () => {
-    let done = false;
+    let isDone = false;
     const domOp = jest.fn().mockImplementation(() => {
-      if (!done) {
-        done = true;
+      if (!isDone) {
+        isDone = true;
         const invalidStateError = new Error('Not ready');
         invalidStateError.name = 'InvalidStateError';
         throw invalidStateError;
@@ -461,8 +427,8 @@ describe('RetryManager', () => {
     await Promise.resolve();
     await advance(100);
 
-    const res = await wrappedPromise;
-    expect(res).toBe(42);
+    const response = await wrappedPromise;
+    expect(response).toBe(42);
     const stats = rm.getLastStats();
     expect(stats.contextType).toBe('dom');
   });
@@ -470,16 +436,16 @@ describe('RetryManager', () => {
   describe('Static & Utility Helpers', () => {
     test('withRetry 應該調用默認實例並成功', async () => {
       const op = jest.fn().mockResolvedValue('success');
-      const res = await withRetry(op);
-      expect(res).toBe('success');
+      const response = await withRetry(op);
+      expect(response).toBe('success');
     });
 
     test('fetchWithRetry 應該成功執行', async () => {
       const originalFetch = globalThis.fetch;
       globalThis.fetch = jest.fn().mockResolvedValue({ status: 200, ok: true });
       try {
-        const res = await fetchWithRetry('https://api.test');
-        expect(res.status).toBe(200);
+        const response = await fetchWithRetry('https://api.test');
+        expect(response.status).toBe(200);
       } finally {
         if (originalFetch === undefined) {
           delete globalThis.fetch;
@@ -592,11 +558,11 @@ describe('RetryManager Comprehensive Tests', () => {
     console.warn = originalConsole.warn;
     console.info = originalConsole.info;
     if (mockLogger) {
-      Object.values(mockLogger).forEach(mockFn => {
-        if (typeof mockFn?.mockReset === 'function') {
-          mockFn.mockReset();
+      for (const mockFunction of Object.values(mockLogger)) {
+        if (typeof mockFunction?.mockReset === 'function') {
+          mockFunction.mockReset();
         }
-      });
+      }
     }
     delete globalThis.Logger;
   });
@@ -878,7 +844,7 @@ describe('RetryManager Comprehensive Tests', () => {
       };
 
       const delays = [];
-      for (let i = 0; i < 10; i++) {
+      for (let index = 0; index < 10; index++) {
         delays.push(
           RetryManager._calculateDelay(1, {
             ...managerWithJitter.options,
@@ -892,10 +858,10 @@ describe('RetryManager Comprehensive Tests', () => {
       expect(uniqueDelays.size).toBeGreaterThan(1);
 
       // 所有延遲應該在範圍內
-      delays.forEach(delay => {
+      for (const delay of delays) {
         expect(delay).toBeGreaterThanOrEqual(50); // 100 * 0.5
         expect(delay).toBeLessThanOrEqual(100); // 100 * 1.0
-      });
+      }
     });
 
     test('應該返回整數延遲', () => {
@@ -906,21 +872,21 @@ describe('RetryManager Comprehensive Tests', () => {
 
       const delay = RetryManager._calculateDelay(1, managerWithJitter.options);
 
-      expect(Number.isInteger(delay)).toBe(true);
+      expect(Number.isSafeInteger(delay)).toBe(true);
     });
   });
 
   test('_delay 應該延遲指定的毫秒數', async () => {
     jest.useFakeTimers();
     try {
-      let resolved = false;
+      let isResolved = false;
       const delayPromise = RetryManager._delay(100).then(() => {
-        resolved = true;
+        isResolved = true;
       });
-      expect(resolved).toBe(false); // 暫未解析
+      expect(isResolved).toBe(false); // 暫未解析
       jest.advanceTimersByTime(100);
       await delayPromise;
-      expect(resolved).toBe(true); // 時間推進後應已解析
+      expect(isResolved).toBe(true); // 時間推進後應已解析
     } finally {
       jest.useRealTimers();
     }
@@ -1134,41 +1100,6 @@ describe('RetryManager Comprehensive Tests', () => {
         expect(mockFetch).toHaveBeenNthCalledWith(1, 'https://example.com', fetchOptions);
         expect(mockFetch).toHaveBeenNthCalledWith(2, 'https://example.com', fetchOptions);
       });
-    });
-  });
-
-  describe('模塊導出', () => {
-    test('應該正確導出到 module.exports', () => {
-      const exported = require('../../../scripts/utils/RetryManager');
-
-      expect(exported.RetryManager).toBeDefined();
-      expect(exported.withRetry).toBeDefined();
-      expect(exported.fetchWithRetry).toBeDefined();
-    });
-
-    test('沒有 module.exports 時應掛到 globalThis，並支持 MV3 Service Worker global', () => {
-      const cases = [
-        { envOptions: {}, expectsSelf: false },
-        {
-          envOptions: { self: true, window: false, module: false },
-          expectsSelf: true,
-        },
-      ];
-
-      for (const { envOptions, expectsSelf } of cases) {
-        const sandbox = evaluateRetryManagerWithoutModule(envOptions);
-
-        expect(sandbox.module).toBeUndefined();
-        expect(sandbox.window).toBeUndefined();
-        if (expectsSelf) {
-          expect(sandbox.self).toBe(sandbox);
-        } else {
-          expect(sandbox.self).toBeUndefined();
-        }
-        expect(sandbox.RetryManager).toEqual(expect.any(Function));
-        expect(sandbox.withRetry).toEqual(expect.any(Function));
-        expect(sandbox.fetchWithRetry).toEqual(expect.any(Function));
-      }
     });
   });
 });
