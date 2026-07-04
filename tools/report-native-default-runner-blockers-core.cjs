@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const defaultRoots = ['tests/unit', 'tests/contract', 'tests/native-esm'];
+const defaultRoots = ['tests/unit', 'tests/integration', 'tests/contract', 'tests/native-esm'];
 
 const blockerPriority = [
   'already-native-default',
@@ -347,7 +347,9 @@ function renderMarkdown(report) {
 
   return `# Native Default Runner Blocker Classification
 
-> Diagnostic only. This report classifies static migration blockers and does not run Jest suites or claim default runner parity.
+> Diagnostic only. This retirement-mode diagnostic classifies static migration blockers, does not execute Jest suites, does not own coverage, and does not decide default developer commands.
+>
+> Unknown classifications remain a hard diagnostic failure for classifier freshness; marker lifecycle decisions still require the marker ownership ledger plus focused owner-lane proof.
 
 ## Summary
 
