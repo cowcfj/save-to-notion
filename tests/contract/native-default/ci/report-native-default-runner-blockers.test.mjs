@@ -505,19 +505,18 @@ const testHelperBoundaryContentAndHighlighterCohort = [
 ];
 
 const retainedTestHelperBoundaryMarkerFiles = [
-  'tests/helpers/package.json',
-  'tests/unit/auth/package.json',
   'tests/unit/background/handlers/package.json',
+  'tests/unit/background/package.json',
   'tests/unit/background/services/package.json',
-  'tests/unit/content/converters/package.json',
+  'tests/unit/config/package.json',
   'tests/unit/content/extractors/package.json',
-  'tests/unit/highlighter/autoInit/package.json',
-  'tests/unit/highlighter/core/package.json',
+  'tests/unit/content/package.json',
+  'tests/unit/highlighter/package.json',
   'tests/unit/highlighter/ui/package.json',
-  'tests/unit/highlighter/utils/package.json',
-  'tests/unit/onboarding/package.json',
   'tests/unit/options/package.json',
+  'tests/unit/package.json',
   'tests/unit/sidepanel/package.json',
+  'tests/unit/utils/package.json',
 ];
 
 const retainedNativeDefaultCohort = [
@@ -707,6 +706,10 @@ describe('tools/report-native-default-runner-blockers', () => {
   afterEach(() => {
     fs.rmSync(tempRoot, { recursive: true, force: true });
     fs.rmSync(allowedOutputRoot, { recursive: true, force: true });
+  });
+
+  test('default classifier roots include all documented non-E2E suite roots', () => {
+    expect(reporter.defaultRoots).toEqual(classificationRoots);
   });
 
   test('classifies fixture suites with blocker signals and stable dispositions', () => {
@@ -1064,6 +1067,11 @@ describe('tools/report-native-default-runner-blockers', () => {
 
     const markdown = reporter.renderMarkdown(report);
 
+    expect(markdown).toContain('retirement-mode diagnostic');
+    expect(markdown).toContain('does not execute Jest suites');
+    expect(markdown).toContain('does not own coverage');
+    expect(markdown).toContain('does not decide default developer commands');
+    expect(markdown).toContain('Unknown classifications remain a hard diagnostic failure');
     expect(markdown).toContain('## Blocker Class Counts');
     expect(markdown).toContain('`jsdom-origin-or-storage`');
     expect(markdown).toContain('## Phase 3 Candidate Cohorts');
