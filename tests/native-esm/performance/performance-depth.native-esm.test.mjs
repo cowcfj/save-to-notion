@@ -15,6 +15,12 @@ const errorHandlerMock = {
   logError: jest.fn(),
 };
 
+const originalBrowserSchedulingGlobals = {
+  requestIdleCallback: globalThis.requestIdleCallback,
+  cancelIdleCallback: globalThis.cancelIdleCallback,
+  requestAnimationFrame: globalThis.requestAnimationFrame,
+};
+
 await jest.unstable_mockModule('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
   default: loggerMock,
@@ -47,6 +53,29 @@ async function importFreshPreloader() {
   await import('../../../scripts/performance/preloader.js');
 }
 
+function restoreGlobalValue(key, value) {
+  if (value === undefined) {
+    delete globalThis[key];
+    return;
+  }
+  globalThis[key] = value;
+}
+
+function restoreBrowserSchedulingGlobals() {
+  restoreGlobalValue(
+    'requestIdleCallback',
+    originalBrowserSchedulingGlobals.requestIdleCallback
+  );
+  restoreGlobalValue(
+    'cancelIdleCallback',
+    originalBrowserSchedulingGlobals.cancelIdleCallback
+  );
+  restoreGlobalValue(
+    'requestAnimationFrame',
+    originalBrowserSchedulingGlobals.requestAnimationFrame
+  );
+}
+
 function resetPreloaderGlobals() {
   delete globalThis.__NOTION_PRELOADER_INITIALIZED__;
   delete globalThis.__NOTION_BUNDLE_READY__;
@@ -77,6 +106,7 @@ beforeEach(() => {
 afterEach(() => {
   resetPreloaderGlobals();
   jest.useRealTimers();
+  restoreBrowserSchedulingGlobals();
 });
 
 describe('PerformanceOptimizer native ESM preloader takeover before preloader lifecycle import', () => {
