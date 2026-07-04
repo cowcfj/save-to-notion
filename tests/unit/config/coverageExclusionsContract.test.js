@@ -1,8 +1,13 @@
-const fs = require('node:fs');
-const path = require('node:path');
-const { loadConfig } = require('../../helpers/nodeConfigLoader.cjs');
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const rootDirectory = path.resolve(__dirname, '../../..');
+import { jest } from '@jest/globals';
+
+import { loadConfig } from '../../helpers/nodeConfigLoader.cjs';
+
+const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
+const rootDirectory = path.resolve(currentDirectory, '../../..');
 
 function normalizeCoveragePattern(pattern) {
   return pattern
@@ -40,7 +45,7 @@ async function readJestConfig() {
 }
 
 async function readNativeEsmConfig() {
-  return loadConfig(path.join(rootDirectory, 'jest.native-esm.config.cjs'));
+  return loadConfig(path.join(rootDirectory, 'jest.native-esm.config.js'));
 }
 
 async function readNativeEsmCoverageInclusions() {

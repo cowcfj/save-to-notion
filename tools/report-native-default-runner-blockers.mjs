@@ -1,20 +1,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import {
+  assertPathInsideDirectory,
+  buildClassificationReport,
+  renderMarkdown,
+} from './report-native-default-runner-blockers-core.mjs';
 
-const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
 const allowedOutputRoot = path.join(projectRoot, 'coverage', 'native-default');
 const outputPathErrorMessage = '摘要輸出路徑必須位於 coverage/native-default 底下';
-
-const {
-  assertPathInsideDirectory,
-  buildClassificationReport,
-  renderMarkdown,
-} = require('./report-native-default-runner-blockers-core.cjs');
 
 function assertNoSymlinkedSegment(filePath) {
   const absoluteFilePath = path.resolve(filePath);
@@ -51,8 +48,8 @@ function readRequiredOptionValue(argv, index, optionName) {
 function parseCliArgs(argv) {
   const options = {
     rootDir: projectRoot,
-    nativeDefaultConfigPath: path.join(projectRoot, 'jest.native-default.config.cjs'),
-    nativeCoverageConfigPath: path.join(projectRoot, 'jest.native-esm.config.cjs'),
+    nativeDefaultConfigPath: path.join(projectRoot, 'jest.native-default.config.js'),
+    nativeCoverageConfigPath: path.join(projectRoot, 'jest.native-esm.config.js'),
     summaryJsonPath: path.join(projectRoot, 'coverage/native-default/blocker-classification-summary.json'),
     summaryMarkdownPath: path.join(projectRoot, 'coverage/native-default/blocker-classification-summary.md'),
   };
@@ -107,9 +104,9 @@ function writeOutputFiles(report, options) {
   fs.writeFileSync(options.summaryMarkdownPath, renderMarkdown(report), 'utf8');
 }
 
-function runCli() {
+async function runCli() {
   const options = parseCliArgs(process.argv.slice(2));
-  const report = buildClassificationReport(options);
+  const report = await buildClassificationReport(options);
   writeOutputFiles(report, options);
   console.log(
     `Native default blocker classification 已寫入：${report.totals.discoveredSuites} 個 suite，${report.totals.unknown} 個 unknown`
@@ -118,7 +115,7 @@ function runCli() {
 
 if (process.argv[1] === __filename) {
   try {
-    runCli();
+    await runCli();
   } catch (error) {
     console.error(error.message);
     process.exitCode = 1;

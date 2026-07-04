@@ -10,6 +10,8 @@
  * 還原為直接 require source，bundle 層的整合驗證交由 tests/integration/content/ 處理。
  */
 
+import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
+
 const contentExtractorMock = {
   ContentExtractor: {
     extractAsync: jest.fn(),
@@ -45,32 +47,50 @@ const loggerMockModule = {
 };
 const entryAutoInitMock = {};
 
-function registerContentScriptMocks() {
+const moduleUrl = relativePath => new URL(relativePath, import.meta.url).href;
+
+const contentExtractorModule = moduleUrl(
+  '../../../../scripts/content/extractors/ContentExtractor.js'
+);
+const converterFactoryModule = moduleUrl(
+  '../../../../scripts/content/converters/ConverterFactory.js'
+);
+const imageCollectorModule = moduleUrl('../../../../scripts/content/extractors/ImageCollector.js');
+const imageUtilsModule = moduleUrl('../../../../scripts/utils/imageUtils.js');
+const loggerModule = moduleUrl('../../../../scripts/utils/Logger.js');
+const entryAutoInitModule = moduleUrl('../../../../scripts/highlighter/entryAutoInit.js');
+const contentEntrypointModule = moduleUrl('../../../../scripts/content/index.js');
+let contentEntrypointImportId = 0;
+
+async function registerContentScriptMocks() {
   const mocks = [
-    ['../../../../scripts/content/extractors/ContentExtractor.js', contentExtractorMock],
-    ['../../../../scripts/content/converters/ConverterFactory.js', converterFactoryMock],
-    ['../../../../scripts/content/extractors/ImageCollector.js', imageCollectorMock],
-    ['../../../../scripts/utils/imageUtils.js', imageUtilsMock],
-    ['../../../../scripts/utils/Logger.js', loggerMockModule],
-    ['../../../../scripts/highlighter/entryAutoInit.js', entryAutoInitMock],
+    [contentExtractorModule, contentExtractorMock],
+    [converterFactoryModule, converterFactoryMock],
+    [imageCollectorModule, imageCollectorMock],
+    [imageUtilsModule, imageUtilsMock],
+    [loggerModule, loggerMockModule],
+    [entryAutoInitModule, entryAutoInitMock],
   ];
 
   for (const [specifier, moduleFactory] of mocks) {
-    jest.unstable_mockModule(specifier, () => moduleFactory);
-    jest.doMock(specifier, () => moduleFactory);
+    await jest.unstable_mockModule(specifier, () => moduleFactory);
   }
 }
 
 async function loadFreshDeps() {
-  registerContentScriptMocks();
-  const { ContentExtractor } =
-    await import('../../../../scripts/content/extractors/ContentExtractor.js');
-  const { ConverterFactory } =
-    await import('../../../../scripts/content/converters/ConverterFactory.js');
-  const { ImageCollector } =
-    await import('../../../../scripts/content/extractors/ImageCollector.js');
-  const { mergeUniqueImages } = await import('../../../../scripts/utils/imageUtils.js');
-  return { ContentExtractor, ConverterFactory, ImageCollector, mergeUniqueImages };
+  await registerContentScriptMocks();
+  const { ContentExtractor } = await import(contentExtractorModule);
+  const { ConverterFactory } = await import(converterFactoryModule);
+  const { ImageCollector } = await import(imageCollectorModule);
+  const { mergeUniqueImages } = await import(imageUtilsModule);
+  return {
+    ContentExtractor,
+    ConverterFactory,
+    ImageCollector,
+    mergeUniqueImages,
+    importContentEntrypoint: () =>
+      import(`${contentEntrypointModule}?fresh=${++contentEntrypointImportId}`),
+  };
 }
 
 function setupExtractionMocks(deps, title) {
@@ -124,7 +144,7 @@ describe('content script source IIFE auto-execution', () => {
     const deps = await loadFreshDeps();
     setupExtractionMocks(deps, 'Source Require Test');
 
-    await import('../../../../scripts/content/index.js');
+    await deps.importContentEntrypoint();
 
     const result = await globalThis.__notion_extraction_promise;
 
@@ -138,7 +158,7 @@ describe('content script source IIFE auto-execution', () => {
     setupExtractionMocks(deps, 'Fresh Result');
     globalThis.__notion_extraction_result = { title: 'stale-result' };
 
-    await import('../../../../scripts/content/index.js');
+    await deps.importContentEntrypoint();
 
     const result = await globalThis.__notion_extraction_promise;
 

@@ -44,6 +44,8 @@ jobs:
               - 'tests/**'
               - 'jest.config.js'
               - 'jest.config.*.js'
+              - 'jest.native-default.config.js'
+              - 'jest.native-esm.config.js'
               - 'package.json'
               - 'package-lock.json'
               - 'sonar-project.properties'
@@ -67,6 +69,8 @@ jobs:
               - '.github/workflows/ci.yml'
               - 'jest.config.js'
               - 'jest.config.*.js'
+              - 'jest.native-default.config.js'
+              - 'jest.native-esm.config.js'
               - 'sonar-project.properties'
               - 'codecov.yml'
 
@@ -176,7 +180,7 @@ jobs:
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: .jest-cache
-          key: ${{ runner.os }}-jest-${{ hashFiles('jest.config.js', 'jest.config.*.js', 'package-lock.json') }}
+          key: ${{ runner.os }}-jest-${{ hashFiles('jest.config.js', 'jest.config.*.js', 'jest.native-default.config.js', 'jest.native-esm.config.js', 'package-lock.json') }}
           restore-keys: ${{ runner.os }}-jest-
 
       - name: Detect changed source files for related tests
@@ -185,7 +189,7 @@ jobs:
         run: |
           BASE_SHA="${{ github.event.pull_request.base.sha }}"
           git fetch --no-tags --depth=1 origin "$BASE_SHA"
-          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" HEAD -- scripts pages tests jest.config.js 'jest.config.*.js' package.json package-lock.json)
+          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" HEAD -- scripts pages tests jest.config.js 'jest.config.*.js' jest.native-default.config.js jest.native-esm.config.js package.json package-lock.json)
           if [ -n "$CHANGED_FILES" ]; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
             echo "變更的檔案:"
@@ -200,10 +204,10 @@ jobs:
           BASE_SHA="${{ github.event.pull_request.base.sha }}"
 
           # 取得所有變更檔案
-          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" HEAD -- scripts pages tests jest.config.js 'jest.config.*.js' package.json package-lock.json)
+          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" HEAD -- scripts pages tests jest.config.js 'jest.config.*.js' jest.native-default.config.js jest.native-esm.config.js package.json package-lock.json)
 
           # 配置檔案無法用 --findRelatedTests；測試檔要直接 run-by-path。
-          CANDIDATE_FILES=$(echo "$CHANGED_FILES" | grep -v -E '^(package\.json|package-lock\.json|jest\.config(\..*)?\.js)$' || true)
+          CANDIDATE_FILES=$(echo "$CHANGED_FILES" | grep -v -E '^(package\.json|package-lock\.json|jest\.config(\..*)?\.js|jest\.(native-default|native-esm)\.config\.js)$' || true)
           INCUMBENT_TEST_FILES=$(CANDIDATE_FILES="$CANDIDATE_FILES" node - <<'NODE'
           (async () => {
             const { default: config } = await import('./jest.config.js');
@@ -233,21 +237,31 @@ jobs:
           NODE
           )
           NATIVE_DEFAULT_TEST_FILES=$(CANDIDATE_FILES="$CANDIDATE_FILES" node - <<'NODE'
-          const config = require('./jest.native-default.config.cjs');
-          const candidates = (process.env.CANDIDATE_FILES || '').split('\n').filter(Boolean);
-          const rootPrefix = '<rootDir>/';
-          const allowlisted = new Set();
-          for (const pattern of config.testMatch || []) {
-            const normalized = pattern.startsWith(rootPrefix)
-              ? pattern.slice(rootPrefix.length)
-              : pattern.replace(/^\.\//, '');
-            allowlisted.add(normalized);
-          }
-          for (const candidate of candidates) {
-            if (allowlisted.has(candidate)) {
-              console.log(candidate);
+          (async () => {
+            const configModule = await import('./jest.native-default.config.js');
+            const config = configModule.default ?? configModule;
+            const candidates = (process.env.CANDIDATE_FILES || '').split('\n').filter(Boolean);
+            const rootPrefix = '<rootDir>/';
+
+            function globToRegex(glob) {
+              let normalized = glob.startsWith(rootPrefix) ? glob.slice(rootPrefix.length) : glob;
+              normalized = normalized.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+              normalized = normalized.replace(/\*\*\//g, '(?:.+/)?');
+              normalized = normalized.replace(/\*\*/g, '.*');
+              normalized = normalized.replace(/\*/g, '[^/]*');
+              return new RegExp(`^${normalized}$`);
             }
-          }
+
+            const nativeDefaultRegexes = (config.testMatch || []).map(globToRegex);
+            for (const candidate of candidates) {
+              if (nativeDefaultRegexes.some(regex => regex.test(candidate))) {
+                console.log(candidate);
+              }
+            }
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
           NODE
           )
           NATIVE_TEST_FILES=$(printf '%s\n' "$NATIVE_DEFAULT_TEST_FILES" | sed '/^$/d' | sort -u || true)
@@ -267,7 +281,7 @@ jobs:
           if [ -n "$NATIVE_TEST_FILES" ]; then
             echo "正在執行變更的 native-default Jest 測試檔:"
             echo "$NATIVE_TEST_FILES"
-            echo "$NATIVE_TEST_FILES" | NODE_OPTIONS=--experimental-vm-modules xargs npx jest --config jest.native-default.config.cjs --ci --runTestsByPath --maxWorkers=2
+            echo "$NATIVE_TEST_FILES" | NODE_OPTIONS=--experimental-vm-modules xargs npx jest --config jest.native-default.config.js --ci --runTestsByPath --maxWorkers=2
           fi
 
           if [ -n "$SOURCE_FILES" ]; then

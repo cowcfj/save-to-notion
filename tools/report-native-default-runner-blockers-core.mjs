@@ -1,5 +1,9 @@
-const fs = require('node:fs');
-const path = require('node:path');
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+const require = createRequire(import.meta.url);
 
 const defaultRoots = ['tests/unit', 'tests/integration', 'tests/contract', 'tests/native-esm'];
 
@@ -18,6 +22,7 @@ const blockerPriority = [
   'root-commonjs-test-boundary',
   'global-runtime-surface',
   'jsdom-origin-or-storage',
+  'incumbent-default-runner-owned',
   'unknown-needs-reproduction',
 ];
 
@@ -33,6 +38,7 @@ const dispositionByBlocker = {
   'node-lifecycle-contract': 'retain-incumbent-contract',
   'global-runtime-surface': 'probe-for-native-default',
   'jsdom-origin-or-storage': 'probe-for-native-default',
+  'incumbent-default-runner-owned': 'retain-incumbent-default-runner',
   'malformed-package-boundary': 'requires-package-json-fix',
   'test-helper-package-boundary': 'requires-package-boundary-change',
   'incumbent-contract-retained': 'retain-incumbent-contract',
@@ -97,19 +103,32 @@ function listTestFiles({ rootDir, roots = defaultRoots }) {
   return [...new Set(files)].sort();
 }
 
-function loadConfigTestMatch(configPath, rootDir = process.cwd()) {
+async function loadConfig(configPath) {
+  if (configPath.endsWith('.cjs')) {
+    delete require.cache[require.resolve(configPath)];
+    return require(configPath);
+  }
+
+  const importedConfig = await import(`${pathToFileURL(configPath).href}?t=${Date.now()}`);
+  return importedConfig.default ?? importedConfig;
+}
+
+async function loadConfigTestMatch(configPath, rootDir = process.cwd()) {
   if (!fs.existsSync(configPath)) {
     throw new Error(`找不到 Jest config：${configPath}`);
   }
-  delete require.cache[require.resolve(configPath)];
-  const config = require(configPath);
+  const config = await loadConfig(configPath);
   return (config.testMatch || []).map(pattern => normalizeConfigPattern(pattern, rootDir));
+}
+
+function isPackageBoundarySearchDirectory(currentDir, rootPath) {
+  return isDescendantPath(path.relative(rootPath, currentDir));
 }
 
 function findPackageBoundary({ filePath, rootDir }) {
   const rootPath = path.resolve(rootDir);
   let currentDir = path.resolve(rootDir, path.dirname(filePath));
-  while (path.relative(rootPath, currentDir) && !path.relative(rootPath, currentDir).startsWith('..') && !path.isAbsolute(path.relative(rootPath, currentDir))) {
+  while (isPackageBoundarySearchDirectory(currentDir, rootPath)) {
     const packagePath = path.join(currentDir, 'package.json');
     if (fs.existsSync(packagePath)) {
       try {
@@ -170,46 +189,96 @@ function isProductionEsmRequire(specifier) {
   return isProductionRuntimeRequire(specifier) && !specifier.endsWith('.cjs');
 }
 
+function getPackageBoundarySignal(packageBoundary) {
+  if (packageBoundary?.malformed) {
+    return 'malformed-package-boundary';
+  }
+  if (packageBoundary) {
+    return 'test-helper-package-boundary';
+  }
+  return null;
+}
+
+function hasJestMock(source) {
+  return /\bjest\.mock\s*\(/.test(source);
+}
+
+function hasJestRequireActual(source) {
+  return /\bjest\.requireActual\s*\(/.test(source);
+}
+
+function hasNodeLifecycleContract(source) {
+  return /\bmodule\.exports\b|\brequire\.main\b|\bprocess\.argv\b|scripts\/postinstall\.js/.test(
+    source
+  );
+}
+
+function hasGlobalRuntimeSurface(source) {
+  return /\bglobalThis\b|\bglobal\./.test(source);
+}
+
+function hasJsdomOriginOrStorage(source) {
+  return /\b(?:localStorage|sessionStorage)\b/.test(source);
+}
+
+function hasCommonJsOrEsmBoundarySyntax(source) {
+  return /\brequire\s*\(/.test(source) || hasRootEsmSyntax(source);
+}
+
+function hasRootCommonJsTestBoundary({ normalizedPath, source }) {
+  return normalizedPath.endsWith('.js') && hasCommonJsOrEsmBoundarySyntax(source);
+}
+
+const signalRules = Object.freeze([
+  {
+    signal: 'incumbent-contract-retained',
+    matches: ({ normalizedPath }) => normalizedPath.startsWith('tests/contract/'),
+  },
+  {
+    signal: 'babel-hoisted-mock',
+    matches: ({ source }) => hasJestMock(source),
+  },
+  {
+    signal: 'jest-require-actual-esm',
+    matches: ({ source }) => hasJestRequireActual(source),
+  },
+  {
+    signal: 'contained-cjs-require',
+    matches: ({ requireSpecifiers }) => requireSpecifiers.some(isContainedCjsRequire),
+  },
+  {
+    signal: 'commonjs-require-production-esm',
+    matches: ({ requireSpecifiers }) => requireSpecifiers.some(isProductionEsmRequire),
+  },
+  {
+    signal: 'node-lifecycle-contract',
+    matches: ({ source }) => hasNodeLifecycleContract(source),
+  },
+  {
+    signal: 'global-runtime-surface',
+    matches: ({ source }) => hasGlobalRuntimeSurface(source),
+  },
+  {
+    signal: 'jsdom-origin-or-storage',
+    matches: ({ source }) => hasJsdomOriginOrStorage(source),
+  },
+  {
+    signal: 'root-commonjs-test-boundary',
+    matches: hasRootCommonJsTestBoundary,
+  },
+]);
+
 function detectSignals({ filePath, source, packageBoundary }) {
   const signals = [];
   const normalizedPath = normalizeRelativePath(filePath);
   const requireSpecifiers = collectRequireSpecifiers(source);
+  const boundarySignal = getPackageBoundarySignal(packageBoundary);
 
-  if (packageBoundary?.malformed) {
-    signals.push('malformed-package-boundary');
-  } else if (packageBoundary) {
-    signals.push('test-helper-package-boundary');
+  if (boundarySignal) {
+    signals.push(boundarySignal);
   }
-  if (normalizedPath.startsWith('tests/contract/')) {
-    signals.push('incumbent-contract-retained');
-  }
-  if (/\bjest\.mock\s*\(/.test(source)) {
-    signals.push('babel-hoisted-mock');
-  }
-  if (/\bjest\.requireActual\s*\(/.test(source)) {
-    signals.push('jest-require-actual-esm');
-  }
-  if (requireSpecifiers.some(isContainedCjsRequire)) {
-    signals.push('contained-cjs-require');
-  }
-  if (requireSpecifiers.some(isProductionEsmRequire)) {
-    signals.push('commonjs-require-production-esm');
-  }
-  if (/\bmodule\.exports\b|\brequire\.main\b|\bprocess\.argv\b|scripts\/postinstall\.js/.test(source)) {
-    signals.push('node-lifecycle-contract');
-  }
-  if (/\bglobalThis\b|\bglobal\./.test(source)) {
-    signals.push('global-runtime-surface');
-  }
-  if (/\b(?:localStorage|sessionStorage)\b/.test(source)) {
-    signals.push('jsdom-origin-or-storage');
-  }
-  if (
-    normalizedPath.endsWith('.js') &&
-    (/\brequire\s*\(/.test(source) || hasRootEsmSyntax(source))
-  ) {
-    signals.push('root-commonjs-test-boundary');
-  }
+  const signalContext = { normalizedPath, requireSpecifiers, source };
+  signals.push(...signalRules.filter(rule => rule.matches(signalContext)).map(rule => rule.signal));
 
   return [...new Set(signals)];
 }
@@ -261,6 +330,9 @@ function classifyFile({
   } else if (filePath.endsWith('.native-esm.test.mjs')) {
     signals.unshift('native-esm-candidate');
   }
+  if (signals.length === 0) {
+    signals.push('incumbent-default-runner-owned');
+  }
 
   const primaryBlocker = choosePrimaryBlocker([...new Set(signals)]);
   return {
@@ -273,18 +345,18 @@ function classifyFile({
   };
 }
 
-function buildClassificationReport(options) {
+async function buildClassificationReport(options) {
   const {
     rootDir = process.cwd(),
     roots = defaultRoots,
-    nativeDefaultConfigPath = path.join(rootDir, 'jest.native-default.config.cjs'),
-    nativeCoverageConfigPath = path.join(rootDir, 'jest.native-esm.config.cjs'),
+    nativeDefaultConfigPath = path.join(rootDir, 'jest.native-default.config.js'),
+    nativeCoverageConfigPath = path.join(rootDir, 'jest.native-esm.config.js'),
     files,
   } = options || {};
 
   const discoveredFiles = files || listTestFiles({ rootDir, roots });
-  const nativeDefaultSet = new Set(loadConfigTestMatch(nativeDefaultConfigPath, rootDir));
-  const nativeCoverageSet = new Set(loadConfigTestMatch(nativeCoverageConfigPath, rootDir));
+  const nativeDefaultSet = new Set(await loadConfigTestMatch(nativeDefaultConfigPath, rootDir));
+  const nativeCoverageSet = new Set(await loadConfigTestMatch(nativeCoverageConfigPath, rootDir));
   const records = discoveredFiles.map(filePath =>
     classifyFile({ filePath, rootDir, roots, nativeDefaultSet, nativeCoverageSet })
   );
@@ -396,7 +468,7 @@ ${renderFileRows(report.files)}
 `;
 }
 
-module.exports = {
+export {
   assertPathInsideDirectory,
   buildClassificationReport,
   classifyFile,

@@ -3,8 +3,12 @@
  * 驗證所有 arrow function message builders 回傳正確型別且嵌入參數
  */
 
-let fs;
-let path;
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
+
 let UI_MESSAGES;
 let ERROR_MESSAGES;
 let ERROR_TYPES;
@@ -16,14 +20,14 @@ let HIGHLIGHTER_MESSAGES;
 let DATA_SOURCE_MESSAGES;
 
 function readProjectSource(relativePath) {
-  return fs.readFileSync(path.resolve(__dirname, '../../../..', relativePath), 'utf8');
+  return fs.readFileSync(path.resolve(currentDirectory, '../../../..', relativePath), 'utf8');
 }
 
-function collectJsFiles(dir) {
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
+function collectJsFiles(directory) {
+  const entries = fs.readdirSync(directory, { withFileTypes: true });
   const results = [];
   for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
+    const fullPath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
       results.push(...collectJsFiles(fullPath));
     } else if (entry.name.endsWith('.js')) {
@@ -35,9 +39,6 @@ function collectJsFiles(dir) {
 
 describe('配置模組 - messages.js 動態函式', () => {
   beforeAll(async () => {
-    fs = await import('node:fs');
-    // eslint-disable-next-line unicorn/import-style
-    ({ default: path } = await import('node:path'));
     ({ UI_MESSAGES, ERROR_MESSAGES, ERROR_TYPES, API_ERROR_PATTERNS } =
       await import('../../../../scripts/config/shared/messages.js'));
     ({ ErrorHandler } = await import('../../../../scripts/utils/ErrorHandler.js'));
@@ -102,7 +103,7 @@ describe('配置模組 - messages.js 動態函式', () => {
     });
   });
 
-  const singleParamFunctions = [
+  const singleParameterFunctions = [
     {
       path: 'DATA_SOURCE.SEARCHING',
       getFn: () => UI_MESSAGES.DATA_SOURCE.SEARCHING,
@@ -206,7 +207,7 @@ describe('配置模組 - messages.js 動態函式', () => {
     },
   ];
 
-  test.each(singleParamFunctions)('UI_MESSAGES.$path 應回傳包含參數的字串', ({ getFn, arg }) => {
+  test.each(singleParameterFunctions)('UI_MESSAGES.$path 應回傳包含參數的字串', ({ getFn, arg }) => {
     const result = getFn()(arg);
     expect(typeof result).toBe('string');
     expect(result).toContain(String(arg));
@@ -229,9 +230,9 @@ describe('配置模組 - messages.js 動態函式', () => {
         CLEANUP_SUMMARY_SIZE
       );
       expect(typeof result).toBe('string');
-      CLEANUP_SUMMARY_ITEMS.forEach(item => {
+      for (const item of CLEANUP_SUMMARY_ITEMS) {
         expect(result).toContain(item);
-      });
+      }
       expect(result).toContain(String(CLEANUP_SUMMARY_SIZE));
     });
 
@@ -478,7 +479,7 @@ describe('配置模組 - messages.js 動態函式', () => {
     });
 
     test('生產程式碼不應引用舊的訊息葉路徑', () => {
-      const projectRoot = path.resolve(__dirname, '../../../..');
+      const projectRoot = path.resolve(currentDirectory, '../../../..');
       const scriptsDir = path.join(projectRoot, 'scripts');
 
       const jsFiles = collectJsFiles(scriptsDir);

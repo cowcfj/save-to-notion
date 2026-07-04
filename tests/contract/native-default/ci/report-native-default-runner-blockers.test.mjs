@@ -6,12 +6,17 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { fileURLToPath } from 'node:url';
-import * as reporter from '../../../../tools/report-native-default-runner-blockers-core.cjs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import * as reporter from '../../../../tools/report-native-default-runner-blockers-core.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const require = createRequire(import.meta.url);
+
+async function importConfig(configPath) {
+  const importedConfig = await import(pathToFileURL(configPath).href);
+  return importedConfig.default ?? importedConfig;
+}
 
 const createDirectory = directoryPath => {
   fs.mkdirSync(directoryPath, { recursive: true });
@@ -27,7 +32,7 @@ const writeConfig = (rootDir, relativePath, testMatch) => {
   writeFile(
     rootDir,
     relativePath,
-    `'use strict';\n\nmodule.exports = ${JSON.stringify({ rootDir: '.', testMatch }, null, 2)};\n`
+    `export default ${JSON.stringify({ rootDir: '.', testMatch }, null, 2)};\n`
   );
 };
 
@@ -41,8 +46,8 @@ const expectFileContents = (filePath, expectedContents) => {
 
 const setupNativeRunnerFixture = rootDir => {
   writeFile(rootDir, 'tests/unit/storage.test.js', 'sessionStorage.clear();');
-  writeConfig(rootDir, 'jest.native-default.config.cjs', []);
-  writeConfig(rootDir, 'jest.native-esm.config.cjs', []);
+  writeConfig(rootDir, 'jest.native-default.config.js', []);
+  writeConfig(rootDir, 'jest.native-esm.config.js', []);
 };
 
 const buildRejectedSymlinkOutputPaths = ({ allowedOutputRoot, fileName, flag, symlinkPath }) => ({
@@ -84,14 +89,19 @@ const writeClassificationFixtures = rootDir => {
   );
   writeFile(
     rootDir,
+    'scripts/fixtures/retained.cjs',
+    'module.exports = { retained: true };'
+  );
+  writeFile(
+    rootDir,
     'tests/unit/contained-cjs-require.test.js',
-    'const tool = require("../../../scripts/background/utils/updateNotificationVersion.cjs");'
+    'const tool = require("../../scripts/fixtures/retained.cjs");'
   );
   writeFile(
     rootDir,
     'tests/unit/mixed-contained-and-production-require.test.js',
     [
-      'const retained = require("../../../scripts/background/utils/updateNotificationVersion.cjs");',
+      'const retained = require("../../scripts/fixtures/retained.cjs");',
       'const migrated = require("../../../scripts/background/utils/BlockBuilder.js");',
     ].join('\n')
   );
@@ -116,10 +126,10 @@ const writeClassificationFixtures = rootDir => {
 };
 
 const writeNativeRunnerConfigs = rootDir => {
-  writeConfig(rootDir, 'jest.native-default.config.cjs', [
+  writeConfig(rootDir, 'jest.native-default.config.js', [
     '<rootDir>/tests/native-esm/ready.native-esm.test.mjs',
   ]);
-  writeConfig(rootDir, 'jest.native-esm.config.cjs', [
+  writeConfig(rootDir, 'jest.native-esm.config.js', [
     '<rootDir>/tests/native-esm/ready.native-esm.test.mjs',
     '<rootDir>/tests/native-esm/coverage-only.native-esm.test.mjs',
   ]);
@@ -209,9 +219,9 @@ const classificationRoots = ['tests/unit', 'tests/integration', 'tests/contract'
 
 const phase2OwnerPathNativeDefaultCohort = [
   'tests/integration/native-default/background/background-require.integration.test.mjs',
-  'tests/unit/native-default/content/content-script.require.test.js',
+  'tests/unit/native-default/content/content-script.require.test.mjs',
   'tests/unit/native-default/scripts/assert-native-esm-line-hits.test.mjs',
-  'tests/unit/native-default/scripts/postinstall.test.js',
+  'tests/unit/native-default/scripts/postinstall.test.cjs',
   'tests/unit/native-default/scripts/report-native-esm-scope-parity.test.mjs',
 ];
 
@@ -263,8 +273,8 @@ const babelHoistedMockOrderingCohort3HighlighterIndex = [
 ];
 
 const babelHoistedMockOrderingCohort3BackgroundEntrypoint = [
-  'tests/unit/background/extension-lifecycle.test.js',
-  'tests/unit/background.test.js',
+  'tests/unit/background/extension-lifecycle.test.cjs',
+  'tests/unit/background.test.cjs',
 ];
 
 const babelHoistedMockOrderingCohort4Entrypoints = [
@@ -288,10 +298,7 @@ const commonjsRequireProductionEsmLoggerCohort = [
   'tests/unit/utils/Logger.test.js',
 ];
 
-// This live-repo cohort intentionally tracks the one retained contained-CJS suite
-// in the current classifier ledger. If it fails, inspect the suite's require()
-// calls and update the cohort only after confirming the ledger changed.
-const containedCjsRequireCohort = ['tests/unit/background/updateNotificationVersion.test.js'];
+const updateNotificationVersionCohort = ['tests/unit/background/updateNotificationVersion.test.js'];
 
 const globalRuntimeSurfaceDispositionCandidates = [
   'tests/unit/background/notification-handlers.test.js',
@@ -539,8 +546,8 @@ const buildClassificationReport = (reporter, rootDir, files) =>
   reporter.buildClassificationReport({
     rootDir,
     roots: classificationRoots,
-    nativeDefaultConfigPath: path.join(rootDir, 'jest.native-default.config.cjs'),
-    nativeCoverageConfigPath: path.join(rootDir, 'jest.native-esm.config.cjs'),
+    nativeDefaultConfigPath: path.join(rootDir, 'jest.native-default.config.js'),
+    nativeCoverageConfigPath: path.join(rootDir, 'jest.native-esm.config.js'),
     ...(files ? { files } : {}),
   });
 
@@ -650,23 +657,22 @@ const expectCohortSignalsAbsent = (report, cohortPaths, signals) => {
   }
 };
 
-const expectRetainedContainedCjsReport = report => {
+const expectUpdateNotificationVersionReport = report => {
   expect(report.files).toEqual([
     expect.objectContaining({
       path: 'tests/unit/background/updateNotificationVersion.test.js',
-      primaryBlocker: 'test-helper-package-boundary',
-      disposition: 'requires-package-boundary-change',
-      packageBoundary: 'tests/unit/background/package.json',
+      primaryBlocker: 'incumbent-default-runner-owned',
+      disposition: 'retain-incumbent-default-runner',
+      packageBoundary: null,
     }),
   ]);
   expect(report.files[0].signals).toEqual(
-    expect.arrayContaining([
-      'test-helper-package-boundary',
-      'contained-cjs-require',
-      'root-commonjs-test-boundary',
-    ])
+    expect.arrayContaining(['incumbent-default-runner-owned'])
   );
+  expect(report.files[0].signals).not.toContain('test-helper-package-boundary');
+  expect(report.files[0].signals).not.toContain('contained-cjs-require');
   expect(report.files[0].signals).not.toContain('commonjs-require-production-esm');
+  expect(report.files[0].signals).not.toContain('root-commonjs-test-boundary');
 };
 
 const expectDispositionCandidateRecords = (report, candidatePaths, expectedBlocker) => {
@@ -708,17 +714,17 @@ describe('tools/report-native-default-runner-blockers', () => {
     fs.rmSync(allowedOutputRoot, { recursive: true, force: true });
   });
 
-  test('default classifier roots include all documented non-E2E suite roots', () => {
+  test('default classifier roots include all documented non-E2E suite roots', async () => {
     expect(reporter.defaultRoots).toEqual(classificationRoots);
   });
 
-  test('classifies fixture suites with blocker signals and stable dispositions', () => {
+  test('classifies fixture suites with blocker signals and stable dispositions', async () => {
     expect.hasAssertions();
 
     writeClassificationFixtures(tempRoot);
     writeNativeRunnerConfigs(tempRoot);
 
-    const report = buildClassificationReport(reporter, tempRoot);
+    const report = await buildClassificationReport(reporter, tempRoot);
 
     expect(report.files).toHaveLength(13);
     expectRootTotals(report, {
@@ -752,7 +758,7 @@ describe('tools/report-native-default-runner-blockers', () => {
     );
   });
 
-  test('cohort signal absence helper rejects each forbidden signal independently', () => {
+  test('cohort signal absence helper rejects each forbidden signal independently', async () => {
     expect(() =>
       expectCohortSignalsAbsent(
         {
@@ -769,7 +775,7 @@ describe('tools/report-native-default-runner-blockers', () => {
     ).toThrow();
   });
 
-  test('disposition candidate helper rejects fallback blocker records', () => {
+  test('disposition candidate helper rejects fallback blocker records', async () => {
     expect(() =>
       expectDispositionCandidateRecords(
         {
@@ -786,11 +792,11 @@ describe('tools/report-native-default-runner-blockers', () => {
     ).toThrow();
   });
 
-  test('目前 repo 的 retained native-default cohort 沒有未知 blockers', () => {
+  test('目前 repo 的 retained native-default cohort 沒有未知 blockers', async () => {
     expect.hasAssertions();
 
-    const report = buildClassificationReport(reporter, projectRoot);
-    const promotedCohortReport = buildClassificationReport(
+    const report = await buildClassificationReport(reporter, projectRoot);
+    const promotedCohortReport = await buildClassificationReport(
       reporter,
       projectRoot,
       retainedNativeDefaultCohort
@@ -799,11 +805,11 @@ describe('tools/report-native-default-runner-blockers', () => {
     expect(report.totals.unknown).toBe(0);
     expectPromotedCohortRecords(promotedCohortReport, retainedNativeDefaultCohort);
     expectPromotedCohortRecords(
-      buildClassificationReport(reporter, projectRoot, phase2OwnerPathNativeDefaultCohort),
+      await buildClassificationReport(reporter, projectRoot, phase2OwnerPathNativeDefaultCohort),
       phase2OwnerPathNativeDefaultCohort
     );
     expectPromotedCohortRecords(
-      buildClassificationReport(reporter, projectRoot, phase2BNativeDefaultOwnerPathCohort),
+      await buildClassificationReport(reporter, projectRoot, phase2BNativeDefaultOwnerPathCohort),
       phase2BNativeDefaultOwnerPathCohort
     );
     expectCohortSignalsAbsent(
@@ -811,7 +817,7 @@ describe('tools/report-native-default-runner-blockers', () => {
       phase2BNativeDefaultOwnerPathCohort,
       ['commonjs-require-production-esm']
     );
-    const incumbentOwnedProbeReport = buildClassificationReport(
+    const incumbentOwnedProbeReport = await buildClassificationReport(
       reporter,
       projectRoot,
       phase2BIncumbentOwnedProbeSuites
@@ -820,16 +826,16 @@ describe('tools/report-native-default-runner-blockers', () => {
       expect(suiteRecord.primaryBlocker).not.toBe('already-native-default');
       expect(suiteRecord.disposition).not.toBe('already-native-default');
     }
-    const containedCjsReport = buildClassificationReport(
+    const updateNotificationVersionReport = await buildClassificationReport(
       reporter,
       projectRoot,
-      containedCjsRequireCohort
+      updateNotificationVersionCohort
     );
 
-    expectRetainedContainedCjsReport(containedCjsReport);
+    expectUpdateNotificationVersionReport(updateNotificationVersionReport);
   });
 
-  test('目前 repo 的 root/global disposition candidates 保持在明確 closure scope', () => {
+  test('目前 repo 的 root/global disposition candidates 保持在明確 closure scope', async () => {
     expect.hasAssertions();
 
     const allDispositionCandidates = [
@@ -837,34 +843,52 @@ describe('tools/report-native-default-runner-blockers', () => {
       ...rootCommonjsDispositionCandidates,
     ];
     const uniqueCandidates = new Set(allDispositionCandidates);
-    const report = buildClassificationReport(reporter, projectRoot, allDispositionCandidates);
+    const report = await buildClassificationReport(reporter, projectRoot, allDispositionCandidates);
 
     expect(uniqueCandidates.size).toBe(41);
     expect(report.files).toHaveLength(allDispositionCandidates.length);
     expectDispositionCandidateRecords(
       report,
       globalRuntimeSurfaceDispositionCandidates,
-      ['already-native-default', 'test-helper-package-boundary']
+      [
+        'already-native-default',
+        'global-runtime-surface',
+        'root-commonjs-test-boundary',
+        'incumbent-default-runner-owned',
+      ]
     );
     expectDispositionCandidateRecords(
       report,
       rootCommonjsPureOrStaticDispositionCandidates,
-      ['already-native-default', 'test-helper-package-boundary']
+      [
+        'already-native-default',
+        'root-commonjs-test-boundary',
+        'global-runtime-surface',
+        'incumbent-default-runner-owned',
+      ]
     );
     expectDispositionCandidateRecords(
       report,
       rootCommonjsGlobalOverlapDispositionCandidates,
-      ['already-native-default', 'test-helper-package-boundary']
+      [
+        'already-native-default',
+        'root-commonjs-test-boundary',
+        'global-runtime-surface',
+        'jsdom-origin-or-storage',
+        'incumbent-default-runner-owned',
+      ]
     );
     expectDispositionCandidateRecords(
       report,
       rootCommonjsRetainedCutoverCandidates,
-      'test-helper-package-boundary'
+      ['root-commonjs-test-boundary', 'incumbent-default-runner-owned']
     );
   });
 
-  test('native-default runner config stays outside coverage ownership', () => {
-    const nativeDefaultConfig = require(path.join(projectRoot, 'jest.native-default.config.cjs'));
+  test('native-default runner config stays outside coverage ownership', async () => {
+    const nativeDefaultConfig = await importConfig(
+      path.join(projectRoot, 'jest.native-default.config.js')
+    );
 
     expect(nativeDefaultConfig).not.toHaveProperty('coverageProvider');
     expect(nativeDefaultConfig).not.toHaveProperty('coverageDirectory');
@@ -873,41 +897,40 @@ describe('tools/report-native-default-runner-blockers', () => {
     expect(nativeDefaultConfig).not.toHaveProperty('coverageThreshold');
   });
 
-  test('目前 repo 的 test-helper package boundary cohort 仍由 marker boundary 明確標記', () => {
+  test('目前 repo 的舊 test-helper package boundary cohort 已移除 marker boundary', async () => {
     expect.hasAssertions();
 
     const cohortPaths = [
       ...testHelperBoundaryPlatformCohort,
       ...testHelperBoundaryContentAndHighlighterCohort,
     ];
-    const cohortReport = buildClassificationReport(reporter, projectRoot, cohortPaths);
+    const cohortReport = await buildClassificationReport(reporter, projectRoot, cohortPaths);
 
     for (const markerPath of retainedTestHelperBoundaryMarkerFiles) {
-      expect(fs.existsSync(path.join(projectRoot, markerPath))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, markerPath))).toBe(false);
     }
     expect(cohortReport.files).toHaveLength(cohortPaths.length);
     for (const suitePath of cohortPaths) {
       const record = cohortReport.files.find(file => file.path === suitePath);
-      expect(record).toEqual(
-        expect.objectContaining({
-          path: suitePath,
-          primaryBlocker: 'test-helper-package-boundary',
-          disposition: 'requires-package-boundary-change',
-        })
-      );
+      expect(record.path).toBe(suitePath);
+      expect(record.packageBoundary).toBeNull();
+      expect(record.signals).not.toContain('test-helper-package-boundary');
+      expect(record.primaryBlocker).not.toBe('test-helper-package-boundary');
+      expect(record.primaryBlocker).not.toBe('unknown-needs-reproduction');
+      expect(record.disposition).not.toBe('requires-package-boundary-change');
     }
   });
 
-  test('classifies custom root suites under the caller-provided roots', () => {
+  test('classifies custom root suites under the caller-provided roots', async () => {
     writeFile(tempRoot, 'tests/custom/domain/custom-root.test.js', 'test("custom", () => {});');
-    writeConfig(tempRoot, 'jest.native-default.config.cjs', []);
-    writeConfig(tempRoot, 'jest.native-esm.config.cjs', []);
+    writeConfig(tempRoot, 'jest.native-default.config.js', []);
+    writeConfig(tempRoot, 'jest.native-esm.config.js', []);
 
-    const report = reporter.buildClassificationReport({
+    const report = await reporter.buildClassificationReport({
       rootDir: tempRoot,
       roots: ['tests/custom'],
-      nativeDefaultConfigPath: path.join(tempRoot, 'jest.native-default.config.cjs'),
-      nativeCoverageConfigPath: path.join(tempRoot, 'jest.native-esm.config.cjs'),
+      nativeDefaultConfigPath: path.join(tempRoot, 'jest.native-default.config.js'),
+      nativeCoverageConfigPath: path.join(tempRoot, 'jest.native-esm.config.js'),
     });
 
     expect(report.files).toEqual([
@@ -919,7 +942,7 @@ describe('tools/report-native-default-runner-blockers', () => {
     expect(report.totals.byRoot).toEqual({ 'tests/custom': 1 });
   });
 
-  test('detects root ESM syntax without regex backtracking-prone line anchors', () => {
+  test('detects root ESM syntax without regex backtracking-prone line anchors', async () => {
     expect(reporter.hasRootEsmSyntax('const importable = true;\n  export { importable };\n')).toBe(
       true
     );
@@ -930,13 +953,13 @@ describe('tools/report-native-default-runner-blockers', () => {
 
   test.each(packageBoundaryCases)(
     '$description',
-    ({ packageJsonPath, packageJsonContent, testFilePath, testSource, expectedRecord }) => {
+    async ({ packageJsonPath, packageJsonContent, testFilePath, testSource, expectedRecord }) => {
       writeFile(tempRoot, 'tests/unit/package.json', JSON.stringify({ type: 'module' }));
       writeFile(tempRoot, packageJsonPath, packageJsonContent);
       writeFile(tempRoot, testFilePath, testSource);
       writeNativeRunnerConfigs(tempRoot);
 
-      const report = buildClassificationReport(reporter, tempRoot);
+      const report = await buildClassificationReport(reporter, tempRoot);
 
       expect(report.files).toEqual(
         expect.arrayContaining([expect.objectContaining(expectedRecord)])
@@ -944,12 +967,12 @@ describe('tools/report-native-default-runner-blockers', () => {
     }
   );
 
-  test('does not treat the project root package.json as a nested test-helper boundary', () => {
+  test('does not treat the project root package.json as a nested test-helper boundary', async () => {
     writeFile(tempRoot, 'package.json', JSON.stringify({ type: 'commonjs' }));
     writeFile(tempRoot, 'tests/unit/root-package-only.test.js', 'test("root", () => {});');
     writeNativeRunnerConfigs(tempRoot);
 
-    const report = buildClassificationReport(reporter, tempRoot);
+    const report = await buildClassificationReport(reporter, tempRoot);
 
     expect(report.files).toEqual(
       expect.arrayContaining([
@@ -962,7 +985,7 @@ describe('tools/report-native-default-runner-blockers', () => {
     );
   });
 
-  test('finds package boundaries when rootDir is passed as a relative path', () => {
+  test('finds package boundaries when rootDir is passed as a relative path', async () => {
     writeFile(
       tempRoot,
       'tests/unit/helper-package/package.json',
@@ -975,11 +998,11 @@ describe('tools/report-native-default-runner-blockers', () => {
     );
     writeNativeRunnerConfigs(tempRoot);
 
-    const report = reporter.buildClassificationReport({
+    const report = await reporter.buildClassificationReport({
       rootDir: path.relative(projectRoot, tempRoot),
       roots: ['tests/unit'],
-      nativeDefaultConfigPath: path.join(tempRoot, 'jest.native-default.config.cjs'),
-      nativeCoverageConfigPath: path.join(tempRoot, 'jest.native-esm.config.cjs'),
+      nativeDefaultConfigPath: path.join(tempRoot, 'jest.native-default.config.js'),
+      nativeCoverageConfigPath: path.join(tempRoot, 'jest.native-esm.config.js'),
       files: ['tests/unit/helper-package/package-boundary.test.js'],
     });
 
@@ -994,7 +1017,7 @@ describe('tools/report-native-default-runner-blockers', () => {
     );
   });
 
-  test('does not cross into same-prefix sibling directories when resolving package boundaries', () => {
+  test('does not cross into same-prefix sibling directories when resolving package boundaries', async () => {
     const nestedRootDir = path.join(tempRoot, 'tests/unit');
     writeFile(tempRoot, 'tests/unitary/package.json', JSON.stringify({ type: 'module' }));
     writeFile(tempRoot, 'tests/unitary/package-boundary.test.js', 'test("esm", () => {});');
@@ -1009,14 +1032,14 @@ describe('tools/report-native-default-runner-blockers', () => {
     expect(record.signals).not.toContain('test-helper-package-boundary');
   });
 
-  test('classifies caller-provided file paths with the same record shape as discovered files', () => {
+  test('classifies caller-provided file paths with the same record shape as discovered files', async () => {
     setupNativeRunnerFixture(tempRoot);
 
-    const report = reporter.buildClassificationReport({
+    const report = await reporter.buildClassificationReport({
       rootDir: tempRoot,
       roots: ['tests/unit'],
-      nativeDefaultConfigPath: path.join(tempRoot, 'jest.native-default.config.cjs'),
-      nativeCoverageConfigPath: path.join(tempRoot, 'jest.native-esm.config.cjs'),
+      nativeDefaultConfigPath: path.join(tempRoot, 'jest.native-default.config.js'),
+      nativeCoverageConfigPath: path.join(tempRoot, 'jest.native-esm.config.js'),
       files: ['tests/unit/storage.test.js'],
     });
 
@@ -1036,7 +1059,7 @@ describe('tools/report-native-default-runner-blockers', () => {
     ]);
   });
 
-  test('classifies a single file when native runner sets are omitted', () => {
+  test('classifies a single file when native runner sets are omitted', async () => {
     writeFile(tempRoot, 'tests/unit/storage.test.js', 'sessionStorage.clear();');
 
     const record = reporter.classifyFile({
@@ -1054,14 +1077,14 @@ describe('tools/report-native-default-runner-blockers', () => {
     );
   });
 
-  test('renders Markdown with blocker counts and candidate rows', () => {
+  test('renders Markdown with blocker counts and candidate rows', async () => {
     setupNativeRunnerFixture(tempRoot);
 
-    const report = reporter.buildClassificationReport({
+    const report = await reporter.buildClassificationReport({
       rootDir: tempRoot,
       roots: ['tests/unit', 'tests/contract', 'tests/native-esm'],
-      nativeDefaultConfigPath: path.join(tempRoot, 'jest.native-default.config.cjs'),
-      nativeCoverageConfigPath: path.join(tempRoot, 'jest.native-esm.config.cjs'),
+      nativeDefaultConfigPath: path.join(tempRoot, 'jest.native-default.config.js'),
+      nativeCoverageConfigPath: path.join(tempRoot, 'jest.native-esm.config.js'),
       files: ['tests/unit/storage.test.js'],
     });
 
@@ -1078,16 +1101,16 @@ describe('tools/report-native-default-runner-blockers', () => {
     expect(markdown).toContain('tests/unit/storage.test.js');
   });
 
-  test('CLI writes summaries under coverage/native-default', () => {
+  test('CLI writes summaries under coverage/native-default', async () => {
     setupNativeRunnerFixture(tempRoot);
 
     const result = runCliWithArgs([
       '--root-dir',
       tempRoot,
       '--native-default-config',
-      path.join(tempRoot, 'jest.native-default.config.cjs'),
+      path.join(tempRoot, 'jest.native-default.config.js'),
       '--native-coverage-config',
-      path.join(tempRoot, 'jest.native-esm.config.cjs'),
+      path.join(tempRoot, 'jest.native-esm.config.js'),
       '--summary-json',
       path.join(allowedOutputRoot, 'blocker-classification-summary.json'),
       '--summary-md',
@@ -1127,9 +1150,9 @@ describe('tools/report-native-default-runner-blockers', () => {
       '--root-dir',
       tempRoot,
       '--native-default-config',
-      path.join(tempRoot, 'jest.native-default.config.cjs'),
+      path.join(tempRoot, 'jest.native-default.config.js'),
       '--native-coverage-config',
-      path.join(tempRoot, 'jest.native-esm.config.cjs'),
+      path.join(tempRoot, 'jest.native-esm.config.js'),
       '--summary-json',
       jsonPath,
       '--summary-md',
@@ -1141,7 +1164,7 @@ describe('tools/report-native-default-runner-blockers', () => {
     caseDefinition.verifyTarget({ symlinkTargetPath, fileName: caseDefinition.fileName });
   });
 
-  test('CLI rejects symlinked coverage/native-default output root', () => {
+  test('CLI rejects symlinked coverage/native-default output root', async () => {
     setupNativeRunnerFixture(tempRoot);
     fs.rmSync(allowedOutputRoot, { recursive: true, force: true });
     const escapedOutputRoot = path.join(tempRoot, 'escaped-native-default-root');
@@ -1152,9 +1175,9 @@ describe('tools/report-native-default-runner-blockers', () => {
       '--root-dir',
       tempRoot,
       '--native-default-config',
-      path.join(tempRoot, 'jest.native-default.config.cjs'),
+      path.join(tempRoot, 'jest.native-default.config.js'),
       '--native-coverage-config',
-      path.join(tempRoot, 'jest.native-esm.config.cjs'),
+      path.join(tempRoot, 'jest.native-esm.config.js'),
       '--summary-json',
       path.join(allowedOutputRoot, 'blocker-classification-summary.json'),
       '--summary-md',

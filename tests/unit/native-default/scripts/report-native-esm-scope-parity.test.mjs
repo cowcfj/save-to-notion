@@ -5,12 +5,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const require = createRequire(import.meta.url);
 
 const createDirectory = directoryPath => {
   fs.mkdirSync(directoryPath, { recursive: true });
@@ -32,8 +30,8 @@ describe('tools/report-native-esm-scope-parity.mjs', () => {
   const allowedOutputRoot = path.join(projectRoot, 'coverage/native-esm/test-scope-parity-output');
   let reporter;
 
-  const loadReporter = () => {
-    reporter = require('../../../../tools/report-native-esm-scope-parity-core.cjs');
+  const loadReporter = async () => {
+    reporter = await import('../../../../tools/report-native-esm-scope-parity-core.mjs');
   };
 
   const runCliWithArgs = args =>
@@ -62,12 +60,12 @@ describe('tools/report-native-esm-scope-parity.mjs', () => {
     expect(fs.existsSync(path.join(outputRoot, 'scope-parity-summary.md'))).toBe(false);
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     fs.rmSync(tempRoot, { recursive: true, force: true });
     fs.rmSync(allowedOutputRoot, { recursive: true, force: true });
     createDirectory(tempRoot);
     createDirectory(allowedOutputRoot);
-    loadReporter();
+    await loadReporter();
   });
 
   afterEach(() => {

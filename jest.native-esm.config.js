@@ -1,6 +1,4 @@
-'use strict';
-
-module.exports = {
+export default {
   rootDir: '.',
   testEnvironment: 'jsdom',
   transform: {},
@@ -25,6 +23,7 @@ module.exports = {
     '<rootDir>/tests/native-esm/background/utils/BlockBuilder.native-esm.test.mjs',
     '<rootDir>/tests/native-esm/background/utils/block-builder-depth.native-esm.test.mjs',
     '<rootDir>/tests/native-esm/background/utils/backgroundUtils.native-esm.test.mjs',
+    '<rootDir>/tests/native-esm/background/utils/updateNotificationVersion.native-esm.test.mjs',
     '<rootDir>/tests/native-esm/config/configConstants.native-esm.test.mjs',
     '<rootDir>/tests/native-esm/config/runtime.native-esm.test.mjs',
     '<rootDir>/tests/native-esm/content/content-index.native-esm.test.mjs',
@@ -216,6 +215,8 @@ module.exports = {
   coverageReporters: ['json', 'text', 'lcov'],
   collectCoverageFrom: [
     '<rootDir>/scripts/background.js',
+    '<rootDir>/scripts/background/backgroundLifecycleTestSurface.js',
+    '<rootDir>/scripts/background/utils/updateNotificationVersion.js',
     '<rootDir>/scripts/content/index.js',
     '<rootDir>/pages/options/options.js',
     '<rootDir>/pages/sidepanel/sidepanel.js',

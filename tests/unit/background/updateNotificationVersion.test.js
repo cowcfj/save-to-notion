@@ -1,6 +1,5 @@
-const {
-  shouldShowUpdateNotification,
-} = require('../../../scripts/background/utils/updateNotificationVersion.cjs');
+const updateNotificationVersionModulePromise =
+  import('../../../scripts/background/utils/updateNotificationVersion.js');
 
 describe('updateNotificationVersion', () => {
   describe('shouldShowUpdateNotification', () => {
@@ -28,8 +27,13 @@ describe('updateNotificationVersion', () => {
       [' ', '2.0.0', false],
       ['1.0.0', '', false],
       ['1.0.0', ' ', false],
-    ])('upgrading from %s to %s should return %s', (previousVersion, currentVersion, expected) => {
-      expect(shouldShowUpdateNotification(previousVersion, currentVersion)).toBe(expected);
-    });
+    ])(
+      'upgrading from %s to %s should return %s',
+      async (previousVersion, currentVersion, expected) => {
+        const { shouldShowUpdateNotification } = await updateNotificationVersionModulePromise;
+
+        expect(shouldShowUpdateNotification(previousVersion, currentVersion)).toBe(expected);
+      }
+    );
   });
 });
