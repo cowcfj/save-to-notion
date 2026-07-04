@@ -37,6 +37,8 @@ const config = {
       cacheDirectory: '<rootDir>/.jest-cache',
       testEnvironment: 'jsdom',
       testMatch: [
+        '<rootDir>/tests/unit/background.test.cjs',
+        '<rootDir>/tests/unit/background/extension-lifecycle.test.cjs',
         '<rootDir>/tests/unit/**/*.test.js',
         '<rootDir>/tests/unit/**/*.spec.js',
         '<rootDir>/tests/unit/incumbent/**/*.test.mjs',

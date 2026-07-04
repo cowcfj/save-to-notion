@@ -43,7 +43,7 @@ jobs:
               - 'tests/**'
               - 'jest.config.js'
               - 'jest.config.*.js'
-              - 'jest.native-esm.config.cjs'
+              - 'jest.native-esm.config.js'
               - 'package.json'
               - 'package-lock.json'
               - 'sonar-project.properties'
@@ -111,7 +111,7 @@ jobs:
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae
         with:
           path: .tmp/jest-cache-native-esm
-          key: ${{ runner.os }}-jest-v8-${{ hashFiles('jest.config.js', 'jest.config.*.js', 'jest.native-esm.config.cjs', 'package-lock.json') }}
+          key: ${{ runner.os }}-jest-v8-${{ hashFiles('jest.config.js', 'jest.config.*.js', 'jest.native-esm.config.js', 'package-lock.json') }}
           restore-keys: ${{ runner.os }}-jest-
 
       - name: 執行 V8 覆蓋率閘門

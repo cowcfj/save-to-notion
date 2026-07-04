@@ -69,15 +69,9 @@ await jest.unstable_mockModule('../../../scripts/sync/driveSnapshotHash.js', () 
 }));
 
 await jest.unstable_mockModule(
-  '../../../scripts/background/utils/updateNotificationVersion.cjs',
+  '../../../scripts/background/utils/updateNotificationVersion.js',
   () => ({
     shouldShowUpdateNotification: shouldShowUpdateNotificationMock,
-    default: {
-      shouldShowUpdateNotification: shouldShowUpdateNotificationMock,
-    },
-    updateNotificationVersion: {
-      shouldShowUpdateNotification: shouldShowUpdateNotificationMock,
-    },
     __esModule: true,
   })
 );

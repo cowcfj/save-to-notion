@@ -19,15 +19,9 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
 }));
 
 await jest.unstable_mockModule(
-  '../../../scripts/background/utils/updateNotificationVersion.cjs',
+  '../../../scripts/background/utils/updateNotificationVersion.js',
   () => ({
     shouldShowUpdateNotification: jest.fn(() => false),
-    default: {
-      shouldShowUpdateNotification: jest.fn(() => false),
-    },
-    updateNotificationVersion: {
-      shouldShowUpdateNotification: jest.fn(() => false),
-    },
     __esModule: true,
   })
 );

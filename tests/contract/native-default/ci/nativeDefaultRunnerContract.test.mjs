@@ -1,13 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import nodeConfigLoader from '../../../helpers/nodeConfigLoader.cjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '../../../..');
-const nativeDefaultConfigPath = path.join(rootDir, 'jest.native-default.config.cjs');
+const nativeDefaultConfigPath = path.join(rootDir, 'jest.native-default.config.js');
 const packageJsonPath = path.join(rootDir, 'package.json');
 const require = createRequire(import.meta.url);
 const { loadConfig } = nodeConfigLoader;
@@ -114,7 +114,7 @@ const nativeDefaultOwnerPathEntries = [
   '<rootDir>/tests/unit/native-default/config/env.test.mjs',
   '<rootDir>/tests/unit/native-default/config/messages.test.js',
   '<rootDir>/tests/unit/native-default/config/storageKeys.test.js',
-  '<rootDir>/tests/unit/native-default/content/content-script.require.test.js',
+  '<rootDir>/tests/unit/native-default/content/content-script.require.test.mjs',
   '<rootDir>/tests/unit/native-default/utils/normalizeUrl.test.js',
   '<rootDir>/tests/unit/native-default/background/buildHighlightBlocks.test.js',
   '<rootDir>/tests/unit/native-default/utils/pageComplexityDetector.node-env.test.js',
@@ -123,13 +123,13 @@ const nativeDefaultOwnerPathEntries = [
   '<rootDir>/tests/unit/native-default/performance/PerformanceOptimizer.advanced.test.mjs',
   '<rootDir>/tests/unit/native-default/performance/PerformanceOptimizer.batchProcessing.test.js',
   '<rootDir>/tests/unit/native-default/scripts/assert-native-esm-line-hits.test.mjs',
-  '<rootDir>/tests/unit/native-default/scripts/postinstall.test.js',
+  '<rootDir>/tests/unit/native-default/scripts/postinstall.test.cjs',
   '<rootDir>/tests/unit/native-default/scripts/report-native-esm-scope-parity.test.mjs',
 ];
 
 const retainedBackgroundEntrypointHarnessEntries = [
-  '<rootDir>/tests/unit/background/extension-lifecycle.test.js',
-  '<rootDir>/tests/unit/background.test.js',
+  '<rootDir>/tests/unit/background/extension-lifecycle.test.cjs',
+  '<rootDir>/tests/unit/background.test.cjs',
 ];
 
 function readPackageScripts() {
@@ -138,6 +138,11 @@ function readPackageScripts() {
 
 function readPackageJson() {
   return JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+}
+
+async function importRootConfig(configPath) {
+  const importedConfig = await import(pathToFileURL(configPath).href);
+  return importedConfig.default ?? importedConfig;
 }
 
 describe('native default Jest runner contract', () => {
@@ -153,10 +158,10 @@ describe('native default Jest runner contract', () => {
     const scripts = readPackageScripts();
 
     expect(scripts['test:native']).toBe(
-      'NODE_OPTIONS=--experimental-vm-modules jest --config jest.native-default.config.cjs'
+      'NODE_OPTIONS=--experimental-vm-modules jest --config jest.native-default.config.js'
     );
     expect(scripts['test:quick:native']).toBe(
-      'NODE_OPTIONS=--experimental-vm-modules jest --config jest.native-default.config.cjs --onlyChanged'
+      'NODE_OPTIONS=--experimental-vm-modules jest --config jest.native-default.config.js --onlyChanged'
     );
   });
 
@@ -166,7 +171,7 @@ describe('native default Jest runner contract', () => {
     expect(scripts['test:coverage']).toBe('npm run test:coverage:native-esm:assert');
     expect(scripts['test:ci']).toBe('npm run test:coverage:native-esm:assert');
     expect(scripts['test:coverage:native-esm']).toContain(
-      'jest --config jest.native-esm.config.cjs --ci --coverage'
+      'jest --config jest.native-esm.config.js --ci --coverage'
     );
     for (const retiredScriptName of retiredIncumbentCoverageSurfaces) {
       expect(scripts).not.toHaveProperty(retiredScriptName);
@@ -195,8 +200,8 @@ describe('native default Jest runner contract', () => {
     expect(scripts['test:ci']).toBe('npm run test:coverage:native-esm:assert');
   });
 
-  test('native default allowlist includes proven cohorts and excludes retained root-cutover probes', () => {
-    const nativeDefaultConfig = require(nativeDefaultConfigPath);
+  test('native default allowlist includes proven cohorts and excludes retained root-cutover probes', async () => {
+    const nativeDefaultConfig = await importRootConfig(nativeDefaultConfigPath);
 
     expect(nativeDefaultConfig.testMatch).toEqual(
       expect.arrayContaining([
@@ -238,10 +243,10 @@ describe('native default Jest runner contract', () => {
     expect(incumbentConfig.testPathIgnorePatterns).toEqual(expect.arrayContaining(['/tests/e2e/']));
   });
 
-  test('native default config exists and is not an official coverage owner', () => {
+  test('native default config exists and is not an official coverage owner', async () => {
     expect(fs.existsSync(nativeDefaultConfigPath)).toBe(true);
 
-    const config = require(nativeDefaultConfigPath);
+    const config = await importRootConfig(nativeDefaultConfigPath);
 
     expect(config.rootDir).toBe('.');
     expect(config.testEnvironment).toBe('jsdom');
@@ -284,9 +289,11 @@ describe('native default Jest runner contract', () => {
     expect(config).not.toHaveProperty('coverageThreshold');
   });
 
-  test('native ESM coverage config remains the only V8 threshold owner', () => {
-    const nativeDefaultConfig = require(nativeDefaultConfigPath);
-    const nativeCoverageConfig = require('../../../../jest.native-esm.config.cjs');
+  test('native ESM coverage config remains the only V8 threshold owner', async () => {
+    const nativeDefaultConfig = await importRootConfig(nativeDefaultConfigPath);
+    const nativeCoverageConfig = await importRootConfig(
+      path.join(rootDir, 'jest.native-esm.config.js')
+    );
 
     expect(nativeCoverageConfig.coverageProvider).toBe('v8');
     expect(nativeCoverageConfig.coverageThreshold).toEqual(

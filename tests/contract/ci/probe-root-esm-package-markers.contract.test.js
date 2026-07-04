@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import probe from '../../../tools/probe-root-esm-package-markers-core.cjs';
+import * as probe from '../../../tools/probe-root-esm-package-markers-core.mjs';
 
 const testFilePath = fileURLToPath(import.meta.url);
 const testDirectory = path.dirname(testFilePath);
@@ -18,8 +18,7 @@ const loadProbeWithSpawnSync = async spawnSync => {
   await jest.isolateModulesAsync(async () => {
     jest.doMock('node:child_process', () => ({ spawnSync }));
     try {
-      const importedProbe = await import('../../../tools/probe-root-esm-package-markers-core.cjs');
-      mockedProbe = importedProbe.default ?? importedProbe;
+      mockedProbe = await import('../../../tools/probe-root-esm-package-markers-core.mjs');
     } finally {
       jest.dontMock('node:child_process');
     }

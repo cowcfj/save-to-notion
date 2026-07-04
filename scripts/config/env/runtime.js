@@ -70,11 +70,10 @@ export function isContentContext() {
 /**
  * 檢測當前是否具備 CommonJS 模組語意（非完整 Node.js runtime 判斷）
  * 條件：typeof module !== 'undefined'、module.exports 存在且 globalThis.window 不存在
- * 命名備註：可視需求改名為 isCommonJSEnvironment
  *
  * @returns {boolean} 是否為 CommonJS-like 環境
  */
-export function isNodeEnvironment() {
+export function isCommonJSEnvironment() {
   return Boolean(
     typeof module !== 'undefined' && module.exports && globalThis.window === undefined
   );
@@ -143,7 +142,7 @@ export function getEnvironment() {
     isExtension: isExtensionContext(),
     isBackground: isBackgroundContext(),
     isContent: isContentContext(),
-    isNode: isNodeEnvironment(),
+    isCommonJS: isCommonJSEnvironment(),
     isDevelopment: isDevelopment(),
     isProduction: isProduction(),
   };
@@ -175,8 +174,8 @@ export const ENV = Object.freeze({
   get IS_CONTENT() {
     return isContentContext();
   },
-  get IS_NODE() {
-    return isNodeEnvironment();
+  get IS_COMMONJS() {
+    return isCommonJSEnvironment();
   },
   get IS_DEV() {
     return isDevelopment();

@@ -1,10 +1,8 @@
-'use strict';
-
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-const crypto = require('node:crypto');
-const { spawnSync } = require('node:child_process');
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 
 const MARKER_ROOTS = Object.freeze(['pages', 'scripts', 'tests']);
 const PRODUCTION_COMMANDS = Object.freeze(['npm run build:prod', 'npm run package:local-unpacked']);
@@ -781,7 +779,7 @@ function main(argv = process.argv.slice(2)) {
   return failedCommands.length === 0 && drifts.length === 0 ? 0 : 1;
 }
 
-module.exports = {
+export {
   applyCutoverTransforms,
   assertSafeProbeRoot,
   buildProbeSummary,

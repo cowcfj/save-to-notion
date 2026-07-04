@@ -40,7 +40,7 @@ async function readJestConfig() {
 }
 
 async function readNativeEsmConfig() {
-  return loadConfig(path.join(rootDirectory, 'jest.native-esm.config.cjs'));
+  return loadConfig(path.join(rootDirectory, 'jest.native-esm.config.js'));
 }
 
 async function readNativeEsmCoverageInclusions() {

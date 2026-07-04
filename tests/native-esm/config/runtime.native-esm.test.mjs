@@ -192,14 +192,14 @@ describe('runtime environment native ESM coverage', () => {
       isExtension: true,
       isBackground: false,
       isContent: true,
-      isNode: false,
+      isCommonJS: false,
       isDevelopment: true,
       isProduction: false,
     });
     expect(envRuntime.ENV.IS_EXTENSION).toBe(envRuntime.isExtensionContext());
     expect(envRuntime.ENV.IS_BACKGROUND).toBe(envRuntime.isBackgroundContext());
     expect(envRuntime.ENV.IS_CONTENT).toBe(envRuntime.isContentContext());
-    expect(envRuntime.ENV.IS_NODE).toBe(envRuntime.isNodeEnvironment());
+    expect(envRuntime.ENV.IS_COMMONJS).toBe(envRuntime.isCommonJSEnvironment());
     expect(envRuntime.ENV.IS_DEV).toBe(envRuntime.isDevelopment());
     expect(envRuntime.ENV.IS_PROD).toBe(envRuntime.isProduction());
     expect(Object.isFrozen(envRuntime.ENV)).toBe(true);

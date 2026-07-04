@@ -12,7 +12,7 @@ const {
   isExtensionContext,
   isBackgroundContext,
   isContentContext,
-  isNodeEnvironment,
+  isCommonJSEnvironment,
   isDevelopment,
   isProduction,
   getEnvironment,
@@ -156,17 +156,17 @@ describe('配置模組 - env/index.js', () => {
     });
   });
 
-  describe('isNodeEnvironment', () => {
+  describe('isCommonJSEnvironment', () => {
     test('native ESM runner 不應合成 CommonJS module.exports 語意', () => {
       setWindow(undefined);
 
-      expect(isNodeEnvironment()).toBe(false);
+      expect(isCommonJSEnvironment()).toBe(false);
     });
 
     test('當 window 存在時應返回 false', () => {
       setWindow({});
 
-      expect(isNodeEnvironment()).toBe(false);
+      expect(isCommonJSEnvironment()).toBe(false);
     });
   });
 
@@ -228,7 +228,7 @@ describe('配置模組 - env/index.js', () => {
         isExtension: true,
         isBackground: false,
         isContent: true,
-        isNode: false,
+        isCommonJS: false,
         isDevelopment: true,
         isProduction: false,
       });
@@ -252,7 +252,7 @@ describe('配置模組 - env/index.js', () => {
       expect(ENV.IS_EXTENSION).toBe(isExtensionContext());
       expect(ENV.IS_BACKGROUND).toBe(isBackgroundContext());
       expect(ENV.IS_CONTENT).toBe(isContentContext());
-      expect(ENV.IS_NODE).toBe(isNodeEnvironment());
+      expect(ENV.IS_COMMONJS).toBe(isCommonJSEnvironment());
       expect(ENV.IS_DEV).toBe(isDevelopment());
       expect(ENV.IS_PROD).toBe(isProduction());
       expect(Object.isFrozen(ENV)).toBe(true);

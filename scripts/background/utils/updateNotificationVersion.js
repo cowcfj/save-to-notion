@@ -7,12 +7,12 @@ function parseVersionParts(version) {
   const hasMajorAndMinor = parts.length >= 2;
   const numericParts = parts.map(part => {
     if (!/^\d+$/.test(part)) {
-      return Number.NaN;
+      return NaN;
     }
     return Number(part);
   });
 
-  if (!hasMajorAndMinor || numericParts.some(Number.isNaN)) {
+  if (!hasMajorAndMinor || numericParts.some(part => Number.isNaN(part))) {
     return null;
   }
 
@@ -20,23 +20,21 @@ function parseVersionParts(version) {
 }
 
 function shouldShowUpdateNotification(previousVersion, currentVersion) {
-  const prevParts = parseVersionParts(previousVersion);
-  const currParts = parseVersionParts(currentVersion);
+  const previousParts = parseVersionParts(previousVersion);
+  const currentParts = parseVersionParts(currentVersion);
 
-  if (!prevParts || !currParts) {
+  if (!previousParts || !currentParts) {
     return false;
   }
 
-  if (currParts[0] > prevParts[0]) {
+  if (currentParts[0] > previousParts[0]) {
     return true;
   }
-  if (currParts[0] < prevParts[0]) {
+  if (currentParts[0] < previousParts[0]) {
     return false;
   }
 
-  return currParts[1] > prevParts[1];
+  return currentParts[1] > previousParts[1];
 }
 
-module.exports = {
-  shouldShowUpdateNotification,
-};
+export { shouldShowUpdateNotification };

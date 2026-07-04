@@ -1,15 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { createRequire } from 'node:module';
-import { fileURLToPath } from 'node:url';
-
-const require = createRequire(import.meta.url);
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const projectRoot = path.resolve(__dirname, '..');
-const allowedOutputRoot = path.join(projectRoot, 'coverage', 'native-esm');
-
-const {
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import {
   assertPathInsideDirectory,
   buildScopeParitySummary,
   defaultZeroCoverageCanaryPaths,
@@ -17,7 +9,12 @@ const {
   listJavaScriptSourceFiles,
   normalizeRelativePath,
   renderMarkdownSummary,
-} = require('./report-native-esm-scope-parity-core.cjs');
+} from './report-native-esm-scope-parity-core.mjs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, '..');
+const allowedOutputRoot = path.join(projectRoot, 'coverage', 'native-esm');
 
 function assertOutputPath(filePath) {
   assertPathInsideDirectory(
@@ -121,9 +118,14 @@ function readNativeCoverageEntries(coveragePath) {
   return entries;
 }
 
-function buildCurrentRepoSummary(nativeCoveragePath) {
-  const officialConfig = require(path.join(projectRoot, 'jest.config.js'));
-  const nativeConfig = require(path.join(projectRoot, 'jest.native-esm.config.cjs'));
+async function importConfig(configPath) {
+  const importedConfig = await import(pathToFileURL(configPath).href);
+  return importedConfig.default ?? importedConfig;
+}
+
+async function buildCurrentRepoSummary(nativeCoveragePath) {
+  const officialConfig = await importConfig(path.join(projectRoot, 'jest.config.js'));
+  const nativeConfig = await importConfig(path.join(projectRoot, 'jest.native-esm.config.js'));
   const sourceFiles = listJavaScriptSourceFiles(projectRoot, ['scripts', 'pages']);
   const officialScope = evaluateCoveragePatterns(sourceFiles, officialConfig.collectCoverageFrom || []);
   const nativeScope = evaluateCoveragePatterns(sourceFiles, nativeConfig.collectCoverageFrom || []);
@@ -150,9 +152,9 @@ function writeOutputFiles(summary, options) {
   fs.writeFileSync(markdownPath, renderMarkdownSummary(summary), 'utf8');
 }
 
-function runCli() {
+async function runCli() {
   const options = parseCliArgs(process.argv.slice(2));
-  const summary = buildCurrentRepoSummary(options.nativeCoveragePath);
+  const summary = await buildCurrentRepoSummary(options.nativeCoveragePath);
   writeOutputFiles(summary, options);
   console.log(
     `Native ESM 範圍一致性報告已寫入：${summary.totals.officialIncluded} 個 official 檔案，${summary.totals.nativeIncluded} 個 native candidate 檔案，缺少 ${summary.totals.missingFromNativeCandidate} 個，多出 ${summary.totals.extraNativeCandidate} 個`
@@ -163,10 +165,8 @@ function runCli() {
 }
 
 if (process.argv[1] === __filename) {
-  try {
-    runCli();
-  } catch (error) {
+  runCli().catch(error => {
     console.error(error.message);
     process.exitCode = 1;
-  }
+  });
 }

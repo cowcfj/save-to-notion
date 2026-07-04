@@ -233,21 +233,27 @@ jobs:
           NODE
           )
           NATIVE_DEFAULT_TEST_FILES=$(CANDIDATE_FILES="$CANDIDATE_FILES" node - <<'NODE'
-          const config = require('./jest.native-default.config.cjs');
-          const candidates = (process.env.CANDIDATE_FILES || '').split('\n').filter(Boolean);
-          const rootPrefix = '<rootDir>/';
-          const allowlisted = new Set();
-          for (const pattern of config.testMatch || []) {
-            const normalized = pattern.startsWith(rootPrefix)
-              ? pattern.slice(rootPrefix.length)
-              : pattern.replace(/^\.\//, '');
-            allowlisted.add(normalized);
-          }
-          for (const candidate of candidates) {
-            if (allowlisted.has(candidate)) {
-              console.log(candidate);
+          (async () => {
+            const configModule = await import('./jest.native-default.config.js');
+            const config = configModule.default ?? configModule;
+            const candidates = (process.env.CANDIDATE_FILES || '').split('\n').filter(Boolean);
+            const rootPrefix = '<rootDir>/';
+            const allowlisted = new Set();
+            for (const pattern of config.testMatch || []) {
+              const normalized = pattern.startsWith(rootPrefix)
+                ? pattern.slice(rootPrefix.length)
+                : pattern.replace(/^\.\//, '');
+              allowlisted.add(normalized);
             }
-          }
+            for (const candidate of candidates) {
+              if (allowlisted.has(candidate)) {
+                console.log(candidate);
+              }
+            }
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
           NODE
           )
           NATIVE_TEST_FILES=$(printf '%s\n' "$NATIVE_DEFAULT_TEST_FILES" | sed '/^$/d' | sort -u || true)
@@ -267,7 +273,7 @@ jobs:
           if [ -n "$NATIVE_TEST_FILES" ]; then
             echo "正在執行變更的 native-default Jest 測試檔:"
             echo "$NATIVE_TEST_FILES"
-            echo "$NATIVE_TEST_FILES" | NODE_OPTIONS=--experimental-vm-modules xargs npx jest --config jest.native-default.config.cjs --ci --runTestsByPath --maxWorkers=2
+            echo "$NATIVE_TEST_FILES" | NODE_OPTIONS=--experimental-vm-modules xargs npx jest --config jest.native-default.config.js --ci --runTestsByPath --maxWorkers=2
           fi
 
           if [ -n "$SOURCE_FILES" ]; then

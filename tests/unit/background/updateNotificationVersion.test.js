@@ -1,6 +1,9 @@
-const {
-  shouldShowUpdateNotification,
-} = require('../../../scripts/background/utils/updateNotificationVersion.cjs');
+let shouldShowUpdateNotification;
+
+beforeAll(async () => {
+  ({ shouldShowUpdateNotification } =
+    await import('../../../scripts/background/utils/updateNotificationVersion.js'));
+});
 
 describe('updateNotificationVersion', () => {
   describe('shouldShowUpdateNotification', () => {

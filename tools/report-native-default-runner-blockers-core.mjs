@@ -1,5 +1,9 @@
-const fs = require('node:fs');
-const path = require('node:path');
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+const require = createRequire(import.meta.url);
 
 const defaultRoots = ['tests/unit', 'tests/integration', 'tests/contract', 'tests/native-esm'];
 
@@ -18,6 +22,7 @@ const blockerPriority = [
   'root-commonjs-test-boundary',
   'global-runtime-surface',
   'jsdom-origin-or-storage',
+  'incumbent-default-runner-owned',
   'unknown-needs-reproduction',
 ];
 
@@ -33,6 +38,7 @@ const dispositionByBlocker = {
   'node-lifecycle-contract': 'retain-incumbent-contract',
   'global-runtime-surface': 'probe-for-native-default',
   'jsdom-origin-or-storage': 'probe-for-native-default',
+  'incumbent-default-runner-owned': 'retain-incumbent-default-runner',
   'malformed-package-boundary': 'requires-package-json-fix',
   'test-helper-package-boundary': 'requires-package-boundary-change',
   'incumbent-contract-retained': 'retain-incumbent-contract',
@@ -97,12 +103,21 @@ function listTestFiles({ rootDir, roots = defaultRoots }) {
   return [...new Set(files)].sort();
 }
 
-function loadConfigTestMatch(configPath, rootDir = process.cwd()) {
+async function loadConfig(configPath) {
+  if (configPath.endsWith('.cjs')) {
+    delete require.cache[require.resolve(configPath)];
+    return require(configPath);
+  }
+
+  const importedConfig = await import(`${pathToFileURL(configPath).href}?t=${Date.now()}`);
+  return importedConfig.default ?? importedConfig;
+}
+
+async function loadConfigTestMatch(configPath, rootDir = process.cwd()) {
   if (!fs.existsSync(configPath)) {
     throw new Error(`找不到 Jest config：${configPath}`);
   }
-  delete require.cache[require.resolve(configPath)];
-  const config = require(configPath);
+  const config = await loadConfig(configPath);
   return (config.testMatch || []).map(pattern => normalizeConfigPattern(pattern, rootDir));
 }
 
@@ -261,6 +276,9 @@ function classifyFile({
   } else if (filePath.endsWith('.native-esm.test.mjs')) {
     signals.unshift('native-esm-candidate');
   }
+  if (signals.length === 0) {
+    signals.push('incumbent-default-runner-owned');
+  }
 
   const primaryBlocker = choosePrimaryBlocker([...new Set(signals)]);
   return {
@@ -273,18 +291,18 @@ function classifyFile({
   };
 }
 
-function buildClassificationReport(options) {
+async function buildClassificationReport(options) {
   const {
     rootDir = process.cwd(),
     roots = defaultRoots,
-    nativeDefaultConfigPath = path.join(rootDir, 'jest.native-default.config.cjs'),
-    nativeCoverageConfigPath = path.join(rootDir, 'jest.native-esm.config.cjs'),
+    nativeDefaultConfigPath = path.join(rootDir, 'jest.native-default.config.js'),
+    nativeCoverageConfigPath = path.join(rootDir, 'jest.native-esm.config.js'),
     files,
   } = options || {};
 
   const discoveredFiles = files || listTestFiles({ rootDir, roots });
-  const nativeDefaultSet = new Set(loadConfigTestMatch(nativeDefaultConfigPath, rootDir));
-  const nativeCoverageSet = new Set(loadConfigTestMatch(nativeCoverageConfigPath, rootDir));
+  const nativeDefaultSet = new Set(await loadConfigTestMatch(nativeDefaultConfigPath, rootDir));
+  const nativeCoverageSet = new Set(await loadConfigTestMatch(nativeCoverageConfigPath, rootDir));
   const records = discoveredFiles.map(filePath =>
     classifyFile({ filePath, rootDir, roots, nativeDefaultSet, nativeCoverageSet })
   );
@@ -396,7 +414,7 @@ ${renderFileRows(report.files)}
 `;
 }
 
-module.exports = {
+export {
   assertPathInsideDirectory,
   buildClassificationReport,
   classifyFile,

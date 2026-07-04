@@ -1,5 +1,5 @@
-const fs = require('node:fs');
-const path = require('node:path');
+import fs from 'node:fs';
+import path from 'node:path';
 
 const defaultZeroCoverageCanaryPaths = ['pages/update-notification/update-notification.js'];
 
@@ -266,7 +266,7 @@ function buildScopeParitySummary({
   zeroCoverageCanaryPaths = defaultZeroCoverageCanaryPaths,
   unsupportedPatterns,
   officialConfigPath = 'jest.config.js',
-  nativeConfigPath = 'jest.native-esm.config.cjs',
+  nativeConfigPath = 'jest.native-esm.config.js',
   nativeCoveragePath = 'coverage/native-esm/coverage-final.json',
 }) {
   const files = createFileRecords({
@@ -353,7 +353,7 @@ ${fileRows}
 `;
 }
 
-module.exports = {
+export {
   assertPathInsideDirectory,
   buildScopeParitySummary,
   defaultZeroCoverageCanaryPaths,

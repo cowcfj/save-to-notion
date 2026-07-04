@@ -25,7 +25,7 @@ import { TabService } from './background/services/TabService.js';
 import { MigrationService } from './background/services/MigrationService.js';
 import {
   AccountGatedDestinationEntitlementProvider,
-  LocalDestinationProfileRepository,
+  LocalDestinationProfileRepository as LocalDestinationProfileRepo,
 } from './destinations/ProfileStore.js';
 import { ProfileResolver } from './destinations/ProfileResolver.js';
 
@@ -51,11 +51,10 @@ import {
   DRIVE_SYNC_STORAGE_KEYS,
   markDriveDirty,
 } from './auth/driveClient.js';
-import updateNotificationVersion from './background/utils/updateNotificationVersion.cjs';
+import { shouldShowUpdateNotification } from './background/utils/updateNotificationVersion.js';
 
 const UPDATE_NOTIFICATION_WINDOW_WIDTH = 480;
 const UPDATE_NOTIFICATION_WINDOW_HEIGHT = 560;
-const { shouldShowUpdateNotification } = updateNotificationVersion;
 
 // ==========================================
 // SERVICE INITIALIZATION
@@ -70,7 +69,7 @@ const storageService = new StorageService({ logger: Logger });
 const migrationScanner = new StorageMigrationScanner({ logger: Logger });
 const notionService = new NotionService({ logger: Logger });
 const destinationProfileResolver = new ProfileResolver({
-  repository: new LocalDestinationProfileRepository(),
+  repository: new LocalDestinationProfileRepo(),
   entitlementProvider: new AccountGatedDestinationEntitlementProvider(),
 });
 const accountAuthHandler = createAccountAuthHandler({ logger: Logger });
@@ -85,8 +84,8 @@ function wrapWithDriveDirtyTracking(service, methodNames) {
       continue;
     }
     const original = service[methodName].bind(service);
-    service[methodName] = async function (...args) {
-      const result = await original(...args);
+    service[methodName] = async function (...arguments_) {
+      const result = await original(...arguments_);
       await markDriveDirty().catch(error => {
         // 記錄但不 rethrow：drive dirty tracking 失敗不應阻斷主寫入流程；
         // 下次任何 canonical write 都會重新嘗試 mark dirty。

@@ -1,6 +1,4 @@
-'use strict';
-
-module.exports = {
+export default {
   rootDir: '.',
   testEnvironment: 'jsdom',
   testEnvironmentOptions: {
@@ -26,18 +24,18 @@ module.exports = {
     '<rootDir>/tests/unit/native-default/config/env.test.mjs',
     '<rootDir>/tests/unit/native-default/config/messages.test.js',
     '<rootDir>/tests/unit/native-default/config/storageKeys.test.js',
-    '<rootDir>/tests/unit/native-default/content/content-script.require.test.js',
+    '<rootDir>/tests/unit/native-default/content/content-script.require.test.mjs',
     '<rootDir>/tests/unit/native-default/utils/normalizeUrl.test.js',
     '<rootDir>/tests/unit/native-default/background/buildHighlightBlocks.test.js',
-    '<rootDir>/tests/unit/background/extension-lifecycle.test.js',
-    '<rootDir>/tests/unit/background.test.js',
+    '<rootDir>/tests/unit/background/extension-lifecycle.test.cjs',
+    '<rootDir>/tests/unit/background.test.cjs',
     '<rootDir>/tests/unit/native-default/utils/pageComplexityDetector.node-env.test.js',
     '<rootDir>/tests/unit/native-default/utils/splitTextForHighlight.test.js',
     '<rootDir>/tests/unit/native-default/background/processContentResult.test.js',
     '<rootDir>/tests/unit/native-default/performance/PerformanceOptimizer.advanced.test.mjs',
     '<rootDir>/tests/unit/native-default/performance/PerformanceOptimizer.batchProcessing.test.js',
     '<rootDir>/tests/unit/native-default/scripts/assert-native-esm-line-hits.test.mjs',
-    '<rootDir>/tests/unit/native-default/scripts/postinstall.test.js',
+    '<rootDir>/tests/unit/native-default/scripts/postinstall.test.cjs',
     '<rootDir>/tests/unit/native-default/scripts/report-native-esm-scope-parity.test.mjs',
   ],
   setupFiles: ['<rootDir>/tests/native-esm/native-runner.setup.mjs'],

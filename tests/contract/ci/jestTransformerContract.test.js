@@ -6,7 +6,7 @@ import packageJson from '../../../package.json';
 const BABEL_PACKAGE_NAMES = ['babel-jest', '@babel/core', '@babel/preset-env'];
 const SWC_PACKAGE_NAMES = ['@swc/core', '@swc/jest'];
 const RETIRED_BABEL_CONFIG_FILE = 'babel.config.js';
-const ROOT_ESM_CUTOVER_PROBE_FILE = 'tools/probe-root-esm-package-markers-core.cjs';
+const ROOT_ESM_CUTOVER_PROBE_FILE = 'tools/probe-root-esm-package-markers-core.mjs';
 const JS_TS_TRANSFORM_FIXTURE_PATHS = [
   'transform-fixture.js',
   'transform-fixture.jsx',
@@ -60,13 +60,13 @@ describe('Jest transformer contract', () => {
   test('repo-owned devDependencies use SWC instead of direct Babel packages', () => {
     const { devDependencies } = packageJson;
 
-    SWC_PACKAGE_NAMES.forEach(packageName => {
+    for (const packageName of SWC_PACKAGE_NAMES) {
       expect(devDependencies).toHaveProperty(packageName);
-    });
+    }
 
-    BABEL_PACKAGE_NAMES.forEach(packageName => {
+    for (const packageName of BABEL_PACKAGE_NAMES) {
       expect(devDependencies).not.toHaveProperty(packageName);
-    });
+    }
   });
 
   test('default Jest JS and TS transforms are owned by @swc/jest', () => {
@@ -122,9 +122,9 @@ describe('Jest transformer contract', () => {
   test('Jest config does not retain direct Babel transform references', () => {
     const jestConfigSource = fs.readFileSync('jest.config.js', 'utf8');
 
-    BABEL_PACKAGE_NAMES.forEach(packageName => {
+    for (const packageName of BABEL_PACKAGE_NAMES) {
       expect(jestConfigSource).not.toContain(packageName);
-    });
+    }
   });
 
   test('root Babel config has been removed', () => {
@@ -132,13 +132,13 @@ describe('Jest transformer contract', () => {
   });
 
   test('active workflow and release policy files no longer list the retired Babel config', () => {
-    [
+    for (const policyFileSource of [
       fs.readFileSync('.github/workflows/ci.yml', 'utf8'),
       fs.readFileSync('.github/workflows/coverage-gate.yml', 'utf8'),
       fs.readFileSync('release-please-config.json', 'utf8'),
       fs.readFileSync('tests/contract/incumbent/ci/ciPolicyContract.test.mjs', 'utf8'),
-    ].forEach(policyFileSource => {
+    ]) {
       expect(policyFileSource).not.toContain(RETIRED_BABEL_CONFIG_FILE);
-    });
+    }
   });
 });
