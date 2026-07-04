@@ -47,9 +47,14 @@ describe('LogBuffer native ESM depth coverage', () => {
   test('evicts oldest entries by capacity and returns defensive entry copies', () => {
     const buffer = new LogBuffer(2);
 
-    buffer.push({ level: 'info', message: 'first', source: 'native' });
-    buffer.push({ level: 'warn', message: 'second', source: 'native' });
-    buffer.push({ level: 'error', message: 'third', source: 'native' });
+    const logEntries = [
+      { level: 'info', message: 'first', source: 'native' },
+      { level: 'warn', message: 'second', source: 'native' },
+      { level: 'error', message: 'third', source: 'native' },
+    ];
+    for (const entry of logEntries) {
+      buffer.push(entry);
+    }
 
     const entries = buffer.getAll();
     expect(entries.map(entry => entry.message)).toEqual(['second', 'third']);

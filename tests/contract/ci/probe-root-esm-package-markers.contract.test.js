@@ -2,18 +2,25 @@
  * @jest-environment node
  */
 
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-const probe = require('../../../tools/probe-root-esm-package-markers-core.cjs');
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
-const projectRoot = path.resolve(__dirname, '../../..');
+import probe from '../../../tools/probe-root-esm-package-markers-core.cjs';
 
-const loadProbeWithSpawnSync = spawnSync => {
-  jest.resetModules();
-  jest.doMock('node:child_process', () => ({ spawnSync }));
-  const mockedProbe = require('../../../tools/probe-root-esm-package-markers-core.cjs');
-  jest.dontMock('node:child_process');
+const projectRoot = path.resolve();
+
+const loadProbeWithSpawnSync = async spawnSync => {
+  let mockedProbe;
+  await jest.isolateModulesAsync(async () => {
+    jest.doMock('node:child_process', () => ({ spawnSync }));
+    try {
+      const importedProbe = await import('../../../tools/probe-root-esm-package-markers-core.cjs');
+      mockedProbe = importedProbe.default ?? importedProbe;
+    } finally {
+      jest.dontMock('node:child_process');
+    }
+  });
   return mockedProbe;
 };
 
@@ -90,9 +97,9 @@ const createMarkerProbeSourceFixture = rootDirectory => {
   return sourceRoot;
 };
 
-const runCutoverCoreProbe = sourceRoot => {
+const runCutoverCoreProbe = async sourceRoot => {
   const spawnSync = createSuccessfulSpawnSync();
-  const mockedProbe = loadProbeWithSpawnSync(spawnSync);
+  const mockedProbe = await loadProbeWithSpawnSync(spawnSync);
   const summary = mockedProbe.runProbe({ variant: 'cutover-core', keepTemp: true }, sourceRoot);
 
   return {
@@ -412,11 +419,11 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
     expect(markdown).toContain('| pages-only | 1 | 1 | 1 |');
   });
 
-  test('cutover-core rehearses root type and config transforms only in the probe copy', () => {
+  test('cutover-core rehearses root type and config transforms only in the probe copy', async () => {
     expect.hasAssertions();
 
     const sourceRoot = createCutoverSourceFixture(temporaryRoot);
-    const { summary, spawnSync, probeTempRoot } = runCutoverCoreProbe(sourceRoot);
+    const { summary, spawnSync, probeTempRoot } = await runCutoverCoreProbe(sourceRoot);
 
     try {
       expect(summary.variants).toHaveLength(1);
@@ -430,12 +437,12 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
     }
   });
 
-  test('removes only explicit test markers in the probe copy', () => {
+  test('removes only explicit test markers in the probe copy', async () => {
     expect.hasAssertions();
 
     const sourceRoot = createMarkerProbeSourceFixture(temporaryRoot);
     const spawnSync = createSuccessfulSpawnSync();
-    const mockedProbe = loadProbeWithSpawnSync(spawnSync);
+    const mockedProbe = await loadProbeWithSpawnSync(spawnSync);
     const summary = mockedProbe.runProbe(
       {
         variant: 'tests',
@@ -468,9 +475,9 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
     }
   });
 
-  test('rejects explicit marker paths outside discovered test markers', () => {
+  test('rejects explicit marker paths outside discovered test markers', async () => {
     const sourceRoot = createMarkerProbeSourceFixture(temporaryRoot);
-    const mockedProbe = loadProbeWithSpawnSync(createSuccessfulSpawnSync());
+    const mockedProbe = await loadProbeWithSpawnSync(createSuccessfulSpawnSync());
 
     expect(() =>
       mockedProbe.runProbe(
@@ -492,9 +499,9 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
     ).toThrow('未知或非 tests/** package marker：pages/popup/package.json');
   });
 
-  test('lists every invalid explicit marker path before rejecting', () => {
+  test('lists every invalid explicit marker path before rejecting', async () => {
     const sourceRoot = createMarkerProbeSourceFixture(temporaryRoot);
-    const mockedProbe = loadProbeWithSpawnSync(createSuccessfulSpawnSync());
+    const mockedProbe = await loadProbeWithSpawnSync(createSuccessfulSpawnSync());
 
     expect(() =>
       mockedProbe.runProbe(
@@ -509,9 +516,9 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
     );
   });
 
-  test('rejects explicit marker removals outside the tests variant', () => {
+  test('rejects explicit marker removals outside the tests variant', async () => {
     const sourceRoot = createMarkerProbeSourceFixture(temporaryRoot);
-    const mockedProbe = loadProbeWithSpawnSync(createSuccessfulSpawnSync());
+    const mockedProbe = await loadProbeWithSpawnSync(createSuccessfulSpawnSync());
 
     expect(() =>
       mockedProbe.runProbe(
@@ -610,7 +617,7 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
     );
   });
 
-  test('passes an explicit timeout to spawned probe commands and reports timed-out diagnostics', () => {
+  test('passes an explicit timeout to spawned probe commands and reports timed-out diagnostics', async () => {
     const spawnSync = jest.fn(() => ({
       status: null,
       signal: 'SIGTERM',
@@ -618,7 +625,7 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
       stderr: '',
       error: Object.assign(new Error('spawnSync timed out'), { code: 'ETIMEDOUT' }),
     }));
-    const mockedProbe = loadProbeWithSpawnSync(spawnSync);
+    const mockedProbe = await loadProbeWithSpawnSync(spawnSync);
 
     const result = mockedProbe.runCommand('npm run build:prod', temporaryRoot);
 
@@ -640,7 +647,7 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
     );
   });
 
-  test('reuses one production baseline run and removes the temp root by default', () => {
+  test('reuses one production baseline run and removes the temp root by default', async () => {
     const sourceRoot = path.join(temporaryRoot, 'source');
     writeFile(sourceRoot, 'package.json', JSON.stringify({ type: 'commonjs' }));
     writeFile(sourceRoot, 'pages/popup/package.json', JSON.stringify({ type: 'module' }));
@@ -652,7 +659,7 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
       stdout: '',
       stderr: '',
     }));
-    const mockedProbe = loadProbeWithSpawnSync(spawnSync);
+    const mockedProbe = await loadProbeWithSpawnSync(spawnSync);
 
     const summary = mockedProbe.runProbe({ variant: 'production' }, sourceRoot);
     const probeTemporaryRoot = path.dirname(summary.roots.baseline);
@@ -666,10 +673,7 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
   });
 
   test('guards direct ESM execution when process.argv[1] is absent', () => {
-    const wrapperSource = fs.readFileSync(
-      path.join(projectRoot, 'tools/probe-root-esm-package-markers.mjs'),
-      'utf8'
-    );
+    const wrapperSource = fs.readFileSync('tools/probe-root-esm-package-markers.mjs', 'utf8');
 
     expect(wrapperSource).toContain('process.argv[1] &&');
     expect(wrapperSource).toContain('pathToFileURL(process.argv[1]).href');

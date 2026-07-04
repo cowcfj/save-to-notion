@@ -47,25 +47,24 @@ async function importFreshPreloader() {
   await import('../../../scripts/performance/preloader.js');
 }
 
-beforeEach(() => {
-  document.body.innerHTML = '';
+function resetPreloaderGlobals() {
   delete globalThis.__NOTION_PRELOADER_INITIALIZED__;
   delete globalThis.__NOTION_BUNDLE_READY__;
   delete globalThis.chrome;
   delete globalThis.requestIdleCallback;
   delete globalThis.cancelIdleCallback;
   delete globalThis.requestAnimationFrame;
+}
+
+beforeEach(() => {
+  document.body.innerHTML = '';
+  resetPreloaderGlobals();
   jest.clearAllMocks();
   jest.useFakeTimers();
 });
 
 afterEach(() => {
-  delete globalThis.__NOTION_PRELOADER_INITIALIZED__;
-  delete globalThis.__NOTION_BUNDLE_READY__;
-  delete globalThis.chrome;
-  delete globalThis.requestIdleCallback;
-  delete globalThis.cancelIdleCallback;
-  delete globalThis.requestAnimationFrame;
+  resetPreloaderGlobals();
   jest.useRealTimers();
 });
 
