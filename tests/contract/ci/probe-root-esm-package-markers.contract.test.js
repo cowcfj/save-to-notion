@@ -5,10 +5,13 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import probe from '../../../tools/probe-root-esm-package-markers-core.cjs';
 
-const projectRoot = path.resolve();
+const testFilePath = fileURLToPath(import.meta.url);
+const testDirectory = path.dirname(testFilePath);
+const projectRoot = path.resolve(testDirectory, '../../..');
 
 const loadProbeWithSpawnSync = async spawnSync => {
   let mockedProbe;
@@ -167,6 +170,12 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
 
   afterEach(() => {
     fs.rmSync(temporaryRoot, { recursive: true, force: true });
+  });
+
+  test('resolves the project root from the test module location', () => {
+    expect(path.relative(projectRoot, testFilePath)).toBe(
+      path.join('tests', 'contract', 'ci', 'probe-root-esm-package-markers.contract.test.js')
+    );
   });
 
   test('discovers production and test package markers from an explicit root', () => {
@@ -673,7 +682,9 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
   });
 
   test('guards direct ESM execution when process.argv[1] is absent', () => {
-    const wrapperSource = fs.readFileSync('tools/probe-root-esm-package-markers.mjs', 'utf8');
+    const wrapperSource = readUtf8File(
+      path.join(projectRoot, 'tools/probe-root-esm-package-markers.mjs')
+    );
 
     expect(wrapperSource).toContain('process.argv[1] &&');
     expect(wrapperSource).toContain('pathToFileURL(process.argv[1]).href');
