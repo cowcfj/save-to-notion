@@ -492,6 +492,23 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
     ).toThrow('未知或非 tests/** package marker：pages/popup/package.json');
   });
 
+  test('lists every invalid explicit marker path before rejecting', () => {
+    const sourceRoot = createMarkerProbeSourceFixture(temporaryRoot);
+    const mockedProbe = loadProbeWithSpawnSync(createSuccessfulSpawnSync());
+
+    expect(() =>
+      mockedProbe.runProbe(
+        {
+          variant: 'tests',
+          removeMarkers: ['tests/unit/missing/package.json', 'pages/popup/package.json'],
+        },
+        sourceRoot
+      )
+    ).toThrow(
+      /未知或非 tests\/\*\* package marker：tests\/unit\/missing\/package\.json[\s\S]*pages\/popup\/package\.json/
+    );
+  });
+
   test('rejects explicit marker removals outside the tests variant', () => {
     const sourceRoot = createMarkerProbeSourceFixture(temporaryRoot);
     const mockedProbe = loadProbeWithSpawnSync(createSuccessfulSpawnSync());

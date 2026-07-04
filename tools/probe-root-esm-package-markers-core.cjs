@@ -306,14 +306,24 @@ function resolveExplicitTestMarkers(markers, markerPaths) {
       .map(marker => [marker.relativePath, marker])
   );
 
-  return markerPaths.map(markerPath => {
+  const resolvedMarkers = [];
+  const invalidMarkerPaths = [];
+
+  for (const markerPath of markerPaths) {
     const normalizedPath = normalizeMarkerPath(markerPath);
     const marker = testMarkers.get(normalizedPath);
     if (!marker) {
-      throw new Error(`未知或非 tests/** package marker：${markerPath}`);
+      invalidMarkerPaths.push(markerPath);
+      continue;
     }
-    return marker;
-  });
+    resolvedMarkers.push(marker);
+  }
+
+  if (invalidMarkerPaths.length > 0) {
+    throw new Error(`未知或非 tests/** package marker：${invalidMarkerPaths.join(', ')}`);
+  }
+
+  return resolvedMarkers;
 }
 
 function replaceRequiredSource(source, searchValue, replacementValue, fileLabel) {
