@@ -29,7 +29,7 @@ beforeEach(() => {
   document.body.innerHTML = '';
   setReadyState('complete');
   if (globalThis.CSS === undefined) {
-    globalThis.CSS = { escape: value => String(value).replaceAll('.', '\\.') };
+    globalThis.CSS = { escape: value => String(value).replaceAll('.', String.raw`\.`) };
   }
 });
 
@@ -64,8 +64,10 @@ describe('uiUtils native ESM depth coverage', () => {
     const symbol = document.querySelector('#svg-sprite-definitions symbol#icon-save');
     expect(symbol).not.toBeNull();
     expect(symbol.getAttribute('viewBox')).toBe('0 0 16 16');
-    expect(symbol.hasAttribute('data-root')).toBe(false);
-    expect(symbol.querySelector('g')?.hasAttribute('data-private')).toBe(false);
+    expect(symbol.dataset.root).toBeUndefined();
+    const group = symbol.querySelector('g');
+    expect(group).not.toBeNull();
+    expect(group.dataset.private).toBeUndefined();
     expect(symbol.querySelector('path')?.getAttribute('d')).toBe('M1 1h14v14H1z');
   });
 
