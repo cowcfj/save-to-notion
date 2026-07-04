@@ -1,4 +1,5 @@
 import { describe, expect, jest, test, beforeAll } from '@jest/globals';
+import { withGlobalTestDouble as withGlobalValue } from '../../helpers/globalTestDouble.js';
 
 // 1. 在動態導入任何模組之前，先建立 global Mocks
 beforeAll(() => {
@@ -49,25 +50,6 @@ beforeAll(() => {
     addEventListener: jest.fn(),
   };
 });
-
-function restoreGlobalProperty(name, originalValue) {
-  if (originalValue === undefined) {
-    delete globalThis[name];
-    return;
-  }
-  globalThis[name] = originalValue;
-}
-
-async function withGlobalValue(name, value, assertionBlock) {
-  const originalValue = globalThis[name];
-  globalThis[name] = value;
-
-  try {
-    return await assertionBlock(value);
-  } finally {
-    restoreGlobalProperty(name, originalValue);
-  }
-}
 
 describe('Root utils native ESM diagnostics', () => {
   // 1. esm-safe-now pure utils tests

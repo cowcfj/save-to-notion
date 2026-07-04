@@ -1,5 +1,3 @@
-/* eslint-disable unicorn/prefer-await -- Test helpers intentionally preserve sync-or-async helper behavior. */
-
 export class MockHeaders {
   constructor(map = {}) {
     this.map = Object.fromEntries(
@@ -59,14 +57,6 @@ export async function advance(ms) {
   await Promise.resolve();
 }
 
-function restoreGlobalProperty(name, originalValue) {
-  if (originalValue === undefined) {
-    delete globalThis[name];
-    return;
-  }
-  globalThis[name] = originalValue;
-}
-
 export const REQUIRED_LOGGER_METHODS = [
   'success',
   'start',
@@ -77,33 +67,7 @@ export const REQUIRED_LOGGER_METHODS = [
   'error',
 ];
 
-export function withGlobalTestDouble(name, value, assertionBlock) {
-  const originalValue = globalThis[name];
-  globalThis[name] = value;
-  const restore = () => restoreGlobalProperty(name, originalValue);
-
-  try {
-    const result = assertionBlock(value);
-    if (result && typeof result.then === 'function') {
-      return result.then(
-        resolvedValue => {
-          restore();
-          return resolvedValue;
-        },
-        error => {
-          restore();
-          throw error;
-        }
-      );
-    }
-
-    restore();
-    return result;
-  } catch (error) {
-    restore();
-    throw error;
-  }
-}
+export { withGlobalTestDouble } from '../../helpers/globalTestDouble.js';
 
 export function createLoggerWithMethods(methodNames) {
   return Object.fromEntries(

@@ -577,7 +577,13 @@ class RetryManager {
     }
 
     const delay = this.#determineDelay(error, attempt, config);
-    this.#checkTimeout(retryState.startTime, delay, config, attempt);
+    this.#checkTimeout({
+      startTime: retryState.startTime,
+      delay,
+      config,
+      attempt,
+      totalDelayMs: retryState.totalDelayMs,
+    });
 
     RetryManager._logRetryAttempt({
       error,
@@ -625,7 +631,7 @@ class RetryManager {
     return RetryManager._calculateDelay(attempt, config);
   }
 
-  #checkTimeout(startTime, delay, config, attempt) {
+  #checkTimeout({ startTime, delay, config, attempt, totalDelayMs }) {
     if (typeof config.totalTimeoutMs !== 'number') {
       return;
     }
@@ -634,7 +640,7 @@ class RetryManager {
     if (elapsed + delay > config.totalTimeoutMs) {
       const timeoutError = new Error('重試總時長已超時');
       timeoutError.name = 'TimeoutError';
-      RetryManager._logRetryFailure(timeoutError, attempt - 1, config.contextType, config);
+      this.#recordFailureContext(timeoutError, attempt, config, totalDelayMs);
       throw timeoutError;
     }
   }

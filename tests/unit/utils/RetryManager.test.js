@@ -586,6 +586,30 @@ describe('RetryManager Comprehensive Tests', () => {
     });
   });
 
+  test('getLastStats 應該在總逾時失敗後更新失敗統計', async () => {
+    await retryManager.execute(jest.fn().mockResolvedValue('previous success'));
+
+    const error = new Error('Network failure');
+    error.name = 'NetworkError';
+    const operation = jest.fn().mockRejectedValue(error);
+
+    await expect(
+      retryManager.execute(operation, {
+        baseDelay: 10,
+        totalTimeoutMs: 5,
+      })
+    ).rejects.toMatchObject({ name: 'TimeoutError' });
+
+    expect(retryManager.getLastStats()).toMatchObject({
+      lastSucceeded: false,
+      lastTotalRetries: 0,
+      lastTotalDelayMs: 0,
+      contextType: 'network',
+      lastErrorName: 'TimeoutError',
+      lastErrorMessage: '重試總時長已超時',
+    });
+  });
+
   describe('便捷函數', () => {
     test('withRetry 應該使用默認實例並支持自定義選項', async () => {
       const operation = jest.fn().mockResolvedValue('result');
