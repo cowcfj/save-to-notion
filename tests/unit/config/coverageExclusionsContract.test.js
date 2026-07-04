@@ -151,6 +151,7 @@ describe('coverage exclusion contract', () => {
 
     expect(nativeEsmInclusions.has('pages/update-notification/update-notification.js')).toBe(true);
     expect(nativeEsmInclusions.has('scripts/config/env/build.example.js')).toBe(false);
+    expect(nativeEsmInclusions.has('scripts/postinstall.js')).toBe(false);
   });
 
   test('SonarCloud automatic analysis does not declare a CI LCOV import contract', () => {

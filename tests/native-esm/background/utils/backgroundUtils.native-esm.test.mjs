@@ -79,6 +79,9 @@ describe('background utility native ESM diagnostics', () => {
       '文字顏色'
     );
     expect(getStyledText(boldResult[0], annotations => annotations.bold === true)).toBe('粗體');
+  });
+
+  test('resolveStyle returns null for unknown highlight style options', () => {
     expect(resolveStyle('UNKNOWN_STYLE', { color: 'red' })).toBeNull();
   });
 
