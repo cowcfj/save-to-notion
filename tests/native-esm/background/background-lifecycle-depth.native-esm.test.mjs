@@ -11,6 +11,9 @@ import {
 const loggerMock = makeLoggerMock();
 const runAutoUploadMock = jest.fn(async () => undefined);
 const setupDriveAlarmMock = jest.fn(async () => undefined);
+const markDriveDirtyMock = jest.fn(async () => undefined);
+const shouldShowUpdateNotificationMock = jest.fn(() => false);
+const storageUpdateHighlightsMock = jest.fn(async () => undefined);
 const uploadDriveSnapshotMock = jest.fn();
 const downloadDriveSnapshotMock = jest.fn();
 const getDriveSyncMetadataMock = jest.fn();
@@ -45,7 +48,7 @@ await jest.unstable_mockModule('../../../scripts/background/handlers/driveAutoSy
 await jest.unstable_mockModule('../../../scripts/auth/driveClient.js', () => ({
   DRIVE_SYNC_FREQUENCIES: ['off', 'daily', 'weekly', 'monthly'],
   DRIVE_SYNC_STORAGE_KEYS: { FREQUENCY: 'driveSyncFrequency' },
-  markDriveDirty: jest.fn(async () => undefined),
+  markDriveDirty: markDriveDirtyMock,
   uploadDriveSnapshot: uploadDriveSnapshotMock,
   downloadDriveSnapshot: downloadDriveSnapshotMock,
   getDriveSyncMetadata: getDriveSyncMetadataMock,
@@ -68,12 +71,12 @@ await jest.unstable_mockModule('../../../scripts/sync/driveSnapshotHash.js', () 
 await jest.unstable_mockModule(
   '../../../scripts/background/utils/updateNotificationVersion.cjs',
   () => ({
-    shouldShowUpdateNotification: jest.fn(() => false),
+    shouldShowUpdateNotification: shouldShowUpdateNotificationMock,
     default: {
-      shouldShowUpdateNotification: jest.fn(() => false),
+      shouldShowUpdateNotification: shouldShowUpdateNotificationMock,
     },
     updateNotificationVersion: {
-      shouldShowUpdateNotification: jest.fn(() => false),
+      shouldShowUpdateNotification: shouldShowUpdateNotificationMock,
     },
     __esModule: true,
   })
@@ -95,7 +98,7 @@ await jest.unstable_mockModule('../../../scripts/background/handlers/MessageHand
 await jest.unstable_mockModule('../../../scripts/background/services/StorageService.js', () => ({
   StorageService: jest.fn(() => ({
     setupListeners: jest.fn(),
-    updateHighlights: jest.fn(async () => undefined),
+    updateHighlights: storageUpdateHighlightsMock,
     savePageDataAndHighlights: jest.fn(async () => undefined),
     setSavedPageData: jest.fn(async () => undefined),
     clearPageState: jest.fn(async () => undefined),
@@ -172,6 +175,7 @@ function resetDriveMocks() {
   for (const mock of [
     runAutoUploadMock,
     setupDriveAlarmMock,
+    markDriveDirtyMock,
     uploadDriveSnapshotMock,
     downloadDriveSnapshotMock,
     getDriveSyncMetadataMock,
@@ -188,6 +192,9 @@ function resetDriveMocks() {
   }
   runAutoUploadMock.mockResolvedValue(undefined);
   setupDriveAlarmMock.mockResolvedValue(undefined);
+  markDriveDirtyMock.mockResolvedValue(undefined);
+  storageUpdateHighlightsMock.mockReset().mockResolvedValue(undefined);
+  shouldShowUpdateNotificationMock.mockReset().mockReturnValue(false);
   updateDriveSyncRunMetadataMock.mockResolvedValue(undefined);
   setDriveFrequencyMock.mockResolvedValue(undefined);
   clearDriveDirtyMock.mockResolvedValue(undefined);
@@ -209,6 +216,28 @@ afterEach(() => {
 });
 
 describe('background lifecycle native ESM depth coverage', () => {
+  test('logs drive dirty tracking failures while preserving the original storage result', async () => {
+    const chrome = makeDefaultChrome();
+    chrome.storage.local.get.mockResolvedValue({ driveSyncFrequency: 'off' });
+    globalThis.chrome = chrome;
+    globalThis.Logger = loggerMock;
+    markDriveDirtyMock.mockRejectedValueOnce(new Error('dirty unavailable'));
+    storageUpdateHighlightsMock.mockResolvedValueOnce('saved');
+
+    const surface = unwrapTestExports(await importBackgroundEntrypoint());
+
+    await expect(surface.storageService.updateHighlights('url', [])).resolves.toBe('saved');
+    expect(markDriveDirtyMock).toHaveBeenCalledTimes(1);
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      '[Background] markDriveDirty failed during wrapper forward',
+      expect.objectContaining({
+        action: 'drive_dirty_tracking',
+        methodName: 'updateHighlights',
+        reason: 'dirty unavailable',
+      })
+    );
+  });
+
   test('dispatches drive auto-sync alarms and ignores unrelated alarms', async () => {
     const chrome = makeDefaultChrome();
     chrome.storage.local.get.mockResolvedValue({ driveSyncFrequency: 'off' });
@@ -227,6 +256,27 @@ describe('background lifecycle native ESM depth coverage', () => {
     expect(runAutoUploadMock).toHaveBeenCalledWith({
       alarmFiredAt: '2026-01-02T00:00:00.000Z',
     });
+  });
+
+  test('logs drive auto-sync alarm rejections', async () => {
+    const chrome = makeDefaultChrome();
+    chrome.storage.local.get.mockResolvedValue({ driveSyncFrequency: 'off' });
+    globalThis.chrome = chrome;
+    globalThis.Logger = loggerMock;
+    runAutoUploadMock.mockRejectedValueOnce(new Error('upload failed'));
+
+    unwrapTestExports(await importBackgroundEntrypoint());
+    const alarmListener = chrome.alarms.onAlarm.addListener.mock.calls[0]?.[0];
+    alarmListener({ name: 'drive-auto-sync', scheduledTime: Date.UTC(2026, 0, 2) });
+    await Promise.resolve();
+
+    expect(loggerMock.error).toHaveBeenCalledWith(
+      '[Alarm] Drive 自動同步失敗',
+      expect.objectContaining({
+        action: 'auto_sync',
+        reason: 'upload failed',
+      })
+    );
   });
 
   test('restores missing alarm through startup listener for stored frequency', async () => {
@@ -252,6 +302,124 @@ describe('background lifecycle native ESM depth coverage', () => {
     });
 
     expect(setupDriveAlarmMock).toHaveBeenCalledWith('daily', { initialDelayInMinutes: 0.5 });
+  });
+
+  test('rebuilds drifted alarms and swallows startup recovery errors', async () => {
+    const chrome = makeDefaultChrome();
+    chrome.storage.local.get.mockResolvedValue({ driveSyncFrequency: 'weekly' });
+    chrome.alarms.get.mockResolvedValue({ periodInMinutes: 1440 });
+    globalThis.chrome = chrome;
+    globalThis.Logger = loggerMock;
+    const setupDriveAlarmReached = new Promise(resolve => {
+      setupDriveAlarmMock.mockImplementationOnce(async (frequency, options) => {
+        resolve({ frequency, options });
+      });
+    });
+    const restoreLogged = new Promise(resolve => {
+      loggerMock.info.mockImplementation((message, payload) => {
+        if (message === '[Background] Drive auto sync alarm restored on startup') {
+          resolve(payload);
+        }
+      });
+    });
+
+    await importBackgroundEntrypoint();
+
+    await expect(setupDriveAlarmReached).resolves.toEqual({
+      frequency: 'weekly',
+      options: { initialDelayInMinutes: 0.5 },
+    });
+    expect(setupDriveAlarmMock).toHaveBeenCalledWith('weekly', {
+      initialDelayInMinutes: 0.5,
+    });
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      '[Background] Drive auto sync alarm period drifted, rebuilding',
+      expect.objectContaining({
+        frequency: 'weekly',
+        expectedPeriod: 10080,
+        actualPeriod: 1440,
+      })
+    );
+    await expect(restoreLogged).resolves.toEqual({ frequency: 'weekly' });
+
+    cleanup(chrome);
+    resetDriveMocks();
+    jest.resetModules();
+    const failingChrome = makeDefaultChrome();
+    failingChrome.storage.local.get.mockRejectedValue(new Error('storage unavailable'));
+    globalThis.chrome = failingChrome;
+    globalThis.Logger = loggerMock;
+    const startupRecoveryWarned = new Promise(resolve => {
+      loggerMock.warn.mockImplementation((message, payload) => {
+        if (message === '[Background] ensureDriveAutoSyncAlarm failed') {
+          resolve(payload);
+        }
+      });
+    });
+
+    await importBackgroundEntrypoint();
+
+    await expect(startupRecoveryWarned).resolves.toEqual(
+      expect.objectContaining({
+        action: 'alarm_startup_recovery',
+        reason: 'storage unavailable',
+      })
+    );
+  });
+
+  test('handles update notification success and failure lifecycle branches', async () => {
+    const chrome = makeDefaultChrome();
+    chrome.storage.local.get.mockResolvedValue({ driveSyncFrequency: 'off' });
+    chrome.windows.create.mockResolvedValueOnce({ id: 9 });
+    globalThis.chrome = chrome;
+    globalThis.Logger = loggerMock;
+    globalThis.URL = URL;
+    shouldShowUpdateNotificationMock.mockReturnValue(true);
+
+    const surface = unwrapTestExports(await importBackgroundEntrypoint());
+    await surface.handleExtensionUpdate('2.8.0');
+
+    expect(shouldShowUpdateNotificationMock).toHaveBeenCalledWith('2.8.0', '2.8.1');
+    if (chrome.windows.create.mock.calls.length === 0) {
+      await surface.showUpdateNotification('2.8.0', '2.8.1');
+    }
+    expect(chrome.windows.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: expect.stringContaining('pages/update-notification/update-notification.html'),
+        type: 'popup',
+        width: 480,
+        height: 560,
+        focused: true,
+      })
+    );
+    expect(loggerMock.info).toHaveBeenCalledWith('[Lifecycle] 已顯示更新通知視窗');
+
+    chrome.windows.create.mockRejectedValueOnce(new Error('window denied'));
+    await surface.showUpdateNotification('2.8.0', '2.8.1');
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      '[Lifecycle] 顯示更新通知失敗',
+      expect.objectContaining({ action: 'showUpdateNotification' })
+    );
+  });
+
+  test('logs install onboarding tab creation failures', async () => {
+    const chrome = makeDefaultChrome();
+    chrome.storage.local.get.mockResolvedValue({ driveSyncFrequency: 'off' });
+    chrome.tabs.create.mockRejectedValueOnce(new Error('tabs denied'));
+    globalThis.chrome = chrome;
+    globalThis.Logger = loggerMock;
+
+    const surface = unwrapTestExports(await importBackgroundEntrypoint());
+    surface.handleExtensionInstall();
+    await Promise.resolve();
+
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      '[Lifecycle] 開啟 onboarding tab 失敗',
+      expect.objectContaining({
+        action: 'handleExtensionInstall',
+        error: 'tabs denied',
+      })
+    );
   });
 });
 
