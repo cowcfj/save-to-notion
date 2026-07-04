@@ -329,9 +329,7 @@ class RetryManager {
        */
       const onAbort = () => {
         cleanup();
-        const abortError = new Error('已取消（AbortSignal）');
-        abortError.name = 'AbortError';
-        reject(abortError);
+        reject(RetryManager._createAbortError());
       };
 
       /**
