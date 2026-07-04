@@ -50,6 +50,25 @@ beforeAll(() => {
   };
 });
 
+function restoreGlobalProperty(name, originalValue) {
+  if (originalValue === undefined) {
+    delete globalThis[name];
+    return;
+  }
+  globalThis[name] = originalValue;
+}
+
+async function withGlobalValue(name, value, assertionBlock) {
+  const originalValue = globalThis[name];
+  globalThis[name] = value;
+
+  try {
+    return await assertionBlock(value);
+  } finally {
+    restoreGlobalProperty(name, originalValue);
+  }
+}
+
 describe('Root utils native ESM diagnostics', () => {
   // 1. esm-safe-now pure utils tests
   test('accountDisplayUtils: resolveAccountDisplayProfile', async () => {
@@ -211,5 +230,190 @@ describe('Root utils native ESM diagnostics', () => {
     expect(RetryManager).toBeDefined();
     const result = await withRetry(async () => 'success_data');
     expect(result).toBe('success_data');
+  });
+
+  test('RetryManager: retry hook fallback branches', async () => {
+    const { RetryManager } = await import('../../../scripts/utils/RetryManager.js');
+    const retryManager = new RetryManager({ baseDelay: 0, jitter: false });
+    const retryableError = new Error('Failed to fetch');
+    const logger = {
+      warn: jest.fn(),
+      error: jest.fn(),
+    };
+
+    await withGlobalValue('Logger', logger, async () => {
+      expect(
+        retryManager._shouldRetry(retryableError, {
+          shouldRetry: () => {
+            throw new Error('operation hook failed');
+          },
+        })
+      ).toBe(true);
+      expect(
+        retryManager._shouldRetryFetchError(retryableError, {
+          shouldRetry: () => {
+            throw new Error('fetch hook failed');
+          },
+        })
+      ).toBe(true);
+      expect(
+        RetryManager._shouldLogRetryFailure(retryableError, {
+          shouldLogFailure: () => {
+            throw new Error('failure hook failed');
+          },
+        })
+      ).toBe(true);
+      RetryManager._logRetryFailure(retryableError, 1, 'network', {
+        shouldLogFailure: () => false,
+      });
+    });
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('shouldRetry hook'),
+      expect.objectContaining({ action: 'shouldRetry', result: 'hook_error' })
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('shouldRetry hook'),
+      expect.objectContaining({ action: 'shouldRetryFetchError', result: 'hook_error' })
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('shouldLogFailure hook'),
+      expect.objectContaining({ action: 'shouldLogFailure', result: 'hook_error' })
+    );
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  test('RetryManager: defensive helper fallback branches', async () => {
+    const { RetryManager } = await import('../../../scripts/utils/RetryManager.js');
+    const controller = new AbortController();
+    controller.abort();
+    const response = {
+      status: 503,
+      headers: {
+        get: jest.fn().mockReturnValue('1'),
+      },
+    };
+
+    expect(() => RetryManager._throwIfAborted(controller.signal)).toThrow(
+      expect.objectContaining({ name: 'AbortError' })
+    );
+    await expect(RetryManager._delay(10, controller.signal)).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+    expect(RetryManager._shouldRetryNetworkError(null)).toBe(false);
+    expect(RetryManager._parseRetryAfterHeader(null)).toBe(0);
+    expect(RetryManager._parseRetryAfterHeader({ headers: {} })).toBe(0);
+    expect(
+      RetryManager._parseRetryAfterHeader({
+        headers: {
+          get() {
+            throw new Error('header failed');
+          },
+        },
+      })
+    ).toBe(0);
+    expect(RetryManager._createRetryableHttpError(503, response)).toMatchObject({
+      name: 'HttpError',
+      status: 503,
+      retryAfterMs: 1000,
+    });
+    expect(RetryManager._shouldRetryFetchResponse(response, 503, {
+      shouldRetryResponse: () => {
+        throw new Error('response hook failed');
+      },
+    })).toBe(true);
+    expect(RetryManager._resolveErrorHandlerType('dom')).toBe('dom_error');
+    expect(RetryManager._resolveRandomValue({})).toBeGreaterThanOrEqual(0);
+    expect(RetryManager._getResponseStatus(null)).toBeNull();
+    expect(RetryManager._getResponseStatus({ status: '503' })).toBeNull();
+    expect(RetryManager._sanitizeErrorForLog(null)).toEqual({ message: 'null' });
+    expect(RetryManager._sanitizeErrorForLog('plain failure')).toEqual({
+      message: 'plain failure',
+    });
+    expect(RetryManager._sanitizeErrorForLog({ message: 'typed failure', type: 'network' })).toEqual(
+      {
+        name: 'Error',
+        message: 'typed failure',
+        type: 'network',
+      }
+    );
+
+    await withGlobalValue('process', undefined, async () => {
+      RetryManager._logToConsoleInDev('no process');
+    });
+    await withGlobalValue('process', {}, async () => {
+      RetryManager._logToConsoleInDev('no env');
+    });
+  });
+
+  test('RetryManager: ErrorHandler and DOM retry branches', async () => {
+    const { RetryManager } = await import('../../../scripts/utils/RetryManager.js');
+    const logger = {
+      warn: jest.fn(),
+      error: jest.fn(),
+      success: jest.fn(),
+    };
+    const errorHandler = {
+      logError: jest.fn(),
+    };
+    const classLogError = jest.fn();
+    class ErrorHandlerClass {
+      logError(payload) {
+        classLogError(payload);
+      }
+    }
+
+    await withGlobalValue('Logger', logger, async () => {
+      await withGlobalValue('ErrorHandler', errorHandler, async () => {
+        RetryManager._logRetryAttempt({
+          error: new Error('instance handler'),
+          attempt: 1,
+          maxAttempts: 2,
+          delay: 0,
+          contextType: 'dom',
+        });
+      });
+      await withGlobalValue('ErrorHandler', ErrorHandlerClass, async () => {
+        RetryManager._logRetryFailure(new Error('class handler'), 1, 'network');
+      });
+    });
+
+    expect(errorHandler.logError).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'dom_error' })
+    );
+    expect(classLogError).toHaveBeenCalledWith(expect.objectContaining({ type: 'network_error' }));
+
+    expect(RetryManager._shouldRetryDomError(new Error('DOM not ready'))).toBe(true);
+    expect(RetryManager._shouldRetryDomError(new Error('element not found'))).toBe(true);
+
+    const retryManager = new RetryManager({ baseDelay: 0, jitter: false });
+    let shouldFail = true;
+    const domOperation = jest.fn(() => {
+      if (shouldFail) {
+        shouldFail = false;
+        const error = new Error('DOM not ready');
+        error.name = 'InvalidStateError';
+        throw error;
+      }
+      return 'dom-ready';
+    });
+
+    await expect(retryManager.wrapDomOperation(domOperation)()).resolves.toBe('dom-ready');
+    expect(domOperation).toHaveBeenCalledTimes(2);
+  });
+
+  test('RetryManager: total timeout branch', async () => {
+    const { RetryManager } = await import('../../../scripts/utils/RetryManager.js');
+    const retryManager = new RetryManager({ baseDelay: 10, jitter: false });
+    const operation = jest.fn(() => {
+      const error = new Error('temporary network failure');
+      error.name = 'NetworkError';
+      throw error;
+    });
+
+    await expect(retryManager.execute(operation, { totalTimeoutMs: 5 })).rejects.toMatchObject({
+      name: 'TimeoutError',
+    });
+    expect(operation).toHaveBeenCalledTimes(1);
   });
 });
