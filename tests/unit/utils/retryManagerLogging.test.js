@@ -1,4 +1,4 @@
-/* eslint-disable unicorn/no-error-property-assignment, unicorn/no-global-object-property-assignment -- RetryManager logging tests intentionally construct named Error doubles and install global Logger doubles. */
+/* eslint-disable unicorn/no-error-property-assignment -- RetryManager logging tests intentionally construct named Error doubles. */
 
 import { RetryManager } from '../../../scripts/utils/RetryManager.js';
 import {
@@ -7,17 +7,41 @@ import {
   withGlobalTestDouble,
 } from './retryManagerTestSupport.js';
 
+function createThrowingErrorHandlerReference() {
+  function ThrowingErrorHandler() {
+    throw new Error('constructor failed');
+  }
+  ThrowingErrorHandler.prototype.logError = jest.fn();
+  return ThrowingErrorHandler;
+}
+
+function expectRetryLogEmission({ loggerMethod, invokeRetryLog, messageFragment, metadata }) {
+  const logger = createLoggerWithMethods([loggerMethod]);
+
+  withGlobalTestDouble('Logger', logger, mockLogger => {
+    invokeRetryLog();
+
+    expectStructuredRetryLog(mockLogger[loggerMethod], messageFragment, metadata);
+  });
+
+  expect(logger[loggerMethod]).toHaveBeenCalledTimes(1);
+}
+
 describe('RetryManager retry logging', () => {
   describe('_logRetryAttempt - 記錄重試嘗試', () => {
     test('應該記錄重試嘗試信息', () => {
-      const logger = createLoggerWithMethods(['warn']);
-
-      withGlobalTestDouble('Logger', logger, mockLogger => {
-        const error = new Error('Test error');
-
-        RetryManager._logRetryAttempt({ error, attempt: 1, maxAttempts: 3, delay: 100 });
-
-        expectStructuredRetryLog(mockLogger.warn, '重試', {
+      expectRetryLogEmission({
+        loggerMethod: 'warn',
+        invokeRetryLog: () => {
+          RetryManager._logRetryAttempt({
+            error: new Error('Test error'),
+            attempt: 1,
+            maxAttempts: 3,
+            delay: 100,
+          });
+        },
+        messageFragment: '重試',
+        metadata: {
           action: 'retryOperation',
           result: 'warning',
           error: expect.objectContaining({
@@ -28,10 +52,8 @@ describe('RetryManager retry logging', () => {
           maxAttempts: 3,
           delay: 100,
           contextType: 'network',
-        });
+        },
       });
-
-      expect(logger.warn).toHaveBeenCalledTimes(1);
     });
 
     test('應該使用 ErrorHandler 如果可用', () => {
@@ -65,15 +87,7 @@ describe('RetryManager retry logging', () => {
       expect.hasAssertions();
 
       const logger = createLoggerWithMethods(['warn']);
-      const cases = [
-        42,
-        () => {},
-        class ThrowingErrorHandler {
-          constructor() {
-            throw new Error('constructor failed');
-          }
-        },
-      ];
+      const cases = [42, () => {}, createThrowingErrorHandlerReference()];
 
       withGlobalTestDouble('Logger', logger, () => {
         for (const errorHandlerReference of cases) {
@@ -131,14 +145,13 @@ describe('RetryManager retry logging', () => {
 
   describe('_logRetryFailure - 記錄重試失敗', () => {
     test('應該記錄失敗信息', () => {
-      const logger = createLoggerWithMethods(['error']);
-
-      withGlobalTestDouble('Logger', logger, mockLogger => {
-        const error = new Error('Final error');
-
-        RetryManager._logRetryFailure(error, 3);
-
-        expectStructuredRetryLog(mockLogger.error, '失敗', {
+      expectRetryLogEmission({
+        loggerMethod: 'error',
+        invokeRetryLog: () => {
+          RetryManager._logRetryFailure(new Error('Final error'), 3);
+        },
+        messageFragment: '失敗',
+        metadata: {
           action: 'retryOperation',
           result: 'failure',
           error: expect.objectContaining({
@@ -147,10 +160,8 @@ describe('RetryManager retry logging', () => {
           }),
           totalRetries: 3,
           contextType: 'network',
-        });
+        },
       });
-
-      expect(logger.error).toHaveBeenCalledTimes(1);
     });
 
     test('shouldLogFailure 回傳 false 時不應記錄失敗或回報 ErrorHandler', () => {
@@ -183,24 +194,8 @@ describe('RetryManager retry logging', () => {
 });
 
 describe('RetryManager security logging', () => {
-  let mockLogger;
-  let originalLogger;
-
-  beforeEach(() => {
-    originalLogger = globalThis.Logger;
-    mockLogger = {
-      warn: jest.fn(),
-      error: jest.fn(),
-    };
-    globalThis.Logger = mockLogger;
-    jest.clearAllMocks();
-  });
-
-  afterEach(() => {
-    globalThis.Logger = originalLogger;
-  });
-
   test('_logRetryAttempt 應過濾錯誤物件中的敏感屬性（如 headers）', () => {
+    const logger = createLoggerWithMethods(['warn']);
     const sensitiveError = new Error('API Error');
     sensitiveError.name = 'APIResponseError';
     sensitiveError.code = 'unauthorized';
@@ -219,35 +214,40 @@ describe('RetryManager security logging', () => {
       },
     };
 
-    RetryManager._logRetryAttempt({
-      error: sensitiveError,
-      attempt: 1,
-      maxAttempts: 3,
-      delay: 100,
+    withGlobalTestDouble('Logger', logger, mockLogger => {
+      RetryManager._logRetryAttempt({
+        error: sensitiveError,
+        attempt: 1,
+        maxAttempts: 3,
+        delay: 100,
+      });
+
+      expect(mockLogger.warn).toHaveBeenCalledTimes(1);
+      const safeError = mockLogger.warn.mock.calls[0][1].error;
+
+      expect(safeError.message).toBe('API Error');
+      expect(safeError.name).toBe('APIResponseError');
+      expect(safeError.code).toBe('unauthorized');
+      expect(safeError.status).toBe(401);
+      expect(safeError.headers).toBeUndefined();
+      expect(safeError.request).toBeUndefined();
+      expect(safeError.response).toBeUndefined();
     });
-
-    expect(mockLogger.warn).toHaveBeenCalledTimes(1);
-    const safeError = mockLogger.warn.mock.calls[0][1].error;
-
-    expect(safeError.message).toBe('API Error');
-    expect(safeError.name).toBe('APIResponseError');
-    expect(safeError.code).toBe('unauthorized');
-    expect(safeError.status).toBe(401);
-    expect(safeError.headers).toBeUndefined();
-    expect(safeError.request).toBeUndefined();
-    expect(safeError.response).toBeUndefined();
   });
 
   test('_logRetryFailure 應過濾錯誤物件中的敏感屬性', () => {
+    const logger = createLoggerWithMethods(['error']);
     const sensitiveError = new Error('Final Error');
     sensitiveError.details = { apiKey: 'secret-key' };
 
-    RetryManager._logRetryFailure(sensitiveError, 3);
+    withGlobalTestDouble('Logger', logger, mockLogger => {
+      RetryManager._logRetryFailure(sensitiveError, 3);
 
-    expect(mockLogger.error).toHaveBeenCalledTimes(1);
-    const logMeta = mockLogger.error.mock.calls[0][1];
+      expect(mockLogger.error).toHaveBeenCalledTimes(1);
+      const logMeta = mockLogger.error.mock.calls[0][1];
 
-    expect(logMeta.error.message).toBe('Final Error');
-    expect(logMeta.error).not.toHaveProperty('details');
+      expect(logMeta.error.message).toBe('Final Error');
+      expect(logMeta.error).not.toHaveProperty('details');
+    });
   });
 });
