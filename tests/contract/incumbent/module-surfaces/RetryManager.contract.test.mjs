@@ -28,10 +28,17 @@ describe('RetryManager module surface contracts', () => {
         '-e',
         [
           '(async () => {',
+          "  for (const key of ['RetryManager', 'withRetry', 'fetchWithRetry']) {",
+          '    delete globalThis[key];',
+          '  }',
           "  const exported = await import('./scripts/utils/RetryManager.js');",
           "  for (const key of ['RetryManager', 'withRetry', 'fetchWithRetry']) {",
           "    if (typeof exported[key] !== 'function') {",
           '      console.error(`${key}:${typeof exported[key]}`);',
+          '      process.exit(1);',
+          '    }',
+          "    if (Object.hasOwn(globalThis, key)) {",
+          '      console.error(`global:${key}`);',
           '      process.exit(1);',
           '    }',
           '  }',
@@ -53,7 +60,7 @@ describe('RetryManager module surface contracts', () => {
     expect(result.stdout).toContain('RetryManager raw ESM surface ok');
   });
 
-  test('browser-style global fallback exposes RetryManager helpers', () => {
+  test('script evaluation does not expose browser-style global fallback helpers', () => {
     const source = fs
       .readFileSync(retryManagerSourcePath, 'utf8')
       .replaceAll(/export\s+\{[\s\S]*?\};/g, ''); // 移除靜態 export 以防在 VM script 執行時報 SyntaxError
@@ -71,8 +78,8 @@ describe('RetryManager module surface contracts', () => {
     sandbox.globalThis = sandbox;
     vm.runInNewContext(source, sandbox, { filename: retryManagerSourcePath });
 
-    expect(sandbox.RetryManager).toEqual(expect.any(Function));
-    expect(sandbox.withRetry).toEqual(expect.any(Function));
-    expect(sandbox.fetchWithRetry).toEqual(expect.any(Function));
+    expect(Object.hasOwn(sandbox, 'RetryManager')).toBe(false);
+    expect(Object.hasOwn(sandbox, 'withRetry')).toBe(false);
+    expect(Object.hasOwn(sandbox, 'fetchWithRetry')).toBe(false);
   });
 });
