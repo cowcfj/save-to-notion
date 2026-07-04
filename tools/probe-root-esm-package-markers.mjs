@@ -1,17 +1,7 @@
 #!/usr/bin/env node
 
 import { pathToFileURL } from 'node:url';
-import {
-  applyCutoverTransforms,
-  assertSafeProbeRoot,
-  buildProbeSummary,
-  discoverPackageMarkers,
-  formatMarkdownSummary,
-  groupMarkersByScope,
-  hashDirectoryTree,
-  main,
-  runProbe,
-} from './probe-root-esm-package-markers-core.mjs';
+import { main } from './probe-root-esm-package-markers-core.mjs';
 
 export {
   applyCutoverTransforms,
@@ -22,7 +12,7 @@ export {
   groupMarkersByScope,
   hashDirectoryTree,
   runProbe,
-};
+} from './probe-root-esm-package-markers-core.mjs';
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {

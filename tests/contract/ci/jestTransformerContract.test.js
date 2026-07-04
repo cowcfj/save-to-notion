@@ -76,7 +76,7 @@ describe('Jest transformer contract', () => {
     );
 
     expect(jsTsTransforms).toHaveLength(3);
-    jsTsTransforms.forEach(([, transform]) => {
+    for (const [, transform] of jsTsTransforms) {
       expect(Array.isArray(transform)).toBe(true);
       expect(transform[0]).toBe('@swc/jest');
       expect(transform[1]).toEqual(
@@ -86,26 +86,26 @@ describe('Jest transformer contract', () => {
           module: expect.objectContaining({ type: 'commonjs' }),
         })
       );
-    });
+    }
   });
 
   test('default Jest ESM transform allowlist stays explicit', () => {
     const transformIgnorePatternSets = collectTransformIgnorePatterns(jestConfig);
 
     expect(transformIgnorePatternSets).toHaveLength(3);
-    transformIgnorePatternSets.forEach(patterns => {
+    for (const patterns of transformIgnorePatternSets) {
       expect(patterns).toEqual(ESM_TRANSFORM_IGNORE_PATTERNS);
-    });
+    }
   });
 
   test('default Jest setup files are explicit CommonJS containment files', () => {
     const configs = collectJestConfigs(jestConfig);
 
     expect(configs).toHaveLength(3);
-    configs.forEach(config => {
+    for (const config of configs) {
       expect(config.setupFiles).toEqual(EXPECTED_SETUP_FILES);
       expect(config.setupFilesAfterEnv).toEqual(EXPECTED_SETUP_FILES_AFTER_ENV);
-    });
+    }
   });
 
   test('default Jest shared mock mappers use one explicit CommonJS containment mapping', () => {
@@ -113,10 +113,10 @@ describe('Jest transformer contract', () => {
     const [rootConfig] = configs;
 
     expect(configs).toHaveLength(3);
-    configs.forEach(config => {
+    for (const config of configs) {
       expect(config.moduleNameMapper).toBe(rootConfig.moduleNameMapper);
       expect(config.moduleNameMapper).toEqual(EXPECTED_MODULE_NAME_MAPPER);
-    });
+    }
   });
 
   test('Jest config does not retain direct Babel transform references', () => {
