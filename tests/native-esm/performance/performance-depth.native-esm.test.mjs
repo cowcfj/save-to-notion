@@ -89,11 +89,20 @@ function dispatchPreloaderCache(cache) {
   document.addEventListener(
     PRELOADER_EVENTS.REQUEST,
     event => {
+      // Preloader listeners imported by earlier tests stay on document; capture lets this mock
+      // intercept them, and stopImmediatePropagation prevents the real preloader response.
       event.stopImmediatePropagation();
       document.dispatchEvent(new CustomEvent(PRELOADER_EVENTS.RESPONSE, { detail: cache }));
     },
     { once: true, capture: true }
   );
+}
+
+function createBatchItems(count, processed) {
+  return Array.from({ length: count }, (_, index) => ({
+    processor: () => index,
+    resolve: result => processed.push(result),
+  }));
 }
 
 beforeEach(() => {
@@ -622,7 +631,7 @@ describe('PerformanceOptimizer native ESM lifecycle depth', () => {
     });
   });
 
-  test('calculates batch sizes and yields with animation frame or timeout fallbacks', async () => {
+  test('calculates batch sizes from queue depth', () => {
     const optimizer = new PerformanceOptimizer();
 
     optimizer.batchQueue = [];
@@ -633,29 +642,28 @@ describe('PerformanceOptimizer native ESM lifecycle depth', () => {
     expect(optimizer._calculateOptimalBatchSize()).toBe(150);
     optimizer.batchQueue = Array.from({ length: 501 }, (_, index) => index);
     expect(optimizer._calculateOptimalBatchSize()).toBe(200);
+  });
 
+  test('yields to the main thread with timeout fallback', async () => {
     const timeoutYield = PerformanceOptimizer._yieldToMain();
     jest.advanceTimersByTime(1);
     await expect(timeoutYield).resolves.toBeUndefined();
+  });
 
+  test('processes additional batch chunks with requestAnimationFrame', () => {
+    const optimizer = new PerformanceOptimizer();
     globalThis.requestAnimationFrame = jest.fn(callback => {
       callback();
       return 1;
     });
     const processed = [];
-    optimizer._processBatchItems(
-      Array.from({ length: 11 }, (_, index) => ({
-        processor: () => index,
-        resolve: result => processed.push(result),
-      })),
-      performance.now()
-    );
+    optimizer._processBatchItems(createBatchItems(11, processed), performance.now());
 
     expect(globalThis.requestAnimationFrame).toHaveBeenCalled();
     expect(processed).toHaveLength(11);
   });
 
-  test('guards duplicate batch scheduling, empty queue processing, setTimeout chunks, and idle yielding', async () => {
+  test('guards duplicate batch scheduling', () => {
     const optimizer = new PerformanceOptimizer({ batchDelay: 30 });
 
     optimizer.batchTimer = 123;
@@ -665,32 +673,37 @@ describe('PerformanceOptimizer native ESM lifecycle depth', () => {
     optimizer._scheduleBatchProcessing();
     expect(optimizer.batchTimer).toBe(123);
     expect(optimizer.batchQueue).toHaveLength(1);
+  });
 
-    optimizer.batchTimer = null;
+  test('skips empty queue processing', () => {
+    const optimizer = new PerformanceOptimizer();
+
     optimizer.batchQueue = [];
     optimizer._processBatch();
     expect(optimizer.batchStats.totalBatches).toBe(0);
+  });
+
+  test('processes additional batch chunks with setTimeout fallback', () => {
+    const optimizer = new PerformanceOptimizer();
 
     delete globalThis.requestAnimationFrame;
     const processed = [];
-    optimizer._processBatchItems(
-      Array.from({ length: 11 }, (_, index) => ({
-        processor: () => index,
-        resolve: result => processed.push(result),
-      })),
-      performance.now()
-    );
+    optimizer._processBatchItems(createBatchItems(11, processed), performance.now());
     expect(processed).toHaveLength(10);
     jest.advanceTimersByTime(0);
     expect(processed).toHaveLength(11);
+  });
 
+  test('yields to the main thread with requestIdleCallback', async () => {
     globalThis.requestIdleCallback = jest.fn(callback => {
       callback();
       return 9;
     });
     await expect(PerformanceOptimizer._yieldToMain()).resolves.toBeUndefined();
     expect(globalThis.requestIdleCallback).toHaveBeenCalledWith(expect.any(Function));
+  });
 
+  test('retries failed batchProcessWithRetry attempts', async () => {
     const retry = await batchProcessWithRetry([1], value => value, {
       maxAttempts: 2,
       baseDelay: 0,
