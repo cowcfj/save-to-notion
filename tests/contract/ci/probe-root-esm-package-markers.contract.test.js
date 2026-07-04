@@ -17,8 +17,8 @@ const loadProbeWithSpawnSync = spawnSync => {
   return mockedProbe;
 };
 
-const writeFile = (rootDir, relativePath, content = '') => {
-  const filePath = path.join(rootDir, relativePath);
+const writeFile = (rootDirectory, relativePath, content = '') => {
+  const filePath = path.join(rootDirectory, relativePath);
   // eslint-disable-next-line security/detect-non-literal-fs-filename
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   // eslint-disable-next-line security/detect-non-literal-fs-filename
@@ -37,8 +37,8 @@ const pathExists = filePath => {
   return fs.existsSync(filePath);
 };
 
-const createCutoverSourceFixture = rootDir => {
-  const sourceRoot = path.join(rootDir, 'source');
+const createCutoverSourceFixture = rootDirectory => {
+  const sourceRoot = path.join(rootDirectory, 'source');
   writeFile(
     sourceRoot,
     'package.json',
@@ -80,6 +80,15 @@ const createSuccessfulSpawnSync = () =>
     stdout: '',
     stderr: '',
   }));
+
+const createMarkerProbeSourceFixture = rootDirectory => {
+  const sourceRoot = path.join(rootDirectory, 'marker-source');
+  writeFile(sourceRoot, 'package.json', JSON.stringify({ type: 'commonjs' }));
+  writeFile(sourceRoot, 'tests/helpers/package.json', JSON.stringify({ type: 'module' }));
+  writeFile(sourceRoot, 'tests/unit/security/package.json', JSON.stringify({ type: 'commonjs' }));
+  writeFile(sourceRoot, 'pages/popup/package.json', JSON.stringify({ type: 'module' }));
+  return sourceRoot;
+};
 
 const runCutoverCoreProbe = sourceRoot => {
   const spawnSync = createSuccessfulSpawnSync();
@@ -143,24 +152,24 @@ const expectCutoverPostinstallCommand = (spawnSync, summary) => {
 };
 
 describe('tools/probe-root-esm-package-markers.mjs', () => {
-  let tempRoot;
+  let temporaryRoot;
 
   beforeEach(() => {
-    tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'root-esm-marker-test-'));
+    temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'root-esm-marker-test-'));
   });
 
   afterEach(() => {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
+    fs.rmSync(temporaryRoot, { recursive: true, force: true });
   });
 
   test('discovers production and test package markers from an explicit root', () => {
-    writeFile(tempRoot, 'package.json', JSON.stringify({ type: 'commonjs' }));
-    writeFile(tempRoot, 'pages/popup/package.json', JSON.stringify({ type: 'module' }));
-    writeFile(tempRoot, 'scripts/content/package.json', JSON.stringify({ type: 'module' }));
-    writeFile(tempRoot, 'tests/helpers/package.json', JSON.stringify({ type: 'module' }));
-    writeFile(tempRoot, 'dist/package.json', JSON.stringify({ type: 'module' }));
+    writeFile(temporaryRoot, 'package.json', JSON.stringify({ type: 'commonjs' }));
+    writeFile(temporaryRoot, 'pages/popup/package.json', JSON.stringify({ type: 'module' }));
+    writeFile(temporaryRoot, 'scripts/content/package.json', JSON.stringify({ type: 'module' }));
+    writeFile(temporaryRoot, 'tests/helpers/package.json', JSON.stringify({ type: 'module' }));
+    writeFile(temporaryRoot, 'dist/package.json', JSON.stringify({ type: 'module' }));
 
-    const markers = probe.discoverPackageMarkers(tempRoot);
+    const markers = probe.discoverPackageMarkers(temporaryRoot);
 
     expect(markers).toEqual([
       expect.objectContaining({
@@ -198,8 +207,8 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
   });
 
   test('hashes directory trees deterministically while ignoring volatile files', () => {
-    const leftRoot = path.join(tempRoot, 'left');
-    const rightRoot = path.join(tempRoot, 'right');
+    const leftRoot = path.join(temporaryRoot, 'left');
+    const rightRoot = path.join(temporaryRoot, 'right');
     writeFile(leftRoot, 'dist/content.bundle.js', 'const answer = 42;');
     writeFile(leftRoot, 'dist/.DS_Store', 'left volatile');
     writeFile(rightRoot, 'dist/.DS_Store', 'right volatile');
@@ -215,15 +224,17 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
     expect(() => probe.assertSafeProbeRoot(projectRoot, projectRoot)).toThrow(
       '拒絕將來源 repository 當作 probe root 進行變更。'
     );
-    expect(() => probe.assertSafeProbeRoot(tempRoot, projectRoot)).not.toThrow();
+    expect(() => probe.assertSafeProbeRoot(temporaryRoot, projectRoot)).not.toThrow();
   });
 
   test('builds a JSON summary with marker totals, command results, and comparison gates', () => {
+    const baselineRoot = path.join(temporaryRoot, 'baseline');
+    const probeRoot = path.join(temporaryRoot, 'probe');
     const summary = probe.buildProbeSummary({
       variant: 'production',
       sourceRoot: projectRoot,
-      baselineRoot: path.join(tempRoot, 'baseline'),
-      probeRoot: path.join(tempRoot, 'probe'),
+      baselineRoot,
+      probeRoot,
       markers: [
         { relativePath: 'pages/popup/package.json', scope: 'production' },
         { relativePath: 'tests/helpers/package.json', scope: 'test' },
@@ -239,8 +250,8 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
         variant: 'production',
         roots: expect.objectContaining({
           source: projectRoot,
-          baseline: path.join(tempRoot, 'baseline'),
-          probe: path.join(tempRoot, 'probe'),
+          baseline: baselineRoot,
+          probe: probeRoot,
         }),
         totals: {
           productionMarkers: 1,
@@ -265,6 +276,7 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
         variant: 'production',
         summaryJson: 'coverage/root-esm/summary.json',
         summaryMd: 'coverage/root-esm/summary.md',
+        removeMarkers: [],
         help: false,
         keepTemp: false,
       });
@@ -275,6 +287,7 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
         variant: '',
         summaryJson: '',
         summaryMd: '',
+        removeMarkers: [],
         help: true,
         keepTemp: false,
       });
@@ -285,6 +298,20 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
         expect.objectContaining({
           variant: 'tests',
           keepTemp: true,
+        })
+      );
+    });
+
+    test('parses repeated explicit marker removals', () => {
+      expect(
+        probe.parseArgs([
+          '--variant=tests',
+          '--remove-marker=tests/helpers/package.json',
+          '--remove-marker=tests/unit/security/package.json',
+        ])
+      ).toEqual(
+        expect.objectContaining({
+          removeMarkers: ['tests/helpers/package.json', 'tests/unit/security/package.json'],
         })
       );
     });
@@ -303,26 +330,32 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
   });
 
   test('skips excluded directories at any copied source path depth', () => {
-    expect(probe.shouldCopySourcePath(tempRoot, tempRoot)).toBe(true);
-    expect(
-      probe.shouldCopySourcePath(tempRoot, path.join(tempRoot, 'pages/popup/package.json'))
-    ).toBe(true);
-    expect(
-      probe.shouldCopySourcePath(tempRoot, path.join(tempRoot, 'node_modules/package.json'))
-    ).toBe(false);
+    expect(probe.shouldCopySourcePath(temporaryRoot, temporaryRoot)).toBe(true);
     expect(
       probe.shouldCopySourcePath(
-        tempRoot,
-        path.join(tempRoot, 'pages/popup/node_modules/pkg/index.js')
+        temporaryRoot,
+        path.join(temporaryRoot, 'pages/popup/package.json')
+      )
+    ).toBe(true);
+    expect(
+      probe.shouldCopySourcePath(
+        temporaryRoot,
+        path.join(temporaryRoot, 'node_modules/package.json')
       )
     ).toBe(false);
     expect(
-      probe.shouldCopySourcePath(tempRoot, path.join(tempRoot, 'scripts/dist/content.js'))
+      probe.shouldCopySourcePath(
+        temporaryRoot,
+        path.join(temporaryRoot, 'pages/popup/node_modules/pkg/index.js')
+      )
+    ).toBe(false);
+    expect(
+      probe.shouldCopySourcePath(temporaryRoot, path.join(temporaryRoot, 'scripts/dist/content.js'))
     ).toBe(false);
     expect(
       probe.shouldCopySourcePath(
-        tempRoot,
-        path.join(tempRoot, 'tests/fixtures/.tmp/generated.json')
+        temporaryRoot,
+        path.join(temporaryRoot, 'tests/fixtures/.tmp/generated.json')
       )
     ).toBe(false);
   });
@@ -337,8 +370,8 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
     const summary = probe.buildProbeSummary({
       variant: 'production',
       sourceRoot: projectRoot,
-      baselineRoot: path.join(tempRoot, 'baseline'),
-      probeRoot: path.join(tempRoot, 'probe'),
+      baselineRoot: path.join(temporaryRoot, 'baseline'),
+      probeRoot: path.join(temporaryRoot, 'probe'),
       markers: [
         {
           relativePath: 'pages/popup/package.json',
@@ -382,7 +415,7 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
   test('cutover-core rehearses root type and config transforms only in the probe copy', () => {
     expect.hasAssertions();
 
-    const sourceRoot = createCutoverSourceFixture(tempRoot);
+    const sourceRoot = createCutoverSourceFixture(temporaryRoot);
     const { summary, spawnSync, probeTempRoot } = runCutoverCoreProbe(sourceRoot);
 
     try {
@@ -397,12 +430,89 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
     }
   });
 
+  test('removes only explicit test markers in the probe copy', () => {
+    expect.hasAssertions();
+
+    const sourceRoot = createMarkerProbeSourceFixture(temporaryRoot);
+    const spawnSync = createSuccessfulSpawnSync();
+    const mockedProbe = loadProbeWithSpawnSync(spawnSync);
+    const summary = mockedProbe.runProbe(
+      {
+        variant: 'tests',
+        removeMarkers: ['tests/unit/security/package.json'],
+        keepTemp: true,
+      },
+      sourceRoot
+    );
+    const probeTemporaryRoot = path.dirname(summary.roots.probe);
+
+    try {
+      expect(summary.totals.testMarkers).toBe(2);
+      expect(summary.removedMarkers).toEqual(['tests/unit/security/package.json']);
+      expect(summary.variants).toEqual([
+        expect.objectContaining({
+          name: 'tests',
+          removedMarkers: ['tests/unit/security/package.json'],
+        }),
+      ]);
+      expect(pathExists(path.join(sourceRoot, 'tests/unit/security/package.json'))).toBe(true);
+      expect(
+        pathExists(path.join(summary.roots.baseline, 'tests/unit/security/package.json'))
+      ).toBe(true);
+      expect(pathExists(path.join(summary.roots.probe, 'tests/unit/security/package.json'))).toBe(
+        false
+      );
+      expect(pathExists(path.join(summary.roots.probe, 'tests/helpers/package.json'))).toBe(true);
+    } finally {
+      fs.rmSync(probeTemporaryRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('rejects explicit marker paths outside discovered test markers', () => {
+    const sourceRoot = createMarkerProbeSourceFixture(temporaryRoot);
+    const mockedProbe = loadProbeWithSpawnSync(createSuccessfulSpawnSync());
+
+    expect(() =>
+      mockedProbe.runProbe(
+        {
+          variant: 'tests',
+          removeMarkers: ['tests/unit/missing/package.json'],
+        },
+        sourceRoot
+      )
+    ).toThrow('未知或非 tests/** package marker：tests/unit/missing/package.json');
+    expect(() =>
+      mockedProbe.runProbe(
+        {
+          variant: 'tests',
+          removeMarkers: ['pages/popup/package.json'],
+        },
+        sourceRoot
+      )
+    ).toThrow('未知或非 tests/** package marker：pages/popup/package.json');
+  });
+
+  test('rejects explicit marker removals outside the tests variant', () => {
+    const sourceRoot = createMarkerProbeSourceFixture(temporaryRoot);
+    const mockedProbe = loadProbeWithSpawnSync(createSuccessfulSpawnSync());
+
+    expect(() =>
+      mockedProbe.runProbe(
+        {
+          variant: 'production',
+          removeMarkers: ['tests/helpers/package.json'],
+        },
+        sourceRoot
+      )
+    ).toThrow('--remove-marker 只支援 --variant=tests');
+  });
+
   test('cutover package-output gate fails when output comparison drifts', () => {
     const summary = probe.buildProbeSummary({
       variant: 'cutover-package-output',
       sourceRoot: projectRoot,
-      baselineRoot: path.join(tempRoot, 'baseline'),
-      probeRoot: path.join(tempRoot, 'probe'),
+      baselineRoot: path.join(temporaryRoot, 'baseline'),
+      probeRoot: path.join(temporaryRoot, 'probe'),
       markers: [],
       removedMarkers: [],
       variants: [
@@ -430,8 +540,8 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
   });
 
   test('cutover transform source mismatch errors are user-visible zh-TW', () => {
-    const sourceRoot = path.join(tempRoot, 'source');
-    const probeRoot = path.join(tempRoot, 'probe');
+    const sourceRoot = path.join(temporaryRoot, 'source');
+    const probeRoot = path.join(temporaryRoot, 'probe');
     writeFile(sourceRoot, 'package.json', JSON.stringify({ type: 'commonjs' }));
     writeFile(sourceRoot, 'scripts/postinstall.js', "console.log('沒有 require source');");
     writeFile(probeRoot, 'package.json', JSON.stringify({ type: 'module' }));
@@ -446,8 +556,8 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
     const summary = probe.buildProbeSummary({
       variant: 'cutover-core',
       sourceRoot: projectRoot,
-      baselineRoot: path.join(tempRoot, 'baseline'),
-      probeRoot: path.join(tempRoot, 'probe'),
+      baselineRoot: path.join(temporaryRoot, 'baseline'),
+      probeRoot: path.join(temporaryRoot, 'probe'),
       markers: [
         {
           relativePath: 'scripts/content/package.json',
@@ -493,12 +603,12 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
     }));
     const mockedProbe = loadProbeWithSpawnSync(spawnSync);
 
-    const result = mockedProbe.runCommand('npm run build:prod', tempRoot);
+    const result = mockedProbe.runCommand('npm run build:prod', temporaryRoot);
 
     expect(spawnSync).toHaveBeenCalledWith(
       'npm run build:prod',
       expect.objectContaining({
-        cwd: tempRoot,
+        cwd: temporaryRoot,
         shell: true,
         timeout: expect.any(Number),
       })
@@ -514,7 +624,7 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
   });
 
   test('reuses one production baseline run and removes the temp root by default', () => {
-    const sourceRoot = path.join(tempRoot, 'source');
+    const sourceRoot = path.join(temporaryRoot, 'source');
     writeFile(sourceRoot, 'package.json', JSON.stringify({ type: 'commonjs' }));
     writeFile(sourceRoot, 'pages/popup/package.json', JSON.stringify({ type: 'module' }));
     writeFile(sourceRoot, 'scripts/content/package.json', JSON.stringify({ type: 'module' }));
@@ -528,14 +638,14 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
     const mockedProbe = loadProbeWithSpawnSync(spawnSync);
 
     const summary = mockedProbe.runProbe({ variant: 'production' }, sourceRoot);
-    const probeTempRoot = path.dirname(summary.roots.baseline);
+    const probeTemporaryRoot = path.dirname(summary.roots.baseline);
 
     expect(spawnSync).toHaveBeenCalledTimes(10);
     expect(new Set(summary.variants.map(variant => variant.roots.baseline))).toEqual(
       new Set([summary.roots.baseline])
     );
     // eslint-disable-next-line security/detect-non-literal-fs-filename
-    expect(fs.existsSync(probeTempRoot)).toBe(false);
+    expect(fs.existsSync(probeTemporaryRoot)).toBe(false);
   });
 
   test('guards direct ESM execution when process.argv[1] is absent', () => {
