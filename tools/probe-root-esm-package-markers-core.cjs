@@ -291,6 +291,41 @@ function removeMarkers(rootDir, markers) {
   }
 }
 
+function normalizeMarkerPath(markerPath) {
+  return toPosixPath(path.normalize(markerPath));
+}
+
+function resolveExplicitTestMarkers(markers, markerPaths) {
+  if (markerPaths.length === 0) {
+    return null;
+  }
+
+  const testMarkers = new Map(
+    markers
+      .filter(marker => marker.scope === 'test')
+      .map(marker => [marker.relativePath, marker])
+  );
+
+  const resolvedMarkers = [];
+  const invalidMarkerPaths = [];
+
+  for (const markerPath of markerPaths) {
+    const normalizedPath = normalizeMarkerPath(markerPath);
+    const marker = testMarkers.get(normalizedPath);
+    if (!marker) {
+      invalidMarkerPaths.push(markerPath);
+      continue;
+    }
+    resolvedMarkers.push(marker);
+  }
+
+  if (invalidMarkerPaths.length > 0) {
+    throw new Error(`未知或非 tests/** package marker：${invalidMarkerPaths.join(', ')}`);
+  }
+
+  return resolvedMarkers;
+}
+
 function replaceRequiredSource(source, searchValue, replacementValue, fileLabel) {
   if (!source.includes(searchValue)) {
     throw new Error(`${fileLabel} 缺少預期 source 片段：${searchValue}`);
@@ -452,10 +487,11 @@ function buildVariantRun({
   commands,
   compareOutputs,
   sharedBaselineRun = null,
+  explicitRemovedMarkers = null,
 }) {
   const baselineRoot = sharedBaselineRun?.root ?? path.join(tempRoot, `${variantName}-baseline`);
   const probeRoot = path.join(tempRoot, `${variantName}-probe`);
-  const removedMarkers = VARIANT_BUILDERS[variantName](markers);
+  const removedMarkers = explicitRemovedMarkers ?? VARIANT_BUILDERS[variantName](markers);
 
   if (!sharedBaselineRun) {
     createProbeCopy(sourceRoot, baselineRoot, []);
@@ -583,6 +619,7 @@ function parseArgs(argv) {
     variant: '',
     summaryJson: '',
     summaryMd: '',
+    removeMarkers: [],
     help: false,
     keepTemp: false,
   };
@@ -604,6 +641,8 @@ function parseArgs(argv) {
       options.summaryJson = value;
     } else if (key === '--summary-md') {
       options.summaryMd = value;
+    } else if (key === '--remove-marker') {
+      options.removeMarkers.push(value);
     } else {
       throw new Error(`未知參數：${arg}`);
     }
@@ -651,6 +690,10 @@ function writeSummaries(summary, options) {
 
 function runProbe(options, sourceRoot = process.cwd()) {
   const markers = discoverPackageMarkers(sourceRoot);
+  const explicitRemovedMarkers = resolveExplicitTestMarkers(markers, options.removeMarkers ?? []);
+  if (explicitRemovedMarkers && options.variant !== 'tests') {
+    throw new Error('--remove-marker 只支援 --variant=tests');
+  }
   const variantNames =
     options.variant === 'production'
       ? [
@@ -690,6 +733,8 @@ function runProbe(options, sourceRoot = process.cwd()) {
               commands,
               compareOutputs: !isTestVariant,
               sharedBaselineRun,
+              explicitRemovedMarkers:
+                variantName === 'tests' ? explicitRemovedMarkers : null,
             })
           );
         })();
