@@ -201,7 +201,14 @@ function resetDriveMocks() {
   computeDriveSnapshotHashMock.mockReturnValue('snapshot-hash');
 }
 
+function resetLoggerMocks() {
+  for (const mock of Object.values(loggerMock)) {
+    mock.mockReset();
+  }
+}
+
 beforeEach(() => {
+  resetLoggerMocks();
   resetDriveMocks();
   jest.spyOn(console, 'warn').mockImplementation(() => {});
   jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -211,6 +218,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  resetLoggerMocks();
   delete globalThis.chrome;
   delete globalThis.Logger;
 });
@@ -344,7 +352,7 @@ describe('background lifecycle native ESM depth coverage', () => {
 
     cleanup(chrome);
     resetDriveMocks();
-    loggerMock.info.mockReset();
+    resetLoggerMocks();
     jest.resetModules();
     const failingChrome = makeDefaultChrome();
     failingChrome.storage.local.get.mockRejectedValue(new Error('storage unavailable'));
