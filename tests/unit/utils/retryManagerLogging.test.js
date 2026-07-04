@@ -7,12 +7,14 @@ import {
   withGlobalTestDouble,
 } from './retryManagerTestSupport.js';
 
-function createThrowingErrorHandlerReference() {
-  function ThrowingErrorHandler() {
+class ThrowingErrorHandler {
+  constructor() {
     throw new Error('constructor failed');
   }
-  ThrowingErrorHandler.prototype.logError = jest.fn();
-  return ThrowingErrorHandler;
+
+  logError(payload) {
+    return payload;
+  }
 }
 
 function expectRetryLogEmission({ loggerMethod, invokeRetryLog, messageFragment, metadata }) {
@@ -87,7 +89,7 @@ describe('RetryManager retry logging', () => {
       expect.hasAssertions();
 
       const logger = createLoggerWithMethods(['warn']);
-      const cases = [42, () => {}, createThrowingErrorHandlerReference()];
+      const cases = [42, () => {}, ThrowingErrorHandler];
 
       withGlobalTestDouble('Logger', logger, () => {
         for (const errorHandlerReference of cases) {
