@@ -55,13 +55,12 @@ const contentExtractorModule = moduleUrl(
 const converterFactoryModule = moduleUrl(
   '../../../../scripts/content/converters/ConverterFactory.js'
 );
-const imageCollectorModule = moduleUrl(
-  '../../../../scripts/content/extractors/ImageCollector.js'
-);
+const imageCollectorModule = moduleUrl('../../../../scripts/content/extractors/ImageCollector.js');
 const imageUtilsModule = moduleUrl('../../../../scripts/utils/imageUtils.js');
 const loggerModule = moduleUrl('../../../../scripts/utils/Logger.js');
 const entryAutoInitModule = moduleUrl('../../../../scripts/highlighter/entryAutoInit.js');
 const contentEntrypointModule = moduleUrl('../../../../scripts/content/index.js');
+let contentEntrypointImportId = 0;
 
 async function registerContentScriptMocks() {
   const mocks = [
@@ -84,7 +83,14 @@ async function loadFreshDeps() {
   const { ConverterFactory } = await import(converterFactoryModule);
   const { ImageCollector } = await import(imageCollectorModule);
   const { mergeUniqueImages } = await import(imageUtilsModule);
-  return { ContentExtractor, ConverterFactory, ImageCollector, mergeUniqueImages };
+  return {
+    ContentExtractor,
+    ConverterFactory,
+    ImageCollector,
+    mergeUniqueImages,
+    importContentEntrypoint: () =>
+      import(`${contentEntrypointModule}?fresh=${++contentEntrypointImportId}`),
+  };
 }
 
 function setupExtractionMocks(deps, title) {
@@ -138,7 +144,7 @@ describe('content script source IIFE auto-execution', () => {
     const deps = await loadFreshDeps();
     setupExtractionMocks(deps, 'Source Require Test');
 
-    await import(contentEntrypointModule);
+    await deps.importContentEntrypoint();
 
     const result = await globalThis.__notion_extraction_promise;
 
@@ -152,7 +158,7 @@ describe('content script source IIFE auto-execution', () => {
     setupExtractionMocks(deps, 'Fresh Result');
     globalThis.__notion_extraction_result = { title: 'stale-result' };
 
-    await import(contentEntrypointModule);
+    await deps.importContentEntrypoint();
 
     const result = await globalThis.__notion_extraction_promise;
 

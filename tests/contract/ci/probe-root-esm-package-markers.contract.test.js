@@ -7,23 +7,42 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import * as probe from '../../../tools/probe-root-esm-package-markers-core.mjs';
+const probeState = {
+  module: null,
+  spawnSync: null,
+};
+const probe = new Proxy(
+  {},
+  {
+    get: (_target, property) => probeState.module[property],
+  }
+);
+
+beforeAll(async () => {
+  await jest.unstable_mockModule('node:child_process', () => ({
+    spawnSync: (...callArguments) => probeState.spawnSync(...callArguments),
+  }));
+});
 
 const testFilePath = fileURLToPath(import.meta.url);
 const testDirectory = path.dirname(testFilePath);
 const projectRoot = path.resolve(testDirectory, '../../..');
 
 const loadProbeWithSpawnSync = async spawnSync => {
+  probeState.spawnSync = spawnSync;
   let mockedProbe;
   await jest.isolateModulesAsync(async () => {
-    jest.doMock('node:child_process', () => ({ spawnSync }));
+    jest.doMock('node:child_process', () => ({
+      spawnSync: (...callArguments) => probeState.spawnSync(...callArguments),
+    }));
     try {
       mockedProbe = await import('../../../tools/probe-root-esm-package-markers-core.mjs');
     } finally {
       jest.dontMock('node:child_process');
     }
   });
-  return mockedProbe;
+  probeState.module = mockedProbe;
+  return probe;
 };
 
 const writeFile = (rootDirectory, relativePath, content = '') => {
@@ -163,8 +182,9 @@ const expectCutoverPostinstallCommand = (spawnSync, summary) => {
 describe('tools/probe-root-esm-package-markers.mjs', () => {
   let temporaryRoot;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'root-esm-marker-test-'));
+    await loadProbeWithSpawnSync(createSuccessfulSpawnSync());
   });
 
   afterEach(() => {
@@ -623,6 +643,22 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
     expect(markdown).toContain(
       '| cutover-core | set-root-package-type-module, transform-scripts-postinstall-to-esm, transform-jest-config-to-esm |'
     );
+  });
+
+  test('direct probe command helper uses the mocked child_process spawnSync binding', async () => {
+    const spawnSync = createSuccessfulSpawnSync();
+    await loadProbeWithSpawnSync(spawnSync);
+
+    const result = probe.runCommand('__real_spawn_should_not_run__', temporaryRoot);
+
+    expect(spawnSync).toHaveBeenCalledWith(
+      '__real_spawn_should_not_run__',
+      expect.objectContaining({
+        cwd: temporaryRoot,
+        shell: true,
+      })
+    );
+    expect(result.status).toBe(0);
   });
 
   test('passes an explicit timeout to spawned probe commands and reports timed-out diagnostics', async () => {

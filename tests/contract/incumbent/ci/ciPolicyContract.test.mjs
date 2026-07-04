@@ -251,6 +251,7 @@ describe('CI policy contract', () => {
 
   test('CI related-test changed-file detection tracks secondary Jest config files', () => {
     const workflowSource = readWorkflow('ci.yml');
+    const detectSourceChangesStep = getWorkflowStepBlock(workflowSource, 'Detect source changes');
     const changedFilesStep = getWorkflowStepBlock(
       workflowSource,
       'Detect changed source files for related tests'
@@ -258,10 +259,16 @@ describe('CI policy contract', () => {
     const relatedTestsStep = getWorkflowStepBlock(workflowSource, 'Jest related tests');
 
     expect(workflowSource).toContain("- 'jest.config.*.js'");
+    expect(detectSourceChangesStep).toContain("- 'jest.native-default.config.js'");
+    expect(detectSourceChangesStep).toContain("- 'jest.native-esm.config.js'");
     [changedFilesStep, relatedTestsStep].forEach(step => {
-      expect(step).toContain("jest.config.js 'jest.config.*.js'");
+      expect(step).toContain(
+        "jest.config.js 'jest.config.*.js' jest.native-default.config.js jest.native-esm.config.js"
+      );
     });
-    expect(relatedTestsStep).toContain(String.raw`jest\.config(\..*)?\.js`);
+    expect(relatedTestsStep).toContain(
+      String.raw`jest\.config(\..*)?\.js|jest\.(native-default|native-esm)\.config\.js`
+    );
   });
 
   test('CI related-test 執行器會先以路徑執行變更測試檔，再查找來源關聯測試', () => {
@@ -279,7 +286,15 @@ describe('CI policy contract', () => {
     expect(relatedTestsStep).toContain("process.env.CANDIDATE_FILES || ''");
     expect(relatedTestsStep).toContain('filter(Boolean);');
     expect(relatedTestsStep).toContain('function globToRegex(glob)');
-    expect(relatedTestsStep).toContain('const allowlisted = new Set();');
+    expect(countTrimmedLines(relatedTestsStep, 'function globToRegex(glob) {')).toBe(2);
+    expect(relatedTestsStep).toContain(
+      'const nativeDefaultRegexes = (config.testMatch || []).map(globToRegex);'
+    );
+    expect(relatedTestsStep).toContain(
+      'if (nativeDefaultRegexes.some(regex => regex.test(candidate))) {'
+    );
+    expect(relatedTestsStep).not.toContain('const allowlisted = new Set();');
+    expect(relatedTestsStep).not.toContain('allowlisted.has(candidate)');
     expect(relatedTestsStep).toContain(
       'xargs npx jest --config jest.config.js --ci --runTestsByPath --maxWorkers=2'
     );
@@ -294,7 +309,9 @@ describe('CI policy contract', () => {
       'echo "$TEST_FILES" | xargs npx jest --config jest.config.js --ci --findRelatedTests --maxWorkers=2'
     );
     expect(relatedTestsStep).not.toContain('NATIVE_TEST_FILES=$(echo "$CANDIDATE_FILES" | grep -E');
-    expect(relatedTestsStep).not.toContain('INCUMBENT_TEST_FILES=$(echo "$CANDIDATE_FILES" | grep -E');
+    expect(relatedTestsStep).not.toContain(
+      'INCUMBENT_TEST_FILES=$(echo "$CANDIDATE_FILES" | grep -E'
+    );
     expect(relatedTestsStep).toContain(
       '::notice::只變更設定檔，改執行 smoke test 而不是 related tests'
     );
@@ -322,9 +339,7 @@ describe('CI policy contract', () => {
     expect(relatedTestsStep).not.toContain(
       String.raw`grep -E '^tests/(unit|contract|integration)/.*\.(test|spec)\.js$'`
     );
-    expect(relatedTestsStep).not.toContain(
-      String.raw`grep -E '^tests/.*\.(test|spec)\.mjs$'`
-    );
+    expect(relatedTestsStep).not.toContain(String.raw`grep -E '^tests/.*\.(test|spec)\.mjs$'`);
   });
 
   test('CI related-test 執行器不會把 nested package markers 丟進 Jest related tests', () => {
