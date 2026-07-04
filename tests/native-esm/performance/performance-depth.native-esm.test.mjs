@@ -56,6 +56,16 @@ function resetPreloaderGlobals() {
   delete globalThis.requestAnimationFrame;
 }
 
+function dispatchPreloaderCache(cache) {
+  document.addEventListener(
+    PRELOADER_EVENTS.REQUEST,
+    () => {
+      document.dispatchEvent(new CustomEvent(PRELOADER_EVENTS.RESPONSE, { detail: cache }));
+    },
+    { once: true }
+  );
+}
+
 beforeEach(() => {
   document.body.innerHTML = '';
   resetPreloaderGlobals();
@@ -152,6 +162,94 @@ describe('preloader native ESM lifecycle depth', () => {
 });
 
 describe('PerformanceOptimizer native ESM lifecycle depth', () => {
+  test('validates preloader cache structure, selector matching, and DOM ownership', () => {
+    const optimizer = new PerformanceOptimizer();
+    dispatchPreloaderCache({ timestamp: Number.NaN });
+
+    expect(optimizer.takeoverPreloaderCache()).toEqual({ taken: 0 });
+
+    const foreignDocument = document.implementation.createHTMLDocument('foreign');
+    const mismatchedArticle = document.createElement('div');
+    document.body.append(mismatchedArticle);
+    dispatchPreloaderCache({
+      timestamp: Date.now(),
+      article: mismatchedArticle,
+      mainContent: foreignDocument.createElement('main'),
+    });
+
+    expect(optimizer.takeoverPreloaderCache()).toEqual({ taken: 0 });
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      '拒絕接管不安全的 preloader 快取',
+      expect.objectContaining({ action: 'takeoverPreloaderCache', selector: 'article' })
+    );
+
+    const article = document.createElement('article');
+    const main = document.createElement('main');
+    document.body.append(article, main);
+
+    expect(optimizer._migrateCacheItem(article, 'article', Date.now())).toBe(true);
+    expect(
+      optimizer._migrateCacheItem(main, 'main, [role="main"], #content, .content', Date.now())
+    ).toBe(true);
+  });
+
+  test('invalidates disconnected cached elements and handles cache maintenance branches', () => {
+    document.body.innerHTML = '<article id="article">Article</article><main>Main</main>';
+    const optimizer = new PerformanceOptimizer({ cacheMaxSize: 1, cacheTTL: 10 });
+
+    const article = optimizer.cachedQuery('article', document, { single: true });
+    expect(article.id).toBe('article');
+    article.remove();
+
+    expect(optimizer.cachedQuery('article', document, { single: true })).toBeNull();
+    expect(optimizer.getStats().cache.misses).toBeGreaterThanOrEqual(2);
+
+    optimizer.cachedQuery('main', document, { single: true });
+    optimizer.cachedQuery('body', document, { single: true });
+    expect(optimizer.getStats().cache.evictions).toBeGreaterThanOrEqual(1);
+
+    optimizer.queryCache.set('expired', {
+      result: document.body,
+      timestamp: Date.now() - 100,
+      selector: 'body',
+      ttl: 10,
+    });
+    expect(optimizer.clearExpiredCache({ maxAge: 10 })).toBeGreaterThanOrEqual(1);
+
+    optimizer.queryCache.set('forced', {
+      result: document.body,
+      timestamp: Date.now(),
+      selector: 'body',
+      ttl: 10,
+    });
+    expect(optimizer.clearExpiredCache({ force: true })).toBeGreaterThanOrEqual(1);
+  });
+
+  test('skips non-preloadable selector inputs and reports preload query errors', async () => {
+    const optimizer = new PerformanceOptimizer({ enableCache: false });
+    await expect(optimizer.preloadSelectors(['article'])).resolves.toEqual([]);
+    await expect(new PerformanceOptimizer().preloadSelectors(null)).resolves.toEqual([]);
+
+    const throwingOptimizer = new PerformanceOptimizer();
+    throwingOptimizer.cachedQuery = () => {
+      throw new Error('selector failed');
+    };
+    await expect(throwingOptimizer.preloadSelectors(['article'])).resolves.toEqual([
+      {
+        selector: 'article',
+        error: 'selector failed',
+        cached: false,
+      },
+    ]);
+    expect(errorHandlerMock.logError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'preload_error',
+        context: 'preloading selector: article',
+        originalError: expect.any(Error),
+      })
+    );
+  });
+
   test('preloads selectors once, clears cache, and exposes memory stats when available', async () => {
     document.body.innerHTML = '<main><article id="article"><img src="photo.jpg"></article></main>';
     const optimizer = new PerformanceOptimizer({
@@ -259,5 +357,94 @@ describe('PerformanceOptimizer native ESM lifecycle depth', () => {
       })
     );
     expect(meta.lastError.message).toBe('batch failed');
+  });
+
+  test('captures retry metadata for non-array and failed batch results', async () => {
+    const nonArray = await batchProcessWithRetry([1, 2], value => value, {
+      maxAttempts: 1,
+      customBatchFn: async () => 'not-array',
+    });
+
+    expect(nonArray.results).toBeNull();
+    expect(nonArray.meta).toEqual(
+      expect.objectContaining({
+        attempts: 1,
+        failedIndices: [0, 1],
+        lastError: expect.any(Error),
+      })
+    );
+    expect(nonArray.meta.lastError.message).toBe('Batch processor returned non-array results');
+
+    const partial = await batchProcessWithRetry(['ok', 'bad'], value => value, {
+      captureFailedResults: true,
+      isResultSuccessful: result => result === 'ok',
+      customBatchFn: async () => ['ok', 'bad'],
+    });
+
+    expect(partial).toEqual({
+      results: ['ok', 'bad'],
+      meta: {
+        attempts: 1,
+        failedIndices: [1],
+        lastError: null,
+      },
+    });
+  });
+
+  test('calculates batch sizes and yields with animation frame or timeout fallbacks', async () => {
+    const optimizer = new PerformanceOptimizer();
+
+    optimizer.batchQueue = [];
+    expect(optimizer._calculateOptimalBatchSize()).toBe(100);
+    optimizer.batchQueue = Array.from({ length: 51 }, (_, index) => index);
+    expect(optimizer._calculateOptimalBatchSize()).toBe(100);
+    optimizer.batchQueue = Array.from({ length: 201 }, (_, index) => index);
+    expect(optimizer._calculateOptimalBatchSize()).toBe(150);
+    optimizer.batchQueue = Array.from({ length: 501 }, (_, index) => index);
+    expect(optimizer._calculateOptimalBatchSize()).toBe(200);
+
+    const timeoutYield = PerformanceOptimizer._yieldToMain();
+    jest.advanceTimersByTime(1);
+    await expect(timeoutYield).resolves.toBeUndefined();
+
+    globalThis.requestAnimationFrame = jest.fn(callback => {
+      callback();
+      return 1;
+    });
+    const processed = [];
+    optimizer._processBatchItems(
+      Array.from({ length: 11 }, (_, index) => ({
+        processor: () => index,
+        resolve: result => processed.push(result),
+      })),
+      performance.now()
+    );
+
+    expect(globalThis.requestAnimationFrame).toHaveBeenCalled();
+    expect(processed).toHaveLength(11);
+  });
+
+  test('measures sync and async work and adjusts batch size from performance history', async () => {
+    const optimizer = new PerformanceOptimizer({ enableMetrics: true });
+
+    expect(optimizer.measure(() => 'measured', 'sync-work')).toBe('measured');
+    await expect(optimizer.measureAsync(async () => 'async-measured', 'async-work')).resolves.toBe(
+      'async-measured'
+    );
+    expect(loggerMock.info).toHaveBeenCalledWith(
+      '性能測量',
+      expect.objectContaining({ action: 'measure', name: 'sync-work' })
+    );
+    expect(loggerMock.info).toHaveBeenCalledWith(
+      '性能測量 (Async)',
+      expect.objectContaining({ action: 'measureAsync', name: 'async-work' })
+    );
+
+    optimizer.metrics.averageProcessingTime = 150;
+    expect(optimizer._adjustBatchSizeForPerformance(100)).toBe(70);
+    optimizer.metrics.averageProcessingTime = 5;
+    expect(optimizer._adjustBatchSizeForPerformance(100)).toBe(150);
+    optimizer.metrics.averageProcessingTime = 50;
+    expect(optimizer._adjustBatchSizeForPerformance(100)).toBe(100);
   });
 });

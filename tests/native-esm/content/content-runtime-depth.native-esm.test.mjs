@@ -15,9 +15,8 @@ describe('content runtime message handler native ESM depth coverage', () => {
   let stableUrl;
 
   beforeEach(async () => {
-    ({ activateFloatingRailHighlighting, createContentRuntimeMessageHandler } = await import(
-      '../../../scripts/content/runtimeMessageHandlers.js'
-    ));
+    ({ activateFloatingRailHighlighting, createContentRuntimeMessageHandler } =
+      await import('../../../scripts/content/runtimeMessageHandlers.js'));
     stableUrl = undefined;
     logger = {
       debug: jest.fn(),
@@ -205,6 +204,7 @@ describe('content index listener native ESM depth coverage', () => {
   const loggerMock = {
     debug: jest.fn(),
     log: jest.fn(),
+    info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
   };
@@ -214,10 +214,23 @@ describe('content index listener native ESM depth coverage', () => {
   });
   const createRuntimeHandlerMock = jest.fn(() => runtimeHandlerMock);
   const entryAutoInitMock = jest.fn();
+  const activateFloatingRailHighlightingMock = jest.fn();
+  const contentExtractorMock = { extractAsync: jest.fn() };
+  const converterMock = { convert: jest.fn(), imageCount: 0 };
+  const converterFactoryMock = { getConverter: jest.fn(() => converterMock) };
+  const imageCollectorMock = { collectAdditionalImages: jest.fn() };
+  const mergeUniqueImagesMock = jest.fn(() => []);
 
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
+    contentExtractorMock.extractAsync.mockReset();
+    converterMock.convert.mockReset();
+    converterMock.imageCount = 0;
+    converterFactoryMock.getConverter.mockClear();
+    imageCollectorMock.collectAdditionalImages.mockReset();
+    mergeUniqueImagesMock.mockReset().mockReturnValue([]);
+    activateFloatingRailHighlightingMock.mockReset();
     globalThis.chrome = {
       runtime: {
         onMessage: { addListener: jest.fn() },
@@ -232,12 +245,14 @@ describe('content index listener native ESM depth coverage', () => {
 
   afterEach(() => {
     delete globalThis.chrome;
+    delete globalThis.HighlighterV2;
     delete globalThis.__NOTION_BUNDLE_READY__;
     delete globalThis.__NOTION_PRELOADER_CACHE__;
+    delete globalThis.__NOTION_STABLE_URL__;
     jest.restoreAllMocks();
   });
 
-  test('registers the runtime handler and requests buffered event replay', async () => {
+  async function mockContentIndexDependencies() {
     await jest.unstable_mockModule('../../../scripts/utils/Logger.js', () => ({
       __esModule: true,
       default: loggerMock,
@@ -250,25 +265,34 @@ describe('content index listener native ESM depth coverage', () => {
     await jest.unstable_mockModule(
       '../../../scripts/content/extractors/ContentExtractor.js',
       () => ({
-        ContentExtractor: { extractAsync: jest.fn() },
+        ContentExtractor: contentExtractorMock,
       })
     );
     await jest.unstable_mockModule(
       '../../../scripts/content/converters/ConverterFactory.js',
       () => ({
-        ConverterFactory: { getConverter: jest.fn() },
+        ConverterFactory: converterFactoryMock,
       })
     );
     await jest.unstable_mockModule('../../../scripts/content/extractors/ImageCollector.js', () => ({
-      ImageCollector: { collectAdditionalImages: jest.fn() },
+      ImageCollector: imageCollectorMock,
     }));
     await jest.unstable_mockModule('../../../scripts/utils/imageUtils.js', () => ({
-      mergeUniqueImages: jest.fn(() => []),
+      mergeUniqueImages: mergeUniqueImagesMock,
     }));
     await jest.unstable_mockModule('../../../scripts/content/runtimeMessageHandlers.js', () => ({
       createContentRuntimeMessageHandler: createRuntimeHandlerMock,
-      activateFloatingRailHighlighting: jest.fn(),
+      activateFloatingRailHighlighting: activateFloatingRailHighlightingMock,
     }));
+  }
+
+  async function importContentIndex() {
+    await mockContentIndexDependencies();
+    return import('../../../scripts/content/index.js');
+  }
+
+  test('registers the runtime handler and requests buffered event replay', async () => {
+    await mockContentIndexDependencies();
 
     await import('../../../scripts/content/index.js');
 
@@ -285,6 +309,202 @@ describe('content index listener native ESM depth coverage', () => {
     expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
       { action: CONTENT_BRIDGE_ACTIONS.REPLAY_BUFFERED_EVENTS },
       expect.any(Function)
+    );
+  });
+
+  test('stores preloader cache responses and exposes stable URL dependency wiring', async () => {
+    const preloaderCache = {
+      article: document.createElement('article'),
+      mainContent: document.createElement('main'),
+      timestamp: Date.now(),
+    };
+    document.addEventListener(
+      'notion-preloader-request',
+      () => {
+        document.dispatchEvent(
+          new CustomEvent('notion-preloader-response', { detail: preloaderCache })
+        );
+      },
+      { once: true }
+    );
+
+    await importContentIndex();
+
+    expect(globalThis.__NOTION_PRELOADER_CACHE__).toBe(preloaderCache);
+    expect(loggerMock.debug).toHaveBeenCalledWith(
+      '偵測到 Preloader 快取',
+      expect.objectContaining({
+        action: 'initializeContentBundle',
+        hasArticle: true,
+        hasMainContent: true,
+      })
+    );
+
+    const runtimeDependencies = createRuntimeHandlerMock.mock.calls[0][0];
+    runtimeDependencies.setStableUrl('https://example.com/stable');
+    expect(runtimeDependencies.getStableUrl()).toBe('https://example.com/stable');
+    expect(runtimeDependencies.getPreloaderCache()).toBe(preloaderCache);
+  });
+
+  test('replays shortcut buffered events through the floating rail and logs replay failures', async () => {
+    const rail = { activateHighlighting: jest.fn() };
+    globalThis.HighlighterV2 = { rail };
+    chrome.runtime.sendMessage
+      .mockImplementationOnce((_message, callback) => {
+        callback?.({ events: [{ type: 'shortcut' }] });
+      })
+      .mockImplementationOnce((_message, callback) => {
+        callback?.({ events: [{ type: 'shortcut' }] });
+      });
+    activateFloatingRailHighlightingMock
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('replay failed'));
+
+    await importContentIndex();
+    await Promise.resolve();
+
+    expect(activateFloatingRailHighlightingMock).toHaveBeenCalledWith(rail);
+    expect(loggerMock.log).toHaveBeenCalledWith(
+      '重放快捷鍵事件，啟動浮動側欄標註',
+      expect.objectContaining({ action: 'replayEvents', result: 'started' })
+    );
+
+    jest.resetModules();
+    await importContentIndex();
+    await Promise.resolve();
+
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      '重放快捷鍵事件失敗，繼續處理後續事件',
+      expect.objectContaining({
+        action: 'replayEvents',
+        result: 'failed',
+        safeRuntimeError: expect.any(String),
+      })
+    );
+  });
+
+  test('ignores replay callback runtime lastError without processing buffered events', async () => {
+    chrome.runtime.lastError = { message: 'context invalidated' };
+    chrome.runtime.sendMessage.mockImplementationOnce((_message, callback) => {
+      callback?.({ events: [{ type: 'shortcut' }] });
+    });
+    globalThis.HighlighterV2 = { rail: { activateHighlighting: jest.fn() } };
+
+    await importContentIndex();
+    await Promise.resolve();
+
+    expect(activateFloatingRailHighlightingMock).not.toHaveBeenCalled();
+  });
+
+  test('returns empty and error fallback extraction results', async () => {
+    document.title = 'Fallback title';
+    contentExtractorMock.extractAsync.mockResolvedValueOnce({
+      content: '',
+      type: 'html',
+      metadata: {},
+      blocks: [],
+    });
+    let { extractPageContent } = await importContentIndex();
+
+    await expect(extractPageContent()).resolves.toEqual(
+      expect.objectContaining({
+        extractionStatus: 'failed',
+        title: 'Fallback title',
+        additionalImages: [],
+        coverImage: null,
+        blocks: [
+          expect.objectContaining({
+            type: 'paragraph',
+            paragraph: expect.objectContaining({
+              rich_text: [
+                expect.objectContaining({
+                  text: expect.objectContaining({ content: expect.any(String) }),
+                }),
+              ],
+            }),
+          }),
+        ],
+      })
+    );
+
+    jest.resetModules();
+    contentExtractorMock.extractAsync.mockRejectedValueOnce(new Error('extract failed'));
+    ({ extractPageContent } = await importContentIndex());
+
+    await expect(extractPageContent()).resolves.toEqual(
+      expect.objectContaining({
+        extractionStatus: 'failed',
+        title: 'Fallback title',
+        additionalImages: [],
+        coverImage: null,
+      })
+    );
+    expect(loggerMock.error).toHaveBeenCalledWith(
+      '內容提取發生異常',
+      expect.objectContaining({ action: 'extractPageContent', result: 'failed' })
+    );
+  });
+
+  test('uses pre-extracted blocks, promotes a lead image, and handles image collection failure', async () => {
+    const preExtractedBlocks = [{ object: 'block', type: 'paragraph' }];
+    const leadImage = { object: 'block', type: 'image', image: { external: { url: 'photo.jpg' } } };
+    contentExtractorMock.extractAsync.mockResolvedValueOnce({
+      content: '<article><p>Hello</p></article>',
+      type: 'html',
+      metadata: { title: 'Article' },
+      blocks: preExtractedBlocks,
+      debug: { complexity: 'low' },
+    });
+    imageCollectorMock.collectAdditionalImages.mockResolvedValueOnce({
+      images: [leadImage],
+      coverImage: 'cover.jpg',
+      metrics: { scanned: 1 },
+    });
+    mergeUniqueImagesMock.mockReturnValueOnce([leadImage]);
+    let { extractPageContent } = await importContentIndex();
+
+    await expect(extractPageContent()).resolves.toEqual(
+      expect.objectContaining({
+        extractionStatus: 'success',
+        title: 'Article',
+        blocks: [leadImage, ...preExtractedBlocks],
+        additionalImages: [],
+        coverImage: 'cover.jpg',
+      })
+    );
+    expect(loggerMock.info).toHaveBeenCalledWith(
+      '使用預提取的 Notion 區塊',
+      expect.objectContaining({ count: 1, imageCount: 0 })
+    );
+    expect(loggerMock.log).toHaveBeenCalledWith(
+      '正文無圖片，已將首張額外圖片插入文章開頭',
+      expect.objectContaining({ hasLeadImage: true })
+    );
+
+    jest.resetModules();
+    contentExtractorMock.extractAsync.mockResolvedValueOnce({
+      content: '<article><p>Hello</p></article>',
+      type: 'html',
+      metadata: { title: 'Article' },
+      blocks: [],
+      debug: {},
+    });
+    converterMock.convert.mockReturnValueOnce([{ object: 'block', type: 'paragraph' }]);
+    converterMock.imageCount = 0;
+    imageCollectorMock.collectAdditionalImages.mockRejectedValueOnce(new Error('images failed'));
+    ({ extractPageContent } = await importContentIndex());
+
+    await expect(extractPageContent()).resolves.toEqual(
+      expect.objectContaining({
+        extractionStatus: 'success',
+        additionalImages: [],
+        coverImage: null,
+        debug: expect.objectContaining({ imageMetrics: null }),
+      })
+    );
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      '圖片收集失敗',
+      expect.objectContaining({ action: 'extractPageContent', result: 'failed' })
     );
   });
 });
