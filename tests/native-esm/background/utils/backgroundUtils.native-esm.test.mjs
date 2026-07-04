@@ -21,6 +21,13 @@ function makeParagraphBlock(richTextArray) {
   };
 }
 
+function getStyledText(block, predicate) {
+  return block.paragraph.rich_text
+    .filter(part => predicate(part.annotations ?? {}))
+    .map(part => part.text.content)
+    .join('');
+}
+
 describe('background utility native ESM diagnostics', () => {
   test('mergeHighlightsWithStyle applies color across rich_text segment boundaries', () => {
     const blocks = [
@@ -41,6 +48,76 @@ describe('background utility native ESM diagnostics', () => {
     expect(resolveStyle(HIGHLIGHT_STYLE_OPTIONS.COLOR_TEXT, { color: 'purple' })).toEqual({
       color: 'yellow',
     });
+  });
+
+  test('mergeHighlightsWithStyle preserves blocks for disabled or empty inputs', () => {
+    const blocks = [makeParagraphBlock([makeRichText('不應修改')])];
+    const highlights = [{ id: 'hl-disabled', text: '不應修改', color: 'yellow' }];
+
+    expect(mergeHighlightsWithStyle(blocks, highlights, HIGHLIGHT_STYLE_OPTIONS.NONE)).toBe(blocks);
+    expect(mergeHighlightsWithStyle(blocks, [], HIGHLIGHT_STYLE_OPTIONS.COLOR_SYNC)).toBe(blocks);
+    expect(mergeHighlightsWithStyle(blocks, null, HIGHLIGHT_STYLE_OPTIONS.COLOR_SYNC)).toBe(blocks);
+    expect(mergeHighlightsWithStyle([], highlights, HIGHLIGHT_STYLE_OPTIONS.COLOR_SYNC)).toEqual([]);
+  });
+
+  test('mergeHighlightsWithStyle applies text color and bold styles through public options', () => {
+    const colorBlocks = [makeParagraphBlock([makeRichText('需要文字顏色')])];
+    const boldBlocks = [makeParagraphBlock([makeRichText('需要粗體')])];
+
+    const colorResult = mergeHighlightsWithStyle(
+      colorBlocks,
+      [{ id: 'hl-color-text', text: '文字顏色', color: 'green' }],
+      HIGHLIGHT_STYLE_OPTIONS.COLOR_TEXT
+    );
+    const boldResult = mergeHighlightsWithStyle(
+      boldBlocks,
+      [{ id: 'hl-bold', text: '粗體', color: 'red' }],
+      HIGHLIGHT_STYLE_OPTIONS.BOLD
+    );
+
+    expect(getStyledText(colorResult[0], annotations => annotations.color === 'green')).toBe(
+      '文字顏色'
+    );
+    expect(getStyledText(boldResult[0], annotations => annotations.bold === true)).toBe('粗體');
+    expect(resolveStyle('UNKNOWN_STYLE', { color: 'red' })).toBeNull();
+  });
+
+  test('mergeHighlightsWithStyle consumes each highlight once across multiple blocks', () => {
+    const blocks = [
+      makeParagraphBlock([makeRichText('重複標註')]),
+      makeParagraphBlock([makeRichText('重複標註')]),
+    ];
+    const highlights = [{ id: 'same-highlight', text: '重複標註', color: 'blue' }];
+
+    const result = mergeHighlightsWithStyle(
+      blocks,
+      highlights,
+      HIGHLIGHT_STYLE_OPTIONS.COLOR_SYNC
+    );
+
+    expect(getStyledText(result[0], annotations => annotations.color === 'blue_background')).toBe(
+      '重複標註'
+    );
+    expect(getStyledText(result[1], annotations => annotations.color === 'blue_background')).toBe(
+      ''
+    );
+  });
+
+  test('mergeHighlightsWithStyle keeps unsupported or malformed blocks unchanged', () => {
+    const unsupportedBlock = { object: 'block', type: 'image', image: { caption: [] } };
+    const emptyRichTextBlock = makeParagraphBlock([]);
+    const malformedBlock = makeParagraphBlock([{ type: 'text', annotations: {} }]);
+    const highlights = [{ id: 'hl-safe', text: 'safe', color: 'yellow' }];
+
+    const result = mergeHighlightsWithStyle(
+      [unsupportedBlock, emptyRichTextBlock, malformedBlock],
+      highlights,
+      HIGHLIGHT_STYLE_OPTIONS.COLOR_SYNC
+    );
+
+    expect(result[0]).toBe(unsupportedBlock);
+    expect(result[1]).toBe(emptyRichTextBlock);
+    expect(result[2]).toBe(malformedBlock);
   });
 
   test('migration metadata helpers compare ids before canonicalized Notion urls', () => {

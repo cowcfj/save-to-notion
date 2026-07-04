@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { loadConfig } = require('../../helpers/nodeConfigLoader.cjs');
 
-const rootDir = path.resolve(__dirname, '../../..');
+const rootDirectory = path.resolve(__dirname, '../../..');
 
 function normalizeCoveragePattern(pattern) {
   return pattern
@@ -13,7 +13,7 @@ function normalizeCoveragePattern(pattern) {
 }
 
 function readSonarProperties() {
-  const properties = fs.readFileSync(path.join(rootDir, 'sonar-project.properties'), 'utf8');
+  const properties = fs.readFileSync(path.join(rootDirectory, 'sonar-project.properties'), 'utf8');
   return properties
     .split(/\r?\n/)
     .map(line => line.trim())
@@ -36,7 +36,7 @@ async function readJestProjectCacheDirectories() {
 }
 
 async function readJestConfig() {
-  return loadConfig(path.join(rootDir, 'jest.config.js'));
+  return loadConfig(path.join(rootDirectory, 'jest.config.js'));
 }
 
 function escapeRegExp(value) {
@@ -112,6 +112,7 @@ describe('coverage exclusion contract', () => {
     const productionCoverageExclusions = [
       'scripts/config/index.js',
       'scripts/config/extension/**/*.js',
+      'scripts/postinstall.js',
       'scripts/highlighter/ui/Toolbar.js',
       'scripts/highlighter/ui/ToolbarRuntime.js',
       'scripts/highlighter/ui/ToolbarState.js',
@@ -122,12 +123,12 @@ describe('coverage exclusion contract', () => {
       'scripts/highlighter/ui/components/ToolbarContainer.js',
     ];
 
-    productionCoverageExclusions.forEach(pattern => {
+    for (const pattern of productionCoverageExclusions) {
       expect({
         pattern,
         jest: jestExclusions.has(pattern),
       }).toEqual({ pattern, jest: true });
-    });
+    }
   });
 
   test('SonarCloud automatic analysis does not declare a CI LCOV import contract', () => {
