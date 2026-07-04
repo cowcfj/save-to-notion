@@ -28,6 +28,12 @@ const CUTOVER_ACTIONS = Object.freeze([
   'transform-scripts-postinstall-to-esm',
   'transform-jest-config-to-esm',
 ]);
+const PRODUCTION_VARIANTS = Object.freeze([
+  'pages-only',
+  'scripts-production-without-performance',
+  'scripts-performance-only',
+  'scripts-and-pages',
+]);
 const COMMAND_TIMEOUT_MS = 10 * 60 * 1000;
 const COPY_EXCLUDES = Object.freeze([
   '.git',
@@ -134,33 +140,40 @@ function markerDisposition(relativePath) {
   return 'remove-at-root-esm-cutover';
 }
 
-function discoverPackageMarkers(rootDir) {
-  const markers = [];
+function isPackageMarkerPath(relativeFilePath) {
+  return relativeFilePath === 'package.json' || relativeFilePath.endsWith('/package.json');
+}
 
-  for (const markerRoot of MARKER_ROOTS) {
-    const absoluteMarkerRoot = path.join(rootDir, markerRoot);
-    if (!fs.existsSync(absoluteMarkerRoot)) {
-      continue;
-    }
+function getMarkerScope(relativePath) {
+  return relativePath.startsWith('tests/') ? 'test' : 'production';
+}
 
-    for (const relativeFilePath of listFilesRecursive(absoluteMarkerRoot)) {
-      if (!relativeFilePath.endsWith('/package.json') && relativeFilePath !== 'package.json') {
-        continue;
-      }
+function createPackageMarker(markerRoot, relativeFilePath) {
+  const relativePath = toPosixPath(path.join(markerRoot, relativeFilePath));
+  const scope = getMarkerScope(relativePath);
+  return {
+    relativePath,
+    directory: path.posix.dirname(relativePath),
+    scope,
+    disposition: markerDisposition(relativePath),
+  };
+}
 
-      const relativePath = toPosixPath(path.join(markerRoot, relativeFilePath));
-      const directory = path.posix.dirname(relativePath);
-      const scope = relativePath.startsWith('tests/') ? 'test' : 'production';
-      markers.push({
-        relativePath,
-        directory,
-        scope,
-        disposition: markerDisposition(relativePath),
-      });
-    }
+function listPackageMarkersForRoot(rootDir, markerRoot) {
+  const absoluteMarkerRoot = path.join(rootDir, markerRoot);
+  if (!fs.existsSync(absoluteMarkerRoot)) {
+    return [];
   }
 
-  return markers.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+  return listFilesRecursive(absoluteMarkerRoot)
+    .filter(isPackageMarkerPath)
+    .map(relativeFilePath => createPackageMarker(markerRoot, relativeFilePath));
+}
+
+function discoverPackageMarkers(rootDir) {
+  return MARKER_ROOTS.flatMap(markerRoot => listPackageMarkersForRoot(rootDir, markerRoot)).sort(
+    (left, right) => left.relativePath.localeCompare(right.relativePath)
+  );
 }
 
 function groupMarkersByScope(markers) {
@@ -557,63 +570,102 @@ function formatGateStatus(status) {
   return status;
 }
 
-function formatMarkdownSummary(summary) {
-  const lines = [
+function createSummaryHeaderLines(summary) {
+  return [
     `# Root ESM 套件標記探測：${summary.variant}`,
     '',
     `- 產生時間：${summary.generatedAt}`,
     `- production 標記數：${summary.totals.productionMarkers}`,
     `- test 標記數：${summary.totals.testMarkers}`,
     `- 已選變體移除標記數：${summary.totals.removedMarkers}`,
+  ];
+}
+
+function createGateTableLines(gates) {
+  return [
     '',
     '## 關卡',
     '',
     '| 關卡 | 狀態 |',
     '| --- | --- |',
-    ...summary.gates.map(gate => `| ${gate.id} | ${formatGateStatus(gate.status)} |`),
+    ...gates.map(gate => `| ${gate.id} | ${formatGateStatus(gate.status)} |`),
+  ];
+}
+
+function createMarkerDispositionLines(markers) {
+  return [
     '',
     '## 套件標記處置',
     '',
     '| 套件標記 | 範圍 | 處置 |',
     '| --- | --- | --- |',
-    ...summary.markers.map(
+    ...markers.map(
       marker => `| \`${marker.relativePath}\` | ${marker.scope} | ${marker.disposition} |`
     ),
   ];
+}
 
-  if (summary.variants.length > 0) {
-    lines.push(
-      '',
-      '## 變體結果',
-      '',
-      '| 變體 | 移除標記數 | 命令失敗數 | 輸出漂移數 |',
-      '| --- | ---: | ---: | ---: |'
-    );
-    for (const variant of summary.variants) {
-      const commandFailures = variant.commands.filter(command => command.status !== 0).length;
-      const driftCount = variant.comparisons.filter(
-        comparison => comparison.status !== 'match'
-      ).length;
-      lines.push(
-        `| ${variant.name} | ${variant.removedMarkers.length} | ${commandFailures} | ${driftCount} |`
-      );
-    }
+function countCommandFailures(variant) {
+  return variant.commands.filter(command => command.status !== 0).length;
+}
+
+function countOutputDrifts(variant) {
+  return variant.comparisons.filter(comparison => comparison.status !== 'match').length;
+}
+
+function createVariantResultLines(variants) {
+  if (variants.length === 0) {
+    return [];
   }
 
-  const cutoverVariants = summary.variants.filter(variant => variant.kind === 'cutover-rehearsal');
-  if (cutoverVariants.length > 0) {
-    lines.push('', '## 切換演練', '', '| 變體 | 動作 |', '| --- | --- |');
-    for (const variant of cutoverVariants) {
-      lines.push(`| ${variant.name} | ${(variant.actions || []).join(', ')} |`);
-    }
+  return [
+    '',
+    '## 變體結果',
+    '',
+    '| 變體 | 移除標記數 | 命令失敗數 | 輸出漂移數 |',
+    '| --- | ---: | ---: | ---: |',
+    ...variants.map(
+      variant =>
+        `| ${variant.name} | ${variant.removedMarkers.length} | ${countCommandFailures(variant)} | ${countOutputDrifts(variant)} |`
+    ),
+  ];
+}
+
+function selectCutoverVariants(variants) {
+  return variants.filter(variant => variant.kind === 'cutover-rehearsal');
+}
+
+function createCutoverRehearsalLines(variants) {
+  const cutoverVariants = selectCutoverVariants(variants);
+  if (cutoverVariants.length === 0) {
+    return [];
   }
+
+  return [
+    '',
+    '## 切換演練',
+    '',
+    '| 變體 | 動作 |',
+    '| --- | --- |',
+    ...cutoverVariants.map(variant => `| ${variant.name} | ${(variant.actions || []).join(', ')} |`),
+  ];
+}
+
+function formatMarkdownSummary(summary) {
+  const lines = [
+    ...createSummaryHeaderLines(summary),
+    ...createGateTableLines(summary.gates),
+    ...createMarkerDispositionLines(summary.markers),
+    ...createVariantResultLines(summary.variants),
+    ...createCutoverRehearsalLines(summary.variants),
+  ];
 
   lines.push('');
   return `${lines.join('\n')}\n`;
 }
 
-function parseArgs(argv) {
-  const options = {
+function createDefaultOptions() {
+  return {
     variant: '',
     summaryJson: '',
     summaryMd: '',
@@ -621,35 +673,97 @@ function parseArgs(argv) {
     help: false,
     keepTemp: false,
   };
+}
 
-  for (const arg of argv) {
-    if (arg === '--help' || arg === '-h') {
-      options.help = true;
-      continue;
-    }
-    if (arg === '--keep-temp') {
-      options.keepTemp = true;
-      continue;
-    }
-    const [key, ...valueParts] = arg.split('=');
-    const value = valueParts.join('=');
-    if (key === '--variant') {
-      options.variant = value;
-    } else if (key === '--summary-json') {
-      options.summaryJson = value;
-    } else if (key === '--summary-md') {
-      options.summaryMd = value;
-    } else if (key === '--remove-marker') {
-      options.removeMarkers.push(value);
-    } else {
-      throw new Error(`未知參數：${arg}`);
-    }
+function splitOptionArg(arg) {
+  const [key, ...valueParts] = arg.split('=');
+  return {
+    key,
+    value: valueParts.join('='),
+  };
+}
+
+const booleanArgHandlers = Object.freeze(
+  new Map([
+    [
+      '--help',
+      options => {
+        options.help = true;
+      },
+    ],
+    [
+      '-h',
+      options => {
+        options.help = true;
+      },
+    ],
+    [
+      '--keep-temp',
+      options => {
+        options.keepTemp = true;
+      },
+    ],
+  ])
+);
+
+const valueArgHandlers = Object.freeze(
+  new Map([
+    [
+      '--variant',
+      (options, value) => {
+        options.variant = value;
+      },
+    ],
+    [
+      '--summary-json',
+      (options, value) => {
+        options.summaryJson = value;
+      },
+    ],
+    [
+      '--summary-md',
+      (options, value) => {
+        options.summaryMd = value;
+      },
+    ],
+    [
+      '--remove-marker',
+      (options, value) => {
+        options.removeMarkers.push(value);
+      },
+    ],
+  ])
+);
+
+function applyArgument(options, arg) {
+  const booleanHandler = booleanArgHandlers.get(arg);
+  if (booleanHandler) {
+    booleanHandler(options);
+    return;
   }
 
+  const { key, value } = splitOptionArg(arg);
+  const valueHandler = valueArgHandlers.get(key);
+  if (!valueHandler) {
+    throw new Error(`未知參數：${arg}`);
+  }
+  valueHandler(options, value);
+}
+
+function assertRequiredArgs(options) {
   if (!options.help && !options.variant) {
     throw new Error('缺少必要參數：--variant');
   }
+}
 
+function parseArgs(argv) {
+  const options = createDefaultOptions();
+
+  for (const arg of argv) {
+    applyArgument(options, arg);
+  }
+
+  assertRequiredArgs(options);
   return options;
 }
 
@@ -675,6 +789,123 @@ function isCutoverVariant(variantName) {
   return Object.hasOwn(CUTOVER_VARIANTS, variantName);
 }
 
+function resolveVariantNames(variant) {
+  return variant === 'production' ? [...PRODUCTION_VARIANTS] : [variant];
+}
+
+function assertSupportedVariantNames(variantNames) {
+  for (const variantName of variantNames) {
+    if (!VARIANT_BUILDERS[variantName]) {
+      throw new Error(`不支援的 variant：${variantName}`);
+    }
+  }
+}
+
+function validateExplicitMarkerVariant(explicitRemovedMarkers, variant) {
+  if (explicitRemovedMarkers && variant !== 'tests') {
+    throw new Error('--remove-marker 只支援 --variant=tests');
+  }
+}
+
+function selectProbeCommands(variant) {
+  return variant === 'tests' ? TEST_COMMANDS : PRODUCTION_COMMANDS;
+}
+
+function buildCutoverVariantRuns({ sourceRoot, tempRoot, variantNames, markers }) {
+  return variantNames.map(variantName =>
+    buildCutoverVariantRun({ sourceRoot, tempRoot, variantName, markers })
+  );
+}
+
+function buildMarkerVariantRuns({
+  sourceRoot,
+  tempRoot,
+  variantNames,
+  markers,
+  commands,
+  compareOutputs,
+  sharedBaselineRun,
+  explicitRemovedMarkers,
+}) {
+  return variantNames.map(variantName =>
+    buildVariantRun({
+      sourceRoot,
+      tempRoot,
+      variantName,
+      markers,
+      commands,
+      compareOutputs,
+      sharedBaselineRun,
+      explicitRemovedMarkers: variantName === 'tests' ? explicitRemovedMarkers : null,
+    })
+  );
+}
+
+function createSharedBaselineRun({ sourceRoot, tempRoot, variant, commands }) {
+  return variant === 'production' ? buildSharedBaselineRun({ sourceRoot, tempRoot, commands }) : null;
+}
+
+function buildProbeVariantRuns({
+  sourceRoot,
+  tempRoot,
+  variant,
+  variantNames,
+  markers,
+  commands,
+  explicitRemovedMarkers,
+}) {
+  if (variantNames.every(isCutoverVariant)) {
+    return buildCutoverVariantRuns({ sourceRoot, tempRoot, variantNames, markers });
+  }
+
+  const sharedBaselineRun = createSharedBaselineRun({ sourceRoot, tempRoot, variant, commands });
+  return buildMarkerVariantRuns({
+    sourceRoot,
+    tempRoot,
+    variantNames,
+    markers,
+    commands,
+    compareOutputs: variant !== 'tests',
+    sharedBaselineRun,
+    explicitRemovedMarkers,
+  });
+}
+
+function collectVariantRunArtifacts(variantRuns) {
+  return {
+    removedMarkers: [...new Set(variantRuns.flatMap(variant => variant.removedMarkers))].sort(),
+    commands: variantRuns.flatMap(variant => variant.commands),
+    comparisons: variantRuns.flatMap(variant => variant.comparisons),
+  };
+}
+
+function getFirstVariantRoots(variantRuns) {
+  const [firstVariant = {}] = variantRuns;
+  return firstVariant.roots || { baseline: '', probe: '' };
+}
+
+function buildProbeRunSummary({ variant, sourceRoot, markers, variantRuns }) {
+  const { removedMarkers, commands, comparisons } = collectVariantRunArtifacts(variantRuns);
+  const firstVariantRoots = getFirstVariantRoots(variantRuns);
+  return buildProbeSummary({
+    variant,
+    sourceRoot,
+    baselineRoot: firstVariantRoots.baseline,
+    probeRoot: firstVariantRoots.probe,
+    markers,
+    removedMarkers,
+    commands,
+    comparisons,
+    variants: variantRuns,
+  });
+}
+
+function removeTempRootUnlessKept(tempRoot, keepTemp) {
+  if (!keepTemp) {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
+
 function writeSummaries(summary, options) {
   if (options.summaryJson) {
     writeJson(path.resolve(options.summaryJson), summary);
@@ -689,76 +920,33 @@ function writeSummaries(summary, options) {
 function runProbe(options, sourceRoot = process.cwd()) {
   const markers = discoverPackageMarkers(sourceRoot);
   const explicitRemovedMarkers = resolveExplicitTestMarkers(markers, options.removeMarkers ?? []);
-  if (explicitRemovedMarkers && options.variant !== 'tests') {
-    throw new Error('--remove-marker 只支援 --variant=tests');
-  }
-  const variantNames =
-    options.variant === 'production'
-      ? [
-          'pages-only',
-          'scripts-production-without-performance',
-          'scripts-performance-only',
-          'scripts-and-pages',
-        ]
-      : [options.variant];
-
-  for (const variantName of variantNames) {
-    if (!VARIANT_BUILDERS[variantName]) {
-      throw new Error(`不支援的 variant：${variantName}`);
-    }
-  }
+  validateExplicitMarkerVariant(explicitRemovedMarkers, options.variant);
+  const variantNames = resolveVariantNames(options.variant);
+  assertSupportedVariantNames(variantNames);
 
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'root-esm-package-markers-'));
-  const isTestVariant = options.variant === 'tests';
-  const isCutoverRun = variantNames.every(isCutoverVariant);
-  const commands = isTestVariant ? TEST_COMMANDS : PRODUCTION_COMMANDS;
+  const commands = selectProbeCommands(options.variant);
   try {
-    const variantRuns = isCutoverRun
-      ? variantNames.map(variantName =>
-          buildCutoverVariantRun({ sourceRoot, tempRoot, variantName, markers })
-        )
-      : (() => {
-          const sharedBaselineRun =
-            options.variant === 'production'
-              ? buildSharedBaselineRun({ sourceRoot, tempRoot, commands })
-              : null;
-          return variantNames.map(variantName =>
-            buildVariantRun({
-              sourceRoot,
-              tempRoot,
-              variantName,
-              markers,
-              commands,
-              compareOutputs: !isTestVariant,
-              sharedBaselineRun,
-              explicitRemovedMarkers:
-                variantName === 'tests' ? explicitRemovedMarkers : null,
-            })
-          );
-        })();
-
-    const removedMarkers = variantRuns.flatMap(variant => variant.removedMarkers);
-    const allCommands = variantRuns.flatMap(variant => variant.commands);
-    const allComparisons = variantRuns.flatMap(variant => variant.comparisons);
-    const firstVariant = variantRuns[0] ?? {};
-    const summary = buildProbeSummary({
+    const variantRuns = buildProbeVariantRuns({
+      sourceRoot,
+      tempRoot,
+      variant: options.variant,
+      variantNames,
+      markers,
+      commands,
+      explicitRemovedMarkers,
+    });
+    const summary = buildProbeRunSummary({
       variant: options.variant,
       sourceRoot,
-      baselineRoot: firstVariant.roots?.baseline ?? '',
-      probeRoot: firstVariant.roots?.probe ?? '',
       markers,
-      removedMarkers: [...new Set(removedMarkers)].sort(),
-      commands: allCommands,
-      comparisons: allComparisons,
-      variants: variantRuns,
+      variantRuns,
     });
 
     writeSummaries(summary, options);
     return summary;
   } finally {
-    if (!options.keepTemp) {
-      fs.rmSync(tempRoot, { recursive: true, force: true });
-    }
+    removeTempRootUnlessKept(tempRoot, options.keepTemp);
   }
 }
 

@@ -121,10 +121,14 @@ async function loadConfigTestMatch(configPath, rootDir = process.cwd()) {
   return (config.testMatch || []).map(pattern => normalizeConfigPattern(pattern, rootDir));
 }
 
+function isPackageBoundarySearchDirectory(currentDir, rootPath) {
+  return isDescendantPath(path.relative(rootPath, currentDir));
+}
+
 function findPackageBoundary({ filePath, rootDir }) {
   const rootPath = path.resolve(rootDir);
   let currentDir = path.resolve(rootDir, path.dirname(filePath));
-  while (path.relative(rootPath, currentDir) && !path.relative(rootPath, currentDir).startsWith('..') && !path.isAbsolute(path.relative(rootPath, currentDir))) {
+  while (isPackageBoundarySearchDirectory(currentDir, rootPath)) {
     const packagePath = path.join(currentDir, 'package.json');
     if (fs.existsSync(packagePath)) {
       try {
@@ -185,46 +189,96 @@ function isProductionEsmRequire(specifier) {
   return isProductionRuntimeRequire(specifier) && !specifier.endsWith('.cjs');
 }
 
+function getPackageBoundarySignal(packageBoundary) {
+  if (packageBoundary?.malformed) {
+    return 'malformed-package-boundary';
+  }
+  if (packageBoundary) {
+    return 'test-helper-package-boundary';
+  }
+  return null;
+}
+
+function hasJestMock(source) {
+  return /\bjest\.mock\s*\(/.test(source);
+}
+
+function hasJestRequireActual(source) {
+  return /\bjest\.requireActual\s*\(/.test(source);
+}
+
+function hasNodeLifecycleContract(source) {
+  return /\bmodule\.exports\b|\brequire\.main\b|\bprocess\.argv\b|scripts\/postinstall\.js/.test(
+    source
+  );
+}
+
+function hasGlobalRuntimeSurface(source) {
+  return /\bglobalThis\b|\bglobal\./.test(source);
+}
+
+function hasJsdomOriginOrStorage(source) {
+  return /\b(?:localStorage|sessionStorage)\b/.test(source);
+}
+
+function hasCommonJsOrEsmBoundarySyntax(source) {
+  return /\brequire\s*\(/.test(source) || hasRootEsmSyntax(source);
+}
+
+function hasRootCommonJsTestBoundary({ normalizedPath, source }) {
+  return normalizedPath.endsWith('.js') && hasCommonJsOrEsmBoundarySyntax(source);
+}
+
+const signalRules = Object.freeze([
+  {
+    signal: 'incumbent-contract-retained',
+    matches: ({ normalizedPath }) => normalizedPath.startsWith('tests/contract/'),
+  },
+  {
+    signal: 'babel-hoisted-mock',
+    matches: ({ source }) => hasJestMock(source),
+  },
+  {
+    signal: 'jest-require-actual-esm',
+    matches: ({ source }) => hasJestRequireActual(source),
+  },
+  {
+    signal: 'contained-cjs-require',
+    matches: ({ requireSpecifiers }) => requireSpecifiers.some(isContainedCjsRequire),
+  },
+  {
+    signal: 'commonjs-require-production-esm',
+    matches: ({ requireSpecifiers }) => requireSpecifiers.some(isProductionEsmRequire),
+  },
+  {
+    signal: 'node-lifecycle-contract',
+    matches: ({ source }) => hasNodeLifecycleContract(source),
+  },
+  {
+    signal: 'global-runtime-surface',
+    matches: ({ source }) => hasGlobalRuntimeSurface(source),
+  },
+  {
+    signal: 'jsdom-origin-or-storage',
+    matches: ({ source }) => hasJsdomOriginOrStorage(source),
+  },
+  {
+    signal: 'root-commonjs-test-boundary',
+    matches: hasRootCommonJsTestBoundary,
+  },
+]);
+
 function detectSignals({ filePath, source, packageBoundary }) {
   const signals = [];
   const normalizedPath = normalizeRelativePath(filePath);
   const requireSpecifiers = collectRequireSpecifiers(source);
+  const boundarySignal = getPackageBoundarySignal(packageBoundary);
 
-  if (packageBoundary?.malformed) {
-    signals.push('malformed-package-boundary');
-  } else if (packageBoundary) {
-    signals.push('test-helper-package-boundary');
+  if (boundarySignal) {
+    signals.push(boundarySignal);
   }
-  if (normalizedPath.startsWith('tests/contract/')) {
-    signals.push('incumbent-contract-retained');
-  }
-  if (/\bjest\.mock\s*\(/.test(source)) {
-    signals.push('babel-hoisted-mock');
-  }
-  if (/\bjest\.requireActual\s*\(/.test(source)) {
-    signals.push('jest-require-actual-esm');
-  }
-  if (requireSpecifiers.some(isContainedCjsRequire)) {
-    signals.push('contained-cjs-require');
-  }
-  if (requireSpecifiers.some(isProductionEsmRequire)) {
-    signals.push('commonjs-require-production-esm');
-  }
-  if (/\bmodule\.exports\b|\brequire\.main\b|\bprocess\.argv\b|scripts\/postinstall\.js/.test(source)) {
-    signals.push('node-lifecycle-contract');
-  }
-  if (/\bglobalThis\b|\bglobal\./.test(source)) {
-    signals.push('global-runtime-surface');
-  }
-  if (/\b(?:localStorage|sessionStorage)\b/.test(source)) {
-    signals.push('jsdom-origin-or-storage');
-  }
-  if (
-    normalizedPath.endsWith('.js') &&
-    (/\brequire\s*\(/.test(source) || hasRootEsmSyntax(source))
-  ) {
-    signals.push('root-commonjs-test-boundary');
-  }
+  const signalContext = { normalizedPath, requireSpecifiers, source };
+  signals.push(...signalRules.filter(rule => rule.matches(signalContext)).map(rule => rule.signal));
 
   return [...new Set(signals)];
 }

@@ -36,32 +36,66 @@ function escapeRegExp(value) {
   return value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 }
 
+function createGlobTokenContext(pattern, index) {
+  return {
+    char: pattern[index],
+    next: pattern[index + 1],
+    afterNext: pattern[index + 2],
+  };
+}
+
+function isGlobstarDirectoryToken({ char, next, afterNext }) {
+  return char === '*' && next === '*' && afterNext === '/';
+}
+
+function isGlobstarToken({ char, next }) {
+  return char === '*' && next === '*';
+}
+
+function isWildcardToken({ char }) {
+  return char === '*';
+}
+
+const globTokenRules = Object.freeze([
+  {
+    matches: isGlobstarDirectoryToken,
+    expression: '(?:.*/)?',
+    width: 3,
+  },
+  {
+    matches: isGlobstarToken,
+    expression: '.*',
+    width: 2,
+  },
+  {
+    matches: isWildcardToken,
+    expression: '[^/]*',
+    width: 1,
+  },
+]);
+
+function readGlobToken(pattern, index) {
+  const tokenContext = createGlobTokenContext(pattern, index);
+  const rule = globTokenRules.find(candidate => candidate.matches(tokenContext));
+  if (rule) {
+    return {
+      expression: rule.expression,
+      nextIndex: index + rule.width,
+    };
+  }
+  return {
+    expression: escapeRegExp(tokenContext.char),
+    nextIndex: index + 1,
+  };
+}
+
 function globToRegExp(pattern) {
   const normalizedPattern = normalizePattern(pattern);
   let expression = '^';
-  for (let index = 0; index < normalizedPattern.length; index += 1) {
-    const char = normalizedPattern[index];
-    const next = normalizedPattern[index + 1];
-    const afterNext = normalizedPattern[index + 2];
-
-    if (char === '*' && next === '*' && afterNext === '/') {
-      expression += '(?:.*/)?';
-      index += 2;
-      continue;
-    }
-
-    if (char === '*' && next === '*') {
-      expression += '.*';
-      index += 1;
-      continue;
-    }
-
-    if (char === '*') {
-      expression += '[^/]*';
-      continue;
-    }
-
-    expression += escapeRegExp(char);
+  for (let index = 0; index < normalizedPattern.length; ) {
+    const token = readGlobToken(normalizedPattern, index);
+    expression += token.expression;
+    index = token.nextIndex;
   }
   expression += '$';
   return new RegExp(expression);
@@ -258,6 +292,33 @@ function createGateRecords({ files, unsupportedPatterns }) {
   ];
 }
 
+function countSummaryClassifications(files) {
+  return {
+    missing: files.filter(file => file.classification === 'missing-from-native-candidate').length,
+    extra: files.filter(file => file.classification === 'extra-native-candidate').length,
+  };
+}
+
+function buildScopeParityTotals({
+  officialIncluded,
+  officialExcluded,
+  nativeIncluded,
+  zeroCoverageCanaryPaths,
+  unsupportedPatterns,
+  missingCount,
+  extraCount,
+}) {
+  return {
+    officialIncluded: officialIncluded.length,
+    officialExcluded: officialExcluded.length,
+    nativeIncluded: nativeIncluded.length,
+    missingFromNativeCandidate: missingCount,
+    extraNativeCandidate: extraCount,
+    zeroCoverageCanaries: zeroCoverageCanaryPaths.length,
+    unsupportedPatterns: unsupportedPatterns.length,
+  };
+}
+
 function buildScopeParitySummary({
   officialIncluded,
   officialExcluded,
@@ -276,8 +337,7 @@ function buildScopeParitySummary({
     nativeCoverageEntries,
     zeroCoverageCanaryPaths,
   });
-  const missingCount = files.filter(file => file.classification === 'missing-from-native-candidate').length;
-  const extraCount = files.filter(file => file.classification === 'extra-native-candidate').length;
+  const { missing: missingCount, extra: extraCount } = countSummaryClassifications(files);
 
   return {
     schemaVersion: 1,
@@ -285,15 +345,15 @@ function buildScopeParitySummary({
     officialConfigPath,
     nativeConfigPath,
     nativeCoveragePath,
-    totals: {
-      officialIncluded: officialIncluded.length,
-      officialExcluded: officialExcluded.length,
-      nativeIncluded: nativeIncluded.length,
-      missingFromNativeCandidate: missingCount,
-      extraNativeCandidate: extraCount,
-      zeroCoverageCanaries: zeroCoverageCanaryPaths.length,
-      unsupportedPatterns: unsupportedPatterns.length,
-    },
+    totals: buildScopeParityTotals({
+      officialIncluded,
+      officialExcluded,
+      nativeIncluded,
+      zeroCoverageCanaryPaths,
+      unsupportedPatterns,
+      missingCount,
+      extraCount,
+    }),
     files,
     unsupportedPatterns,
     gates: createGateRecords({ files, unsupportedPatterns }),
