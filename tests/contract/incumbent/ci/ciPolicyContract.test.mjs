@@ -131,7 +131,6 @@ describe('CI policy contract', () => {
       'pages/',
       'styles/',
       'icons/',
-      'auth.html',
       'manifest.json',
       'package.json',
     ];

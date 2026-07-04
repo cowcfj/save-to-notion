@@ -1,11 +1,8 @@
 /**
  * manifest.json — auth callback web_accessible_resources 測試
  *
- * 驗證 canonical auth page 與 legacy root callback page 已正確加入 web_accessible_resources，
- * 且 matches 不包含 <all_urls>（安全限制）。
- *
- * bridge rollout 完成前，legacy direct callback 仍可能存在，因此 auth.html 的
- * web_accessible_resources 條目暫時 **MUST NOT** 移除。
+ * 驗證 canonical auth page 已正確加入 web_accessible_resources，
+ * 且 root auth.html legacy callback surface 已移除。
  *
  * @see manifest.json
  * @see docs/plans/2026-04-17-cloudflare-frontend-account-integration-plan.md §Task 2
@@ -14,12 +11,10 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const AUTH_RESOURCES = ['auth.html', 'pages/auth/auth.html'];
+const AUTH_RESOURCE = 'pages/auth/auth.html';
 
 function findAuthEntry(manifest) {
-  return manifest.web_accessible_resources.find(entry =>
-    AUTH_RESOURCES.every(resource => entry.resources?.includes(resource))
-  );
+  return manifest.web_accessible_resources.find(entry => entry.resources?.includes(AUTH_RESOURCE));
 }
 
 describe('manifest.json — auth callback web_accessible_resources', () => {
@@ -30,9 +25,11 @@ describe('manifest.json — auth callback web_accessible_resources', () => {
     manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   });
 
-  test('web_accessible_resources 應包含 canonical auth page 與 legacy shim', () => {
+  test('web_accessible_resources 應只包含 canonical auth page', () => {
     const authEntry = findAuthEntry(manifest);
     expect(authEntry).toBeDefined();
+    expect(authEntry?.resources).toEqual([AUTH_RESOURCE]);
+    expect(JSON.stringify(manifest.web_accessible_resources)).not.toContain('"auth.html"');
   });
 
   test('auth callback resources 的 matches MUST NOT 包含 <all_urls>（安全限制）', () => {
