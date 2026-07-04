@@ -344,6 +344,7 @@ describe('background lifecycle native ESM depth coverage', () => {
 
     cleanup(chrome);
     resetDriveMocks();
+    loggerMock.info.mockReset();
     jest.resetModules();
     const failingChrome = makeDefaultChrome();
     failingChrome.storage.local.get.mockRejectedValue(new Error('storage unavailable'));
@@ -380,9 +381,6 @@ describe('background lifecycle native ESM depth coverage', () => {
     await surface.handleExtensionUpdate('2.8.0');
 
     expect(shouldShowUpdateNotificationMock).toHaveBeenCalledWith('2.8.0', '2.8.1');
-    if (chrome.windows.create.mock.calls.length === 0) {
-      await surface.showUpdateNotification('2.8.0', '2.8.1');
-    }
     expect(chrome.windows.create).toHaveBeenCalledWith(
       expect.objectContaining({
         url: expect.stringContaining('pages/update-notification/update-notification.html'),
