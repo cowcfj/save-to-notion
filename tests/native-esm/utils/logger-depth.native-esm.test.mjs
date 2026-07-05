@@ -3,6 +3,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { snapshotGlobals } from './rootUtilsHarness.mjs';
 
 function makeChromeMock({ versionName = '1.0.0-dev', storageDebugValue, sendMessageImpl } = {}) {
   return {
@@ -51,6 +52,15 @@ function installBackgroundRuntime(options) {
   globalThis.chrome = makeChromeMock(options);
 }
 
+function installContentScriptRuntime(options) {
+  const runtimeGlobal = {
+    addEventListener: jest.fn(),
+  };
+  globalThis.self = runtimeGlobal;
+  globalThis.window = runtimeGlobal;
+  globalThis.chrome = makeChromeMock(options);
+}
+
 async function importFreshLogger() {
   let loggerModule;
   await jest.isolateModulesAsync(async () => {
@@ -60,8 +70,10 @@ async function importFreshLogger() {
 }
 
 let consoleSpies;
+let restoreGlobals;
 
 beforeEach(() => {
+  restoreGlobals = snapshotGlobals(['chrome', 'self', 'window', 'Logger', '__CONTENT_SCRIPT_BUILD__']);
   consoleSpies = {
     debug: jest.spyOn(console, 'debug').mockImplementation(() => {}),
     log: jest.spyOn(console, 'log').mockImplementation(() => {}),
@@ -72,13 +84,9 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  delete globalThis.chrome;
-  delete globalThis.self;
-  delete globalThis.window;
-  delete globalThis.Logger;
-  delete globalThis.__CONTENT_SCRIPT_BUILD__;
   jest.useRealTimers();
   jest.restoreAllMocks();
+  restoreGlobals();
 });
 
 describe('Logger native ESM depth coverage', () => {
@@ -248,6 +256,112 @@ describe('Logger native ESM depth coverage', () => {
     expect(sentArgs[2]).toBe('Symbol(flag)');
   });
 
+  test('warn sends Error custom properties through immediate devLogSink payloads', async () => {
+    installContentScriptRuntime({ versionName: '1.0.0-dev' });
+    const { default: Logger } = await importFreshLogger();
+    const error = new TypeError('native bridge warning');
+    error.code = 'ERR_NATIVE_BRIDGE';
+    error.detail = { attempt: 2 };
+
+    Logger.warn('warn bridge', error);
+
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'devLogSink',
+        level: 'warn',
+        message: 'warn bridge',
+        args: [
+          expect.objectContaining({
+            message: 'native bridge warning',
+            name: 'TypeError',
+            stack: expect.stringContaining('TypeError: native bridge warning'),
+            code: 'ERR_NATIVE_BRIDGE',
+            detail: { attempt: 2 },
+          }),
+        ],
+      }),
+      expect.any(Function)
+    );
+  });
+
+  test('warn serializes nested arrays, circular values, symbols, functions, and throwing getters', async () => {
+    installContentScriptRuntime({ versionName: '1.0.0-dev' });
+    const { default: Logger } = await importFreshLogger();
+    const nestedError = new Error('nested failure');
+    const circular = { label: 'root' };
+    circular.self = circular;
+    const throwing = {};
+    Object.defineProperty(throwing, 'broken', {
+      enumerable: true,
+      get() {
+        throw new Error('getter failed');
+      },
+    });
+
+    Logger.warn('nested bridge', [nestedError, () => {}, Symbol('flag'), circular, throwing]);
+
+    const sentArgs = chrome.runtime.sendMessage.mock.calls[0][0].args[0];
+    expect(sentArgs[0]).toEqual(
+      expect.objectContaining({
+        message: 'nested failure',
+        name: 'Error',
+      })
+    );
+    expect(sentArgs[1]).toBe('[Function]');
+    expect(sentArgs[2]).toBe('Symbol(flag)');
+    expect(sentArgs[3].self).toBe(sentArgs[3]);
+    expect(sentArgs[4].broken).toBe('[Unserializable Object]');
+  });
+
+  test('ready formats the shortcut and flushes it through the content-script bridge', async () => {
+    jest.useFakeTimers();
+    installContentScriptRuntime({ versionName: '1.0.0-dev' });
+    const { default: Logger } = await importFreshLogger();
+
+    Logger.ready('extension loaded', { stage: 'native-esm' });
+    jest.advanceTimersByTime(500);
+
+    expect(consoleSpies.info).toHaveBeenCalledWith(
+      expect.stringContaining('[INFO]'),
+      '📦 extension loaded',
+      { stage: 'native-esm' }
+    );
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'devLogSinkBatch',
+        logs: [
+          expect.objectContaining({
+            level: 'info',
+            message: '📦 extension loaded',
+            args: [{ stage: 'native-esm' }],
+          }),
+        ],
+      }),
+      expect.any(Function)
+    );
+  });
+
+  test('runtime lastError callbacks after bridge sends are safe no-ops', async () => {
+    installContentScriptRuntime({
+      sendMessageImpl: jest.fn((_message, callback) => {
+        chrome.runtime.lastError = { message: 'context invalidated' };
+        callback?.();
+        chrome.runtime.lastError = null;
+      }),
+    });
+    const { default: Logger } = await importFreshLogger();
+
+    expect(() => Logger.warn('bridge lastError', { ok: true })).not.toThrow();
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'devLogSink',
+        level: 'warn',
+        message: 'bridge lastError',
+      }),
+      expect.any(Function)
+    );
+  });
+
   test('runtime send failures and frame-removal errors are safe no-ops', async () => {
     installBackgroundRuntime({
       sendMessageImpl: jest.fn(() => {
@@ -261,5 +375,53 @@ describe('Logger native ESM depth coverage', () => {
     consoleSpies.error.mockClear();
     Logger.error('Frame with ID 10 was removed');
     expect(consoleSpies.error).not.toHaveBeenCalled();
+  });
+});
+
+describe('content-script runtime global cleanup', () => {
+  const originalSelfDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'self');
+  const originalWindowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const originalSelf = { existing: 'self' };
+  const originalWindow = { existing: 'window' };
+
+  function restoreGlobal(name, descriptor) {
+    if (descriptor) {
+      Object.defineProperty(globalThis, name, descriptor);
+      return;
+    }
+
+    delete globalThis[name];
+  }
+
+  beforeAll(() => {
+    Object.defineProperty(globalThis, 'self', {
+      configurable: true,
+      enumerable: true,
+      writable: true,
+      value: originalSelf,
+    });
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      enumerable: true,
+      writable: true,
+      value: originalWindow,
+    });
+  });
+
+  afterAll(() => {
+    restoreGlobal('self', originalSelfDescriptor);
+    restoreGlobal('window', originalWindowDescriptor);
+  });
+
+  test('installs content-script globals over existing browser globals', () => {
+    installContentScriptRuntime({ versionName: '1.0.0-dev' });
+
+    expect(globalThis.self).not.toBe(originalSelf);
+    expect(globalThis.window).not.toBe(originalWindow);
+  });
+
+  test('restores browser globals that existed before content-script runtime installation', () => {
+    expect(globalThis.self).toBe(originalSelf);
+    expect(globalThis.window).toBe(originalWindow);
   });
 });
