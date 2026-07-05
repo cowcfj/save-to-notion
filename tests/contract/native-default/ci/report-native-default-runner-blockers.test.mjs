@@ -230,6 +230,7 @@ const phase2BIncumbentOwnedProbeSuites = [
   'tests/unit/background/image-processing.test.js',
   'tests/unit/highlighter/highlighter-path-compression.test.js',
   'tests/unit/highlighter/highlighter-storage-optimization.test.js',
+  'tests/unit/background.test.cjs',
 ];
 
 const phase2BNativeDefaultOwnerPathCohort = [
@@ -274,7 +275,6 @@ const babelHoistedMockOrderingCohort3HighlighterIndex = [
 
 const babelHoistedMockOrderingCohort3BackgroundEntrypoint = [
   'tests/unit/background/extension-lifecycle.test.cjs',
-  'tests/unit/background.test.cjs',
 ];
 
 const babelHoistedMockOrderingCohort4Entrypoints = [

@@ -28,7 +28,6 @@ export default {
     '<rootDir>/tests/unit/native-default/utils/normalizeUrl.test.js',
     '<rootDir>/tests/unit/native-default/background/buildHighlightBlocks.test.js',
     '<rootDir>/tests/unit/background/extension-lifecycle.test.cjs',
-    '<rootDir>/tests/unit/background.test.cjs',
     '<rootDir>/tests/unit/native-default/utils/pageComplexityDetector.node-env.test.js',
     '<rootDir>/tests/unit/native-default/utils/splitTextForHighlight.test.js',
     '<rootDir>/tests/unit/native-default/background/processContentResult.test.js',

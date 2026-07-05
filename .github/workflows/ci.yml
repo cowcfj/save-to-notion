@@ -236,38 +236,9 @@ jobs:
           });
           NODE
           )
-          NATIVE_DEFAULT_TEST_FILES=$(CANDIDATE_FILES="$CANDIDATE_FILES" node - <<'NODE'
-          (async () => {
-            const configModule = await import('./jest.native-default.config.js');
-            const config = configModule.default ?? configModule;
-            const candidates = (process.env.CANDIDATE_FILES || '').split('\n').filter(Boolean);
-            const rootPrefix = '<rootDir>/';
-
-            function globToRegex(glob) {
-              let normalized = glob.startsWith(rootPrefix) ? glob.slice(rootPrefix.length) : glob;
-              normalized = normalized.replace(/[.+^${}()|[\]\\]/g, '\\$&');
-              normalized = normalized.replace(/\*\*\//g, '(?:.+/)?');
-              normalized = normalized.replace(/\*\*/g, '.*');
-              normalized = normalized.replace(/\*/g, '[^/]*');
-              return new RegExp(`^${normalized}$`);
-            }
-
-            const nativeDefaultRegexes = (config.testMatch || []).map(globToRegex);
-            for (const candidate of candidates) {
-              if (nativeDefaultRegexes.some(regex => regex.test(candidate))) {
-                console.log(candidate);
-              }
-            }
-          })().catch(error => {
-            console.error(error);
-            process.exit(1);
-          });
-          NODE
-          )
-          NATIVE_TEST_FILES=$(printf '%s\n' "$NATIVE_DEFAULT_TEST_FILES" | sed '/^$/d' | sort -u || true)
           SOURCE_FILES=$(echo "$CANDIDATE_FILES" | grep -E '^(scripts|pages)/.*\.(cjs|js|mjs)$' || true)
 
-          if [ -z "$SOURCE_FILES" ] && [ -z "$INCUMBENT_TEST_FILES" ] && [ -z "$NATIVE_TEST_FILES" ]; then
+          if [ -z "$SOURCE_FILES" ] && [ -z "$INCUMBENT_TEST_FILES" ]; then
             echo "::notice::只變更設定檔，改執行 smoke test 而不是 related tests"
             npm test -- --listTests
           fi
@@ -276,12 +247,6 @@ jobs:
             echo "正在執行變更的 incumbent Jest 測試檔:"
             echo "$INCUMBENT_TEST_FILES"
             echo "$INCUMBENT_TEST_FILES" | xargs npx jest --config jest.config.js --ci --runTestsByPath --maxWorkers=2
-          fi
-
-          if [ -n "$NATIVE_TEST_FILES" ]; then
-            echo "正在執行變更的 native-default Jest 測試檔:"
-            echo "$NATIVE_TEST_FILES"
-            echo "$NATIVE_TEST_FILES" | NODE_OPTIONS=--experimental-vm-modules xargs npx jest --config jest.native-default.config.js --ci --runTestsByPath --maxWorkers=2
           fi
 
           if [ -n "$SOURCE_FILES" ]; then

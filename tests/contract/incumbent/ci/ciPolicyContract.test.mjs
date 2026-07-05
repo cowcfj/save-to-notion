@@ -270,36 +270,30 @@ describe('CI policy contract', () => {
     );
   });
 
-  test('CI related-test 執行器會先以路徑執行變更測試檔，再查找來源關聯測試', () => {
+  test('CI related-test 執行器只跑 SWC correctness lane，不阻塞 native-default diagnostic lane', () => {
     const workflowSource = readWorkflow('ci.yml');
     const relatedTestsStep = getWorkflowStepBlock(workflowSource, 'Jest related tests');
 
     expect(relatedTestsStep).toContain('SOURCE_FILES=');
     expect(relatedTestsStep).toContain('INCUMBENT_TEST_FILES=');
-    expect(relatedTestsStep).toContain('NATIVE_TEST_FILES=');
-    expect(relatedTestsStep).toContain('NATIVE_DEFAULT_TEST_FILES=');
+    expect(relatedTestsStep).not.toContain('NATIVE_TEST_FILES=');
+    expect(relatedTestsStep).not.toContain('NATIVE_DEFAULT_TEST_FILES=');
     expect(relatedTestsStep).toContain('CANDIDATE_FILES="$CANDIDATE_FILES" node - <<\'NODE\'');
     expect(relatedTestsStep).toContain("await import('./jest.config.js')");
-    expect(relatedTestsStep).toContain("await import('./jest.native-default.config.js')");
-    expect(relatedTestsStep).toContain('config.testMatch');
+    expect(relatedTestsStep).not.toContain("await import('./jest.native-default.config.js')");
+    expect(relatedTestsStep).toContain('project.testMatch');
     expect(relatedTestsStep).toContain("process.env.CANDIDATE_FILES || ''");
     expect(relatedTestsStep).toContain('filter(Boolean);');
     expect(relatedTestsStep).toContain('function globToRegex(glob)');
-    expect(countTrimmedLines(relatedTestsStep, 'function globToRegex(glob) {')).toBe(2);
-    expect(relatedTestsStep).toContain(
-      'const nativeDefaultRegexes = (config.testMatch || []).map(globToRegex);'
-    );
-    expect(relatedTestsStep).toContain(
-      'if (nativeDefaultRegexes.some(regex => regex.test(candidate))) {'
-    );
+    expect(countTrimmedLines(relatedTestsStep, 'function globToRegex(glob) {')).toBe(1);
+    expect(relatedTestsStep).not.toContain('const nativeDefaultRegexes =');
+    expect(relatedTestsStep).not.toContain('nativeDefaultRegexes.some');
     expect(relatedTestsStep).not.toContain('const allowlisted = new Set();');
     expect(relatedTestsStep).not.toContain('allowlisted.has(candidate)');
     expect(relatedTestsStep).toContain(
       'xargs npx jest --config jest.config.js --ci --runTestsByPath --maxWorkers=2'
     );
-    expect(relatedTestsStep).toContain(
-      'xargs npx jest --config jest.native-default.config.js --ci --runTestsByPath --maxWorkers=2'
-    );
+    expect(relatedTestsStep).not.toContain('jest.native-default.config.js --ci --runTestsByPath');
     expect(relatedTestsStep).toContain(
       'xargs npx jest --config jest.config.js --ci --findRelatedTests --passWithNoTests --maxWorkers=2'
     );
@@ -315,13 +309,12 @@ describe('CI policy contract', () => {
       '::notice::只變更設定檔，改執行 smoke test 而不是 related tests'
     );
     expect(relatedTestsStep).toContain('正在執行變更的 incumbent Jest 測試檔:');
-    expect(relatedTestsStep).toContain('正在執行變更的 native-default Jest 測試檔:');
+    expect(relatedTestsStep).not.toContain('正在執行變更的 native-default Jest 測試檔:');
     expect(relatedTestsStep).toContain('正在為變更的來源檔案執行 related tests:');
     expect(relatedTestsStep).not.toContain(
       'Only config files changed, running smoke test instead of related tests'
     );
     expect(relatedTestsStep).not.toContain('Running changed incumbent Jest test files:');
-    expect(relatedTestsStep).not.toContain('Running changed native-default Jest test files:');
     expect(relatedTestsStep).not.toContain('Running related tests for changed source files:');
   });
 

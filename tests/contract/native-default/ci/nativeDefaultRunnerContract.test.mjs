@@ -129,7 +129,6 @@ const nativeDefaultOwnerPathEntries = [
 
 const retainedBackgroundEntrypointHarnessEntries = [
   '<rootDir>/tests/unit/background/extension-lifecycle.test.cjs',
-  '<rootDir>/tests/unit/background.test.cjs',
 ];
 
 function readPackageScripts() {
@@ -281,6 +280,7 @@ describe('native default Jest runner contract', () => {
         entry => entry.includes('/tests/unit/') && !entry.includes('/native-default/')
       )
     ).toEqual(retainedBackgroundEntrypointHarnessEntries);
+    expect(config.testMatch).not.toContain('<rootDir>/tests/unit/background.test.cjs');
 
     expect(config).not.toHaveProperty('coverageProvider');
     expect(config).not.toHaveProperty('coverageDirectory');
