@@ -4,43 +4,43 @@ import path from 'node:path';
 const FORBIDDEN_RULES = Object.freeze([
   {
     label: 'raw scripts source',
-    matches: (relativePath) => relativePath.startsWith('scripts/') && relativePath.endsWith('.js'),
+    matches: relativePath => relativePath.startsWith('scripts/') && relativePath.endsWith('.js'),
   },
   {
     label: 'tests output',
-    matches: (relativePath) => relativePath.startsWith('tests/'),
+    matches: relativePath => relativePath.startsWith('tests/'),
   },
   {
     label: 'docs output',
-    matches: (relativePath) => relativePath.startsWith('docs/'),
+    matches: relativePath => relativePath.startsWith('docs/'),
   },
   {
     label: 'agent metadata',
-    matches: (relativePath) => relativePath.startsWith('.agents/'),
+    matches: relativePath => relativePath.startsWith('.agents/'),
   },
   {
     label: 'github metadata',
-    matches: (relativePath) => relativePath.startsWith('.github/'),
+    matches: relativePath => relativePath.startsWith('.github/'),
   },
   {
     label: 'coverage output',
-    matches: (relativePath) => relativePath.startsWith('coverage/'),
+    matches: relativePath => relativePath.startsWith('coverage/'),
   },
   {
     label: 'source map',
-    matches: (relativePath) => relativePath.endsWith('.map'),
+    matches: relativePath => relativePath.endsWith('.map'),
   },
   {
     label: 'bundle analysis report',
-    matches: (relativePath) => /(^|\/)[^/]*bundle-analysis[^/]*\.html$/.test(relativePath),
+    matches: relativePath => /(^|\/)[^/]*bundle-analysis[^/]*\.html$/.test(relativePath),
   },
   {
     label: 'visualizer report',
-    matches: (relativePath) => /(^|\/)[^/]*visualizer[^/]*\.html$/.test(relativePath),
+    matches: relativePath => /(^|\/)[^/]*visualizer[^/]*\.html$/.test(relativePath),
   },
   {
     label: 'nested page package marker',
-    matches: (relativePath) => /^pages\/.+\/package\.json$/.test(relativePath),
+    matches: relativePath => /^pages\/.+\/package\.json$/.test(relativePath),
   },
 ]);
 
@@ -90,9 +90,10 @@ function enumerateFiles(rootDir, currentDir = rootDir) {
   const files = [];
   for (const entry of fs.readdirSync(currentDir, { withFileTypes: true })) {
     const absolutePath = path.join(currentDir, entry.name);
-    if (entry.isDirectory()) {
+    const stats = entry.isSymbolicLink() ? fs.statSync(absolutePath) : entry;
+    if (stats.isDirectory()) {
       files.push(...enumerateFiles(rootDir, absolutePath));
-    } else if (entry.isFile()) {
+    } else if (stats.isFile()) {
       files.push(toPackagePath(absolutePath, rootDir));
     }
   }
@@ -102,7 +103,7 @@ function enumerateFiles(rootDir, currentDir = rootDir) {
 function findSurfaceViolations(relativePaths) {
   const violations = [];
   for (const relativePath of relativePaths) {
-    const matchedRule = FORBIDDEN_RULES.find((rule) => rule.matches(relativePath));
+    const matchedRule = FORBIDDEN_RULES.find(rule => rule.matches(relativePath));
     if (matchedRule) {
       violations.push({ relativePath, rule: matchedRule.label });
     }

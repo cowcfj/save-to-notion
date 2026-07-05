@@ -1,10 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { AUTH_OPTIONS_ONLY_SENTINELS, matchesSentinel } from './bundle-boundary-sentinels.mjs';
 
 const DEFAULT_DIST_PAGES_DIR = path.resolve(process.cwd(), 'dist/pages');
 const PROFILE_MANAGER_IMPORT = './shared/ProfileManager.js';
 const SHARED_IMPORT_WARNING_LIMIT = 5;
-const AUTH_OPTIONS_ONLY_SENTINELS = Object.freeze(['保存目標名稱', '雲端備份：']);
 
 function parseArgs(argv) {
   const options = { distPagesDir: DEFAULT_DIST_PAGES_DIR };
@@ -113,8 +113,8 @@ function listPageEntryFiles(distPagesDir) {
 
   return fs
     .readdirSync(distPagesDir, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.js'))
-    .map((entry) => entry.name)
+    .filter(entry => entry.isFile() && entry.name.endsWith('.js'))
+    .map(entry => entry.name)
     .sort();
 }
 
@@ -123,7 +123,7 @@ function isSharedImport(specifier) {
 }
 
 function readEntryReports(distPagesDir) {
-  return listPageEntryFiles(distPagesDir).map((entryFile) => {
+  return listPageEntryFiles(distPagesDir).map(entryFile => {
     const sourceText = fs.readFileSync(path.join(distPagesDir, entryFile), 'utf8');
     return {
       entryFile,
@@ -138,18 +138,18 @@ function formatImports(imports) {
 }
 
 function getSharedImports(report) {
-  return report.imports.filter((specifier) => isSharedImport(specifier));
+  return report.imports.filter(specifier => isSharedImport(specifier));
 }
 
 function findRestrictedImportViolation(report) {
   if (report.entryFile === 'auth.js' && report.imports.includes(PROFILE_MANAGER_IMPORT)) {
-    return 'auth.js must not import ./shared/ProfileManager.js';
+    return 'auth.js 不得匯入 ./shared/ProfileManager.js';
   }
   if (report.entryFile === 'update-notification.js' && getSharedImports(report).length > 0) {
-    return 'update-notification.js must not import shared chunks';
+    return 'update-notification.js 不得匯入 shared chunks';
   }
   if (report.entryFile === 'onboarding.js' && report.imports.includes(PROFILE_MANAGER_IMPORT)) {
-    return 'onboarding.js must not import ./shared/ProfileManager.js';
+    return 'onboarding.js 不得匯入 ./shared/ProfileManager.js';
   }
   return null;
 }
@@ -159,9 +159,9 @@ function findAuthOptionsOnlySentinelViolations(report) {
     return [];
   }
 
-  return AUTH_OPTIONS_ONLY_SENTINELS.filter((sentinel) => report.sourceText.includes(sentinel)).map(
-    (sentinel) => `auth.js contains options-only sentinel: ${sentinel}`
-  );
+  return AUTH_OPTIONS_ONLY_SENTINELS.filter(sentinel =>
+    matchesSentinel(report.sourceText, sentinel)
+  ).map(sentinel => `auth.js 包含 options-only sentinel: ${sentinel.value}`);
 }
 
 function findReportCriticalViolations(report) {
@@ -185,12 +185,12 @@ function findWarnings(entryReports) {
     const sharedImports = getSharedImports(report);
     if (report.entryFile === 'popup.js' && report.imports.includes(PROFILE_MANAGER_IMPORT)) {
       warnings.push(
-        'popup.js imports ./shared/ProfileManager.js; split popup read-only destination selection in a future plan.'
+        'popup.js 匯入 ./shared/ProfileManager.js；請在後續計畫拆分 popup read-only destination selection。'
       );
     }
     if (sharedImports.length > SHARED_IMPORT_WARNING_LIMIT) {
       warnings.push(
-        `${report.entryFile} imports ${sharedImports.length} shared chunks; review whether the entry needs a narrower bundle.`
+        `${report.entryFile} 匯入 ${sharedImports.length} 個 shared chunks；請檢查此 entry 是否需要更窄的 bundle。`
       );
     }
   }
@@ -198,7 +198,7 @@ function findWarnings(entryReports) {
 }
 
 function reportAudit(entryReports, warnings, violations) {
-  console.log('Page shared chunk import map:');
+  console.log('頁面 shared chunk 匯入對照：');
   for (const report of entryReports) {
     console.log(`${report.entryFile} -> ${formatImports(report.imports)}`);
   }
@@ -208,14 +208,14 @@ function reportAudit(entryReports, warnings, violations) {
   }
 
   if (violations.length > 0) {
-    console.error('❌ Page shared chunk audit failed');
+    console.error('❌ 頁面 shared chunk 稽核失敗');
     for (const violation of violations) {
       console.error(`  - ${violation}`);
     }
     return false;
   }
 
-  console.log('✅ Page shared chunk audit completed');
+  console.log('✅ 頁面 shared chunk 稽核完成');
   return true;
 }
 
@@ -228,6 +228,6 @@ try {
     process.exitCode = 1;
   }
 } catch (error) {
-  console.error(`❌ Page shared chunk audit failed: ${error.message}`);
+  console.error(`❌ 頁面 shared chunk 稽核失敗：${error.message}`);
   process.exit(1);
 }

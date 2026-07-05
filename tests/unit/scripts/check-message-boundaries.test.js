@@ -123,6 +123,19 @@ describe('tools/check-message-boundaries.mjs', () => {
     }
   );
 
+  test('不應把較長 identifier 內的 options/profile 名稱誤判成禁用 sentinel', () => {
+    writeFakeBundle(
+      'dist/content.bundle.js',
+      'const ProfileManagerFactory = {}; const url = "pages/options/options.js.map";'
+    );
+    writeFakeBundle('dist/scripts/background.js', 'console.log("Hello Background");');
+
+    const output = runCli();
+
+    expect(output).toContain('Bundle 訊息邊界檢查成功');
+    expect(output).toContain('dist/content.bundle.js 邊界檢查通過');
+  });
+
   test('應允許 content.bundle.js 含有允許的 highlighter copy（例如「Save to Notion 工具列」與「標註已刪除」）', () => {
     // 依據 boundary-rules，content.bundle.js 並沒有將「Save to Notion 工具列」與「標註已刪除」加入 forbidden 名單中
     writeFakeBundle(

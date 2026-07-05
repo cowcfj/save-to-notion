@@ -64,6 +64,30 @@ describe('tools/audit-page-shared-chunks.mjs', () => {
     expect(output).toContain('必須提供 --dist-pages-dir 的值');
   });
 
+  test('unknown flag 應輸出未知參數錯誤', () => {
+    const output = runCliExpectFailure(['--unknown']);
+
+    expect(output).toContain('未知參數：--unknown');
+  });
+
+  test('missing dist pages directory 應讓檔案列舉失敗', () => {
+    const missingDistPagesDir = path.join(tempRoot, 'missing-dist-pages');
+
+    const output = runCliExpectFailure([`--dist-pages-dir=${missingDistPagesDir}`]);
+
+    expect(output).toContain('找不到 dist pages 目錄');
+    expect(output).toContain(missingDistPagesDir);
+  });
+
+  test('space-separated --dist-pages-dir value 應正確解析', () => {
+    writePageFile('auth.js', "import './shared/accountLogin.js';\n");
+
+    const output = runCliWithArgs(['--dist-pages-dir', distPagesDir]);
+
+    expect(output).toContain('auth.js -> ./shared/accountLogin.js');
+    expect(output).toContain('頁面 shared chunk 稽核完成');
+  });
+
   test('prints entry shared import map and warning-only popup ProfileManager dependency', () => {
     writePageFile('auth.js', "import './shared/accountLogin.js';\n");
     writePageFile('update-notification.js', 'console.log("update");\n');
@@ -77,9 +101,11 @@ describe('tools/audit-page-shared-chunks.mjs', () => {
 
     expect(output).toContain('auth.js -> ./shared/accountLogin.js');
     expect(output).toContain('update-notification.js -> (none)');
-    expect(output).toContain('popup.js -> ./shared/backgroundMessages.js, ./shared/ProfileManager.js');
-    expect(output).toContain('[WARN] popup.js imports ./shared/ProfileManager.js');
-    expect(output).toContain('Page shared chunk audit completed');
+    expect(output).toContain(
+      'popup.js -> ./shared/backgroundMessages.js, ./shared/ProfileManager.js'
+    );
+    expect(output).toContain('[WARN] popup.js 匯入 ./shared/ProfileManager.js');
+    expect(output).toContain('頁面 shared chunk 稽核完成');
   });
 
   test('ignores from-like text outside static import or export statements', () => {
@@ -94,29 +120,33 @@ describe('tools/audit-page-shared-chunks.mjs', () => {
     const output = runCli();
 
     expect(output).toContain('auth.js -> (none)');
-    expect(output).toContain('Page shared chunk audit completed');
+    expect(output).toContain('頁面 shared chunk 稽核完成');
   });
 
   test.each([
-    ['auth.js', "import './shared/ProfileManager.js';\n", 'auth.js must not import ./shared/ProfileManager.js'],
+    [
+      'auth.js',
+      "import './shared/ProfileManager.js';\n",
+      'auth.js 不得匯入 ./shared/ProfileManager.js',
+    ],
     [
       'update-notification.js',
       "import './shared/backgroundMessages.js';\n",
-      'update-notification.js must not import shared chunks',
+      'update-notification.js 不得匯入 shared chunks',
     ],
     [
       'onboarding.js',
       "import './shared/ProfileManager.js';\n",
-      'onboarding.js must not import ./shared/ProfileManager.js',
+      'onboarding.js 不得匯入 ./shared/ProfileManager.js',
     ],
-    ['auth.js', 'const label = "保存目標名稱";\n', 'auth.js contains options-only sentinel'],
-    ['auth.js', 'const label = "雲端備份：";\n', 'auth.js contains options-only sentinel'],
+    ['auth.js', 'const label = "保存目標名稱";\n', 'auth.js 包含 options-only sentinel'],
+    ['auth.js', 'const label = "雲端備份：";\n', 'auth.js 包含 options-only sentinel'],
   ])('critical violation: %s', (entryFile, contents, expectedMessage) => {
     writePageFile(entryFile, contents);
 
     const output = runCliExpectFailure();
 
-    expect(output).toContain('Page shared chunk audit failed');
+    expect(output).toContain('頁面 shared chunk 稽核失敗');
     expect(output).toContain(expectedMessage);
   });
 
@@ -135,7 +165,7 @@ describe('tools/audit-page-shared-chunks.mjs', () => {
 
     const output = runCli();
 
-    expect(output).toContain('[WARN] options.js imports 6 shared chunks');
-    expect(output).toContain('Page shared chunk audit completed');
+    expect(output).toContain('[WARN] options.js 匯入 6 個 shared chunks');
+    expect(output).toContain('頁面 shared chunk 稽核完成');
   });
 });

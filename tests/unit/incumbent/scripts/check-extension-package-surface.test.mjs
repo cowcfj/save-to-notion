@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 const testFilePath = fileURLToPath(import.meta.url);
 const testDir = path.dirname(testFilePath);
 const rootDir = path.resolve(testDir, '../../../..');
+const CLI_TIMEOUT_MS = 10_000;
 
 describe('tools/check-extension-package-surface.mjs', () => {
   const scriptPath = path.resolve(rootDir, 'tools/check-extension-package-surface.mjs');
@@ -26,7 +27,10 @@ describe('tools/check-extension-package-surface.mjs', () => {
   const createAllowedPackage = () => {
     writeFile('manifest.json', '{}\n');
     writeFile('icons/icon16.png');
-    writeFile('pages/options/options.html', '<script type="module" src="../../dist/pages/options.js"></script>\n');
+    writeFile(
+      'pages/options/options.html',
+      '<script type="module" src="../../dist/pages/options.js"></script>\n'
+    );
     writeFile('pages/options/options.css', '.root {}\n');
     writeFile('pages/options/assets/logo.svg', '<svg></svg>\n');
     writeFile('styles/callback-bridge.css', '.card {}\n');
@@ -40,15 +44,17 @@ describe('tools/check-extension-package-surface.mjs', () => {
       cwd: rootDir,
       encoding: 'utf8',
       stdio: 'pipe',
+      timeout: CLI_TIMEOUT_MS,
     });
 
-  const runCliExpectFailure = (args) => {
+  const runCliExpectFailure = args => {
     let thrownError;
     try {
       execFileSync('node', [scriptPath, ...args], {
         cwd: rootDir,
         encoding: 'utf8',
         stdio: 'pipe',
+        timeout: CLI_TIMEOUT_MS,
       });
     } catch (error) {
       thrownError = error;
@@ -119,5 +125,18 @@ describe('tools/check-extension-package-surface.mjs', () => {
     expect(output).toContain('Extension package surface 檢查失敗');
     expect(output).toContain(relativePath);
     expect(output).toContain(expectedRule);
+  });
+
+  test('forbidden package surface through symlink 應失敗', () => {
+    createAllowedPackage();
+    const forbiddenLinkPath = path.join(tempRoot, 'scripts/content/index.js');
+    fs.mkdirSync(path.dirname(forbiddenLinkPath), { recursive: true });
+    fs.symlinkSync(path.join(tempRoot, 'dist/pages/options.js'), forbiddenLinkPath);
+
+    const output = runCliExpectFailure([`--unpacked-dir=${tempRoot}`]);
+
+    expect(output).toContain('Extension package surface 檢查失敗');
+    expect(output).toContain('scripts/content/index.js');
+    expect(output).toContain('raw scripts source');
   });
 });
