@@ -7,15 +7,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseStaticImports } from '../../../tools/static-import-parser.mjs';
 
 const testFilePath = fileURLToPath(import.meta.url);
 const testDirectory = path.dirname(testFilePath);
 const projectRoot = path.resolve(testDirectory, '../../..');
 const sourceExtensions = ['.js', '.mjs'];
-const STATIC_IMPORT_PATTERN = /^import(?!\s*\()/;
-const BARE_IMPORT_SPECIFIER_PATTERN = /^import\s*['"]([^'"]+)['"]/;
-const FROM_SPECIFIER_PATTERN = /\bfrom\s*['"]([^'"]+)['"]/;
-const STATIC_REEXPORT_PATTERN = /^export\s+(?:\*|(?:type\s+)?\{)/;
 const ignoredPathSegments = new Set([
   '.git',
   '.tmp',
@@ -88,93 +85,6 @@ function listSourceFiles(rootDir, relativePath) {
   });
 }
 
-function startsStaticDeclaration(line) {
-  return /^\s*(?:import(?!\s*\()|export)\b/.test(line);
-}
-
-function hasOpenStaticDeclaration(statement) {
-  const openBraces = (statement.match(/\{/g) || []).length;
-  const closeBraces = (statement.match(/\}/g) || []).length;
-  const trimmed = statement.trimEnd();
-  return openBraces > closeBraces || /\bfrom\s*$/.test(trimmed) || /,\s*$/.test(trimmed);
-}
-
-function readStaticImportSpecifier(fragment) {
-  if (!STATIC_IMPORT_PATTERN.test(fragment)) {
-    return null;
-  }
-
-  const bareImportMatch = fragment.match(BARE_IMPORT_SPECIFIER_PATTERN);
-  if (bareImportMatch) {
-    return bareImportMatch[1];
-  }
-
-  const fromImportMatch = fragment.match(FROM_SPECIFIER_PATTERN);
-  return fromImportMatch ? fromImportMatch[1] : null;
-}
-
-function readStaticExportSpecifier(fragment) {
-  if (!STATIC_REEXPORT_PATTERN.test(fragment)) {
-    return null;
-  }
-
-  const fromExportMatch = fragment.match(FROM_SPECIFIER_PATTERN);
-  return fromExportMatch ? fromExportMatch[1] : null;
-}
-
-function readStaticSpecifier(fragment) {
-  return readStaticImportSpecifier(fragment) || readStaticExportSpecifier(fragment);
-}
-
-function extractImportSpecifiers(statement) {
-  return statement
-    .split(';')
-    .map(fragment => readStaticSpecifier(fragment.trim()))
-    .filter(Boolean);
-}
-
-function readStaticStatement(statement) {
-  const specifiers = extractImportSpecifiers(statement);
-  return {
-    specifiers,
-    isComplete: specifiers.length > 0 || !hasOpenStaticDeclaration(statement),
-  };
-}
-
-function collectStaticStatementSpecifiers(specifiers, statement) {
-  const result = readStaticStatement(statement);
-  if (result.isComplete) {
-    specifiers.push(...result.specifiers);
-    return '';
-  }
-  return statement;
-}
-
-function parseStaticImportSpecifiers(sourceText) {
-  const specifiers = [];
-  let pendingStatement = '';
-
-  for (const line of sourceText.split('\n')) {
-    if (pendingStatement) {
-      pendingStatement = collectStaticStatementSpecifiers(
-        specifiers,
-        `${pendingStatement}\n${line}`
-      );
-      continue;
-    }
-
-    if (startsStaticDeclaration(line)) {
-      pendingStatement = collectStaticStatementSpecifiers(specifiers, line);
-    }
-  }
-
-  if (pendingStatement) {
-    specifiers.push(...extractImportSpecifiers(pendingStatement));
-  }
-
-  return specifiers.filter(Boolean);
-}
-
 function resolveRelativeImport(rootDir, importerRelativePath, specifier) {
   if (!specifier.startsWith('.')) {
     return null;
@@ -201,7 +111,7 @@ function resolveRelativeImport(rootDir, importerRelativePath, specifier) {
 function resolveStaticImports(rootDir, importerRelativePath) {
   const currentPath = path.resolve(rootDir, importerRelativePath);
   const sourceText = fs.readFileSync(currentPath, 'utf8');
-  return parseStaticImportSpecifiers(sourceText)
+  return parseStaticImports(sourceText)
     .map(specifier => resolveRelativeImport(rootDir, importerRelativePath, specifier))
     .filter(Boolean);
 }
