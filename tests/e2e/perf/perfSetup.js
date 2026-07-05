@@ -97,52 +97,34 @@ async function getExtensionServiceWorker(context) {
 
 function installMockTabsQuery({ mockId, mockUrl }) {
   const original = chrome.tabs.query;
-  chrome.tabs.query = function (queryInfo, onQuery) {
-    if (isActiveCurrentWindowQuery(queryInfo)) {
-      return resolveMockTabQuery(onQuery, buildMockTab(mockId, mockUrl));
-    }
-
-    if (original) {
-      return queryOriginalTabs(original, this, queryInfo, onQuery);
-    }
-
-    return resolveEmptyTabs(onQuery);
-  };
-
-  function isActiveCurrentWindowQuery(queryInfo) {
-    return [queryInfo.active, queryInfo.currentWindow].every(Boolean);
-  }
-
-  function buildMockTab(mockTabId, tabUrl) {
-    return {
-      id: mockTabId,
-      url: tabUrl,
+  const mockTabs = [
+    {
+      id: mockId,
+      url: mockUrl,
       title: 'Perf Fixture',
       active: true,
       windowId: 1,
-    };
-  }
+    },
+  ];
+  const emptyTabs = [];
 
-  function resolveMockTabQuery(onQuery, mockTab) {
-    if (onQuery) {
-      onQuery([mockTab]);
-    }
+  chrome.tabs.query = original
+    ? function queryWithOriginalTabs(queryInfo, onQuery) {
+        if ([queryInfo.active, queryInfo.currentWindow].every(Boolean)) {
+          onQuery?.(mockTabs);
+          return Promise.resolve(mockTabs);
+        }
 
-    return Promise.resolve([mockTab]);
-  }
-
-  function queryOriginalTabs(originalQuery, queryThis, queryInfo, onQuery) {
-    const result = originalQuery.call(queryThis, queryInfo, onQuery);
-    return result ?? Promise.resolve([]);
-  }
-
-  function resolveEmptyTabs(onQuery) {
-    if (onQuery) {
-      onQuery([]);
-    }
-
-    return Promise.resolve([]);
-  }
+        const result = original.call(this, queryInfo, onQuery);
+        return result ?? Promise.resolve(emptyTabs);
+      }
+    : function queryWithoutOriginalTabs(queryInfo, onQuery) {
+        const tabs = [queryInfo.active, queryInfo.currentWindow].every(Boolean)
+          ? mockTabs
+          : emptyTabs;
+        onQuery?.(tabs);
+        return Promise.resolve(tabs);
+      };
 }
 
 /**
