@@ -3,10 +3,6 @@ import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globa
 const originalAnalytics = globalThis.analytics;
 
 function restoreAnalytics() {
-  if (originalAnalytics === undefined) {
-    delete globalThis.analytics;
-    return;
-  }
   globalThis.analytics = originalAnalytics;
 }
 
