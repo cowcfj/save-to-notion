@@ -50,10 +50,10 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg.startsWith('--unpacked-dir=')) {
-      options.unpackedDir = path.resolve(arg.slice('--unpacked-dir='.length));
+      options.unpackedDir = path.resolve(readInlineFlagValue(arg, '--unpacked-dir'));
     } else if (arg === '--unpacked-dir') {
+      options.unpackedDir = path.resolve(readNextFlagValue(argv, index, '--unpacked-dir'));
       index += 1;
-      options.unpackedDir = path.resolve(argv[index] || '');
     } else {
       throw new Error(`未知參數：${arg}`);
     }
@@ -64,6 +64,22 @@ function parseArgs(argv) {
   }
 
   return options;
+}
+
+function readInlineFlagValue(arg, flagName) {
+  const value = arg.slice(`${flagName}=`.length);
+  if (!value || value.startsWith('-')) {
+    throw new Error(`必須提供 ${flagName} 的值`);
+  }
+  return value;
+}
+
+function readNextFlagValue(argv, index, flagName) {
+  const value = argv[index + 1];
+  if (!value || value.startsWith('-')) {
+    throw new Error(`必須提供 ${flagName} 的值`);
+  }
+  return value;
 }
 
 function toPackagePath(filePath, rootDir) {

@@ -12,10 +12,10 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg.startsWith('--dist-pages-dir=')) {
-      options.distPagesDir = path.resolve(arg.slice('--dist-pages-dir='.length));
+      options.distPagesDir = path.resolve(readInlineFlagValue(arg, '--dist-pages-dir'));
     } else if (arg === '--dist-pages-dir') {
+      options.distPagesDir = path.resolve(readNextFlagValue(argv, index, '--dist-pages-dir'));
       index += 1;
-      options.distPagesDir = path.resolve(argv[index] || '');
     } else {
       throw new Error(`未知參數：${arg}`);
     }
@@ -24,20 +24,86 @@ function parseArgs(argv) {
   return options;
 }
 
-function extractImportSpecifiers(line) {
+function readInlineFlagValue(arg, flagName) {
+  const value = arg.slice(`${flagName}=`.length);
+  if (!value || value.startsWith('-')) {
+    throw new Error(`必須提供 ${flagName} 的值`);
+  }
+  return value;
+}
+
+function readNextFlagValue(argv, index, flagName) {
+  const value = argv[index + 1];
+  if (!value || value.startsWith('-')) {
+    throw new Error(`必須提供 ${flagName} 的值`);
+  }
+  return value;
+}
+
+function startsStaticDeclaration(line) {
+  return /^\s*(?:import(?!\s*\()|export)\b/.test(line);
+}
+
+function hasOpenStaticDeclaration(statement) {
+  const openBraces = (statement.match(/\{/g) || []).length;
+  const closeBraces = (statement.match(/\}/g) || []).length;
+  const trimmed = statement.trimEnd();
+  return openBraces > closeBraces || /\bfrom\s*$/.test(trimmed) || /,\s*$/.test(trimmed);
+}
+
+function extractImportSpecifiers(statement) {
   const specifiers = [];
-  const importPattern = /(?:^\s*import\s*['"]([^'"]+)['"])|(?:\bfrom\s*['"]([^'"]+)['"])/g;
-  for (const match of line.matchAll(importPattern)) {
-    specifiers.push(match[1] || match[2]);
+  for (const fragment of statement.split(';')) {
+    const trimmed = fragment.trim();
+    if (/^import(?!\s*\()/.test(trimmed)) {
+      const bareImportMatch = trimmed.match(/^import\s*['"]([^'"]+)['"]/);
+      const fromImportMatch = trimmed.match(/\bfrom\s*['"]([^'"]+)['"]/);
+      const specifier = bareImportMatch?.[1] || fromImportMatch?.[1];
+      if (specifier) {
+        specifiers.push(specifier);
+      }
+    } else if (/^export\s+(?:\*|(?:type\s+)?\{)/.test(trimmed)) {
+      const fromExportMatch = trimmed.match(/\bfrom\s*['"]([^'"]+)['"]/);
+      if (fromExportMatch) {
+        specifiers.push(fromExportMatch[1]);
+      }
+    }
   }
   return specifiers;
 }
 
 function parseStaticImports(sourceText) {
-  return sourceText
-    .split('\n')
-    .flatMap((line) => extractImportSpecifiers(line))
-    .filter(Boolean);
+  const specifiers = [];
+  let pendingStatement = '';
+
+  for (const line of sourceText.split('\n')) {
+    if (pendingStatement) {
+      pendingStatement += `\n${line}`;
+      const matches = extractImportSpecifiers(pendingStatement);
+      if (matches.length > 0 || !hasOpenStaticDeclaration(pendingStatement)) {
+        specifiers.push(...matches);
+        pendingStatement = '';
+      }
+      continue;
+    }
+
+    if (!startsStaticDeclaration(line)) {
+      continue;
+    }
+
+    const matches = extractImportSpecifiers(line);
+    if (matches.length > 0 || !hasOpenStaticDeclaration(line)) {
+      specifiers.push(...matches);
+    } else {
+      pendingStatement = line;
+    }
+  }
+
+  if (pendingStatement) {
+    specifiers.push(...extractImportSpecifiers(pendingStatement));
+  }
+
+  return specifiers.filter(Boolean);
 }
 
 function listPageEntryFiles(distPagesDir) {

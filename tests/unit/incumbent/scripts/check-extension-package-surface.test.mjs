@@ -72,6 +72,15 @@ describe('tools/check-extension-package-surface.mjs', () => {
     expect(output).toContain('必須提供 --unpacked-dir');
   });
 
+  test.each([
+    ['flag at end', ['--unpacked-dir']],
+    ['next token is another flag', ['--unpacked-dir', '--unknown']],
+  ])('missing --unpacked-dir value 應直接失敗：%s', (_caseName, args) => {
+    const output = runCliExpectFailure(args);
+
+    expect(output).toContain('必須提供 --unpacked-dir 的值');
+  });
+
   test('missing unpacked directory 應失敗', () => {
     const missingDir = path.join(tempRoot, 'missing-package');
 

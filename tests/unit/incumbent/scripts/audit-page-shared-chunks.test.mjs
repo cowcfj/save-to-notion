@@ -24,17 +24,19 @@ describe('tools/audit-page-shared-chunks.mjs', () => {
     return filePath;
   };
 
-  const runCli = () =>
-    execFileSync('node', [scriptPath, `--dist-pages-dir=${distPagesDir}`], {
+  const runCliWithArgs = args =>
+    execFileSync('node', [scriptPath, ...args], {
       cwd: rootDir,
       encoding: 'utf8',
       stdio: 'pipe',
     });
 
-  const runCliExpectFailure = () => {
+  const runCli = () => runCliWithArgs([`--dist-pages-dir=${distPagesDir}`]);
+
+  const runCliExpectFailure = (args = [`--dist-pages-dir=${distPagesDir}`]) => {
     let thrownError;
     try {
-      runCli();
+      runCliWithArgs(args);
     } catch (error) {
       thrownError = error;
     }
@@ -53,6 +55,15 @@ describe('tools/audit-page-shared-chunks.mjs', () => {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   });
 
+  test.each([
+    ['flag at end', ['--dist-pages-dir']],
+    ['next token is another flag', ['--dist-pages-dir', '--unknown']],
+  ])('missing --dist-pages-dir value 應直接失敗：%s', (_caseName, args) => {
+    const output = runCliExpectFailure(args);
+
+    expect(output).toContain('必須提供 --dist-pages-dir 的值');
+  });
+
   test('prints entry shared import map and warning-only popup ProfileManager dependency', () => {
     writePageFile('auth.js', "import './shared/accountLogin.js';\n");
     writePageFile('update-notification.js', 'console.log("update");\n');
@@ -68,6 +79,21 @@ describe('tools/audit-page-shared-chunks.mjs', () => {
     expect(output).toContain('update-notification.js -> (none)');
     expect(output).toContain('popup.js -> ./shared/backgroundMessages.js, ./shared/ProfileManager.js');
     expect(output).toContain('[WARN] popup.js imports ./shared/ProfileManager.js');
+    expect(output).toContain('Page shared chunk audit completed');
+  });
+
+  test('ignores from-like text outside static import or export statements', () => {
+    writePageFile(
+      'auth.js',
+      [
+        "// from './shared/ProfileManager.js'",
+        'const message = "from \'./shared/ProfileManager.js\'";',
+      ].join('\n')
+    );
+
+    const output = runCli();
+
+    expect(output).toContain('auth.js -> (none)');
     expect(output).toContain('Page shared chunk audit completed');
   });
 

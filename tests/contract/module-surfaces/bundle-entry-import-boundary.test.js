@@ -84,21 +84,70 @@ function listSourceFiles(rootDir, relativePath) {
   });
 }
 
-function extractImportSpecifier(line) {
-  const bareImportMatch = line.match(/^\s*import\s+['"]([^'"]+)['"]/);
-  if (bareImportMatch) {
-    return bareImportMatch[1];
-  }
+function startsStaticDeclaration(line) {
+  return /^\s*(?:import(?!\s*\()|export)\b/.test(line);
+}
 
-  const fromImportMatch = line.match(/\bfrom\s+['"]([^'"]+)['"]/);
-  return fromImportMatch ? fromImportMatch[1] : null;
+function hasOpenStaticDeclaration(statement) {
+  const openBraces = (statement.match(/\{/g) || []).length;
+  const closeBraces = (statement.match(/\}/g) || []).length;
+  const trimmed = statement.trimEnd();
+  return openBraces > closeBraces || /\bfrom\s*$/.test(trimmed) || /,\s*$/.test(trimmed);
+}
+
+function extractImportSpecifiers(statement) {
+  const specifiers = [];
+  for (const fragment of statement.split(';')) {
+    const trimmed = fragment.trim();
+    if (/^import(?!\s*\()/.test(trimmed)) {
+      const bareImportMatch = trimmed.match(/^import\s*['"]([^'"]+)['"]/);
+      const fromImportMatch = trimmed.match(/\bfrom\s*['"]([^'"]+)['"]/);
+      const specifier = bareImportMatch?.[1] || fromImportMatch?.[1];
+      if (specifier) {
+        specifiers.push(specifier);
+      }
+    } else if (/^export\s+(?:\*|(?:type\s+)?\{)/.test(trimmed)) {
+      const fromExportMatch = trimmed.match(/\bfrom\s*['"]([^'"]+)['"]/);
+      if (fromExportMatch) {
+        specifiers.push(fromExportMatch[1]);
+      }
+    }
+  }
+  return specifiers;
 }
 
 function parseStaticImportSpecifiers(sourceText) {
-  return sourceText
-    .split('\n')
-    .map(line => extractImportSpecifier(line))
-    .filter(Boolean);
+  const specifiers = [];
+  let pendingStatement = '';
+
+  for (const line of sourceText.split('\n')) {
+    if (pendingStatement) {
+      pendingStatement += `\n${line}`;
+      const matches = extractImportSpecifiers(pendingStatement);
+      if (matches.length > 0 || !hasOpenStaticDeclaration(pendingStatement)) {
+        specifiers.push(...matches);
+        pendingStatement = '';
+      }
+      continue;
+    }
+
+    if (!startsStaticDeclaration(line)) {
+      continue;
+    }
+
+    const matches = extractImportSpecifiers(line);
+    if (matches.length > 0 || !hasOpenStaticDeclaration(line)) {
+      specifiers.push(...matches);
+    } else {
+      pendingStatement = line;
+    }
+  }
+
+  if (pendingStatement) {
+    specifiers.push(...extractImportSpecifiers(pendingStatement));
+  }
+
+  return specifiers.filter(Boolean);
 }
 
 function resolveRelativeImport(rootDir, importerRelativePath, specifier) {
@@ -226,6 +275,45 @@ describe('bundle-sensitive entry import boundaries', () => {
         entry: 'scripts/content/index.js',
         rule: expectedRule,
         target: expect.any(String),
+      },
+    ]);
+  });
+
+  test('scanner ignores from-like text outside static import statements', () => {
+    tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-import-boundary-'));
+    writeFixtureTree(tempRoot, {
+      'scripts/content/index.js': "import './allowed.js';\n",
+      'scripts/content/allowed.js': [
+        "// from '../config/shared/messages.js'",
+        'const message = "from \'../config/shared/messages.js\'";',
+        'export const allowed = true;',
+      ].join('\n'),
+      'scripts/config/shared/messages.js': 'export const UI_MESSAGES = {};\n',
+    });
+
+    expect(
+      findBoundaryViolations(tempRoot, ['scripts/content'], forbiddenContentLikeRules)
+    ).toEqual([]);
+  });
+
+  test('scanner preserves multiline static import detection', () => {
+    tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-import-boundary-'));
+    writeFixtureTree(tempRoot, {
+      'scripts/content/index.js': [
+        'import {',
+        '  UI_MESSAGES,',
+        "} from '../config/shared/messages.js';",
+      ].join('\n'),
+      'scripts/config/shared/messages.js': 'export const UI_MESSAGES = {};\n',
+    });
+
+    expect(
+      findBoundaryViolations(tempRoot, ['scripts/content'], forbiddenContentLikeRules)
+    ).toEqual([
+      {
+        entry: 'scripts/content/index.js',
+        rule: 'shared UI_MESSAGES facade',
+        target: 'scripts/config/shared/messages.js',
       },
     ]);
   });
