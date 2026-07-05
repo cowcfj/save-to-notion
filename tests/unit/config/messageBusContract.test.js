@@ -14,10 +14,6 @@ function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function isObjectLike(value) {
-  return value !== null && typeof value === 'object';
-}
-
 function listActions(actionsByDomain) {
   const rows = [];
 
@@ -56,15 +52,17 @@ function collectMissingActionFieldViolations(actionPath, contract) {
 function collectActionMetadataViolations(actionPath, contract) {
   const fieldChecks = [
     {
-      hasViolation: typeof contract.description !== 'string' || contract.description.trim() === '',
+      hasViolation:
+        Object.hasOwn(contract, 'description') &&
+        (typeof contract.description !== 'string' || contract.description.trim() === ''),
       violation: `${actionPath}.description:empty`,
     },
     {
-      hasViolation: !isObjectLike(contract.payload),
+      hasViolation: Object.hasOwn(contract, 'payload') && !isRecord(contract.payload),
       violation: `${actionPath}.payload:not_object`,
     },
     {
-      hasViolation: !isObjectLike(contract.response),
+      hasViolation: Object.hasOwn(contract, 'response') && !isRecord(contract.response),
       violation: `${actionPath}.response:not_object`,
     },
   ];
@@ -118,6 +116,37 @@ describe('message_bus.json runtime message contract', () => {
     };
 
     expect(collectActionShapeViolations(brokenActions)).toContain('actions.save.savePage.response');
+  });
+
+  test('shape validator does not duplicate metadata violations for missing action fields', () => {
+    const brokenActions = {
+      save: {
+        savePage: {},
+      },
+    };
+
+    expect(collectActionShapeViolations(brokenActions)).toEqual([
+      'actions.save.savePage.description',
+      'actions.save.savePage.payload',
+      'actions.save.savePage.response',
+    ]);
+  });
+
+  test('shape validator rejects array payload and response contracts', () => {
+    const brokenActions = {
+      save: {
+        savePage: {
+          description: 'broken fixture',
+          payload: [],
+          response: [],
+        },
+      },
+    };
+
+    expect(collectActionShapeViolations(brokenActions)).toEqual([
+      'actions.save.savePage.payload:not_object',
+      'actions.save.savePage.response:not_object',
+    ]);
   });
 
   test('shape validator reports malformed action domain maps', () => {
