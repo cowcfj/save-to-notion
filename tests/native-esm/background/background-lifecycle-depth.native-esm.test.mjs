@@ -269,8 +269,7 @@ describe('background lifecycle native ESM depth coverage', () => {
 
     unwrapTestExports(await importBackgroundEntrypoint());
     const alarmListener = chrome.alarms.onAlarm.addListener.mock.calls[0]?.[0];
-    alarmListener({ name: 'drive-auto-sync', scheduledTime: Date.UTC(2026, 0, 2) });
-    await Promise.resolve();
+    await alarmListener({ name: 'drive-auto-sync', scheduledTime: Date.UTC(2026, 0, 2) });
 
     expect(loggerMock.error).toHaveBeenCalledWith(
       '[Alarm] Drive 自動同步失敗',
@@ -405,19 +404,20 @@ describe('background lifecycle native ESM depth coverage', () => {
   test('logs install onboarding tab creation failures', async () => {
     const chrome = makeDefaultChrome();
     chrome.storage.local.get.mockResolvedValue({ driveSyncFrequency: 'off' });
-    chrome.tabs.create.mockRejectedValueOnce(new Error('tabs denied'));
+    const tabCreationError = new Error('tabs denied');
+    chrome.tabs.create.mockRejectedValueOnce(tabCreationError);
     globalThis.chrome = chrome;
     globalThis.Logger = loggerMock;
 
     const surface = unwrapTestExports(await importBackgroundEntrypoint());
-    surface.handleExtensionInstall();
-    await Promise.resolve();
+    await surface.handleExtensionInstall();
 
     expect(loggerMock.warn).toHaveBeenCalledWith(
       '[Lifecycle] 開啟 onboarding tab 失敗',
       expect.objectContaining({
         action: 'handleExtensionInstall',
-        error: 'tabs denied',
+        error: tabCreationError,
+        reason: 'tabs denied',
       })
     );
   });
