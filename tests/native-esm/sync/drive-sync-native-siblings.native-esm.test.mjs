@@ -150,6 +150,44 @@ describe('drive and sync real helper native ESM siblings', () => {
     );
   });
 
+  test('driveSnapshot wraps failed storage writes with the original cause', async () => {
+    const { applyDriveSnapshotToLocalStorage } =
+      await import('../../../scripts/sync/driveSnapshot.js');
+    const writeError = new Error('storage write failed');
+    globalThis.chrome.storage.local.set.mockRejectedValueOnce(writeError);
+
+    const snapshot = {
+      metadata: {
+        updated_at: '2026-06-28T01:00:00.000Z',
+      },
+      payload: {
+        saved_states: [
+          {
+            page_key: 'https://example.com/write-failure',
+            notion_page_id: 'page-write-failure',
+            notion_url: 'https://notion.so/page-write-failure',
+            title: 'Write failure',
+            saved_at: 100,
+          },
+        ],
+        highlights: [],
+        url_aliases: {},
+      },
+    };
+
+    let thrown;
+    try {
+      await applyDriveSnapshotToLocalStorage(snapshot);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(Error);
+    expect(thrown.message).toBe('APPLY_INCOMPLETE: storage write failed');
+    expect(thrown.code).toBe('APPLY_INCOMPLETE');
+    expect(thrown.cause).toBe(writeError);
+  });
+
   test('driveAlarmScheduler clamps initial delay and rejects unknown frequencies', async () => {
     const { DRIVE_AUTO_SYNC_ALARM, setupDriveAlarm } =
       await import('../../../scripts/background/handlers/driveAlarmScheduler.js');
