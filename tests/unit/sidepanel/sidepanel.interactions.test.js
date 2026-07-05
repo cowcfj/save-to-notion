@@ -91,6 +91,77 @@ function createRejectedSendMessageMock(message) {
   chrome.runtime.sendMessage.mockReturnValue(sendMessageFailure);
 }
 
+const SANITIZED_RUNTIME_FAILURE_CASES = [
+  {
+    name: 'should not display raw savePage error returned from runtime message',
+    loadFlushCount: 6,
+    response: { success: false, error: 'Custom API Error' },
+    buttonSelector: '#sync-button',
+    flushCount: 3,
+    expectedStatusText: UI_MESSAGES.SIDEPANEL.SYNC_FAILED,
+    expectedStatusClassName: 'status-message error',
+    expectedLogMessage: '[SidePanel] savePage failed',
+    expectedLogPayload: () => ({
+      action: 'savePage',
+      result: 'failure',
+      error: expect.any(String),
+    }),
+  },
+  {
+    name: 'should handle missing savePage response as a sanitized failure',
+    loadFlushCount: 6,
+    response: undefined,
+    buttonSelector: '#sync-button',
+    flushCount: 3,
+    expectedStatusText: UI_MESSAGES.SIDEPANEL.SYNC_FAILED,
+    expectedStatusClassName: 'status-message error',
+    expectedLogMessage: '[SidePanel] savePage failed',
+    expectedLogPayload: () => ({
+      action: 'savePage',
+      result: 'failure',
+      error: 'UNKNOWN_ERROR',
+      statusKind: undefined,
+      success: undefined,
+    }),
+  },
+  {
+    name: 'should treat successful savePage responses with unexpected statusKind as failures',
+    loadFlushCount: 6,
+    response: {
+      success: true,
+      statusKind: 'queued',
+    },
+    buttonSelector: '#sync-button',
+    flushCount: 3,
+    expectedStatusText: UI_MESSAGES.SIDEPANEL.SYNC_FAILED,
+    expectedStatusClassName: 'status-message error',
+    expectedLogMessage: '[SidePanel] savePage failed',
+    expectedLogPayload: () => ({
+      action: 'savePage',
+      result: 'failure',
+      error: 'Unexpected statusKind: queued',
+      statusKind: 'queued',
+      success: true,
+    }),
+  },
+  {
+    name: 'should not display raw openNotionPage error returned from runtime message',
+    loadFlushCount: 2,
+    response: {
+      success: false,
+      error: 'Leaked debug detail',
+    },
+    buttonSelector: '#open-notion-button',
+    flushCount: 3,
+    expectedStatusText: UI_MESSAGES.SIDEPANEL.OPEN_FAILED,
+    expectedStatusClassName: 'status-message error',
+    expectedLogMessage: '[SidePanel] openNotionPage failed',
+    expectedLogPayload: () => ({
+      error: expect.any(String),
+    }),
+  },
+];
+
 async function loadCurrentTabAndClickFirstDelete() {
   const onActivated = chrome.tabs.onActivated.addListener.mock.calls[0][0];
   await onActivated({ tabId: 600 });
@@ -412,74 +483,22 @@ describe('Sidepanel user interactions', () => {
       expect(syncBtn.title).toBe(UI_MESSAGES.SIDEPANEL.PAGE_NOT_SAVED);
     });
 
-    it('should not display raw savePage error returned from runtime message', async () => {
-      await loadSavedLegacyHighlightsTab(6);
+    it.each(SANITIZED_RUNTIME_FAILURE_CASES)('$name', async scenario => {
+      await loadSavedLegacyHighlightsTab(scenario.loadFlushCount);
 
-      chrome.runtime.sendMessage.mockResolvedValue({ success: false, error: 'Custom API Error' });
+      chrome.runtime.sendMessage.mockResolvedValue(scenario.response);
 
-      const syncBtn = document.querySelector('#sync-button');
-      syncBtn.click();
-      await flushMicrotasks(3);
+      document.querySelector(scenario.buttonSelector).click();
+      await flushMicrotasks(scenario.flushCount);
 
-      expect(document.querySelector('#status-message').textContent).toBe(
-        UI_MESSAGES.SIDEPANEL.SYNC_FAILED
-      );
-      expect(document.querySelector('#status-message').className).toBe('status-message error');
+      const statusMessage = document.querySelector('#status-message');
+      expect(statusMessage.textContent).toBe(scenario.expectedStatusText);
+      if (scenario.expectedStatusClassName !== undefined) {
+        expect(statusMessage.className).toBe(scenario.expectedStatusClassName);
+      }
       expect(Logger.error).toHaveBeenCalledWith(
-        '[SidePanel] savePage failed',
-        expect.objectContaining({
-          action: 'savePage',
-          result: 'failure',
-          error: expect.any(String),
-        })
-      );
-    });
-
-    it('should handle missing savePage response as a sanitized failure', async () => {
-      await loadSavedLegacyHighlightsTab(6);
-
-      chrome.runtime.sendMessage.mockResolvedValue(undefined);
-
-      const syncBtn = document.querySelector('#sync-button');
-      syncBtn.click();
-      await flushMicrotasks(3);
-
-      expect(document.querySelector('#status-message').textContent).toBe(
-        UI_MESSAGES.SIDEPANEL.SYNC_FAILED
-      );
-      expect(Logger.error).toHaveBeenCalledWith(
-        '[SidePanel] savePage failed',
-        expect.objectContaining({
-          action: 'savePage',
-          result: 'failure',
-          error: sanitizeApiError('Unknown error', 'save_page'),
-          statusKind: undefined,
-          success: undefined,
-        })
-      );
-    });
-
-    it('should not display raw openNotionPage error returned from runtime message', async () => {
-      await loadSavedLegacyHighlightsTab(2);
-
-      chrome.runtime.sendMessage.mockResolvedValue({
-        success: false,
-        error: 'Leaked debug detail',
-      });
-
-      const openBtn = document.querySelector('#open-notion-button');
-      openBtn.click();
-      await flushMicrotasks(3);
-
-      expect(document.querySelector('#status-message').textContent).toBe(
-        UI_MESSAGES.SIDEPANEL.OPEN_FAILED
-      );
-      expect(document.querySelector('#status-message').className).toBe('status-message error');
-      expect(Logger.error).toHaveBeenCalledWith(
-        '[SidePanel] openNotionPage failed',
-        expect.objectContaining({
-          error: expect.any(String),
-        })
+        scenario.expectedLogMessage,
+        expect.objectContaining(scenario.expectedLogPayload())
       );
     });
 
