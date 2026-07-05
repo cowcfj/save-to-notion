@@ -175,7 +175,7 @@ function _insertTitleBlock(blocks, metadata, includeTitle) {
     return;
   }
 
-  blocks.splice(0, 0, _createHeadingBlock(truncatedTitle));
+  blocks.unshift(_createHeadingBlock(truncatedTitle));
 }
 
 function _truncateRichText(text) {

@@ -23,10 +23,9 @@
       return 999; // SVG
     }
 
-    // eslint-disable-next-line sonarjs/slow-regex
-    const match = sizeStr.match(/(\d+)x(\d+)/i);
-    if (match) {
-      return Number.parseInt(match[1]);
+    const sizeParts = sizeStr.toLowerCase().split('x');
+    if (sizeParts.length === 2 && sizeParts.every(part => part && Number.isFinite(Number(part)))) {
+      return Number.parseInt(sizeParts[0], 10);
     }
 
     const numMatch = sizeStr.match(/\d+/);

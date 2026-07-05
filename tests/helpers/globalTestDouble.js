@@ -1,5 +1,3 @@
-/* eslint-disable unicorn/prefer-await -- Test helper intentionally preserves sync-or-async callback behavior. */
-
 function restoreGlobalProperty(name, originalValue) {
   if (originalValue === undefined) {
     delete globalThis[name];

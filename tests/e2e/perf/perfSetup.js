@@ -11,7 +11,7 @@ import { expect } from '@playwright/test';
 export async function seedStorageAndMockNotionApi({ context, extensionId }) {
   await context.route('https://api.notion.com/v1/pages', async route => {
     const post = route.request().postDataJSON();
-    if (post?.parent && post?.properties) {
+    if (post && post.parent && post.properties) {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

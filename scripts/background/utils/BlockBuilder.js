@@ -34,6 +34,23 @@ const MIN_SPLIT_RATIO = 0.5;
  */
 const HIGHLIGHT_SECTION_HEADER = NOTION_API?.HIGHLIGHT_SECTION_HEADER || '📝 頁面標記';
 
+const BOOLEAN_ANNOTATION_KEYS = ['bold', 'italic', 'strikethrough', 'underline', 'code'];
+
+function createAnnotations(options) {
+  const annotations = {};
+  if (options.color && options.color !== 'default') {
+    annotations.color = options.color;
+  }
+
+  for (const key of BOOLEAN_ANNOTATION_KEYS) {
+    if (options[key]) {
+      annotations[key] = true;
+    }
+  }
+
+  return annotations;
+}
+
 /**
  * 創建 rich_text 對象
  *
@@ -61,27 +78,7 @@ function createRichText(content, options = {}) {
     richText.text.link = { url: options.link };
   }
 
-  // 添加樣式註解
-  const annotations = {};
-  if (options.color && options.color !== 'default') {
-    annotations.color = options.color;
-  }
-  if (options.bold) {
-    annotations.bold = true;
-  }
-  if (options.italic) {
-    annotations.italic = true;
-  }
-  if (options.strikethrough) {
-    annotations.strikethrough = true;
-  }
-  if (options.underline) {
-    annotations.underline = true;
-  }
-  if (options.code) {
-    annotations.code = true;
-  }
-
+  const annotations = createAnnotations(options);
   if (Object.keys(annotations).length > 0) {
     richText.annotations = annotations;
   }
@@ -243,7 +240,7 @@ function _findSplitIndex(remaining, maxLength) {
     return 0;
   }
 
-  const punctuation = ['\n\n', '\n', '\u3002', '.', '\uFF1F', '?', '\uFF01', '!'];
+  const punctuation = ['\n\n', '\n', '\u{3002}', '.', '\u{FF1F}', '?', '\u{FF01}', '!'];
   for (const punct of punctuation) {
     const idx = remaining.lastIndexOf(punct, safeMax - 1);
     if (idx > safeMax * MIN_SPLIT_RATIO) {

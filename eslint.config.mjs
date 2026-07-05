@@ -8,6 +8,73 @@ import promise from 'eslint-plugin-promise';
 import compat from 'eslint-plugin-compat';
 import jsdoc from 'eslint-plugin-jsdoc';
 
+const nonAdoptedUnicornRules = {
+  'unicorn/better-dom-traversing': 'off',
+  'unicorn/class-reference-in-static-methods': 'off',
+  'unicorn/consistent-boolean-name': 'off',
+  'unicorn/consistent-class-member-order': 'off',
+  'unicorn/consistent-conditional-object-spread': 'off',
+  'unicorn/logical-assignment-operators': 'off',
+  'unicorn/max-nested-calls': 'off',
+  'unicorn/name-replacements': 'off',
+  'unicorn/no-array-from-fill': 'off',
+  'unicorn/no-break-in-nested-loop': 'off',
+  'unicorn/no-computed-property-existence-check': 'off',
+  'unicorn/no-declarations-before-early-exit': 'off',
+  'unicorn/no-for-each': 'off',
+  'unicorn/no-return-array-push': 'off',
+  'unicorn/prefer-private-class-fields': 'off',
+  'unicorn/no-this-outside-of-class': 'off',
+  'unicorn/no-top-level-assignment-in-function': 'off',
+  'unicorn/no-top-level-side-effects': 'off',
+  'unicorn/no-undeclared-class-members': 'off',
+  'unicorn/no-useless-else': 'off',
+  'unicorn/no-useless-template-literals': 'off',
+  'unicorn/prefer-add-event-listener-options': 'off',
+  'unicorn/prefer-array-from-map': 'off',
+  'unicorn/prefer-await': 'off',
+  'unicorn/prefer-boolean-return': 'off',
+  'unicorn/prefer-continue': 'off',
+  'unicorn/prefer-dom-node-replace-children': 'off',
+  'unicorn/prefer-early-return': 'off',
+  'unicorn/prefer-else-if': 'off',
+  'unicorn/prefer-global-number-constants': 'off',
+  'unicorn/prefer-hoisting-branch-code': 'off',
+  'unicorn/prefer-includes-over-repeated-comparisons': 'off',
+  'unicorn/prefer-iterator-to-array': 'off',
+  'unicorn/prefer-logical-operator-over-ternary': 'off',
+  'unicorn/prefer-math-constants': 'off',
+  'unicorn/prefer-minimal-ternary': 'off',
+  'unicorn/prefer-number-coercion': 'off',
+  'unicorn/prefer-number-is-safe-integer': 'off',
+  'unicorn/prefer-object-define-properties': 'off',
+  'unicorn/prefer-object-iterable-methods': 'off',
+  'unicorn/prefer-promise-try': 'off',
+  'unicorn/prefer-promise-with-resolvers': 'off',
+  'unicorn/prefer-queue-microtask': 'off',
+  'unicorn/prefer-scoped-selector': 'off',
+  'unicorn/prefer-split-limit': 'off',
+  'unicorn/prefer-string-repeat': 'off',
+  'unicorn/prefer-unicode-code-point-escapes': 'off',
+  'unicorn/prefer-url-href': 'off',
+};
+
+const testHarnessGlobalRules = {
+  'sonarjs/no-clear-text-protocols': 'off',
+  'unicorn/no-global-object-property-assignment': 'off',
+  'unicorn/no-error-property-assignment': 'off',
+  'unicorn/no-incorrect-template-string-interpolation': 'off',
+  'unicorn/no-unnecessary-global-this': 'off',
+  'unicorn/prefer-https': 'off',
+  'unicorn/require-css-escape': 'off',
+};
+
+const runtimeGlobalContractRules = {
+  'unicorn/no-global-object-property-assignment': 'off',
+  'unicorn/no-unnecessary-global-this': 'off',
+  'unicorn/no-top-level-side-effects': 'off',
+};
+
 export default [
   globalIgnores(['.tmp/**']),
   {
@@ -136,6 +203,7 @@ export default [
       // 3. Unicorn
       ...unicorn.configs.recommended.rules,
       // 個別規則覆蓋以維持開發彈性
+      ...nonAdoptedUnicornRules,
       'unicorn/no-array-for-each': 'off',
       'unicorn/no-null': 'off',
       'unicorn/prefer-module': 'off',
@@ -268,6 +336,21 @@ export default [
     ],
   },
   {
+    files: ['**/*.cjs'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'commonjs',
+    },
+    plugins: {
+      security,
+      jest,
+    },
+    rules: {
+      'security/detect-non-literal-fs-filename': 'warn',
+      'jest/expect-expect': 'warn',
+    },
+  },
+  {
     files: ['.agents/skills/**/*.js', 'scripts/utils/Logger.js'],
     rules: {
       'no-console': 'off',
@@ -275,10 +358,29 @@ export default [
     },
   },
   {
+    files: [
+      'scripts/background/backgroundLifecycleTestSurface.js',
+      'scripts/content/index.js',
+      'scripts/content/converters/ContentBridge.js',
+      'scripts/highlighter/core/HighlightManager.js',
+      'scripts/highlighter/index.js',
+      'scripts/highlighter/ui/FloatingRailRuntime.js',
+      'scripts/highlighter/utils/floatingRailAvailability.js',
+      'scripts/highlighter/windowAPI.js',
+      'scripts/legacy/MigrationExecutor.js',
+      'scripts/performance/preloader.js',
+      'scripts/utils/image/srcsetParserAdapter.js',
+      'scripts/utils/imageUtils.js',
+      'scripts/utils/Logger.js',
+    ],
+    rules: runtimeGlobalContractRules,
+  },
+  {
     files: ['tests/**/*.js'],
     plugins: { jest },
     rules: {
       ...jest.configs.recommended.rules,
+      ...testHarnessGlobalRules,
       'jest/expect-expect': 'warn',
       'jest/no-disabled-tests': 'warn',
       'jest/no-focused-tests': 'warn',

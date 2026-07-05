@@ -159,6 +159,7 @@ describe('uiUtils', () => {
       expect(symbol.querySelector('path').getAttribute('d')).toBe('M1 1');
 
       injectIcons(icons);
+      // eslint-disable-next-line unicorn/no-incorrect-query-selector -- This assertion intentionally counts duplicate IDs after reinjection.
       const symbols = defs.querySelectorAll('#icon-test');
       expect(symbols).toHaveLength(1);
     });

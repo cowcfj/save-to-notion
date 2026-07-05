@@ -441,7 +441,7 @@ async function handleStartHighlightClick() {
  * @returns {string}
  */
 function classifySavePageError(response) {
-  if (response?.success && response?.statusKind) {
+  if (response.success && response.statusKind) {
     return `Unexpected statusKind: ${response.statusKind}`;
   }
   return sanitizeApiError(response?.error || UNKNOWN_ERROR_MESSAGE, 'save_page');

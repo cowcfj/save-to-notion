@@ -69,6 +69,49 @@ async function broadcastDriveSyncUpdate(action, extra = {}) {
 // Handler：手動上傳
 // =============================================================================
 
+function hasValidRemoteUpdatedAt(remoteUpdatedAt) {
+  return Boolean(remoteUpdatedAt && !Number.isNaN(Date.parse(remoteUpdatedAt)));
+}
+
+async function broadcastRemoteSnapshotNewerConflict(result) {
+  const remoteUpdatedAt = result.remoteUpdatedAt;
+  if (hasValidRemoteUpdatedAt(remoteUpdatedAt)) {
+    await broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_CONFLICT, {
+      conflictType: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
+      remoteUpdatedAt,
+    });
+    return;
+  }
+
+  Logger.warn('[DriveSyncHandler] REMOTE_SNAPSHOT_NEWER without valid remoteUpdatedAt', {
+    remoteUpdatedAt: result.remoteUpdatedAt,
+  });
+}
+
+async function handleManualUploadFailure(result) {
+  await updateDriveSyncRunMetadata({
+    type: 'upload',
+    success: false,
+    errorCode: result.errorCode,
+    remoteUpdatedAt: result.remoteUpdatedAt,
+  });
+
+  Logger.warn('[DriveSyncHandler] Upload failed', { errorCode: result.errorCode });
+
+  if (result.errorCode === DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER) {
+    await broadcastRemoteSnapshotNewerConflict(result);
+  }
+
+  await broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED);
+
+  return {
+    success: false,
+    errorCode: result.errorCode,
+    error: result.message,
+    remoteUpdatedAt: result.remoteUpdatedAt ?? null,
+  };
+}
+
 /**
  * 處理 DRIVE_SYNC_MANUAL_UPLOAD
  *
@@ -104,36 +147,7 @@ async function handleManualUpload(request) {
     });
 
     if (!result.success) {
-      await updateDriveSyncRunMetadata({
-        type: 'upload',
-        success: false,
-        errorCode: result.errorCode,
-        remoteUpdatedAt: result.remoteUpdatedAt,
-      });
-
-      Logger.warn('[DriveSyncHandler] Upload failed', { errorCode: result.errorCode });
-
-      if (result.errorCode === DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER) {
-        const remoteUpdatedAt = result.remoteUpdatedAt;
-        if (remoteUpdatedAt && !Number.isNaN(Date.parse(remoteUpdatedAt))) {
-          await broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_CONFLICT, {
-            conflictType: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
-            remoteUpdatedAt,
-          });
-        } else {
-          Logger.warn('[DriveSyncHandler] REMOTE_SNAPSHOT_NEWER without valid remoteUpdatedAt', {
-            remoteUpdatedAt: result.remoteUpdatedAt,
-          });
-        }
-      }
-      await broadcastDriveSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED);
-
-      return {
-        success: false,
-        errorCode: result.errorCode,
-        error: result.message,
-        remoteUpdatedAt: result.remoteUpdatedAt ?? null,
-      };
+      return handleManualUploadFailure(result);
     }
 
     await updateDriveSyncRunMetadata({
