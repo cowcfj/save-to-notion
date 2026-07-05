@@ -27,6 +27,8 @@ beforeAll(async () => {
 const testFilePath = fileURLToPath(import.meta.url);
 const testDirectory = path.dirname(testFilePath);
 const projectRoot = path.resolve(testDirectory, '../../..');
+const PACKAGE_SURFACE_COMMAND =
+  'node tools/check-extension-package-surface.mjs --unpacked-dir=.tmp/extension-unpacked';
 
 const loadProbeWithSpawnSync = async spawnSync => {
   probeState.spawnSync = spawnSync;
@@ -176,6 +178,16 @@ const expectCutoverPostinstallCommand = (spawnSync, summary) => {
   expect(spawnSync).toHaveBeenCalledWith(
     'node scripts/postinstall.js',
     expect.objectContaining({ cwd: summary.roots.probe })
+  );
+};
+
+const expectPackageSurfaceCommandBeforeSizeGate = summary => {
+  const commands = summary.commands.map(command => command.command);
+  expect(commands).toContain(PACKAGE_SURFACE_COMMAND);
+  expect(commands.indexOf(PACKAGE_SURFACE_COMMAND)).toBeLessThan(
+    commands.indexOf(
+      'node tools/check-size-gates.mjs --mode=hard --scope=all --unpacked-dir=.tmp/extension-unpacked'
+    )
   );
 };
 
@@ -460,6 +472,7 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
       expectCutoverConfigTransforms(artifacts);
       expectCutoverSummary(summary);
       expectCutoverPostinstallCommand(spawnSync, summary);
+      expectPackageSurfaceCommandBeforeSizeGate(summary);
     } finally {
       fs.rmSync(probeTempRoot, { recursive: true, force: true });
     }

@@ -15,12 +15,14 @@ const CUTOVER_CORE_COMMANDS = Object.freeze([
   'npm run build:prod',
   'node tools/check-message-boundaries.mjs --require-all',
   'bash tools/package-extension.sh --unpacked-dir=.tmp/extension-unpacked',
+  'node tools/check-extension-package-surface.mjs --unpacked-dir=.tmp/extension-unpacked',
   'node tools/check-size-gates.mjs --mode=hard --scope=all --unpacked-dir=.tmp/extension-unpacked',
 ]);
 const CUTOVER_PACKAGE_OUTPUT_COMMANDS = Object.freeze([
   'npm run build:prod',
   'node tools/check-message-boundaries.mjs --require-all',
   'bash tools/package-extension.sh --unpacked-dir=.tmp/extension-unpacked',
+  'node tools/check-extension-package-surface.mjs --unpacked-dir=.tmp/extension-unpacked',
   'node tools/check-size-gates.mjs --mode=hard --scope=all --unpacked-dir=.tmp/extension-unpacked',
 ]);
 const CUTOVER_ACTIONS = Object.freeze([
