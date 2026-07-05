@@ -133,30 +133,38 @@ function extractImportSpecifiers(statement) {
     .filter(Boolean);
 }
 
+function readStaticStatement(statement) {
+  const specifiers = extractImportSpecifiers(statement);
+  return {
+    specifiers,
+    isComplete: specifiers.length > 0 || !hasOpenStaticDeclaration(statement),
+  };
+}
+
+function collectStaticStatementSpecifiers(specifiers, statement) {
+  const result = readStaticStatement(statement);
+  if (result.isComplete) {
+    specifiers.push(...result.specifiers);
+    return '';
+  }
+  return statement;
+}
+
 function parseStaticImportSpecifiers(sourceText) {
   const specifiers = [];
   let pendingStatement = '';
 
   for (const line of sourceText.split('\n')) {
     if (pendingStatement) {
-      pendingStatement += `\n${line}`;
-      const matches = extractImportSpecifiers(pendingStatement);
-      if (matches.length > 0 || !hasOpenStaticDeclaration(pendingStatement)) {
-        specifiers.push(...matches);
-        pendingStatement = '';
-      }
+      pendingStatement = collectStaticStatementSpecifiers(
+        specifiers,
+        `${pendingStatement}\n${line}`
+      );
       continue;
     }
 
-    if (!startsStaticDeclaration(line)) {
-      continue;
-    }
-
-    const matches = extractImportSpecifiers(line);
-    if (matches.length > 0 || !hasOpenStaticDeclaration(line)) {
-      specifiers.push(...matches);
-    } else {
-      pendingStatement = line;
+    if (startsStaticDeclaration(line)) {
+      pendingStatement = collectStaticStatementSpecifiers(specifiers, line);
     }
   }
 
@@ -190,28 +198,38 @@ function resolveRelativeImport(rootDir, importerRelativePath, specifier) {
   return isRepoOwnedSource(relativePath) ? relativePath : null;
 }
 
+function resolveStaticImports(rootDir, importerRelativePath) {
+  const currentPath = path.resolve(rootDir, importerRelativePath);
+  const sourceText = fs.readFileSync(currentPath, 'utf8');
+  return parseStaticImportSpecifiers(sourceText)
+    .map(specifier => resolveRelativeImport(rootDir, importerRelativePath, specifier))
+    .filter(Boolean);
+}
+
+function addUnvisitedImports(stack, visited, importedRelativePaths) {
+  for (const importedRelativePath of importedRelativePaths) {
+    if (!visited.has(importedRelativePath)) {
+      stack.push(importedRelativePath);
+    }
+  }
+}
+
+function visitReachableSource(rootDir, stack, visited) {
+  const currentRelativePath = stack.pop();
+  if (!currentRelativePath || visited.has(currentRelativePath)) {
+    return;
+  }
+
+  visited.add(currentRelativePath);
+  addUnvisitedImports(stack, visited, resolveStaticImports(rootDir, currentRelativePath));
+}
+
 function collectReachableSources(rootDir, entryRelativePath) {
   const visited = new Set();
   const stack = [entryRelativePath];
 
   while (stack.length > 0) {
-    const currentRelativePath = stack.pop();
-    if (!currentRelativePath || visited.has(currentRelativePath)) {
-      continue;
-    }
-
-    visited.add(currentRelativePath);
-    const currentPath = path.resolve(rootDir, currentRelativePath);
-    const sourceText = fs.readFileSync(currentPath, 'utf8');
-    const resolvedImports = parseStaticImportSpecifiers(sourceText)
-      .map(specifier => resolveRelativeImport(rootDir, currentRelativePath, specifier))
-      .filter(Boolean);
-
-    for (const importedRelativePath of resolvedImports) {
-      if (!visited.has(importedRelativePath)) {
-        stack.push(importedRelativePath);
-      }
-    }
+    visitReachableSource(rootDir, stack, visited);
   }
 
   return visited;
