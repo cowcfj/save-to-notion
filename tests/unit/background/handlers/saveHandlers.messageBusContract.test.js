@@ -37,8 +37,20 @@ function getLastResponse(sendResponse) {
   return sendResponse.mock.calls.at(-1)?.[0];
 }
 
+function isRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
 function expectJsonContractDeclares(actionName, fields) {
+  if (!Object.hasOwn(messageBus.actions.save, actionName)) {
+    throw new Error(`message_bus.json actions.save.${actionName} is missing`);
+  }
+
   const responseContract = messageBus.actions.save[actionName].response;
+
+  if (!isRecord(responseContract)) {
+    throw new Error(`message_bus.json actions.save.${actionName}.response must be an object`);
+  }
 
   for (const field of fields) {
     expect(responseContract).toHaveProperty(field);
@@ -64,6 +76,12 @@ describe('saveHandlers message_bus.json response contracts', () => {
 
   beforeEach(() => {
     setupDefaultActionMocks(context.mockServices);
+  });
+
+  test('contract helper reports missing save action by name', () => {
+    expect(() => expectJsonContractDeclares('missingSaveAction', ['success'])).toThrow(
+      /missingSaveAction/
+    );
   });
 
   test('savePage successful create response matches canonical save contract fields', async () => {
