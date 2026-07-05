@@ -13,7 +13,9 @@ const runAutoUploadMock = jest.fn(async () => undefined);
 const setupDriveAlarmMock = jest.fn(async () => undefined);
 const markDriveDirtyMock = jest.fn(async () => undefined);
 const shouldShowUpdateNotificationMock = jest.fn(() => false);
+const getActiveNotionTokenMock = jest.fn(async () => ({ token: 'token' }));
 const storageUpdateHighlightsMock = jest.fn(async () => undefined);
+const tabServiceInstances = [];
 const uploadDriveSnapshotMock = jest.fn();
 const downloadDriveSnapshotMock = jest.fn();
 const getDriveSyncMetadataMock = jest.fn();
@@ -81,7 +83,7 @@ await jest.unstable_mockModule('../../../scripts/utils/urlUtils.js', () => ({
   normalizeUrl: jest.fn(url => url),
 }));
 await jest.unstable_mockModule('../../../scripts/utils/notionAuth.js', () => ({
-  getActiveNotionToken: jest.fn(async () => ({ token: 'token' })),
+  getActiveNotionToken: getActiveNotionTokenMock,
 }));
 await jest.unstable_mockModule('../../../scripts/background/handlers/MessageHandler.js', () => ({
   MessageHandler: jest.fn(() => ({
@@ -114,7 +116,11 @@ await jest.unstable_mockModule(
   })
 );
 await jest.unstable_mockModule('../../../scripts/background/services/TabService.js', () => ({
-  TabService: jest.fn(() => ({ setupListeners: jest.fn() })),
+  TabService: jest.fn(deps => {
+    const instance = { ...deps, setupListeners: jest.fn() };
+    tabServiceInstances.push(instance);
+    return instance;
+  }),
 }));
 await jest.unstable_mockModule('../../../scripts/background/services/MigrationService.js', () => ({
   MigrationService: jest.fn(() => ({})),
@@ -189,6 +195,8 @@ function resetDriveMocks() {
   markDriveDirtyMock.mockResolvedValue(undefined);
   storageUpdateHighlightsMock.mockReset().mockResolvedValue(undefined);
   shouldShowUpdateNotificationMock.mockReset().mockReturnValue(false);
+  getActiveNotionTokenMock.mockReset().mockResolvedValue({ token: 'token' });
+  tabServiceInstances.length = 0;
   updateDriveSyncRunMetadataMock.mockResolvedValue(undefined);
   setDriveFrequencyMock.mockResolvedValue(undefined);
   clearDriveDirtyMock.mockResolvedValue(undefined);
@@ -238,6 +246,65 @@ describe('background lifecycle native ESM depth coverage', () => {
         reason: 'dirty unavailable',
       })
     );
+  });
+
+  test('maps TabService getApiKey to the active Notion token', async () => {
+    const chrome = makeDefaultChrome();
+    chrome.storage.local.get.mockResolvedValue({ driveSyncFrequency: 'off' });
+    globalThis.chrome = chrome;
+    globalThis.Logger = loggerMock;
+
+    unwrapTestExports(await importBackgroundEntrypoint());
+
+    const tabService = tabServiceInstances[0];
+    expect(tabService?.getApiKey).toEqual(expect.any(Function));
+    await expect(tabService.getApiKey()).resolves.toBe('token');
+    expect(getActiveNotionTokenMock).toHaveBeenCalledTimes(1);
+  });
+
+  test('exposes enumerable actionHandlers on the service worker global surface', async () => {
+    const previousSelfDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'self');
+    const previousActionHandlersDescriptor = Object.getOwnPropertyDescriptor(
+      globalThis,
+      'actionHandlers'
+    );
+    const chrome = makeDefaultChrome();
+    chrome.storage.local.get.mockResolvedValue({ driveSyncFrequency: 'off' });
+    globalThis.chrome = chrome;
+    globalThis.Logger = loggerMock;
+    Object.defineProperty(globalThis, 'self', {
+      configurable: true,
+      value: globalThis,
+    });
+
+    try {
+      const surface = unwrapTestExports(await importBackgroundEntrypoint());
+      const actionHandlersDescriptor = Object.getOwnPropertyDescriptor(
+        globalThis,
+        'actionHandlers'
+      );
+
+      expect(Object.keys(globalThis)).toContain('actionHandlers');
+      expect(actionHandlersDescriptor).toEqual(
+        expect.objectContaining({
+          configurable: true,
+          enumerable: true,
+          writable: true,
+          value: surface.actionHandlers,
+        })
+      );
+    } finally {
+      if (previousSelfDescriptor) {
+        Object.defineProperty(globalThis, 'self', previousSelfDescriptor);
+      } else {
+        delete globalThis.self;
+      }
+      if (previousActionHandlersDescriptor) {
+        Object.defineProperty(globalThis, 'actionHandlers', previousActionHandlersDescriptor);
+      } else {
+        delete globalThis.actionHandlers;
+      }
+    }
   });
 
   test('dispatches drive auto-sync alarms and ignores unrelated alarms', async () => {
