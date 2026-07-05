@@ -1,41 +1,41 @@
 function escapeCssIdentifier(value) {
   const string = String(value);
-  const firstCodeUnit = string.charCodeAt(0);
+  const firstCodePoint = string.codePointAt(0);
 
-  if (string.length === 1 && firstCodeUnit === 0x002d) {
+  if (string.length === 1 && firstCodePoint === 0x002d) {
     return String.raw`\-`;
   }
 
   let result = '';
 
   for (let index = 0; index < string.length; index += 1) {
-    const codeUnit = string.charCodeAt(index);
+    const codePoint = string.codePointAt(index);
 
-    if (codeUnit === 0x0000) {
+    if (codePoint === 0x0000) {
       result += '\uFFFD';
       continue;
     }
 
     if (
-      (codeUnit >= 0x0001 && codeUnit <= 0x001f) ||
-      codeUnit === 0x007f ||
-      (index === 0 && codeUnit >= 0x0030 && codeUnit <= 0x0039) ||
+      (codePoint >= 0x0001 && codePoint <= 0x001f) ||
+      codePoint === 0x007f ||
+      (index === 0 && codePoint >= 0x0030 && codePoint <= 0x0039) ||
       (index === 1 &&
-        codeUnit >= 0x0030 &&
-        codeUnit <= 0x0039 &&
-        firstCodeUnit === 0x002d)
+        codePoint >= 0x0030 &&
+        codePoint <= 0x0039 &&
+        firstCodePoint === 0x002d)
     ) {
-      result += `\\${codeUnit.toString(16)} `;
+      result += `\\${codePoint.toString(16)} `;
       continue;
     }
 
     if (
-      codeUnit >= 0x0080 ||
-      codeUnit === 0x002d ||
-      codeUnit === 0x005f ||
-      (codeUnit >= 0x0030 && codeUnit <= 0x0039) ||
-      (codeUnit >= 0x0041 && codeUnit <= 0x005a) ||
-      (codeUnit >= 0x0061 && codeUnit <= 0x007a)
+      codePoint >= 0x0080 ||
+      codePoint === 0x002d ||
+      codePoint === 0x005f ||
+      (codePoint >= 0x0030 && codePoint <= 0x0039) ||
+      (codePoint >= 0x0041 && codePoint <= 0x005a) ||
+      (codePoint >= 0x0061 && codePoint <= 0x007a)
     ) {
       result += string.charAt(index);
       continue;

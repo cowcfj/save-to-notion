@@ -13,6 +13,7 @@ describe('cssEscapePolyfill', () => {
     ['delete control character', 'a\u007Fb', String.raw`a\7f b`],
     ['punctuation', 'a.b#c', String.raw`a\.b\#c`],
     ['non-ascii identifier', '資料', '資料'],
+    ['astral code point', '\u{1F600}', '\u{1F600}'],
   ])('escapes %s like CSS.escape', (_name, input, expected) => {
     expect(escapeCssIdentifier(input)).toBe(expected);
   });
