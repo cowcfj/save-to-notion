@@ -6,24 +6,24 @@ import path from 'node:path';
 const projectRoot = process.cwd();
 const targetPath = path.join(projectRoot, 'scripts', 'config', 'env', 'build.js');
 const templatePath = path.join(projectRoot, 'scripts', 'config', 'env', 'build.example.js');
-const requiredBuildEnvExport = 'export const BUILD_ENV';
+const requiredBuildEnvironmentExport = 'export const BUILD_ENV';
 
 function failPostinstall(message, error) {
   const finalMessage = error ? `${message}\n${error.stack || error}` : message;
   throw new Error(finalMessage);
 }
 
-function assertBuildEnvExport(filePath) {
+function assertBuildEnvironmentExport(filePath) {
   // eslint-disable-next-line security/detect-non-literal-fs-filename
   const source = fs.readFileSync(filePath, 'utf8');
-  if (!source.includes(requiredBuildEnvExport)) {
+  if (!source.includes(requiredBuildEnvironmentExport)) {
     failPostinstall(
       'scripts/config/env/build.js 缺少必要的 BUILD_ENV 匯出（export const BUILD_ENV），安裝已中止。'
     );
   }
 }
 
-function getBuildEnvPropertyValue(source, propertyName) {
+function getBuildEnvironmentPropertyValue(source, propertyName) {
   for (const rawLine of source.split('\n')) {
     const line = rawLine.trim();
     if (!line.startsWith(propertyName)) {
@@ -50,20 +50,20 @@ function getBuildEnvPropertyValue(source, propertyName) {
 }
 
 if (fs.existsSync(targetPath)) {
-  assertBuildEnvExport(targetPath);
+  assertBuildEnvironmentExport(targetPath);
   // 提醒開發者 OAuth 設定為空
   const content = fs.readFileSync(targetPath, 'utf8');
-  const oauthClientIdValue = getBuildEnvPropertyValue(content, 'OAUTH_CLIENT_ID');
-  if (oauthClientIdValue === null || oauthClientIdValue === "''" || oauthClientIdValue === '""') {
+  const oauthClientIdValue = getBuildEnvironmentPropertyValue(content, 'OAUTH_CLIENT_ID');
+  if ([null, "''", '""'].includes(oauthClientIdValue)) {
     console.warn(
-      '\u001B[33m⚠️  scripts/config/env/build.js 中 OAUTH_CLIENT_ID 尚未設定。' +
-        '若需測試 OAuth，請參考 README.md 填入你的 Notion Client ID。\u001B[0m'
+      '\u{1B}[33m⚠️  scripts/config/env/build.js 中 OAUTH_CLIENT_ID 尚未設定。' +
+        '若需測試 OAuth，請參考 README.md 填入你的 Notion Client ID。\u{1B}[0m'
     );
   }
 } else if (fs.existsSync(templatePath)) {
   try {
     fs.copyFileSync(templatePath, targetPath);
-    assertBuildEnvExport(targetPath);
+    assertBuildEnvironmentExport(targetPath);
     console.info('已從 scripts/config/env/build.example.js 建立 scripts/config/env/build.js');
   } catch (error) {
     failPostinstall('建立 scripts/config/env/build.js 失敗，無法確認 BUILD_ENV 設定：', error);
