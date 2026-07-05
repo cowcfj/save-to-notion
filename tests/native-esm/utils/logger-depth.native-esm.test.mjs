@@ -3,6 +3,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { snapshotGlobals } from './rootUtilsHarness.mjs';
 
 function makeChromeMock({ versionName = '1.0.0-dev', storageDebugValue, sendMessageImpl } = {}) {
   return {
@@ -69,8 +70,10 @@ async function importFreshLogger() {
 }
 
 let consoleSpies;
+let restoreGlobals;
 
 beforeEach(() => {
+  restoreGlobals = snapshotGlobals(['chrome', 'self', 'window', 'Logger', '__CONTENT_SCRIPT_BUILD__']);
   consoleSpies = {
     debug: jest.spyOn(console, 'debug').mockImplementation(() => {}),
     log: jest.spyOn(console, 'log').mockImplementation(() => {}),
@@ -81,13 +84,9 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  delete globalThis.chrome;
-  delete globalThis.self;
-  delete globalThis.window;
-  delete globalThis.Logger;
-  delete globalThis.__CONTENT_SCRIPT_BUILD__;
   jest.useRealTimers();
   jest.restoreAllMocks();
+  restoreGlobals();
 });
 
 describe('Logger native ESM depth coverage', () => {
@@ -376,5 +375,53 @@ describe('Logger native ESM depth coverage', () => {
     consoleSpies.error.mockClear();
     Logger.error('Frame with ID 10 was removed');
     expect(consoleSpies.error).not.toHaveBeenCalled();
+  });
+});
+
+describe('content-script runtime global cleanup', () => {
+  const originalSelfDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'self');
+  const originalWindowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const originalSelf = { existing: 'self' };
+  const originalWindow = { existing: 'window' };
+
+  function restoreGlobal(name, descriptor) {
+    if (descriptor) {
+      Object.defineProperty(globalThis, name, descriptor);
+      return;
+    }
+
+    delete globalThis[name];
+  }
+
+  beforeAll(() => {
+    Object.defineProperty(globalThis, 'self', {
+      configurable: true,
+      enumerable: true,
+      writable: true,
+      value: originalSelf,
+    });
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      enumerable: true,
+      writable: true,
+      value: originalWindow,
+    });
+  });
+
+  afterAll(() => {
+    restoreGlobal('self', originalSelfDescriptor);
+    restoreGlobal('window', originalWindowDescriptor);
+  });
+
+  test('installs content-script globals over existing browser globals', () => {
+    installContentScriptRuntime({ versionName: '1.0.0-dev' });
+
+    expect(globalThis.self).not.toBe(originalSelf);
+    expect(globalThis.window).not.toBe(originalWindow);
+  });
+
+  test('restores browser globals that existed before content-script runtime installation', () => {
+    expect(globalThis.self).toBe(originalSelf);
+    expect(globalThis.window).toBe(originalWindow);
   });
 });
