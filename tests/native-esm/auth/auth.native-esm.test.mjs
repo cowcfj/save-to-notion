@@ -171,6 +171,7 @@ async function flushMicrotasks(times = 8) {
 
 beforeEach(() => {
   storageData = {};
+  buildEnvMock.OAUTH_CLIENT_ID = 'notion-client-id';
   buildEnvMock.OAUTH_SERVER_URL = 'https://worker.example.test/base';
   document.body.innerHTML = '';
   installChrome();
