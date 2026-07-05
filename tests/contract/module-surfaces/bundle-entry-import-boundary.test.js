@@ -12,6 +12,10 @@ const testFilePath = fileURLToPath(import.meta.url);
 const testDirectory = path.dirname(testFilePath);
 const projectRoot = path.resolve(testDirectory, '../../..');
 const sourceExtensions = ['.js', '.mjs'];
+const STATIC_IMPORT_PATTERN = /^import(?!\s*\()/;
+const BARE_IMPORT_SPECIFIER_PATTERN = /^import\s*['"]([^'"]+)['"]/;
+const FROM_SPECIFIER_PATTERN = /\bfrom\s*['"]([^'"]+)['"]/;
+const STATIC_REEXPORT_PATTERN = /^export\s+(?:\*|(?:type\s+)?\{)/;
 const ignoredPathSegments = new Set([
   '.git',
   '.tmp',
@@ -95,25 +99,38 @@ function hasOpenStaticDeclaration(statement) {
   return openBraces > closeBraces || /\bfrom\s*$/.test(trimmed) || /,\s*$/.test(trimmed);
 }
 
-function extractImportSpecifiers(statement) {
-  const specifiers = [];
-  for (const fragment of statement.split(';')) {
-    const trimmed = fragment.trim();
-    if (/^import(?!\s*\()/.test(trimmed)) {
-      const bareImportMatch = trimmed.match(/^import\s*['"]([^'"]+)['"]/);
-      const fromImportMatch = trimmed.match(/\bfrom\s*['"]([^'"]+)['"]/);
-      const specifier = bareImportMatch?.[1] || fromImportMatch?.[1];
-      if (specifier) {
-        specifiers.push(specifier);
-      }
-    } else if (/^export\s+(?:\*|(?:type\s+)?\{)/.test(trimmed)) {
-      const fromExportMatch = trimmed.match(/\bfrom\s*['"]([^'"]+)['"]/);
-      if (fromExportMatch) {
-        specifiers.push(fromExportMatch[1]);
-      }
-    }
+function readStaticImportSpecifier(fragment) {
+  if (!STATIC_IMPORT_PATTERN.test(fragment)) {
+    return null;
   }
-  return specifiers;
+
+  const bareImportMatch = fragment.match(BARE_IMPORT_SPECIFIER_PATTERN);
+  if (bareImportMatch) {
+    return bareImportMatch[1];
+  }
+
+  const fromImportMatch = fragment.match(FROM_SPECIFIER_PATTERN);
+  return fromImportMatch ? fromImportMatch[1] : null;
+}
+
+function readStaticExportSpecifier(fragment) {
+  if (!STATIC_REEXPORT_PATTERN.test(fragment)) {
+    return null;
+  }
+
+  const fromExportMatch = fragment.match(FROM_SPECIFIER_PATTERN);
+  return fromExportMatch ? fromExportMatch[1] : null;
+}
+
+function readStaticSpecifier(fragment) {
+  return readStaticImportSpecifier(fragment) || readStaticExportSpecifier(fragment);
+}
+
+function extractImportSpecifiers(statement) {
+  return statement
+    .split(';')
+    .map(fragment => readStaticSpecifier(fragment.trim()))
+    .filter(Boolean);
 }
 
 function parseStaticImportSpecifiers(sourceText) {
@@ -200,25 +217,33 @@ function collectReachableSources(rootDir, entryRelativePath) {
   return visited;
 }
 
+function findRuleViolations(entryRelativePath, reachableRelativePath, rules) {
+  return rules
+    .filter(rule => rule.matches(reachableRelativePath))
+    .map(rule => ({
+      entry: entryRelativePath,
+      rule: rule.label,
+      target: reachableRelativePath,
+    }));
+}
+
+function findReachableSourceViolations(entryRelativePath, reachableSources, rules) {
+  return [...reachableSources].flatMap(reachableRelativePath =>
+    findRuleViolations(entryRelativePath, reachableRelativePath, rules)
+  );
+}
+
+function findEntryViolations(rootDir, entryRelativePath, rules) {
+  const reachableSources = collectReachableSources(rootDir, entryRelativePath);
+  return findReachableSourceViolations(entryRelativePath, reachableSources, rules);
+}
+
 function findBoundaryViolations(rootDir, entryRoots, rules) {
-  const violations = [];
-  for (const entryRoot of entryRoots) {
-    for (const entryRelativePath of listSourceFiles(rootDir, entryRoot)) {
-      const reachableSources = collectReachableSources(rootDir, entryRelativePath);
-      for (const reachableRelativePath of reachableSources) {
-        for (const rule of rules) {
-          if (rule.matches(reachableRelativePath)) {
-            violations.push({
-              entry: entryRelativePath,
-              rule: rule.label,
-              target: reachableRelativePath,
-            });
-          }
-        }
-      }
-    }
-  }
-  return violations;
+  return entryRoots.flatMap(entryRoot =>
+    listSourceFiles(rootDir, entryRoot).flatMap(entryRelativePath =>
+      findEntryViolations(rootDir, entryRelativePath, rules)
+    )
+  );
 }
 
 function writeFixtureTree(rootDir, files) {

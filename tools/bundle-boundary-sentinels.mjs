@@ -28,7 +28,7 @@ export const AUTH_OPTIONS_ONLY_SENTINELS = Object.freeze([
 ]);
 
 function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return value.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 }
 
 function matchesBoundedToken(content, value, boundaryChars) {

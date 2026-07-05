@@ -5,6 +5,10 @@ import { AUTH_OPTIONS_ONLY_SENTINELS, matchesSentinel } from './bundle-boundary-
 const DEFAULT_DIST_PAGES_DIR = path.resolve(process.cwd(), 'dist/pages');
 const PROFILE_MANAGER_IMPORT = './shared/ProfileManager.js';
 const SHARED_IMPORT_WARNING_LIMIT = 5;
+const STATIC_IMPORT_PATTERN = /^import(?!\s*\()/;
+const BARE_IMPORT_SPECIFIER_PATTERN = /^import\s*['"]([^'"]+)['"]/;
+const FROM_SPECIFIER_PATTERN = /\bfrom\s*['"]([^'"]+)['"]/;
+const STATIC_REEXPORT_PATTERN = /^export\s+(?:\*|(?:type\s+)?\{)/;
 
 function parseArgs(argv) {
   const options = { distPagesDir: DEFAULT_DIST_PAGES_DIR };
@@ -51,25 +55,38 @@ function hasOpenStaticDeclaration(statement) {
   return openBraces > closeBraces || /\bfrom\s*$/.test(trimmed) || /,\s*$/.test(trimmed);
 }
 
-function extractImportSpecifiers(statement) {
-  const specifiers = [];
-  for (const fragment of statement.split(';')) {
-    const trimmed = fragment.trim();
-    if (/^import(?!\s*\()/.test(trimmed)) {
-      const bareImportMatch = trimmed.match(/^import\s*['"]([^'"]+)['"]/);
-      const fromImportMatch = trimmed.match(/\bfrom\s*['"]([^'"]+)['"]/);
-      const specifier = bareImportMatch?.[1] || fromImportMatch?.[1];
-      if (specifier) {
-        specifiers.push(specifier);
-      }
-    } else if (/^export\s+(?:\*|(?:type\s+)?\{)/.test(trimmed)) {
-      const fromExportMatch = trimmed.match(/\bfrom\s*['"]([^'"]+)['"]/);
-      if (fromExportMatch) {
-        specifiers.push(fromExportMatch[1]);
-      }
-    }
+function readStaticImportSpecifier(fragment) {
+  if (!STATIC_IMPORT_PATTERN.test(fragment)) {
+    return null;
   }
-  return specifiers;
+
+  const bareImportMatch = fragment.match(BARE_IMPORT_SPECIFIER_PATTERN);
+  if (bareImportMatch) {
+    return bareImportMatch[1];
+  }
+
+  const fromImportMatch = fragment.match(FROM_SPECIFIER_PATTERN);
+  return fromImportMatch ? fromImportMatch[1] : null;
+}
+
+function readStaticExportSpecifier(fragment) {
+  if (!STATIC_REEXPORT_PATTERN.test(fragment)) {
+    return null;
+  }
+
+  const fromExportMatch = fragment.match(FROM_SPECIFIER_PATTERN);
+  return fromExportMatch ? fromExportMatch[1] : null;
+}
+
+function readStaticSpecifier(fragment) {
+  return readStaticImportSpecifier(fragment) || readStaticExportSpecifier(fragment);
+}
+
+function extractImportSpecifiers(statement) {
+  return statement
+    .split(';')
+    .map(fragment => readStaticSpecifier(fragment.trim()))
+    .filter(Boolean);
 }
 
 function parseStaticImports(sourceText) {
