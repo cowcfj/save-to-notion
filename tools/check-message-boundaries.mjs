@@ -6,15 +6,28 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
 
+const sentinel = (label, value) => ({ label, value });
+
 // Sentinel 測試文案定義
 const SENTINELS = {
-  SAVE_TARGET_LABEL: '保存目標名稱（選填）', // Options / Sidepanel 專屬
-  CLOUD_BACKUP_LABEL: '雲端備份：',           // Options / Sidepanel / Cloud 專屬
-  NO_HIGHLIGHTS: '此網頁尚無標註',           // Sidepanel 專屬
-  HIGHLIGHT_DELETED: '標註已刪除',           // Highlighter / Toast (Content/Popup 專屬)
-  TOOLBAR_CONTAINER: 'Save to Notion 工具列', // Floating Rail (Content 專屬)
-  MISSING_TICKET: '登入失敗：缺少驗證票據',    // Auth Bridge 專屬
-  SAVE_PAGE_LABEL: '儲存頁面',               // Popup 專屬
+  SAVE_TARGET_LABEL: sentinel('Options / Sidepanel save-target label', '保存目標名稱（選填）'),
+  CLOUD_BACKUP_LABEL: sentinel('Options / Sidepanel cloud-backup label', '雲端備份：'),
+  NO_HIGHLIGHTS: sentinel('Sidepanel empty-highlights copy', '此網頁尚無標註'),
+  HIGHLIGHT_DELETED: sentinel('Highlighter / content toast copy', '標註已刪除'),
+  TOOLBAR_CONTAINER: sentinel('Floating rail content UI copy', 'Save to Notion 工具列'),
+  MISSING_TICKET: sentinel('Auth bridge missing-ticket copy', '登入失敗：缺少驗證票據'),
+  SAVE_PAGE_LABEL: sentinel('Popup save-page label', '儲存頁面'),
+  DOMPURIFY: sentinel('Content sanitizer dependency', 'DOMPurify'),
+  SANITIZE_ARTICLE_HTML: sentinel('Content sanitizer pipeline', 'sanitizeArticleHtml'),
+  HTML_SANITIZER: sentinel('Content sanitizer module', 'htmlSanitizer'),
+  CONTENT_EXTRACTOR: sentinel('Content extraction pipeline', 'ContentExtractor'),
+  READABILITY_ADAPTER: sentinel('Content readability adapter', 'ReadabilityAdapter'),
+  PROFILE_MANAGER: sentinel('Options/profile management module', 'ProfileManager'),
+  UI_MANAGER: sentinel('Options UI manager module', 'UIManager'),
+  DATA_SOURCE_MANAGER: sentinel('Options data source manager module', 'DataSourceManager'),
+  MIGRATION_TOOL: sentinel('Options migration tool module', 'MigrationTool'),
+  OPTIONS_HTML: sentinel('Options page HTML path', 'pages/options/options.html'),
+  OPTIONS_JS: sentinel('Options page script path', 'pages/options/options.js'),
 };
 
 // 每個 bundle 禁用的 sentinel 清單
@@ -25,6 +38,9 @@ const BOUNDARY_RULES = {
       SENTINELS.CLOUD_BACKUP_LABEL,
       SENTINELS.NO_HIGHLIGHTS,
       SENTINELS.MISSING_TICKET,
+      SENTINELS.PROFILE_MANAGER,
+      SENTINELS.OPTIONS_HTML,
+      SENTINELS.OPTIONS_JS,
     ],
   },
   'dist/scripts/background.js': {
@@ -35,6 +51,15 @@ const BOUNDARY_RULES = {
       SENTINELS.HIGHLIGHT_DELETED,
       SENTINELS.TOOLBAR_CONTAINER,
       SENTINELS.MISSING_TICKET,
+      SENTINELS.DOMPURIFY,
+      SENTINELS.SANITIZE_ARTICLE_HTML,
+      SENTINELS.HTML_SANITIZER,
+      SENTINELS.CONTENT_EXTRACTOR,
+      SENTINELS.READABILITY_ADAPTER,
+      SENTINELS.PROFILE_MANAGER,
+      SENTINELS.UI_MANAGER,
+      SENTINELS.DATA_SOURCE_MANAGER,
+      SENTINELS.MIGRATION_TOOL,
     ],
   },
   'dist/migration-executor.js': {
@@ -68,7 +93,9 @@ function reportBoundaryResult(relativePath, failures) {
     return;
   }
   console.error(`[FAIL] ${relativePath} 包含了禁用的 sentinel(s):`);
-  failures.forEach((fail) => console.error(`  - "${fail}"`));
+  failures.forEach((failure) => {
+    console.error(`  - ${failure.label}: "${failure.value}"`);
+  });
 }
 
 // 處理缺少 bundle 的情況：requireAll 模式視為失敗，否則 [WARN] 跳過
@@ -89,7 +116,7 @@ function checkSingleBoundary(rootDir, relativePath, forbidden, requireAll) {
   }
 
   const content = fs.readFileSync(filePath, 'utf8');
-  const failures = forbidden.filter((sentinel) => content.includes(sentinel));
+  const failures = forbidden.filter((item) => content.includes(item.value));
   reportBoundaryResult(relativePath, failures);
   return failures.length === 0;
 }

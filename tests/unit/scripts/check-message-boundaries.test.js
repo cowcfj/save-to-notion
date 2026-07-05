@@ -36,6 +36,18 @@ describe('tools/check-message-boundaries.mjs', () => {
     return combinedOutput;
   };
 
+  const expectCliFailure = () => {
+    let thrownError;
+    try {
+      runCli();
+    } catch (error) {
+      thrownError = error;
+    }
+
+    expect(thrownError).toBeDefined();
+    return `${thrownError.stdout}${thrownError.stderr}`;
+  };
+
   beforeEach(() => {
     tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'msg-boundaries-'));
   });
@@ -79,19 +91,37 @@ describe('tools/check-message-boundaries.mjs', () => {
     writeFakeBundle('dist/content.bundle.js', 'console.log("Hello Content");');
     writeFakeBundle('dist/scripts/background.js', 'const tool = "Save to Notion 工具列";');
 
-    let thrownError;
-    try {
-      runCli();
-    } catch (error) {
-      thrownError = error;
-    }
-
-    expect(thrownError).toBeDefined();
-    const fullOutput = `${thrownError.stdout}${thrownError.stderr}`;
+    const fullOutput = expectCliFailure();
     expect(fullOutput).toContain('dist/scripts/background.js 包含了禁用的 sentinel(s)');
     expect(fullOutput).toContain('Save to Notion 工具列');
     expect(fullOutput).toContain('Bundle 訊息邊界檢查失敗');
   });
+
+  test.each([['DOMPurify'], ['sanitizeArticleHtml']])(
+    '當假 background.js 含有 content sanitizer sentinel「%s」時，應失敗',
+    sentinel => {
+      writeFakeBundle('dist/content.bundle.js', 'console.log("Hello Content");');
+      writeFakeBundle('dist/scripts/background.js', `const leaked = "${sentinel}";`);
+
+      const fullOutput = expectCliFailure();
+      expect(fullOutput).toContain('dist/scripts/background.js 包含了禁用的 sentinel(s)');
+      expect(fullOutput).toContain(sentinel);
+      expect(fullOutput).toContain('Bundle 訊息邊界檢查失敗');
+    }
+  );
+
+  test.each([['ProfileManager'], ['pages/options/options.js']])(
+    '當假 content.bundle.js 含有 options/profile sentinel「%s」時，應失敗',
+    sentinel => {
+      writeFakeBundle('dist/content.bundle.js', `const leaked = "${sentinel}";`);
+      writeFakeBundle('dist/scripts/background.js', 'console.log("Hello Background");');
+
+      const fullOutput = expectCliFailure();
+      expect(fullOutput).toContain('dist/content.bundle.js 包含了禁用的 sentinel(s)');
+      expect(fullOutput).toContain(sentinel);
+      expect(fullOutput).toContain('Bundle 訊息邊界檢查失敗');
+    }
+  );
 
   test('應允許 content.bundle.js 含有允許的 highlighter copy（例如「Save to Notion 工具列」與「標註已刪除」）', () => {
     // 依據 boundary-rules，content.bundle.js 並沒有將「Save to Notion 工具列」與「標註已刪除」加入 forbidden 名單中
