@@ -114,11 +114,12 @@ const SANITIZED_RUNTIME_FAILURE_CASES = [
     buttonSelector: '#sync-button',
     flushCount: 3,
     expectedStatusText: UI_MESSAGES.SIDEPANEL.SYNC_FAILED,
+    expectedStatusClassName: 'status-message error',
     expectedLogMessage: '[SidePanel] savePage failed',
     expectedLogPayload: () => ({
       action: 'savePage',
       result: 'failure',
-      error: sanitizeApiError('Unknown error', 'save_page'),
+      error: 'UNKNOWN_ERROR',
       statusKind: undefined,
       success: undefined,
     }),
@@ -133,6 +134,7 @@ const SANITIZED_RUNTIME_FAILURE_CASES = [
     buttonSelector: '#sync-button',
     flushCount: 3,
     expectedStatusText: UI_MESSAGES.SIDEPANEL.SYNC_FAILED,
+    expectedStatusClassName: 'status-message error',
     expectedLogMessage: '[SidePanel] savePage failed',
     expectedLogPayload: () => ({
       action: 'savePage',
