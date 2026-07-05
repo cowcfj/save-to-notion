@@ -51,6 +51,15 @@ function installBackgroundRuntime(options) {
   globalThis.chrome = makeChromeMock(options);
 }
 
+function installContentScriptRuntime(options) {
+  const runtimeGlobal = {
+    addEventListener: jest.fn(),
+  };
+  globalThis.self = runtimeGlobal;
+  globalThis.window = runtimeGlobal;
+  globalThis.chrome = makeChromeMock(options);
+}
+
 async function importFreshLogger() {
   let loggerModule;
   await jest.isolateModulesAsync(async () => {
@@ -246,6 +255,112 @@ describe('Logger native ESM depth coverage', () => {
     expect(sentArgs[0].self).toBe(sentArgs[0]);
     expect(sentArgs[1]).toBe('[Function]');
     expect(sentArgs[2]).toBe('Symbol(flag)');
+  });
+
+  test('warn sends Error custom properties through immediate devLogSink payloads', async () => {
+    installContentScriptRuntime({ versionName: '1.0.0-dev' });
+    const { default: Logger } = await importFreshLogger();
+    const error = new TypeError('native bridge warning');
+    error.code = 'ERR_NATIVE_BRIDGE';
+    error.detail = { attempt: 2 };
+
+    Logger.warn('warn bridge', error);
+
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'devLogSink',
+        level: 'warn',
+        message: 'warn bridge',
+        args: [
+          expect.objectContaining({
+            message: 'native bridge warning',
+            name: 'TypeError',
+            stack: expect.stringContaining('TypeError: native bridge warning'),
+            code: 'ERR_NATIVE_BRIDGE',
+            detail: { attempt: 2 },
+          }),
+        ],
+      }),
+      expect.any(Function)
+    );
+  });
+
+  test('warn serializes nested arrays, circular values, symbols, functions, and throwing getters', async () => {
+    installContentScriptRuntime({ versionName: '1.0.0-dev' });
+    const { default: Logger } = await importFreshLogger();
+    const nestedError = new Error('nested failure');
+    const circular = { label: 'root' };
+    circular.self = circular;
+    const throwing = {};
+    Object.defineProperty(throwing, 'broken', {
+      enumerable: true,
+      get() {
+        throw new Error('getter failed');
+      },
+    });
+
+    Logger.warn('nested bridge', [nestedError, () => {}, Symbol('flag'), circular, throwing]);
+
+    const sentArgs = chrome.runtime.sendMessage.mock.calls[0][0].args[0];
+    expect(sentArgs[0]).toEqual(
+      expect.objectContaining({
+        message: 'nested failure',
+        name: 'Error',
+      })
+    );
+    expect(sentArgs[1]).toBe('[Function]');
+    expect(sentArgs[2]).toBe('Symbol(flag)');
+    expect(sentArgs[3].self).toBe(sentArgs[3]);
+    expect(sentArgs[4].broken).toBe('[Unserializable Object]');
+  });
+
+  test('ready formats the shortcut and flushes it through the content-script bridge', async () => {
+    jest.useFakeTimers();
+    installContentScriptRuntime({ versionName: '1.0.0-dev' });
+    const { default: Logger } = await importFreshLogger();
+
+    Logger.ready('extension loaded', { stage: 'native-esm' });
+    jest.advanceTimersByTime(500);
+
+    expect(consoleSpies.info).toHaveBeenCalledWith(
+      expect.stringContaining('[INFO]'),
+      '📦 extension loaded',
+      { stage: 'native-esm' }
+    );
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'devLogSinkBatch',
+        logs: [
+          expect.objectContaining({
+            level: 'info',
+            message: '📦 extension loaded',
+            args: [{ stage: 'native-esm' }],
+          }),
+        ],
+      }),
+      expect.any(Function)
+    );
+  });
+
+  test('runtime lastError callbacks after bridge sends are safe no-ops', async () => {
+    installContentScriptRuntime({
+      sendMessageImpl: jest.fn((_message, callback) => {
+        chrome.runtime.lastError = { message: 'context invalidated' };
+        callback?.();
+        chrome.runtime.lastError = null;
+      }),
+    });
+    const { default: Logger } = await importFreshLogger();
+
+    expect(() => Logger.warn('bridge lastError', { ok: true })).not.toThrow();
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'devLogSink',
+        level: 'warn',
+        message: 'bridge lastError',
+      }),
+      expect.any(Function)
+    );
   });
 
   test('runtime send failures and frame-removal errors are safe no-ops', async () => {

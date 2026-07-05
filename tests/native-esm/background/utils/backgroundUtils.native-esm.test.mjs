@@ -4,9 +4,11 @@ import {
   isSameNotionPage,
 } from '../../../../scripts/background/utils/migrationMetadataUtils.js';
 import {
+  findHighlightPosition,
   HIGHLIGHT_STYLE_OPTIONS,
   mergeHighlightsWithStyle,
   resolveStyle,
+  scoreCandidate,
 } from '../../../../scripts/background/utils/highlightStyleMerger.js';
 
 function makeRichText(content, annotations = {}) {
@@ -121,6 +123,105 @@ describe('background utility native ESM diagnostics', () => {
     expect(result[0]).toBe(unsupportedBlock);
     expect(result[1]).toBe(emptyRichTextBlock);
     expect(result[2]).toBe(malformedBlock);
+  });
+
+  test('scoreCandidate scores exact and partial context matches with normalized text', () => {
+    const duplicateText = '前綴重要概念後綴，以及其他重要概念';
+    const exactIndex = duplicateText.indexOf('重要概念');
+
+    expect(
+      scoreCandidate(duplicateText, exactIndex, '重要概念', {
+        prefix: '前綴',
+        suffix: '後綴',
+      })
+    ).toBe(4);
+
+    const normalizedText = 'abcdefghijUS and Chinese techklmnopqrst';
+    const normalizedIndex = normalizedText.indexOf('US and Chinese tech');
+
+    expect(
+      scoreCandidate(normalizedText, normalizedIndex, 'US\nand Chinese tech', {
+        prefix: 'xxxxabcdefghij',
+        suffix: 'klmnopqrstxxxx',
+      })
+    ).toBe(2);
+  });
+
+  test('findHighlightPosition uses context to choose a matching duplicate occurrence', () => {
+    const richTextArray = [makeRichText('重要概念的使用，以及另一個重要概念的解釋')];
+    const fullText = richTextArray.map(part => part.text.content).join('');
+
+    expect(
+      findHighlightPosition(
+        richTextArray,
+        {
+          text: '重要概念',
+          rangeInfo: { prefix: '一個', suffix: '的解釋' },
+        },
+        fullText
+      )
+    ).toBe(13);
+  });
+
+  test('findHighlightPosition rejects contextual matches when all candidate scores are zero', () => {
+    const richTextArray = [makeRichText('Markdown appears here. Markdown appears again.')];
+    const fullText = richTextArray.map(part => part.text.content).join('');
+
+    expect(
+      findHighlightPosition(
+        richTextArray,
+        {
+          text: 'Markdown',
+          rangeInfo: { prefix: 'a reason ', suffix: ' is being' },
+        },
+        fullText
+      )
+    ).toBe(-1);
+  });
+
+  test('findHighlightPosition handles defensive input branches', () => {
+    const richTextArray = [makeRichText('At the event, a uniquely long highlighted passage keeps matching.')];
+    const fullText = richTextArray.map(part => part.text.content).join('');
+    const longText = 'a uniquely long highlighted passage keeps matching';
+
+    expect(
+      findHighlightPosition(
+        richTextArray,
+        {
+          text: longText,
+          rangeInfo: { prefix: 'wrong prefix ', suffix: ' wrong suffix' },
+        },
+        fullText
+      )
+    ).toBe(14);
+    expect(findHighlightPosition(null, { text: 'anything', rangeInfo: {} }, 'anything')).toBe(-1);
+    expect(() => findHighlightPosition(richTextArray, { text: 'anything' }, null)).toThrow(
+      TypeError
+    );
+  });
+
+  test('mergeHighlightsWithStyle rolls back consumed highlights after malformed rich_text fallback', () => {
+    const blockWithAnnotationError = makeParagraphBlock([
+      {
+        type: 'text',
+        text: { content: '重要概念' },
+        get annotations() {
+          throw new Error('annotations unavailable');
+        },
+      },
+    ]);
+    const nextBlock = makeParagraphBlock([makeRichText('第二段重要概念')]);
+
+    const result = mergeHighlightsWithStyle(
+      [blockWithAnnotationError, nextBlock],
+      [{ id: 'hl-rollback', text: '重要概念', color: 'yellow', rangeInfo: {} }],
+      HIGHLIGHT_STYLE_OPTIONS.COLOR_SYNC
+    );
+
+    expect(result[0]).toBe(blockWithAnnotationError);
+    expect(getStyledText(result[1], annotations => annotations.color === 'yellow_background')).toBe(
+      '重要概念'
+    );
   });
 
   test('migration metadata helpers compare ids before canonicalized Notion urls', () => {
