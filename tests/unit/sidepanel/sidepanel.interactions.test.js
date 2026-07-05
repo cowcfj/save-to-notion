@@ -459,6 +459,33 @@ describe('Sidepanel user interactions', () => {
       );
     });
 
+    it('should treat successful savePage responses with unexpected statusKind as failures', async () => {
+      await loadSavedLegacyHighlightsTab(6);
+
+      chrome.runtime.sendMessage.mockResolvedValue({
+        success: true,
+        statusKind: 'queued',
+      });
+
+      const syncBtn = document.querySelector('#sync-button');
+      syncBtn.click();
+      await flushMicrotasks(3);
+
+      expect(document.querySelector('#status-message').textContent).toBe(
+        UI_MESSAGES.SIDEPANEL.SYNC_FAILED
+      );
+      expect(Logger.error).toHaveBeenCalledWith(
+        '[SidePanel] savePage failed',
+        expect.objectContaining({
+          action: 'savePage',
+          result: 'failure',
+          error: 'Unexpected statusKind: queued',
+          statusKind: 'queued',
+          success: true,
+        })
+      );
+    });
+
     it('should not display raw openNotionPage error returned from runtime message', async () => {
       await loadSavedLegacyHighlightsTab(2);
 
