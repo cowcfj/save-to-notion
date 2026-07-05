@@ -435,6 +435,30 @@ describe('Sidepanel user interactions', () => {
       );
     });
 
+    it('should handle missing savePage response as a sanitized failure', async () => {
+      await loadSavedLegacyHighlightsTab(6);
+
+      chrome.runtime.sendMessage.mockResolvedValue(undefined);
+
+      const syncBtn = document.querySelector('#sync-button');
+      syncBtn.click();
+      await flushMicrotasks(3);
+
+      expect(document.querySelector('#status-message').textContent).toBe(
+        UI_MESSAGES.SIDEPANEL.SYNC_FAILED
+      );
+      expect(Logger.error).toHaveBeenCalledWith(
+        '[SidePanel] savePage failed',
+        expect.objectContaining({
+          action: 'savePage',
+          result: 'failure',
+          error: sanitizeApiError('Unknown error', 'save_page'),
+          statusKind: undefined,
+          success: undefined,
+        })
+      );
+    });
+
     it('should not display raw openNotionPage error returned from runtime message', async () => {
       await loadSavedLegacyHighlightsTab(2);
 

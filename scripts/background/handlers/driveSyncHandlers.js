@@ -84,6 +84,10 @@ async function broadcastRemoteSnapshotNewerConflict(result) {
   }
 
   Logger.warn('[DriveSyncHandler] REMOTE_SNAPSHOT_NEWER without valid remoteUpdatedAt', {
+    action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD,
+    result: 'failure',
+    reason: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
+    errorCode: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
     remoteUpdatedAt: result.remoteUpdatedAt,
   });
 }
@@ -96,7 +100,12 @@ async function handleManualUploadFailure(result) {
     remoteUpdatedAt: result.remoteUpdatedAt,
   });
 
-  Logger.warn('[DriveSyncHandler] Upload failed', { errorCode: result.errorCode });
+  Logger.warn('[DriveSyncHandler] Upload failed', {
+    action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD,
+    result: 'failure',
+    reason: result.errorCode,
+    errorCode: result.errorCode,
+  });
 
   if (result.errorCode === DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER) {
     await broadcastRemoteSnapshotNewerConflict(result);
@@ -147,7 +156,7 @@ async function handleManualUpload(request) {
     });
 
     if (!result.success) {
-      return handleManualUploadFailure(result);
+      return await handleManualUploadFailure(result);
     }
 
     await updateDriveSyncRunMetadata({

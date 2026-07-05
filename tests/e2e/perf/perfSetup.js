@@ -30,7 +30,7 @@ export async function seedStorageAndMockNotionApi({ context, extensionId }) {
   await withOptionsPage({ context, extensionId }, optionsPage =>
     optionsPage.evaluate(async () => {
       await chrome.storage.sync.set({
-        notionApiKey: 'secret_mock_key',
+        notionApiKey: 'synthetic-perf-api-key',
         notionDataSourceId: 'mock-db-id',
         notionDatabaseId: 'mock-db-id',
       });

@@ -11,7 +11,7 @@ async function openSidePanelForWindow(windowId) {
     Logger.info(`[SidepanelHandler] Side Panel opened successfully for windowId: ${windowId}`);
     return { success: true };
   } catch (error) {
-    Logger.error('[SidepanelHandler] Failed to open Side Panel', error);
+    Logger.error('[SidepanelHandler] Failed to open Side Panel', { error });
     return { success: false, error: error.message };
   }
 }

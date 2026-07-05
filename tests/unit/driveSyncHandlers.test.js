@@ -252,6 +252,15 @@ describe('Drive Sync Handlers', () => {
       expect(result.success).toBe(false);
       expect(result.errorCode).toBe(DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER);
       expect(result.remoteUpdatedAt).toBe('2026-04-21T01:02:03.000Z');
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '[DriveSyncHandler] Upload failed',
+        expect.objectContaining({
+          action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD,
+          result: 'failure',
+          reason: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
+          errorCode: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
+        })
+      );
     });
 
     it('should ignore conflict broadcast if remoteUpdatedAt is invalid', async () => {
@@ -266,7 +275,38 @@ describe('Drive Sync Handlers', () => {
       expect(mockSendMessage).not.toHaveBeenCalledWith(
         expect.objectContaining({ action: RUNTIME_ACTIONS.DRIVE_SYNC_CONFLICT })
       );
+      expect(Logger.warn).toHaveBeenCalledWith(
+        '[DriveSyncHandler] REMOTE_SNAPSHOT_NEWER without valid remoteUpdatedAt',
+        {
+          action: RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD,
+          result: 'failure',
+          reason: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
+          errorCode: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
+          remoteUpdatedAt: 'Invalid Date',
+        }
+      );
       expect(result.success).toBe(false);
+    });
+
+    it('should catch errors thrown while handling failed manual upload', async () => {
+      driveClient.uploadDriveSnapshot.mockResolvedValue({
+        success: false,
+        errorCode: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
+        message: 'Remote snapshot is newer',
+        remoteUpdatedAt: '2026-04-21T01:02:03.000Z',
+      });
+      driveClient.updateDriveSyncRunMetadata
+        .mockRejectedValueOnce(new Error('metadata write failed'))
+        .mockResolvedValueOnce();
+
+      const result = await handlers[RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_UPLOAD]({});
+
+      expect(result).toEqual({
+        success: false,
+        errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
+        error: 'metadata write failed',
+      });
+      expectDriveSyncStatusUpdateBroadcast();
     });
 
     it('should swallow errors when broadcastDriveSyncUpdate fails nicely', async () => {
