@@ -243,6 +243,70 @@ describe('drive handler native ESM siblings with mocked collaborators', () => {
     );
   });
 
+  test('driveSyncHandlers records generic manual download failures', async () => {
+    const downloadError = new Error('download exploded');
+    const driveClient = {
+      uploadDriveSnapshot: jest.fn(),
+      downloadDriveSnapshot: jest.fn(async () => {
+        throw downloadError;
+      }),
+      getDriveSyncMetadata: jest.fn(async () => baseDriveMetadata()),
+      ensureDriveSyncIdentity: jest.fn(),
+      updateDriveSyncRunMetadata: jest.fn(async () => {}),
+      setDriveFrequency: jest.fn(async () => {}),
+      clearDriveDirty: jest.fn(async () => {}),
+    };
+    const driveSnapshot = {
+      buildUnifiedPageStateFromLocalStorage: jest.fn(),
+      buildDriveSnapshot: jest.fn(),
+      applyDriveSnapshotToLocalStorage: jest.fn(),
+    };
+    const setupDriveAlarm = jest.fn(async () => {});
+
+    await jest.unstable_mockModule('../../../scripts/auth/driveClient.js', () => driveClient);
+    await jest.unstable_mockModule('../../../scripts/sync/driveSnapshot.js', () => driveSnapshot);
+    await jest.unstable_mockModule(
+      '../../../scripts/background/handlers/driveAlarmScheduler.js',
+      () => ({ setupDriveAlarm })
+    );
+
+    const { RUNTIME_ACTIONS } = await import('../../../scripts/config/shared/runtimeActions.js');
+    const { DRIVE_SYNC_ERROR_CODES } =
+      await import('../../../scripts/config/extension/driveSyncErrorCodes.js');
+    const { default: Logger } = await import('../../../scripts/utils/Logger.js');
+    const { createDriveSyncHandlers } =
+      await import('../../../scripts/background/handlers/driveSyncHandlers.js');
+    jest.spyOn(Logger, 'error').mockImplementation(() => {});
+    const handlers = createDriveSyncHandlers();
+
+    const result = await handlers[RUNTIME_ACTIONS.DRIVE_SYNC_MANUAL_DOWNLOAD]();
+
+    expect(result).toEqual({
+      success: false,
+      errorCode: DRIVE_SYNC_ERROR_CODES.DOWNLOAD_FAILED,
+      error: 'download exploded',
+    });
+    expect(driveClient.updateDriveSyncRunMetadata).toHaveBeenCalledWith({
+      type: 'download',
+      success: false,
+      errorCode: DRIVE_SYNC_ERROR_CODES.DOWNLOAD_FAILED,
+    });
+    expect(Logger.error).toHaveBeenCalledWith(
+      '[DriveSyncHandler] Download exception',
+      expect.objectContaining({
+        action: 'drive_download',
+        result: 'failure',
+        reason: 'download exploded',
+        errorCode: DRIVE_SYNC_ERROR_CODES.DOWNLOAD_FAILED,
+      })
+    );
+    expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
+      })
+    );
+  });
+
   test('driveAutoSync records run telemetry and does not force conflict uploads', async () => {
     const metadata = baseDriveMetadata();
     const snapshot = makeSnapshot();

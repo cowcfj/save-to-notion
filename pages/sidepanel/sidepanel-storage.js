@@ -63,7 +63,7 @@ export function resolveLegacySavedKey(targetKey) {
   if (!targetKey.startsWith(HIGHLIGHTS_PREFIX)) {
     return null;
   }
-  return targetKey.replace(HIGHLIGHTS_PREFIX, SAVED_PREFIX);
+  return `${SAVED_PREFIX}${targetKey.slice(HIGHLIGHTS_PREFIX.length)}`;
 }
 
 /**

@@ -1,5 +1,3 @@
-/* eslint-disable unicorn/no-error-property-assignment, unicorn/no-global-object-property-assignment, unicorn/prefer-await -- RetryManager helper tests intentionally construct named Error doubles, install global browser/runtime doubles, and preserve timer helper behavior. */
-
 import { RetryManager, withRetry, fetchWithRetry } from '../../../scripts/utils/RetryManager.js';
 import {
   MockHeaders,

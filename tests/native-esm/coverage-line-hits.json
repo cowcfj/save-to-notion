@@ -335,7 +335,7 @@
   },
   {
     "fileSuffix": "scripts/background/handlers/sidepanelHandlers.js",
-    "lines": [13, 24, 28, 29, 30, 31, 32, 33, 34, 79],
+    "lines": [13, 24, 28, 29, 30, 31, 32, 33, 34, 60],
     "rationale": "Second background breadth cohort must retain source-line hits for sidepanel handler construction and fast-path sender windowId opening."
   },
   {

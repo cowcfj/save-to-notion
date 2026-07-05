@@ -2,7 +2,6 @@
  * 單元測試：RetryManager
  * 覆蓋重試條件、Retry-After、AbortSignal、超時、jitter 注入、DOM context 與覆寫回應判斷。
  */
-/* eslint-disable unicorn/no-error-property-assignment, unicorn/no-global-object-property-assignment -- RetryManager tests intentionally construct named Error doubles and install global browser/runtime doubles. */
 
 import { RetryManager, withRetry, fetchWithRetry } from '../../../scripts/utils/RetryManager.js';
 import {

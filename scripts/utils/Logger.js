@@ -305,7 +305,8 @@ function _flushToBackground() {
     return;
   }
 
-  const batch = _pendingLogs.splice(0); // 取出所有待發送項目
+  const batch = [..._pendingLogs]; // 取出所有待發送項目
+  _pendingLogs.length = 0;
 
   try {
     chrome.runtime.sendMessage({ action: DEV_LOG_SINK_BATCH, logs: batch }, () => {

@@ -1,4 +1,4 @@
-/* eslint-disable unicorn/prefer-private-class-fields, unicorn/class-reference-in-static-methods, unicorn/no-error-property-assignment, unicorn/consistent-class-member-order, unicorn/no-undeclared-class-members, unicorn/no-unnecessary-global-this -- RetryManager keeps static/underscore helper contracts, Error.name checks, and global runtime probes for focused tests and extension compatibility. */
+/* eslint-disable unicorn/no-error-property-assignment, unicorn/no-unnecessary-global-this -- RetryManager keeps static/underscore helper contracts, Error.name checks, and global runtime probes for focused tests and extension compatibility. */
 /**
  * 重試管理器
  * 專門處理網絡請求和異步操作的重試邏輯

@@ -1,4 +1,3 @@
-/* eslint-disable sonarjs/no-clear-text-protocols */
 /**
  * securityUtils 單元測試
  *

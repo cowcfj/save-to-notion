@@ -20,10 +20,12 @@ let HIGHLIGHTER_MESSAGES;
 let DATA_SOURCE_MESSAGES;
 
 function readProjectSource(relativePath) {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test-owned relative paths are resolved inside the repo root.
   return fs.readFileSync(path.resolve(currentDirectory, '../../../..', relativePath), 'utf8');
 }
 
 function collectJsFiles(directory) {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Recursive scan is limited to test-selected repo source directories.
   const entries = fs.readdirSync(directory, { withFileTypes: true });
   const results = [];
   for (const entry of entries) {
@@ -207,11 +209,14 @@ describe('配置模組 - messages.js 動態函式', () => {
     },
   ];
 
-  test.each(singleParameterFunctions)('UI_MESSAGES.$path 應回傳包含參數的字串', ({ getFn, arg }) => {
-    const result = getFn()(arg);
-    expect(typeof result).toBe('string');
-    expect(result).toContain(String(arg));
-  });
+  test.each(singleParameterFunctions)(
+    'UI_MESSAGES.$path 應回傳包含參數的字串',
+    ({ getFn, arg }) => {
+      const result = getFn()(arg);
+      expect(typeof result).toBe('string');
+      expect(result).toContain(String(arg));
+    }
+  );
 
   describe('雙參數函式', () => {
     test('STORAGE.UNIFIED_CLEANUP_SUCCESS 應包含兩個參數', () => {
@@ -488,6 +493,7 @@ describe('配置模組 - messages.js 動態函式', () => {
 
       const violations = jsFiles
 
+        // eslint-disable-next-line security/detect-non-literal-fs-filename -- Files come from collectJsFiles within test-selected repo source directories.
         .filter(file => oldPathsRegex.test(fs.readFileSync(file, 'utf8')))
         .map(file => path.relative(projectRoot, file));
 

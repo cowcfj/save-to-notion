@@ -1,5 +1,3 @@
-/* eslint-disable unicorn/no-error-property-assignment -- RetryManager logging tests intentionally construct named Error doubles. */
-
 import { RetryManager } from '../../../scripts/utils/RetryManager.js';
 import {
   createLoggerWithMethods,

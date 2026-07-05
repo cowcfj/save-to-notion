@@ -6,6 +6,8 @@
  * 使用 jest.fn() 以支持測試中的 mockReturnValue() 等方法
  */
 
+const { installCssEscapePolyfill } = require('./helpers/cssEscapePolyfill.cjs');
+
 // 確保 Web Streams API 在 jsdom / jest 環境中可用（某些 Node/undici 版本需要）
 if (globalThis.ReadableStream === undefined) {
   const { ReadableStream, WritableStream, TransformStream } = require('node:stream/web');
@@ -27,6 +29,8 @@ if (globalThis.fetch === undefined) {
     throw new Error('[presetup] 測試未提供 fetch mock，請在測試中設定 globalThis.fetch');
   };
 }
+
+installCssEscapePolyfill();
 
 // Mock ImageUtils (用於依賴 window.ImageUtils 的模組)
 // 這個 mock 必須在任何模組載入前設定，否則解構會失敗
