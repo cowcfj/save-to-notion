@@ -86,7 +86,9 @@ function wrapWithDriveDirtyTracking(service, methodNames) {
     const original = service[methodName].bind(service);
     service[methodName] = async function (...arguments_) {
       const result = await original(...arguments_);
-      await markDriveDirty().catch(error => {
+      try {
+        await markDriveDirty();
+      } catch (error) {
         // 記錄但不 rethrow：drive dirty tracking 失敗不應阻斷主寫入流程；
         // 下次任何 canonical write 都會重新嘗試 mark dirty。
         Logger.warn('[Background] markDriveDirty failed during wrapper forward', {
@@ -94,7 +96,7 @@ function wrapWithDriveDirtyTracking(service, methodNames) {
           methodName,
           reason: error instanceof Error ? error.message : String(error),
         });
-      });
+      }
       return result;
     };
   }
@@ -123,7 +125,10 @@ const tabService = new TabService({
   isRecoverableError: isRecoverableInjectionError,
   // 新增驗證所需的依賴
   checkPageExists: (pageId, apiKey) => notionService.checkPageExists(pageId, { apiKey }),
-  getApiKey: () => getActiveNotionToken().then(result => result.token),
+  getApiKey: async () => {
+    const result = await getActiveNotionToken();
+    return result.token;
+  },
   clearPageState: url => storageService.clearPageState(url),
   clearNotionState: (url, options) => storageService.clearNotionState(url, options),
   clearNotionStateWithRetry: (url, options) =>
@@ -170,7 +175,12 @@ const isNodeTestEnvironment = typeof process !== 'undefined' && process.env?.NOD
 // TEST_EXPOSURE_START
 // Expose handlers for E2E testing (Development/Test only)
 if (globalThis.self !== undefined) {
-  globalThis.actionHandlers = actionHandlers;
+  Object.defineProperty(globalThis, 'actionHandlers', {
+    configurable: true,
+    enumerable: true,
+    value: actionHandlers,
+    writable: true,
+  });
 }
 if (isNodeTestEnvironment) {
   setBackgroundLifecycleTestSurface({
@@ -202,14 +212,16 @@ accountAuthHandler.setupListeners();
 // ALARM LISTENER（Phase B Drive Auto Sync）
 // ==========================================
 
-chrome.alarms.onAlarm.addListener(alarm => {
+chrome.alarms.onAlarm.addListener(async alarm => {
   if (alarm.name === DRIVE_AUTO_SYNC_ALARM) {
-    runAutoUpload({ alarmFiredAt: new Date(alarm.scheduledTime).toISOString() }).catch(error => {
+    try {
+      await runAutoUpload({ alarmFiredAt: new Date(alarm.scheduledTime).toISOString() });
+    } catch (error) {
       Logger.error('[Alarm] Drive 自動同步失敗', {
         action: 'auto_sync',
         reason: error instanceof Error ? error.message : String(error),
       });
-    });
+    }
   }
 });
 
@@ -316,15 +328,18 @@ async function handleExtensionUpdate(previousVersion) {
  * 首次安裝時開啟 onboarding tab，協助用戶完成初始設定。
  * 開啟失敗（如 chrome.tabs API 暫時不可用）時僅記錄 warn，不中斷安裝流程。
  */
-function handleExtensionInstall() {
+async function handleExtensionInstall() {
   Logger.success('[Lifecycle] 擴展首次安裝', { action: 'handleExtensionInstall' });
   const onboardingUrl = chrome.runtime.getURL('pages/onboarding/onboarding.html');
-  chrome.tabs.create({ url: onboardingUrl }).catch(error => {
+  try {
+    await chrome.tabs.create({ url: onboardingUrl });
+  } catch (error) {
     Logger.warn('[Lifecycle] 開啟 onboarding tab 失敗', {
       action: 'handleExtensionInstall',
-      error: error?.message ?? String(error),
+      error,
+      reason: error?.message ?? String(error),
     });
-  });
+  }
 }
 
 /**
@@ -344,7 +359,7 @@ async function showUpdateNotification(previousVersion, currentVersion) {
     url.searchParams.set('curr', currentVersion);
 
     await chrome.windows.create({
-      url: url.toString(),
+      url: url.href,
       type: 'popup',
       width: UPDATE_NOTIFICATION_WINDOW_WIDTH,
       height: UPDATE_NOTIFICATION_WINDOW_HEIGHT,
