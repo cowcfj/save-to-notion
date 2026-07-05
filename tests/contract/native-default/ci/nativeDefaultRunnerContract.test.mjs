@@ -67,10 +67,6 @@ const retiredIncumbentCoverageSurfaces = [
   retiredThresholdSimulationScript,
 ];
 
-const retiredThresholdSimulationSuites = [
-  `<rootDir>/tests/unit/scripts/${retiredThresholdSimulationTestFile}`,
-];
-
 const phase2BRemovedIncumbentOwnedSuites = [
   '<rootDir>/tests/unit/background/core-functions.test.js',
   '<rootDir>/tests/unit/background/image-processing.test.js',
@@ -217,9 +213,11 @@ describe('native default Jest runner contract', () => {
     expect(nativeDefaultConfig.testMatch).toEqual(
       expect.not.arrayContaining(rootCommonJsRetainedCutoverCandidates)
     );
-    expect(nativeDefaultConfig.testMatch).toEqual(
-      expect.not.arrayContaining(retiredThresholdSimulationSuites)
-    );
+    expect(
+      nativeDefaultConfig.testMatch.some(entry =>
+        entry.endsWith(`/${retiredThresholdSimulationTestFile}`)
+      )
+    ).toBe(false);
     expect(nativeDefaultConfig.testMatch).toEqual(
       expect.not.arrayContaining(phase2BRemovedIncumbentOwnedSuites)
     );

@@ -9,7 +9,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 describe('tools/check-message-boundaries.mjs', () => {
-  const scriptPath = path.resolve(__dirname, '../../../tools/check-message-boundaries.mjs');
+  const scriptPath = path.resolve(__dirname, '../../../../tools/check-message-boundaries.mjs');
   let tempRoot;
 
   const writeFakeBundle = (relativePath, content) => {
@@ -22,7 +22,7 @@ describe('tools/check-message-boundaries.mjs', () => {
 
   const runCli = (args = []) => {
     const result = spawnSync('node', [scriptPath, tempRoot, ...args], {
-      cwd: path.resolve(__dirname, '../../..'),
+      cwd: path.resolve(__dirname, '../../../..'),
       encoding: 'utf8',
     });
     const combinedOutput = result.stdout + result.stderr;
