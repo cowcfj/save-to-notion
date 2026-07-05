@@ -14,6 +14,10 @@ function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+function isObjectLike(value) {
+  return value !== null && typeof value === 'object';
+}
+
 function listActions(actionsByDomain) {
   const rows = [];
 
@@ -37,45 +41,59 @@ function listActions(actionsByDomain) {
   return rows;
 }
 
-function collectActionShapeViolations(actionsByDomain) {
-  const violations = [];
+function collectMalformedActionDomainViolations(actionsByDomain) {
+  return Object.entries(actionsByDomain)
+    .filter(([, actions]) => !isRecord(actions))
+    .map(([domain]) => `actions.${domain}:not_object`);
+}
 
+function collectMissingActionFieldViolations(actionPath, contract) {
+  return REQUIRED_ACTION_FIELDS.filter(field => !Object.hasOwn(contract, field)).map(
+    field => `${actionPath}.${field}`
+  );
+}
+
+function collectActionMetadataViolations(actionPath, contract) {
+  const fieldChecks = [
+    {
+      hasViolation: typeof contract.description !== 'string' || contract.description.trim() === '',
+      violation: `${actionPath}.description:empty`,
+    },
+    {
+      hasViolation: !isObjectLike(contract.payload),
+      violation: `${actionPath}.payload:not_object`,
+    },
+    {
+      hasViolation: !isObjectLike(contract.response),
+      violation: `${actionPath}.response:not_object`,
+    },
+  ];
+
+  return fieldChecks.filter(({ hasViolation }) => hasViolation).map(({ violation }) => violation);
+}
+
+function collectActionContractViolations({ domain, actionName, contract }) {
+  const actionPath = `actions.${domain}.${actionName}`;
+
+  if (!isRecord(contract)) {
+    return [`${actionPath}:not_object`];
+  }
+
+  return [
+    ...collectMissingActionFieldViolations(actionPath, contract),
+    ...collectActionMetadataViolations(actionPath, contract),
+  ];
+}
+
+function collectActionShapeViolations(actionsByDomain) {
   if (!isRecord(actionsByDomain)) {
     return ['actions:not_object'];
   }
 
-  for (const [domain, actions] of Object.entries(actionsByDomain)) {
-    if (!isRecord(actions)) {
-      violations.push(`actions.${domain}:not_object`);
-    }
-  }
-
-  for (const { domain, actionName, contract } of listActions(actionsByDomain)) {
-    if (!isRecord(contract)) {
-      violations.push(`actions.${domain}.${actionName}:not_object`);
-      continue;
-    }
-
-    for (const field of REQUIRED_ACTION_FIELDS) {
-      if (!Object.hasOwn(contract, field)) {
-        violations.push(`actions.${domain}.${actionName}.${field}`);
-      }
-    }
-
-    if (typeof contract.description !== 'string' || contract.description.trim() === '') {
-      violations.push(`actions.${domain}.${actionName}.description:empty`);
-    }
-
-    if (contract.payload === null || typeof contract.payload !== 'object') {
-      violations.push(`actions.${domain}.${actionName}.payload:not_object`);
-    }
-
-    if (contract.response === null || typeof contract.response !== 'object') {
-      violations.push(`actions.${domain}.${actionName}.response:not_object`);
-    }
-  }
-
-  return violations;
+  return [
+    ...collectMalformedActionDomainViolations(actionsByDomain),
+    ...listActions(actionsByDomain).flatMap(action => collectActionContractViolations(action)),
+  ];
 }
 
 function collectMissingSaveActionWireValues(saveActions, runtimeValues) {
