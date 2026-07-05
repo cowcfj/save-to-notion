@@ -71,26 +71,44 @@ function formatImports(imports) {
   return imports.length === 0 ? '(none)' : imports.join(', ');
 }
 
+function getSharedImports(report) {
+  return report.imports.filter((specifier) => isSharedImport(specifier));
+}
+
+function findRestrictedImportViolation(report) {
+  if (report.entryFile === 'auth.js' && report.imports.includes(PROFILE_MANAGER_IMPORT)) {
+    return 'auth.js must not import ./shared/ProfileManager.js';
+  }
+  if (report.entryFile === 'update-notification.js' && getSharedImports(report).length > 0) {
+    return 'update-notification.js must not import shared chunks';
+  }
+  if (report.entryFile === 'onboarding.js' && report.imports.includes(PROFILE_MANAGER_IMPORT)) {
+    return 'onboarding.js must not import ./shared/ProfileManager.js';
+  }
+  return null;
+}
+
+function findAuthOptionsOnlySentinelViolations(report) {
+  if (report.entryFile !== 'auth.js') {
+    return [];
+  }
+
+  return AUTH_OPTIONS_ONLY_SENTINELS.filter((sentinel) => report.sourceText.includes(sentinel)).map(
+    (sentinel) => `auth.js contains options-only sentinel: ${sentinel}`
+  );
+}
+
+function findReportCriticalViolations(report) {
+  return [
+    findRestrictedImportViolation(report),
+    ...findAuthOptionsOnlySentinelViolations(report),
+  ].filter(Boolean);
+}
+
 function findCriticalViolations(entryReports) {
   const violations = [];
   for (const report of entryReports) {
-    const sharedImports = report.imports.filter((specifier) => isSharedImport(specifier));
-    if (report.entryFile === 'auth.js' && report.imports.includes(PROFILE_MANAGER_IMPORT)) {
-      violations.push('auth.js must not import ./shared/ProfileManager.js');
-    }
-    if (report.entryFile === 'update-notification.js' && sharedImports.length > 0) {
-      violations.push('update-notification.js must not import shared chunks');
-    }
-    if (report.entryFile === 'onboarding.js' && report.imports.includes(PROFILE_MANAGER_IMPORT)) {
-      violations.push('onboarding.js must not import ./shared/ProfileManager.js');
-    }
-    if (report.entryFile === 'auth.js') {
-      for (const sentinel of AUTH_OPTIONS_ONLY_SENTINELS) {
-        if (report.sourceText.includes(sentinel)) {
-          violations.push(`auth.js contains options-only sentinel: ${sentinel}`);
-        }
-      }
-    }
+    violations.push(...findReportCriticalViolations(report));
   }
   return violations;
 }
@@ -98,7 +116,7 @@ function findCriticalViolations(entryReports) {
 function findWarnings(entryReports) {
   const warnings = [];
   for (const report of entryReports) {
-    const sharedImports = report.imports.filter((specifier) => isSharedImport(specifier));
+    const sharedImports = getSharedImports(report);
     if (report.entryFile === 'popup.js' && report.imports.includes(PROFILE_MANAGER_IMPORT)) {
       warnings.push(
         'popup.js imports ./shared/ProfileManager.js; split popup read-only destination selection in a future plan.'

@@ -3,11 +3,14 @@
  */
 /* eslint-disable security/detect-non-literal-fs-filename */
 
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const projectRoot = path.resolve(__dirname, '../../..');
+const testFilePath = fileURLToPath(import.meta.url);
+const testDirectory = path.dirname(testFilePath);
+const projectRoot = path.resolve(testDirectory, '../../..');
 const sourceExtensions = ['.js', '.mjs'];
 const ignoredPathSegments = new Set([
   '.git',
