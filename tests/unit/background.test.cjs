@@ -495,6 +495,10 @@ describe('Background Script Lifecycle', () => {
   });
 
   describe('startup listeners', () => {
+    test('應保留 actionHandlers 的 global enumerable test surface', () => {
+      expect(Object.keys(globalThis)).toContain('actionHandlers');
+    });
+
     test('應在啟動時註冊 account callback bridge listener', async () => {
       jest.resetModules();
 
@@ -708,6 +712,22 @@ describe('Background Script Lifecycle', () => {
       expect(mockLogger.success).toHaveBeenCalledWith(
         expect.stringContaining('擴展首次安裝'),
         expect.any(Object)
+      );
+    });
+
+    test('Should log onboarding failure with original error context', async () => {
+      const tabCreateError = new Error('tab_create_failed');
+      mockChrome.tabs.create.mockRejectedValueOnce(tabCreateError);
+
+      await handleExtensionInstall();
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('開啟 onboarding tab 失敗'),
+        expect.objectContaining({
+          action: 'handleExtensionInstall',
+          error: tabCreateError,
+          reason: 'tab_create_failed',
+        })
       );
     });
   });

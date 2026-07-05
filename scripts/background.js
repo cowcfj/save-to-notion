@@ -177,6 +177,7 @@ const isNodeTestEnvironment = typeof process !== 'undefined' && process.env?.NOD
 if (globalThis.self !== undefined) {
   Object.defineProperty(globalThis, 'actionHandlers', {
     configurable: true,
+    enumerable: true,
     value: actionHandlers,
     writable: true,
   });
@@ -335,7 +336,8 @@ async function handleExtensionInstall() {
   } catch (error) {
     Logger.warn('[Lifecycle] 開啟 onboarding tab 失敗', {
       action: 'handleExtensionInstall',
-      error: error?.message ?? String(error),
+      error,
+      reason: error?.message ?? String(error),
     });
   }
 }
