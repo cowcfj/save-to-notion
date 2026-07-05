@@ -61,11 +61,16 @@ let storageData;
 let originalCryptoDescriptor;
 let originalClose;
 
-function createJsonResponse(body, { ok = true, status = 200 } = {}) {
+function createJsonResponse(body, { ok = true, status = 200, jsonError = null } = {}) {
   return {
     ok,
     status,
-    json: jest.fn(async () => body),
+    json: jest.fn(async () => {
+      if (jsonError) {
+        throw jsonError;
+      }
+      return body;
+    }),
     text: jest.fn(async () => JSON.stringify(body)),
   };
 }
@@ -353,13 +358,9 @@ describe('auth native ESM diagnostics', () => {
 
       loggerMock.error.mockClear();
       await setStoredAccountSession({ expiresAt: PAST_EXPIRES_AT });
-      globalThis.fetch.mockResolvedValueOnce({
-        ok: false,
-        status: 502,
-        json: jest.fn(async () => {
-          throw new Error('Invalid JSON');
-        }),
-      });
+      globalThis.fetch.mockResolvedValueOnce(
+        createJsonResponse(null, { ok: false, status: 502, jsonError: new Error('Invalid JSON') })
+      );
 
       await expect(accountSession.refreshAccountSession()).rejects.toThrow('Invalid JSON');
 
