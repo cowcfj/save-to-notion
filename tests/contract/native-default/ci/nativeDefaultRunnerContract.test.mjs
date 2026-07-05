@@ -43,9 +43,9 @@ const retiredIncumbentOwnerExactEntries = [
   '<rootDir>/tests/integration/incumbent/helpers/**/*.test.mjs',
   '<rootDir>/tests/contract/incumbent/ci/ciPolicyContract.test.mjs',
   '<rootDir>/tests/contract/incumbent/module-surfaces/RetryManager.contract.test.mjs',
-  '<rootDir>/tests/unit/incumbent/scripts/check-size-gates.test.mjs',
-  '<rootDir>/tests/unit/incumbent/scripts/inject-manifest-key.test.mjs',
-  '<rootDir>/tests/unit/incumbent/scripts/package-extension.test.mjs',
+  '<rootDir>/tests/contract/incumbent/ci/check-size-gates.test.mjs',
+  '<rootDir>/tests/contract/incumbent/ci/inject-manifest-key.test.mjs',
+  '<rootDir>/tests/contract/incumbent/ci/package-extension.test.mjs',
   '<rootDir>/tests/unit/incumbent/performance/PerformanceOptimizer.comprehensive.test.mjs',
 ];
 
@@ -56,9 +56,9 @@ const reassignedToIncumbentMjsCohort = [
   '<rootDir>/tests/unit/incumbent/helpers/performanceOptimizerTestHarness.test.mjs',
   '<rootDir>/tests/unit/incumbent/helpers/storageServiceTestHarness.test.mjs',
   '<rootDir>/tests/unit/incumbent/performance/PerformanceOptimizer.comprehensive.test.mjs',
-  '<rootDir>/tests/unit/incumbent/scripts/check-size-gates.test.mjs',
-  '<rootDir>/tests/unit/incumbent/scripts/inject-manifest-key.test.mjs',
-  '<rootDir>/tests/unit/incumbent/scripts/package-extension.test.mjs',
+  '<rootDir>/tests/contract/incumbent/ci/check-size-gates.test.mjs',
+  '<rootDir>/tests/contract/incumbent/ci/inject-manifest-key.test.mjs',
+  '<rootDir>/tests/contract/incumbent/ci/package-extension.test.mjs',
 ];
 
 const retiredIncumbentCoverageSurfaces = [
