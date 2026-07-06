@@ -1,6 +1,7 @@
 const IDENTIFIER_PART_PATTERN = /[\dA-Z_a-z$]/;
 const QUOTED_CONTENT_DELIMITERS = new Set(['"', "'", '`']);
 const IMPORT_SPECIFIER_DELIMITERS = new Set(['"', "'"]);
+const STATIC_IMPORT_CONTINUATION_PATTERNS = [/\bfrom\s*$/, /,\s*$/];
 
 function isIdentifierPart(char) {
   return Boolean(char && IDENTIFIER_PART_PATTERN.test(char));
@@ -169,7 +170,7 @@ export function startsStaticDeclaration(line) {
   return codeIndex < line.length && isStaticDeclarationAt(line, codeIndex);
 }
 
-export function hasOpenStaticDeclaration(statement) {
+function scanStaticDeclarationCode(statement) {
   let openBraces = 0;
   let closeBraces = 0;
   let codeText = '';
@@ -185,7 +186,9 @@ export function hasOpenStaticDeclaration(statement) {
 
     if (statement[cursor] === '{') {
       openBraces += 1;
-    } else if (statement[cursor] === '}') {
+    }
+
+    if (statement[cursor] === '}') {
       closeBraces += 1;
     }
 
@@ -193,15 +196,34 @@ export function hasOpenStaticDeclaration(statement) {
     cursor += 1;
   }
 
+  return { closeBraces, codeText, openBraces };
+}
+
+function hasUnclosedStaticImportBraces({ closeBraces, openBraces }) {
+  return openBraces > closeBraces;
+}
+
+function hasCompleteStaticImport(statement) {
+  return startsStaticImportDeclaration(statement) && Boolean(readStaticImportSpecifier(statement));
+}
+
+function hasStaticImportContinuationTail(statement, codeText) {
+  if (hasCompleteStaticImport(statement)) {
+    return false;
+  }
+
   const trimmed = codeText.trimEnd();
-  const hasCompleteStaticImport =
-    startsStaticImportDeclaration(statement) && readStaticImportSpecifier(statement);
   return (
-    openBraces > closeBraces ||
-    (!hasCompleteStaticImport &&
-      (/\bfrom\s*$/.test(trimmed) ||
-        /,\s*$/.test(trimmed) ||
-        startsStaticImportDeclaration(statement)))
+    STATIC_IMPORT_CONTINUATION_PATTERNS.some(pattern => pattern.test(trimmed)) ||
+    startsStaticImportDeclaration(statement)
+  );
+}
+
+export function hasOpenStaticDeclaration(statement) {
+  const scannedCode = scanStaticDeclarationCode(statement);
+  return (
+    hasUnclosedStaticImportBraces(scannedCode) ||
+    hasStaticImportContinuationTail(statement, scannedCode.codeText)
   );
 }
 
@@ -304,10 +326,7 @@ function findStaticDeclarationEnd(sourceText, startIndex) {
       return cursor + 1;
     }
 
-    if (
-      sourceText[cursor] === '\n' &&
-      !hasOpenStaticDeclaration(sourceText.slice(startIndex, cursor))
-    ) {
+    if (isStaticDeclarationLineEnd(sourceText, startIndex, cursor)) {
       return cursor;
     }
 
@@ -315,6 +334,12 @@ function findStaticDeclarationEnd(sourceText, startIndex) {
   }
 
   return sourceText.length;
+}
+
+function isStaticDeclarationLineEnd(sourceText, startIndex, cursor) {
+  return (
+    sourceText[cursor] === '\n' && !hasOpenStaticDeclaration(sourceText.slice(startIndex, cursor))
+  );
 }
 
 export function parseStaticImports(sourceText) {
