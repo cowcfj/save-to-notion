@@ -190,7 +190,7 @@ jobs:
         run: |
           BASE_SHA="${{ github.event.pull_request.base.sha }}"
           git fetch --no-tags --depth=1 origin "$BASE_SHA"
-          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" HEAD -- scripts pages tests jest.config.js 'jest.config.*.js' jest.native-default.config.js jest.native-esm.config.js package.json package-lock.json)
+          CHANGED_FILES=$(git diff --name-only --diff-filter=d "$BASE_SHA" HEAD -- scripts pages tests jest.config.js 'jest.config.*.js' jest.native-default.config.js jest.native-esm.config.js package.json package-lock.json)
           if [ -n "$CHANGED_FILES" ]; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
             echo "變更的檔案:"
@@ -205,7 +205,7 @@ jobs:
           BASE_SHA="${{ github.event.pull_request.base.sha }}"
 
           # 取得所有變更檔案
-          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" HEAD -- scripts pages tests jest.config.js 'jest.config.*.js' jest.native-default.config.js jest.native-esm.config.js package.json package-lock.json)
+          CHANGED_FILES=$(git diff --name-only --diff-filter=d "$BASE_SHA" HEAD -- scripts pages tests jest.config.js 'jest.config.*.js' jest.native-default.config.js jest.native-esm.config.js package.json package-lock.json)
 
           # 配置檔案無法用 --findRelatedTests；測試檔要直接 run-by-path。
           CANDIDATE_FILES=$(echo "$CHANGED_FILES" | grep -v -E '^(package\.json|package-lock\.json|jest\.config(\..*)?\.js|jest\.(native-default|native-esm)\.config\.js)$' || true)

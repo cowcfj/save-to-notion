@@ -19,7 +19,6 @@ export default {
     '<rootDir>/tests/native-esm/utils/root-utils-runtime.native-esm.test.mjs',
     '<rootDir>/tests/native-esm/utils/rootUtils.native-esm.test.mjs',
     '<rootDir>/tests/contract/native-default/ci/nativeDefaultRunnerContract.test.mjs',
-    '<rootDir>/tests/contract/native-default/ci/report-native-default-runner-blockers.test.mjs',
     '<rootDir>/tests/integration/native-default/background/background-require.integration.test.mjs',
     '<rootDir>/tests/unit/native-default/config/env.test.mjs',
     '<rootDir>/tests/unit/native-default/config/messages.test.js',

@@ -270,6 +270,20 @@ describe('CI policy contract', () => {
     );
   });
 
+  test('CI related-test changed-file detection excludes deleted paths before run-by-path', () => {
+    const workflowSource = readWorkflow('ci.yml');
+    const changedFilesStep = getWorkflowStepBlock(
+      workflowSource,
+      'Detect changed source files for related tests'
+    );
+    const relatedTestsStep = getWorkflowStepBlock(workflowSource, 'Jest related tests');
+
+    [changedFilesStep, relatedTestsStep].forEach(step => {
+      expect(step).toContain('git diff --name-only --diff-filter=d "$BASE_SHA" HEAD --');
+    });
+    expect(relatedTestsStep).not.toContain('git diff --name-only "$BASE_SHA" HEAD --');
+  });
+
   test('CI related-test 執行器只跑 SWC correctness lane，不阻塞 native-default diagnostic lane', () => {
     const workflowSource = readWorkflow('ci.yml');
     const relatedTestsStep = getWorkflowStepBlock(workflowSource, 'Jest related tests');

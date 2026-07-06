@@ -16,7 +16,6 @@
     "test:quick": "jest --config jest.config.js --onlyChanged",
     "test:native": "NODE_OPTIONS=--experimental-vm-modules jest --config jest.native-default.config.js",
     "test:quick:native": "NODE_OPTIONS=--experimental-vm-modules jest --config jest.native-default.config.js --onlyChanged",
-    "test:native:blockers": "node tools/report-native-default-runner-blockers.mjs --summary-json coverage/native-default/blocker-classification-summary.json --summary-md coverage/native-default/blocker-classification-summary.md",
     "test:ci": "npm run test:coverage:native-esm:assert",
     "test:e2e": "npm run build:prod && playwright test --project=chromium",
     "test:e2e:ui": "playwright test --ui --project=chromium",
