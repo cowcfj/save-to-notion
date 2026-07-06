@@ -176,7 +176,9 @@ describe('native default Jest runner contract', () => {
     const scripts = readPackageScripts();
 
     expect(scripts).not.toHaveProperty('test:native:blockers');
-    expect(Object.values(scripts).join('\n')).not.toContain('report-native-default-runner-blockers');
+    expect(Object.values(scripts).join('\n')).not.toContain(
+      'report-native-default-runner-blockers'
+    );
     expect(scripts.test).toBe('jest --config jest.config.js');
     expect(scripts['test:quick']).toBe('jest --config jest.config.js --onlyChanged');
     expect(scripts['test:coverage']).toBe('npm run test:coverage:native-esm:assert');
