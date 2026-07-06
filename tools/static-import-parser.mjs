@@ -145,6 +145,11 @@ function isStaticDeclarationAt(sourceText, index) {
   return isStaticImportAt(sourceText, index) || isStaticReexportAt(sourceText, index);
 }
 
+function startsStaticImportDeclaration(statement) {
+  const importIndex = firstCodeIndex(statement);
+  return importIndex < statement.length && isStaticImportAt(statement, importIndex);
+}
+
 export function startsStaticDeclaration(line) {
   const codeIndex = firstCodeIndex(line);
   return codeIndex < line.length && isStaticDeclarationAt(line, codeIndex);
@@ -173,7 +178,12 @@ export function hasOpenStaticDeclaration(statement) {
   }
 
   const trimmed = codeText.trimEnd();
-  return openBraces > closeBraces || /\bfrom\s*$/.test(trimmed) || /,\s*$/.test(trimmed);
+  return (
+    openBraces > closeBraces ||
+    /\bfrom\s*$/.test(trimmed) ||
+    /,\s*$/.test(trimmed) ||
+    (startsStaticImportDeclaration(codeText) && !readStaticImportSpecifier(codeText))
+  );
 }
 
 export function readStaticImportSpecifier(fragment) {

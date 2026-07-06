@@ -273,6 +273,12 @@ describe('bundle-sensitive entry import boundaries', () => {
     expect(parseStaticImports(sourceText)).toEqual(['./first.js', './second.js']);
   });
 
+  test('static import parser preserves imports split after the import keyword', () => {
+    const sourceText = ['import', '  defaultExport', "from './split-default.js';"].join('\n');
+
+    expect(parseStaticImports(sourceText)).toEqual(['./split-default.js']);
+  });
+
   test('scanner preserves multiline static import detection', () => {
     tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-import-boundary-'));
     writeFixtureTree(tempRoot, {
