@@ -27,6 +27,12 @@ beforeAll(async () => {
 const testFilePath = fileURLToPath(import.meta.url);
 const testDirectory = path.dirname(testFilePath);
 const projectRoot = path.resolve(testDirectory, '../../..');
+const PACKAGE_EXTENSION_COMMAND =
+  'bash tools/package-extension.sh --unpacked-dir=.tmp/extension-unpacked';
+const PACKAGE_SURFACE_COMMAND =
+  'node tools/check-extension-package-surface.mjs --unpacked-dir=.tmp/extension-unpacked';
+const SIZE_GATE_COMMAND =
+  'node tools/check-size-gates.mjs --mode=hard --scope=all --unpacked-dir=.tmp/extension-unpacked';
 
 const loadProbeWithSpawnSync = async spawnSync => {
   probeState.spawnSync = spawnSync;
@@ -176,6 +182,19 @@ const expectCutoverPostinstallCommand = (spawnSync, summary) => {
   expect(spawnSync).toHaveBeenCalledWith(
     'node scripts/postinstall.js',
     expect.objectContaining({ cwd: summary.roots.probe })
+  );
+};
+
+const expectPackageSurfaceCommandBeforeSizeGate = summary => {
+  const commands = summary.commands.map(command => command.command);
+  expect(commands).toContain(PACKAGE_EXTENSION_COMMAND);
+  expect(commands).toContain(PACKAGE_SURFACE_COMMAND);
+  expect(commands).toContain(SIZE_GATE_COMMAND);
+  expect(commands.indexOf(PACKAGE_EXTENSION_COMMAND)).toBeLessThan(
+    commands.indexOf(PACKAGE_SURFACE_COMMAND)
+  );
+  expect(commands.indexOf(PACKAGE_SURFACE_COMMAND)).toBeLessThan(
+    commands.indexOf(SIZE_GATE_COMMAND)
   );
 };
 
@@ -460,6 +479,7 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
       expectCutoverConfigTransforms(artifacts);
       expectCutoverSummary(summary);
       expectCutoverPostinstallCommand(spawnSync, summary);
+      expectPackageSurfaceCommandBeforeSizeGate(summary);
     } finally {
       fs.rmSync(probeTempRoot, { recursive: true, force: true });
     }
@@ -583,6 +603,31 @@ describe('tools/probe-root-esm-package-markers.mjs', () => {
     expect(summary.gates).toEqual(
       expect.arrayContaining([{ id: 'cutover-package-output-cutover-rehearsal', status: 'fail' }])
     );
+  });
+
+  test('cutover-package-output runs package surface check between packaging and size gate', async () => {
+    expect.hasAssertions();
+
+    const sourceRoot = createCutoverSourceFixture(temporaryRoot);
+    const spawnSync = createSuccessfulSpawnSync();
+    const mockedProbe = await loadProbeWithSpawnSync(spawnSync);
+    const summary = mockedProbe.runProbe(
+      {
+        variant: 'cutover-package-output',
+        keepTemp: true,
+      },
+      sourceRoot
+    );
+    const probeTemporaryRoot = path.dirname(summary.roots.probe);
+
+    try {
+      expect(summary.commands).toEqual(
+        expect.arrayContaining([expect.objectContaining({ command: PACKAGE_SURFACE_COMMAND })])
+      );
+      expectPackageSurfaceCommandBeforeSizeGate(summary);
+    } finally {
+      fs.rmSync(probeTemporaryRoot, { recursive: true, force: true });
+    }
   });
 
   test('cutover transform helpers refuse to run against the source repository root', () => {

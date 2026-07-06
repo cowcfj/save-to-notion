@@ -208,6 +208,9 @@ jobs:
           chmod +x tools/package-extension.sh
           ./tools/package-extension.sh "$TAG_NAME" --unpacked-dir=".tmp/release-extension"
 
+      - name: Verify Release Package Surface
+        run: node tools/check-extension-package-surface.mjs --unpacked-dir=".tmp/release-extension"
+
       - name: Verify Release Artifact Size
         run: |
           node tools/check-size-gates.mjs \

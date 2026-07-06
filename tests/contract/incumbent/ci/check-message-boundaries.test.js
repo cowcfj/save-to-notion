@@ -9,7 +9,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 describe('tools/check-message-boundaries.mjs', () => {
-  const scriptPath = path.resolve(__dirname, '../../../tools/check-message-boundaries.mjs');
+  const scriptPath = path.resolve(__dirname, '../../../../tools/check-message-boundaries.mjs');
   let tempRoot;
 
   const writeFakeBundle = (relativePath, content) => {
@@ -22,7 +22,7 @@ describe('tools/check-message-boundaries.mjs', () => {
 
   const runCli = (args = []) => {
     const result = spawnSync('node', [scriptPath, tempRoot, ...args], {
-      cwd: path.resolve(__dirname, '../../..'),
+      cwd: path.resolve(__dirname, '../../../..'),
       encoding: 'utf8',
     });
     const combinedOutput = result.stdout + result.stderr;
@@ -34,6 +34,18 @@ describe('tools/check-message-boundaries.mjs', () => {
       throw err;
     }
     return combinedOutput;
+  };
+
+  const expectCliFailure = () => {
+    let thrownError;
+    try {
+      runCli();
+    } catch (error) {
+      thrownError = error;
+    }
+
+    expect(thrownError).toBeDefined();
+    return `${thrownError.stdout}${thrownError.stderr}`;
   };
 
   beforeEach(() => {
@@ -79,18 +91,49 @@ describe('tools/check-message-boundaries.mjs', () => {
     writeFakeBundle('dist/content.bundle.js', 'console.log("Hello Content");');
     writeFakeBundle('dist/scripts/background.js', 'const tool = "Save to Notion 工具列";');
 
-    let thrownError;
-    try {
-      runCli();
-    } catch (error) {
-      thrownError = error;
-    }
-
-    expect(thrownError).toBeDefined();
-    const fullOutput = `${thrownError.stdout}${thrownError.stderr}`;
+    const fullOutput = expectCliFailure();
     expect(fullOutput).toContain('dist/scripts/background.js 包含了禁用的 sentinel(s)');
     expect(fullOutput).toContain('Save to Notion 工具列');
     expect(fullOutput).toContain('Bundle 訊息邊界檢查失敗');
+  });
+
+  test.each([['DOMPurify'], ['sanitizeArticleHtml']])(
+    '當假 background.js 含有 content sanitizer sentinel「%s」時，應失敗',
+    sentinel => {
+      writeFakeBundle('dist/content.bundle.js', 'console.log("Hello Content");');
+      writeFakeBundle('dist/scripts/background.js', `const leaked = "${sentinel}";`);
+
+      const fullOutput = expectCliFailure();
+      expect(fullOutput).toContain('dist/scripts/background.js 包含了禁用的 sentinel(s)');
+      expect(fullOutput).toContain(sentinel);
+      expect(fullOutput).toContain('Bundle 訊息邊界檢查失敗');
+    }
+  );
+
+  test.each([['ProfileManager'], ['pages/options/options.js']])(
+    '當假 content.bundle.js 含有 options/profile sentinel「%s」時，應失敗',
+    sentinel => {
+      writeFakeBundle('dist/content.bundle.js', `const leaked = "${sentinel}";`);
+      writeFakeBundle('dist/scripts/background.js', 'console.log("Hello Background");');
+
+      const fullOutput = expectCliFailure();
+      expect(fullOutput).toContain('dist/content.bundle.js 包含了禁用的 sentinel(s)');
+      expect(fullOutput).toContain(sentinel);
+      expect(fullOutput).toContain('Bundle 訊息邊界檢查失敗');
+    }
+  );
+
+  test('不應把較長 identifier 內的 options/profile 名稱誤判成禁用 sentinel', () => {
+    writeFakeBundle(
+      'dist/content.bundle.js',
+      'const ProfileManagerFactory = {}; const url = "pages/options/options.js.map";'
+    );
+    writeFakeBundle('dist/scripts/background.js', 'console.log("Hello Background");');
+
+    const output = runCli();
+
+    expect(output).toContain('Bundle 訊息邊界檢查成功');
+    expect(output).toContain('dist/content.bundle.js 邊界檢查通過');
   });
 
   test('應允許 content.bundle.js 含有允許的 highlighter copy（例如「Save to Notion 工具列」與「標註已刪除」）', () => {

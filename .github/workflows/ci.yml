@@ -58,6 +58,7 @@ jobs:
               - 'rollup/**'
               - 'tools/package-extension.sh'
               - 'tools/check-message-boundaries.mjs'
+              - 'tools/check-extension-package-surface.mjs'
               - 'tools/check-size-gates.mjs'
               - 'icons/**'
               - 'auth.html'
@@ -289,6 +290,7 @@ jobs:
           echo "Checking message bundle boundaries..."
           node tools/check-message-boundaries.mjs --require-all
           bash tools/package-extension.sh "ci-current" --unpacked-dir="$CURRENT_UNPACKED_DIR"
+          node tools/check-extension-package-surface.mjs --unpacked-dir="$CURRENT_UNPACKED_DIR"
           node tools/check-size-gates.mjs \
             --mode=hard \
             --scope=all \

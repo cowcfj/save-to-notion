@@ -258,7 +258,7 @@ const babelHoistedMockOrderingCohort2Drive = [
 ];
 
 const babelHoistedMockOrderingCohort2AuthAdjacent = [
-  'tests/unit/scripts/accountSession.test.js',
+  'tests/unit/auth/accountSession.test.js',
   'tests/unit/utils/notionAuth.test.js',
 ];
 
