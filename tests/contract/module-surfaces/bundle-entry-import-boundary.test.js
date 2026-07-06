@@ -249,6 +249,30 @@ describe('bundle-sensitive entry import boundaries', () => {
     ).toEqual([]);
   });
 
+  test('static import parser ignores comments and string content inside declarations', () => {
+    const sourceText = [
+      "import { /* from '../commented.js' */ allowed } from './allowed.js';",
+      "export { note as value } from './reexport.js' with { type: 'import \"../string.js\"' };",
+      "import template from './template.js' with { type: `import '../template-text.js'` };",
+    ].join('\n');
+
+    expect(parseStaticImports(sourceText)).toEqual([
+      './allowed.js',
+      './reexport.js',
+      './template.js',
+    ]);
+  });
+
+  test('static import parser preserves same-line declarations after pending imports close', () => {
+    const sourceText = [
+      'import {',
+      "  first } from './first.js'; import {",
+      "  second } from './second.js';",
+    ].join('\n');
+
+    expect(parseStaticImports(sourceText)).toEqual(['./first.js', './second.js']);
+  });
+
   test('scanner preserves multiline static import detection', () => {
     tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-import-boundary-'));
     writeFixtureTree(tempRoot, {
