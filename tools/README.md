@@ -18,15 +18,16 @@ This directory contains repo-local automation used by tests, CI, release packagi
 | `report-native-esm-scope-parity-core.mjs` | Active helper module        | Core implementation for native ESM scope parity reporting.                                                                           | `report-native-esm-scope-parity.mjs`                                                  |
 | `static-import-parser.mjs`                | Active helper module        | Parses static import/export specifiers for boundary and bundle-shape checks.                                                         | Boundary tooling and contract tests                                                   |
 
-## Retired By `docs/plans/2026-07-06-tools-retirement-archive.md`
+## Retired Surfaces
 
-These active surfaces are archived locally under `archive/tool-retirement/` and removed from GitHub-tracked active tooling by the retirement plan:
+This tracked catalog is the GitHub-visible record for retired tool surfaces.
+Current checks and ownership live in the tracked targets listed below.
 
-| Retired surface                                  | Replacement / current owner                                                                               |
-| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
-| `report-native-default-runner-blockers.mjs`      | `nativeDefaultRunnerContract`, marker-zero checks, native-default diagnostic lane, native ESM V8 coverage |
-| `report-native-default-runner-blockers-core.mjs` | Archived with retired classifier CLI                                                                      |
-| `probe-root-esm-package-markers.mjs`             | Live root ESM checks, native ESM V8 coverage, production build, package-surface and size gates            |
-| `probe-root-esm-package-markers-core.mjs`        | Archived with completed root ESM temp-copy rehearsal CLI                                                  |
+| Retired surface                                  | Replacement / current owner                                                                                                                                                            |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `report-native-default-runner-blockers.mjs`      | `tests/contract/native-default/ci/nativeDefaultRunnerContract.test.mjs`, `jest.native-default.config.js`, `package.json` `test:native`, `npm run test:coverage:native-esm:assert`      |
+| `report-native-default-runner-blockers-core.mjs` | Retired with the classifier CLI; current ownership is covered by `tests/contract/native-default/ci/nativeDefaultRunnerContract.test.mjs`                                               |
+| `probe-root-esm-package-markers.mjs`             | `tests/contract/ci/jestTransformerContract.test.js`, `tests/contract/native-default/ci/nativeDefaultRunnerContract.test.mjs`, `tools/check-message-boundaries.mjs`, package/size gates |
+| `probe-root-esm-package-markers-core.mjs`        | Retired with the completed root ESM temp-copy rehearsal CLI; current proof uses the live root checks above                                                                             |
 
 `tools/coverage/` is not an active tool; it is a local artifact directory.
