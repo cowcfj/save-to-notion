@@ -105,7 +105,6 @@ const nativeEsmCrossLaneSentinelEntries = [
 
 const nativeDefaultOwnerPathEntries = [
   '<rootDir>/tests/contract/native-default/ci/nativeDefaultRunnerContract.test.mjs',
-  '<rootDir>/tests/contract/native-default/ci/report-native-default-runner-blockers.test.mjs',
   '<rootDir>/tests/integration/native-default/background/background-require.integration.test.mjs',
   '<rootDir>/tests/unit/native-default/config/env.test.mjs',
   '<rootDir>/tests/unit/native-default/config/messages.test.js',
@@ -173,22 +172,11 @@ describe('native default Jest runner contract', () => {
     }
   });
 
-  test('native blocker classifier is diagnostic-only and writes under native-default coverage artifacts', () => {
+  test('native blocker classifier script is retired from active package scripts', () => {
     const scripts = readPackageScripts();
 
-    expect(scripts['test:native:blockers']).toBe(
-      'node tools/report-native-default-runner-blockers.mjs --summary-json coverage/native-default/blocker-classification-summary.json --summary-md coverage/native-default/blocker-classification-summary.md'
-    );
-    expect(scripts['test:native:blockers']).toContain(
-      '--summary-json coverage/native-default/blocker-classification-summary.json'
-    );
-    expect(scripts['test:native:blockers']).toContain(
-      '--summary-md coverage/native-default/blocker-classification-summary.md'
-    );
-    expect(scripts['test:native:blockers']).toContain('coverage/native-default/');
-    expect(scripts['test:native:blockers']).not.toContain('docs/reports/');
-    expect(scripts['test:native:blockers']).not.toContain('coverage/native-esm/lcov.info');
-    expect(scripts['test:native:blockers']).not.toContain('jest ');
+    expect(scripts).not.toHaveProperty('test:native:blockers');
+    expect(Object.values(scripts).join('\n')).not.toContain('report-native-default-runner-blockers');
     expect(scripts.test).toBe('jest --config jest.config.js');
     expect(scripts['test:quick']).toBe('jest --config jest.config.js --onlyChanged');
     expect(scripts['test:coverage']).toBe('npm run test:coverage:native-esm:assert');
