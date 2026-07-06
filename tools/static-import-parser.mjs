@@ -1,7 +1,17 @@
 const IDENTIFIER_PART_PATTERN = /[\dA-Z_a-z$]/;
+const QUOTED_CONTENT_DELIMITERS = new Set(['"', "'", '`']);
+const IMPORT_SPECIFIER_DELIMITERS = new Set(['"', "'"]);
 
 function isIdentifierPart(char) {
   return Boolean(char && IDENTIFIER_PART_PATTERN.test(char));
+}
+
+function isQuotedContentDelimiter(char) {
+  return QUOTED_CONTENT_DELIMITERS.has(char);
+}
+
+function isImportSpecifierDelimiter(char) {
+  return IMPORT_SPECIFIER_DELIMITERS.has(char);
 }
 
 function hasKeywordAt(sourceText, index, keyword) {
@@ -20,6 +30,18 @@ function skipLineComment(sourceText, index) {
 function skipBlockComment(sourceText, index) {
   const endIndex = sourceText.indexOf('*/', index + 2);
   return endIndex === -1 ? sourceText.length : endIndex + 2;
+}
+
+function skipComment(sourceText, index) {
+  if (sourceText.startsWith('//', index)) {
+    return skipLineComment(sourceText, index);
+  }
+
+  if (sourceText.startsWith('/*', index)) {
+    return skipBlockComment(sourceText, index);
+  }
+
+  return index;
 }
 
 function skipQuotedContent(sourceText, index) {
@@ -43,15 +65,12 @@ function skipQuotedContent(sourceText, index) {
 }
 
 function skipIgnoredContent(sourceText, index) {
-  if (sourceText.startsWith('//', index)) {
-    return skipLineComment(sourceText, index);
+  const commentEndIndex = skipComment(sourceText, index);
+  if (commentEndIndex !== index) {
+    return commentEndIndex;
   }
 
-  if (sourceText.startsWith('/*', index)) {
-    return skipBlockComment(sourceText, index);
-  }
-
-  if (sourceText[index] === '"' || sourceText[index] === "'" || sourceText[index] === '`') {
+  if (isQuotedContentDelimiter(sourceText[index])) {
     return skipQuotedContent(sourceText, index);
   }
 
@@ -67,12 +86,7 @@ function skipWhitespaceAndComments(sourceText, index) {
       continue;
     }
 
-    const nextCursor = sourceText.startsWith('//', cursor)
-      ? skipLineComment(sourceText, cursor)
-      : sourceText.startsWith('/*', cursor)
-        ? skipBlockComment(sourceText, cursor)
-        : cursor;
-
+    const nextCursor = skipComment(sourceText, cursor);
     if (nextCursor === cursor) {
       return cursor;
     }
@@ -89,7 +103,7 @@ function firstCodeIndex(sourceText) {
 
 function readQuotedSpecifier(sourceText, index) {
   const quote = sourceText[index];
-  if (quote !== '"' && quote !== "'") {
+  if (!isImportSpecifierDelimiter(quote)) {
     return null;
   }
 
@@ -159,22 +173,24 @@ export function hasOpenStaticDeclaration(statement) {
   let openBraces = 0;
   let closeBraces = 0;
   let codeText = '';
+  let cursor = 0;
 
-  for (let index = 0; index < statement.length; index += 1) {
-    const nextIndex = skipIgnoredContent(statement, index);
-    if (nextIndex !== index) {
+  while (cursor < statement.length) {
+    const nextCursor = skipIgnoredContent(statement, cursor);
+    if (nextCursor !== cursor) {
       codeText += ' ';
-      index = nextIndex - 1;
+      cursor = nextCursor;
       continue;
     }
 
-    if (statement[index] === '{') {
+    if (statement[cursor] === '{') {
       openBraces += 1;
-    } else if (statement[index] === '}') {
+    } else if (statement[cursor] === '}') {
       closeBraces += 1;
     }
 
-    codeText += statement[index];
+    codeText += statement[cursor];
+    cursor += 1;
   }
 
   const trimmed = codeText.trimEnd();
@@ -215,22 +231,27 @@ export function readStaticSpecifier(fragment) {
 }
 
 function readFromSpecifier(fragment) {
-  for (let index = 0; index < fragment.length; index += 1) {
-    const nextIndex = skipIgnoredContent(fragment, index);
-    if (nextIndex !== index) {
-      index = nextIndex - 1;
+  let cursor = 0;
+
+  while (cursor < fragment.length) {
+    const nextCursor = skipIgnoredContent(fragment, cursor);
+    if (nextCursor !== cursor) {
+      cursor = nextCursor;
       continue;
     }
 
-    if (!hasKeywordAt(fragment, index, 'from')) {
+    if (!hasKeywordAt(fragment, cursor, 'from')) {
+      cursor += 1;
       continue;
     }
 
-    const specifierIndex = skipWhitespaceAndComments(fragment, index + 'from'.length);
+    const specifierIndex = skipWhitespaceAndComments(fragment, cursor + 'from'.length);
     const specifier = readQuotedSpecifier(fragment, specifierIndex);
     if (specifier) {
       return specifier;
     }
+
+    cursor += 1;
   }
 
   return null;
@@ -239,18 +260,21 @@ function readFromSpecifier(fragment) {
 function splitStaticStatements(statement) {
   const fragments = [];
   let fragmentStart = 0;
+  let cursor = 0;
 
-  for (let index = 0; index < statement.length; index += 1) {
-    const nextIndex = skipIgnoredContent(statement, index);
-    if (nextIndex !== index) {
-      index = nextIndex - 1;
+  while (cursor < statement.length) {
+    const nextCursor = skipIgnoredContent(statement, cursor);
+    if (nextCursor !== cursor) {
+      cursor = nextCursor;
       continue;
     }
 
-    if (statement[index] === ';') {
-      fragments.push(statement.slice(fragmentStart, index));
-      fragmentStart = index + 1;
+    if (statement[cursor] === ';') {
+      fragments.push(statement.slice(fragmentStart, cursor));
+      fragmentStart = cursor + 1;
     }
+
+    cursor += 1;
   }
 
   fragments.push(statement.slice(fragmentStart));
@@ -264,23 +288,27 @@ export function extractImportSpecifiers(statement) {
 }
 
 function findStaticDeclarationEnd(sourceText, startIndex) {
-  for (let index = startIndex; index < sourceText.length; index += 1) {
-    const nextIndex = skipIgnoredContent(sourceText, index);
-    if (nextIndex !== index) {
-      index = nextIndex - 1;
+  let cursor = startIndex;
+
+  while (cursor < sourceText.length) {
+    const nextCursor = skipIgnoredContent(sourceText, cursor);
+    if (nextCursor !== cursor) {
+      cursor = nextCursor;
       continue;
     }
 
-    if (sourceText[index] === ';') {
-      return index + 1;
+    if (sourceText[cursor] === ';') {
+      return cursor + 1;
     }
 
     if (
-      sourceText[index] === '\n' &&
-      !hasOpenStaticDeclaration(sourceText.slice(startIndex, index))
+      sourceText[cursor] === '\n' &&
+      !hasOpenStaticDeclaration(sourceText.slice(startIndex, cursor))
     ) {
-      return index;
+      return cursor;
     }
+
+    cursor += 1;
   }
 
   return sourceText.length;
@@ -288,21 +316,23 @@ function findStaticDeclarationEnd(sourceText, startIndex) {
 
 export function parseStaticImports(sourceText) {
   const specifiers = [];
+  let cursor = 0;
 
-  for (let index = 0; index < sourceText.length; index += 1) {
-    const nextIndex = skipIgnoredContent(sourceText, index);
-    if (nextIndex !== index) {
-      index = nextIndex - 1;
+  while (cursor < sourceText.length) {
+    const nextCursor = skipIgnoredContent(sourceText, cursor);
+    if (nextCursor !== cursor) {
+      cursor = nextCursor;
       continue;
     }
 
-    if (!isStaticDeclarationAt(sourceText, index)) {
+    if (!isStaticDeclarationAt(sourceText, cursor)) {
+      cursor += 1;
       continue;
     }
 
-    const endIndex = findStaticDeclarationEnd(sourceText, index);
-    specifiers.push(...extractImportSpecifiers(sourceText.slice(index, endIndex)));
-    index = endIndex - 1;
+    const endIndex = findStaticDeclarationEnd(sourceText, cursor);
+    specifiers.push(...extractImportSpecifiers(sourceText.slice(cursor, endIndex)));
+    cursor = endIndex;
   }
 
   return specifiers.filter(Boolean);
