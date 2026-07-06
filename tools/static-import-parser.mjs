@@ -194,11 +194,14 @@ export function hasOpenStaticDeclaration(statement) {
   }
 
   const trimmed = codeText.trimEnd();
+  const hasCompleteStaticImport =
+    startsStaticImportDeclaration(statement) && readStaticImportSpecifier(statement);
   return (
     openBraces > closeBraces ||
-    /\bfrom\s*$/.test(trimmed) ||
-    /,\s*$/.test(trimmed) ||
-    (startsStaticImportDeclaration(codeText) && !readStaticImportSpecifier(codeText))
+    (!hasCompleteStaticImport &&
+      (/\bfrom\s*$/.test(trimmed) ||
+        /,\s*$/.test(trimmed) ||
+        startsStaticImportDeclaration(statement)))
   );
 }
 
