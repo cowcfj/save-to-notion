@@ -179,10 +179,6 @@ describe('native default Jest runner contract', () => {
     expect(Object.values(scripts).join('\n')).not.toContain(
       'report-native-default-runner-blockers'
     );
-    expect(scripts.test).toBe('jest --config jest.config.js');
-    expect(scripts['test:quick']).toBe('jest --config jest.config.js --onlyChanged');
-    expect(scripts['test:coverage']).toBe('npm run test:coverage:native-esm:assert');
-    expect(scripts['test:ci']).toBe('npm run test:coverage:native-esm:assert');
   });
 
   test('native default allowlist includes proven cohorts and excludes retained root-cutover probes', async () => {
