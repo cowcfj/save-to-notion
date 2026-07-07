@@ -32,6 +32,7 @@ describe('TabService verification and deletion confirmation', () => {
         'https://example.com',
         expect.objectContaining({ lastVerifiedAt: expect.any(Number) })
       );
+      expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '✓', tabId: 1 });
     });
 
     it('should clear local state only after two consecutive false checks', async () => {
@@ -173,23 +174,6 @@ describe('TabService verification and deletion confirmation', () => {
           pageId: 'page',
           action: 'autoSyncLocalState',
         })
-      );
-      expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '✓', tabId: 1 });
-    });
-
-    it('should update lastVerifiedAt if page remains true', async () => {
-      const expiredData = {
-        notionPageId: 'page-123',
-        lastVerifiedAt: Date.now() - 70_000,
-      };
-      service.getSavedPageData = jest.fn().mockResolvedValue(expiredData);
-      service.checkPageExists = jest.fn().mockResolvedValue(true);
-
-      await service.updateTabStatus(1, 'https://example.com');
-
-      expect(service.setSavedPageData).toHaveBeenCalledWith(
-        'https://example.com',
-        expect.objectContaining({ lastVerifiedAt: expect.any(Number) })
       );
       expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '✓', tabId: 1 });
     });

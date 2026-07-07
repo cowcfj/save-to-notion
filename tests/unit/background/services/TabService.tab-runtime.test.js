@@ -67,36 +67,30 @@ describe('TabService tab runtime', () => {
       expect(res).toBeNull();
     });
 
-    it('應該處理標籤頁更新事件', async () => {
+    it.each([
+      {
+        name: '更新事件',
+        getAddListener: () => chrome.tabs.onUpdated.addListener,
+        trigger: listener => listener(1, { status: 'complete' }),
+        assertResult: res => expect(res.status).toBe('complete'),
+      },
+      {
+        name: '移除事件',
+        getAddListener: () => chrome.tabs.onRemoved.addListener,
+        trigger: listener => listener(1),
+        assertResult: res => expect(res).toBeNull(),
+      },
+    ])('應該處理標籤頁$name', async ({ getAddListener, trigger, assertResult }) => {
       chrome.tabs.get.mockResolvedValue({ id: 1, status: 'loading' });
 
-      const { listener, promise } = await waitForCompilationListener(
-        chrome.tabs.onUpdated.addListener
-      );
+      const { listener, promise } = await waitForCompilationListener(getAddListener());
 
-      // 觸發更新
       if (typeof listener === 'function') {
-        listener(1, { status: 'complete' });
+        trigger(listener);
       }
 
       const res = await promise;
-      expect(res.status).toBe('complete');
-    });
-
-    it('應該處理標籤頁移除事件', async () => {
-      chrome.tabs.get.mockResolvedValue({ id: 1, status: 'loading' });
-
-      const { listener, promise } = await waitForCompilationListener(
-        chrome.tabs.onRemoved.addListener
-      );
-
-      // 觸發移除
-      if (typeof listener === 'function') {
-        listener(1);
-      }
-
-      const res = await promise;
-      expect(res).toBeNull();
+      assertResult(res);
     });
 
     it('應該在超時後返回 null', async () => {
