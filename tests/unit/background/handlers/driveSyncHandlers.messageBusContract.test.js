@@ -40,21 +40,24 @@ const driveAlarmSchedulerMockModule = {
   setupDriveAlarm: jest.fn(),
 };
 
-jest.unstable_mockModule('../../../../scripts/auth/driveClient.js', () => driveClientMockModule);
-jest.unstable_mockModule(
-  '../../../../scripts/sync/driveSnapshot.js',
-  () => driveSnapshotMockModule
-);
-jest.unstable_mockModule(
-  '../../../../scripts/background/handlers/driveAlarmScheduler.js',
-  () => driveAlarmSchedulerMockModule
-);
-jest.doMock('../../../../scripts/auth/driveClient.js', () => driveClientMockModule);
-jest.doMock('../../../../scripts/sync/driveSnapshot.js', () => driveSnapshotMockModule);
-jest.doMock(
-  '../../../../scripts/background/handlers/driveAlarmScheduler.js',
-  () => driveAlarmSchedulerMockModule
-);
+if (process.env.NODE_OPTIONS?.includes('--experimental-vm-modules')) {
+  jest.unstable_mockModule('../../../../scripts/auth/driveClient.js', () => driveClientMockModule);
+  jest.unstable_mockModule(
+    '../../../../scripts/sync/driveSnapshot.js',
+    () => driveSnapshotMockModule
+  );
+  jest.unstable_mockModule(
+    '../../../../scripts/background/handlers/driveAlarmScheduler.js',
+    () => driveAlarmSchedulerMockModule
+  );
+} else {
+  jest.mock('../../../../scripts/auth/driveClient.js', () => driveClientMockModule);
+  jest.mock('../../../../scripts/sync/driveSnapshot.js', () => driveSnapshotMockModule);
+  jest.mock(
+    '../../../../scripts/background/handlers/driveAlarmScheduler.js',
+    () => driveAlarmSchedulerMockModule
+  );
+}
 
 let RUNTIME_ACTIONS;
 let createDriveSyncHandlers;
