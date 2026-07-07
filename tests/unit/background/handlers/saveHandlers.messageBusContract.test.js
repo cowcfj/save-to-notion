@@ -2,18 +2,17 @@
  * @jest-environment jsdom
  */
 
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-
 import {
   createSaveHandlersTestContext,
   setupDefaultActionMocks,
   validSender,
 } from './saveHandlers.shared.js';
 import { buildCreatePageResult, buildSavedPageData } from './saveHandlersTestHarness.js';
-
-const messageBusPath = path.resolve(process.cwd(), '.agents/.shared/knowledge/message_bus.json');
-const messageBus = JSON.parse(readFileSync(messageBusPath, 'utf8'));
+import {
+  expectActionResponseDeclares,
+  expectResponseHasFields,
+  loadMessageBusContract,
+} from './messageBusContractTestUtils.js';
 
 const SAVE_SUCCESS_CONTRACT_FIELDS = [
   'success',
@@ -33,34 +32,11 @@ const CHECK_STATUS_CONTRACT_FIELDS = [
   'notionUrl',
 ];
 
+const OPEN_NOTION_PAGE_CONTRACT_FIELDS = ['success', 'tabId'];
+const OPEN_NOTION_PAGE_ERROR_FIELDS = ['success', 'error'];
+
 function getLastResponse(sendResponse) {
   return sendResponse.mock.calls.at(-1)?.[0];
-}
-
-function isRecord(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function expectJsonContractDeclares(actionName, fields) {
-  if (!Object.hasOwn(messageBus.actions.save, actionName)) {
-    throw new Error(`message_bus.json actions.save.${actionName} is missing`);
-  }
-
-  const responseContract = messageBus.actions.save[actionName].response;
-
-  if (!isRecord(responseContract)) {
-    throw new Error(`message_bus.json actions.save.${actionName}.response must be an object`);
-  }
-
-  for (const field of fields) {
-    expect(responseContract).toHaveProperty(field);
-  }
-}
-
-function expectResponseHasFields(response, fields) {
-  for (const field of fields) {
-    expect(response).toHaveProperty(field);
-  }
 }
 
 function createRailSender() {
@@ -79,7 +55,7 @@ describe('saveHandlers message_bus.json response contracts', () => {
   });
 
   test('contract helper reports missing save action by name', () => {
-    expect(() => expectJsonContractDeclares('missingSaveAction', ['success'])).toThrow(
+    expect(() => expectActionResponseDeclares('save', 'missingSaveAction', ['success'])).toThrow(
       /missingSaveAction/
     );
   });
@@ -97,7 +73,7 @@ describe('saveHandlers message_bus.json response contracts', () => {
     await context.handlers.savePage({}, validSender, sendResponse);
 
     const response = getLastResponse(sendResponse);
-    expectJsonContractDeclares('savePage', SAVE_SUCCESS_CONTRACT_FIELDS);
+    expectActionResponseDeclares('save', 'savePage', SAVE_SUCCESS_CONTRACT_FIELDS);
     expectResponseHasFields(response, SAVE_SUCCESS_CONTRACT_FIELDS);
     expect(response).toEqual(
       expect.objectContaining({
@@ -120,6 +96,7 @@ describe('saveHandlers message_bus.json response contracts', () => {
     await context.handlers.savePage({ profileId: 'missing' }, validSender, sendResponse);
 
     const response = getLastResponse(sendResponse);
+    const messageBus = loadMessageBusContract();
     expect(messageBus.actions.save.savePage.response).toHaveProperty('error');
     expect(messageBus.actions.save.savePage.response).toHaveProperty('errorCode');
     expect(response).toEqual(
@@ -145,7 +122,7 @@ describe('saveHandlers message_bus.json response contracts', () => {
     await context.handlers.checkPageStatus({}, validSender, sendResponse);
 
     const response = getLastResponse(sendResponse);
-    expectJsonContractDeclares('checkPageStatus', CHECK_STATUS_CONTRACT_FIELDS);
+    expectActionResponseDeclares('save', 'checkPageStatus', CHECK_STATUS_CONTRACT_FIELDS);
     expectResponseHasFields(response, CHECK_STATUS_CONTRACT_FIELDS);
     expect(response).toEqual(
       expect.objectContaining({
@@ -172,7 +149,7 @@ describe('saveHandlers message_bus.json response contracts', () => {
     await context.handlers.SAVE_PAGE_FROM_RAIL({}, createRailSender(), sendResponse);
 
     const response = getLastResponse(sendResponse);
-    expectJsonContractDeclares('SAVE_PAGE_FROM_RAIL', SAVE_SUCCESS_CONTRACT_FIELDS);
+    expectActionResponseDeclares('save', 'SAVE_PAGE_FROM_RAIL', SAVE_SUCCESS_CONTRACT_FIELDS);
     expectResponseHasFields(response, SAVE_SUCCESS_CONTRACT_FIELDS);
     expect(response).toEqual(
       expect.objectContaining({
@@ -192,6 +169,7 @@ describe('saveHandlers message_bus.json response contracts', () => {
     await context.handlers.SAVE_PAGE_FROM_RAIL({}, { id: 'mock-extension-id' }, sendResponse);
 
     const response = getLastResponse(sendResponse);
+    const messageBus = loadMessageBusContract();
     expect(messageBus.actions.save.SAVE_PAGE_FROM_RAIL.response).toHaveProperty('success');
     expect(messageBus.actions.save.SAVE_PAGE_FROM_RAIL.response).toHaveProperty('error');
     expect(response).toEqual(
@@ -200,5 +178,61 @@ describe('saveHandlers message_bus.json response contracts', () => {
         error: expect.any(String),
       })
     );
+  });
+
+  test('openNotionPage success response matches navigation contract fields', async () => {
+    const sendResponse = jest.fn();
+    context.mockServices.storageService.getSavedPageData.mockResolvedValue(
+      buildSavedPageData({
+        notionPageId: 'open-page-123',
+        notionUrl: 'https://notion.so/open-page-123',
+      })
+    );
+    chrome.tabs.create.mockResolvedValue({ id: 99 });
+
+    await context.handlers.openNotionPage(
+      { url: 'https://example.com' },
+      validSender,
+      sendResponse
+    );
+
+    const response = getLastResponse(sendResponse);
+    expectActionResponseDeclares('save', 'openNotionPage', OPEN_NOTION_PAGE_CONTRACT_FIELDS);
+    expectResponseHasFields(response, OPEN_NOTION_PAGE_CONTRACT_FIELDS);
+    expect(response).toEqual(
+      expect.objectContaining({
+        success: true,
+        tabId: 99,
+      })
+    );
+  });
+
+  test('openNotionPage missing saved page keeps error envelope contract', async () => {
+    const sendResponse = jest.fn();
+    context.mockServices.tabService.resolveTabUrl.mockResolvedValue({
+      stableUrl: 'https://example.com/stable',
+      originalUrl: 'https://example.com/original',
+      migrated: false,
+    });
+    context.mockServices.storageService.getSavedPageData
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+
+    await context.handlers.openNotionPage(
+      { url: 'https://example.com/stable' },
+      validSender,
+      sendResponse
+    );
+
+    const response = getLastResponse(sendResponse);
+    expectActionResponseDeclares('save', 'openNotionPage', OPEN_NOTION_PAGE_ERROR_FIELDS);
+    expectResponseHasFields(response, OPEN_NOTION_PAGE_ERROR_FIELDS);
+    expect(response).toEqual(
+      expect.objectContaining({
+        success: false,
+        error: expect.any(String),
+      })
+    );
+    expect(chrome.tabs.create).not.toHaveBeenCalled();
   });
 });
