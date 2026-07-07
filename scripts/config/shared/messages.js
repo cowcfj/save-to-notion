@@ -74,7 +74,9 @@ const OPTIONS = {
     SELECTOR_TOGGLE_ARIA_LABEL: '切換資料來源選單',
     REFRESH_TITLE: '重新整理',
     LOADING_INLINE: '載入中...',
+
     FALLBACK_OPTION: '選擇資料來源...',
+    FALLBACK_LABEL: '選擇資料庫',
     DEFAULT_PROFILE_NAME: BACKGROUND_MESSAGES.DESTINATION_PROFILE.DEFAULT_PROFILE_NAME,
     DEFAULT_NAME: suffix => `保存目標 ${suffix}`,
     PROFILE_NAME_REQUIRED: '保存目標名稱不可為空白。',
@@ -122,6 +124,9 @@ const OPTIONS = {
   SETTINGS: {
     SAVE_BUTTON: '儲存設定',
     VALIDATE_AND_SAVE_API_KEY: '驗證並保存',
+  },
+  DATA_MANAGEMENT: {
+    IMPORT_FILE_LABEL: '選擇備份檔案',
   },
   DIAGNOSTICS: {
     ENABLE_DEBUG_LOGS_LABEL: '啟用除錯日誌 (Debug Logs)',
