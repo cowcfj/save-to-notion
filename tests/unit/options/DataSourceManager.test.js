@@ -597,13 +597,11 @@ describe('DataSourceManager', () => {
     });
 
     test('無注入 getApiKey 時，應拋出 TypeError', () => {
-      expect(() => {
-        new DataSourceManager(mockUiManager, null);
-      }).toThrow(TypeError);
+      expect(() => new DataSourceManager(mockUiManager, null)).toThrow(TypeError);
 
-      expect(() => {
-        new DataSourceManager(mockUiManager);
-      }).toThrow('DataSourceManager 需要 getApiKey 函式');
+      expect(() => new DataSourceManager(mockUiManager)).toThrow(
+        'DataSourceManager 需要 getApiKey 函式'
+      );
     });
 
     test.each([
