@@ -77,23 +77,31 @@ if (typeof jest.unstable_mockModule === 'function') {
   jest.unstable_mockModule('../../../../scripts/utils/urlUtils.js', () => mockUrlUtils);
 }
 
-export let TabService;
-export let _migrationScript;
-export let URL_ALIAS_PREFIX;
-export let PAGE_PREFIX;
-export let HIGHLIGHTS_PREFIX;
-export let sanitizeUrlForLogging;
-export let Logger;
-export let urlUtils;
+export const loadedTabServiceModules = {
+  TabService: null,
+  _migrationScript: null,
+  URL_ALIAS_PREFIX: null,
+  PAGE_PREFIX: null,
+  HIGHLIGHTS_PREFIX: null,
+  sanitizeUrlForLogging: null,
+  Logger: null,
+  urlUtils: null,
+};
 
 beforeAll(async () => {
-  ({ TabService, _migrationScript } =
-    await import('../../../../scripts/background/services/TabService.js'));
-  ({ URL_ALIAS_PREFIX, PAGE_PREFIX, HIGHLIGHTS_PREFIX } =
-    await import('../../../../scripts/config/shared/storage.js'));
-  ({ sanitizeUrlForLogging } = await import('../../../../scripts/utils/LogSanitizer.js'));
-  ({ default: Logger } = await import('../../../../scripts/utils/Logger.js'));
-  urlUtils = await import('../../../../scripts/utils/urlUtils.js');
+  const tabServiceModule = await import('../../../../scripts/background/services/TabService.js');
+  const storageModule = await import('../../../../scripts/config/shared/storage.js');
+  const logSanitizerModule = await import('../../../../scripts/utils/LogSanitizer.js');
+  const loggerModule = await import('../../../../scripts/utils/Logger.js');
+
+  loadedTabServiceModules.TabService = tabServiceModule.TabService;
+  loadedTabServiceModules._migrationScript = tabServiceModule._migrationScript;
+  loadedTabServiceModules.URL_ALIAS_PREFIX = storageModule.URL_ALIAS_PREFIX;
+  loadedTabServiceModules.PAGE_PREFIX = storageModule.PAGE_PREFIX;
+  loadedTabServiceModules.HIGHLIGHTS_PREFIX = storageModule.HIGHLIGHTS_PREFIX;
+  loadedTabServiceModules.sanitizeUrlForLogging = logSanitizerModule.sanitizeUrlForLogging;
+  loadedTabServiceModules.Logger = loggerModule.default;
+  loadedTabServiceModules.urlUtils = await import('../../../../scripts/utils/urlUtils.js');
 });
 
 globalThis.chrome = {
@@ -148,7 +156,7 @@ export const mockInjectionService = {
 };
 
 export const createTabService = (overrides = {}) =>
-  new TabService({
+  new loadedTabServiceModules.TabService({
     logger: mockLogger,
     injectionService: mockInjectionService,
     normalizeUrl: url => url,

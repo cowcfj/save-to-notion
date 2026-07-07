@@ -7,17 +7,19 @@
 
 import { jest } from '@jest/globals';
 import {
-  URL_ALIAS_PREFIX,
   createTabService,
+  loadedTabServiceModules,
   mockLogger,
   resetTabServiceTestState,
-  urlUtils,
 } from './tabServiceTestHarness.js';
 
 describe('TabService URL resolution and preloader behavior', () => {
+  let URL_ALIAS_PREFIX = null;
+  let urlUtils = null;
   let service = null;
 
   beforeEach(() => {
+    ({ URL_ALIAS_PREFIX, urlUtils } = loadedTabServiceModules);
     resetTabServiceTestState();
     service = createTabService();
   });

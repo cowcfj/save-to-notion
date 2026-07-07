@@ -7,22 +7,25 @@
 
 import { jest } from '@jest/globals';
 import {
-  HIGHLIGHTS_PREFIX,
-  PAGE_PREFIX,
-  URL_ALIAS_PREFIX,
   buildHighlight,
   buildPageRecord,
   createTabService,
+  loadedTabServiceModules,
   mockInjectionService,
   mockLogger,
   resetTabServiceTestState,
-  sanitizeUrlForLogging,
 } from './tabServiceTestHarness.js';
 
 describe('TabService status updates', () => {
+  let HIGHLIGHTS_PREFIX = null;
+  let PAGE_PREFIX = null;
+  let URL_ALIAS_PREFIX = null;
+  let sanitizeUrlForLogging = null;
   let service = null;
 
   beforeEach(() => {
+    ({ HIGHLIGHTS_PREFIX, PAGE_PREFIX, URL_ALIAS_PREFIX, sanitizeUrlForLogging } =
+      loadedTabServiceModules);
     resetTabServiceTestState();
     service = createTabService();
   });

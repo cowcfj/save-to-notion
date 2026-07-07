@@ -40,6 +40,20 @@ describe('TabService tab runtime', () => {
       await Promise.resolve();
     };
 
+    const waitForCompilationListener = async addListener => {
+      let listener = null;
+      addListener.mockImplementation(cb => {
+        listener = cb;
+      });
+
+      const promise = service._waitForTabCompilation(1);
+
+      // 等待非同步操作推進到監聽器註冊階段
+      await flushMicrotasks();
+
+      return { listener, promise };
+    };
+
     it('應該在標籤頁已完成載入時直接返回', async () => {
       chrome.tabs.get.mockResolvedValue({ id: 1, status: 'complete' });
       const res = await service._waitForTabCompilation(1);
@@ -56,19 +70,13 @@ describe('TabService tab runtime', () => {
     it('應該處理標籤頁更新事件', async () => {
       chrome.tabs.get.mockResolvedValue({ id: 1, status: 'loading' });
 
-      let updateCallback;
-      chrome.tabs.onUpdated.addListener.mockImplementation(cb => {
-        updateCallback = cb;
-      });
-
-      const promise = service._waitForTabCompilation(1);
-
-      // 等待非同步操作推進到監聽器註冊階段
-      await flushMicrotasks();
+      const { listener, promise } = await waitForCompilationListener(
+        chrome.tabs.onUpdated.addListener
+      );
 
       // 觸發更新
-      if (typeof updateCallback === 'function') {
-        updateCallback(1, { status: 'complete' });
+      if (typeof listener === 'function') {
+        listener(1, { status: 'complete' });
       }
 
       const res = await promise;
@@ -78,19 +86,13 @@ describe('TabService tab runtime', () => {
     it('應該處理標籤頁移除事件', async () => {
       chrome.tabs.get.mockResolvedValue({ id: 1, status: 'loading' });
 
-      let removeCallback;
-      chrome.tabs.onRemoved.addListener.mockImplementation(cb => {
-        removeCallback = cb;
-      });
-
-      const promise = service._waitForTabCompilation(1);
-
-      // 等待非同步操作推進到監聽器註冊階段
-      await flushMicrotasks();
+      const { listener, promise } = await waitForCompilationListener(
+        chrome.tabs.onRemoved.addListener
+      );
 
       // 觸發移除
-      if (typeof removeCallback === 'function') {
-        removeCallback(1);
+      if (typeof listener === 'function') {
+        listener(1);
       }
 
       const res = await promise;

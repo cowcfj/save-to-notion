@@ -7,18 +7,20 @@
 
 import { jest } from '@jest/globals';
 import {
-  TabService,
-  Logger,
   createTabService,
+  loadedTabServiceModules,
   mockInjectionService,
   mockLogger,
   resetTabServiceTestState,
 } from './tabServiceTestHarness.js';
 
 describe('TabService constructor', () => {
+  let TabService = null;
+  let Logger = null;
   let service = null;
 
   beforeEach(() => {
+    ({ TabService, Logger } = loadedTabServiceModules);
     resetTabServiceTestState();
     service = createTabService();
   });
