@@ -39,11 +39,13 @@ describe('tools/check-size-gates.mjs', () => {
     contentSize,
     backgroundSize,
     migrationSize,
+    preloaderSize = 1024,
     unpackedSize,
   }) => {
     writeSizedFile(path.join(rootDir, 'dist/content.bundle.js'), contentSize);
     writeSizedFile(path.join(rootDir, 'dist/scripts/background.js'), backgroundSize);
     writeSizedFile(path.join(rootDir, 'dist/migration-executor.js'), migrationSize);
+    writeSizedFile(path.join(rootDir, 'dist/preloader.js'), preloaderSize);
 
     const unpackedDir = path.join(rootDir, '.tmp/extension-unpacked');
     writeSizedFile(path.join(unpackedDir, 'manifest.json'), 512);
@@ -65,6 +67,7 @@ describe('tools/check-size-gates.mjs', () => {
     contentSize = 1024,
     backgroundSize = 1024,
     migrationSize = 1024,
+    preloaderSize = 1024,
     unpackedSize = 2048,
   }) => {
     const { unpackedDir, reportPath } = createBundleRoot({
@@ -72,6 +75,7 @@ describe('tools/check-size-gates.mjs', () => {
       contentSize,
       backgroundSize,
       migrationSize,
+      preloaderSize,
       unpackedSize,
     });
 
@@ -172,6 +176,36 @@ describe('tools/check-size-gates.mjs', () => {
     );
   });
 
+  test('hard mode 應在 preloader bundle 超過 hard cap 時失敗', () => {
+    const rootDir = path.join(tempRoot, 'current');
+    const { unpackedDir } = createBundleRoot({
+      rootDir,
+      contentSize: 1024,
+      backgroundSize: 1024,
+      migrationSize: 1024,
+      preloaderSize: 8193,
+      unpackedSize: 2048,
+    });
+
+    let thrownError;
+    try {
+      runCli([
+        '--mode=hard',
+        '--scope=bundle',
+        `--root=${rootDir}`,
+        `--unpacked-dir=${unpackedDir}`,
+      ]);
+    } catch (error) {
+      thrownError = error;
+    }
+
+    expect(thrownError).toBeDefined();
+    expect(`${thrownError.stdout}${thrownError.stderr}`).toMatch(/preloader\.js/);
+    expect(`${thrownError.stdout}${thrownError.stderr}`).toMatch(
+      /preloader\.js 超過硬性上限/
+    );
+  });
+
   const contentBundleHardPassCases = [
     ['pre-DOMPurify CI 回歸值', 257_170],
     ['DOMPurify sanitizer baseline', 283_783],
@@ -203,6 +237,15 @@ describe('tools/check-size-gates.mjs', () => {
         hardLimit: 245_000,
       },
     },
+    {
+      name: 'preloader bundle 正好等於 hard cap',
+      sizes: { preloaderSize: 8192 },
+      checkKey: 'preloader_bundle',
+      expected: {
+        current: 8192,
+        hardLimit: 8192,
+      },
+    },
   ])('[REGRESSION] hard mode 應允許 $name 通過', ({ sizes, checkKey, expected }) => {
     expect.assertions(2);
 
@@ -213,6 +256,19 @@ describe('tools/check-size-gates.mjs', () => {
 
     expect(report.failed).toBe(false);
     expect(check).toEqual(expect.objectContaining({ status: 'pass', ...expected }));
+  });
+
+  test('[REGRESSION] bundle report 應涵蓋所有 production bundle targets', () => {
+    const report = runHardBundleReport({
+      rootDir: path.join(tempRoot, 'current'),
+    });
+
+    expect(report.checks.map(check => check.key)).toEqual([
+      'content_bundle',
+      'background_bundle',
+      'migration_bundle',
+      'preloader_bundle',
+    ]);
   });
 
   test('delta mode 應在增量超過門檻時失敗', () => {

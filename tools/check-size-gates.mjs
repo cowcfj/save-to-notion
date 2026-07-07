@@ -35,6 +35,14 @@ const BUDGETS = Object.freeze({
       hardLimit: 32_768,
       deltaLimit: 4_096,
     },
+    {
+      key: 'preloader_bundle',
+      label: 'preloader.js',
+      type: 'file',
+      relPath: 'dist/preloader.js',
+      hardLimit: 8_192,
+      deltaLimit: 2_048,
+    },
   ],
   package: [
     {
