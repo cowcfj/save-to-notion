@@ -2,6 +2,7 @@
  * @jest-environment jsdom
  */
 
+import { jest } from '@jest/globals';
 import Logger from '../../../../scripts/utils/Logger.js';
 import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
 import { NextJsExtractor } from '../../../../scripts/content/extractors/NextJsExtractor.js';
@@ -14,30 +15,6 @@ const HK01_ORIGIN = 'https://www.hk01.com';
 const HK01_ARTICLE_PATH = '/news/60330394/abc';
 const HK01_ARTICLE_URL = `${HK01_ORIGIN}${HK01_ARTICLE_PATH}`;
 const HK01_NEXT_DATA_URL = `${HK01_ORIGIN}/_next/data/${DEFAULT_NEXT_DATA_BUILD_ID}${HK01_ARTICLE_PATH}.json`;
-
-function hasUrlScheme(url) {
-  return /^[a-zA-Z][\w+.-]*:/.test(url);
-}
-
-function isRelativeUrl(url) {
-  return /^(?:[/?#]|\.\.?\/)/.test(url) || (!hasUrlScheme(url) && url.includes('/'));
-}
-
-function getMockBaseOrigin(baseOrigin) {
-  return baseOrigin || 'http://localhost';
-}
-
-function mockSanitizeUrlForLogging(url, baseOrigin = 'http://localhost') {
-  if (url == null || url === '') {
-    return '[empty-url]';
-  }
-
-  if (!hasUrlScheme(url) && !isRelativeUrl(url)) {
-    return '[invalid-url]';
-  }
-
-  return new URL(url, getMockBaseOrigin(baseOrigin)).toString();
-}
 
 const buildParagraphBlock = text => ({ blockType: 'paragraph', text });
 const buildParagraphBlocks = (...texts) => texts.map(text => buildParagraphBlock(text));
@@ -60,25 +37,6 @@ const getSanitizedPageContext = ({ page, asPath }, origin, currentPath) => ({
   asPath: sanitizeUrlForLogging(asPath, origin),
   currentPath: sanitizeUrlForLogging(currentPath, origin),
 });
-
-// Mock Logger to avoid cluttering test output
-jest.mock('../../../../scripts/utils/Logger.js', () => ({
-  __esModule: true,
-  default: {
-    log: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
-    info: jest.fn(),
-    start: jest.fn(),
-    ready: jest.fn(),
-    success: jest.fn(),
-  },
-}));
-
-jest.mock('../../../../scripts/utils/LogSanitizer.js', () => ({
-  sanitizeUrlForLogging: jest.fn(mockSanitizeUrlForLogging),
-}));
 
 describe('NextJsExtractor', () => {
   let mockDoc;
@@ -160,6 +118,10 @@ describe('NextJsExtractor', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+    jest.spyOn(Logger, 'info').mockImplementation(() => {});
+    jest.spyOn(Logger, 'debug').mockImplementation(() => {});
+    jest.spyOn(Logger, 'error').mockImplementation(() => {});
 
     mockDoc = {
       getElementById: jest.fn(),
@@ -167,6 +129,10 @@ describe('NextJsExtractor', () => {
       querySelectorAll: jest.fn().mockReturnValue([]),
       defaultView: { location: { origin: DEFAULT_ORIGIN, pathname: '/' } },
     };
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   describe('detect', () => {
@@ -896,8 +862,8 @@ describe('NextJsExtractor', () => {
       const mockEmptyDoc = {};
 
       const result = NextJsExtractor._resolvePageOriginAndPath(mockEmptyDoc);
-      expect(result.origin).toBe('http://localhost');
-      expect(result.pathname).toBe('/');
+      expect(result.origin).toBe(globalThis.location.origin);
+      expect(result.pathname).toBe(globalThis.location.pathname);
     });
   });
 });

@@ -2,18 +2,19 @@
  * @jest-environment jsdom
  */
 
+import { jest } from '@jest/globals';
 import * as NextJsDataResolver from '../../../../scripts/content/extractors/NextJsDataResolver.js';
 import { NEXTJS_CONFIG } from '../../../../scripts/config/shared/content.js';
 import Logger from '../../../../scripts/utils/Logger.js';
 
-jest.mock('../../../../scripts/utils/Logger.js', () => ({
-  __esModule: true,
-  default: require('../../../helpers/loggerMock.js').createLoggerMock(),
-}));
-
 describe('NextJsDataResolver getPagesRouterData logging', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('logs structured context when __NEXT_DATA__ is empty or too large', () => {

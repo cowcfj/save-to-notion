@@ -14,6 +14,47 @@ let _cachedIsDevelopment = null;
 let _cachedRuntimeId = null;
 let _cachedManifestReader = null;
 
+function resolveExtensionOrigin() {
+  const extensionBaseUrl = chrome?.runtime?.getURL?.('');
+  if (!extensionBaseUrl) {
+    return null;
+  }
+
+  try {
+    return new URL(extensionBaseUrl).origin;
+  } catch {
+    return null;
+  }
+}
+
+function resolveCurrentOrigin() {
+  const currentOrigin = globalThis.location?.origin;
+  return typeof currentOrigin === 'string' && currentOrigin.length > 0 ? currentOrigin : null;
+}
+
+function resolveRuntimeCacheInputs() {
+  const runtime = typeof chrome === 'undefined' ? null : chrome?.runtime;
+  return {
+    runtimeId: runtime?.id ?? null,
+    manifestReader: runtime?.getManifest ?? null,
+  };
+}
+
+function isDevelopmentCacheValid(runtimeId, manifestReader) {
+  return (
+    _cachedIsDevelopment !== null &&
+    runtimeId === _cachedRuntimeId &&
+    manifestReader === _cachedManifestReader
+  );
+}
+
+function cacheDevelopmentResult(isDevelopmentValue, runtimeId, manifestReader) {
+  _cachedIsDevelopment = isDevelopmentValue;
+  _cachedRuntimeId = runtimeId;
+  _cachedManifestReader = manifestReader;
+  return _cachedIsDevelopment;
+}
+
 /**
  * 檢測當前是否為擴充功能環境
  *
@@ -49,32 +90,18 @@ export function isContentContext() {
     return false;
   }
 
-  const extensionBaseUrl = chrome?.runtime?.getURL?.('');
-  if (!extensionBaseUrl) {
-    return true;
-  }
-
-  try {
-    const extensionOrigin = new URL(extensionBaseUrl).origin;
-    const currentOrigin = globalThis.location?.origin;
-    if (typeof currentOrigin === 'string' && currentOrigin.length > 0) {
-      return currentOrigin !== extensionOrigin;
-    }
-  } catch {
-    // 忽略 URL 解析錯誤，回退為 DOM 可用即視為 content
-  }
-
-  return true;
+  const extensionOrigin = resolveExtensionOrigin();
+  const currentOrigin = resolveCurrentOrigin();
+  return extensionOrigin && currentOrigin ? currentOrigin !== extensionOrigin : true;
 }
 
 /**
  * 檢測當前是否具備 CommonJS 模組語意（非完整 Node.js runtime 判斷）
  * 條件：typeof module !== 'undefined'、module.exports 存在且 globalThis.window 不存在
- * 命名備註：可視需求改名為 isCommonJSEnvironment
  *
  * @returns {boolean} 是否為 CommonJS-like 環境
  */
-export function isNodeEnvironment() {
+export function isCommonJSEnvironment() {
   return Boolean(
     typeof module !== 'undefined' && module.exports && globalThis.window === undefined
   );
@@ -87,40 +114,25 @@ export function isNodeEnvironment() {
  * @returns {boolean} 是否為開發模式
  */
 export function isDevelopment() {
-  const runtime = typeof chrome === 'undefined' ? null : chrome?.runtime;
-  const runtimeId = runtime?.id ?? null;
-  const manifestReader = runtime?.getManifest ?? null;
-  if (
-    _cachedIsDevelopment !== null &&
-    runtimeId === _cachedRuntimeId &&
-    manifestReader === _cachedManifestReader
-  ) {
+  const { runtimeId, manifestReader } = resolveRuntimeCacheInputs();
+  if (isDevelopmentCacheValid(runtimeId, manifestReader)) {
     return _cachedIsDevelopment;
   }
 
   if (!isExtensionContext()) {
-    _cachedIsDevelopment = false;
-    _cachedRuntimeId = runtimeId;
-    _cachedManifestReader = manifestReader;
-    return _cachedIsDevelopment;
+    return cacheDevelopmentResult(false, runtimeId, manifestReader);
   }
 
   try {
     const manifest = chrome.runtime.getManifest();
     const versionString = manifest.version_name || manifest.version || '';
-    _cachedIsDevelopment = /dev/i.test(versionString);
-    _cachedRuntimeId = runtimeId;
-    _cachedManifestReader = manifestReader;
-    return _cachedIsDevelopment;
+    return cacheDevelopmentResult(/dev/i.test(versionString), runtimeId, manifestReader);
   } catch (error) {
     // Logger Bootstrap 限制：此函數在 Logger.initDebugState() 執行過程中被調用，
     // 若此處使用 Logger，將形成循環依賴。必須使用 console 作為降級輸出。
     // skipcq: JS-0002
     console.error('[環境檢測] 無法讀取 manifest:', error);
-    _cachedIsDevelopment = false;
-    _cachedRuntimeId = runtimeId;
-    _cachedManifestReader = manifestReader;
-    return _cachedIsDevelopment;
+    return cacheDevelopmentResult(false, runtimeId, manifestReader);
   }
 }
 
@@ -143,7 +155,7 @@ export function getEnvironment() {
     isExtension: isExtensionContext(),
     isBackground: isBackgroundContext(),
     isContent: isContentContext(),
-    isNode: isNodeEnvironment(),
+    isCommonJS: isCommonJSEnvironment(),
     isDevelopment: isDevelopment(),
     isProduction: isProduction(),
   };
@@ -175,8 +187,8 @@ export const ENV = Object.freeze({
   get IS_CONTENT() {
     return isContentContext();
   },
-  get IS_NODE() {
-    return isNodeEnvironment();
+  get IS_COMMONJS() {
+    return isCommonJSEnvironment();
   },
   get IS_DEV() {
     return isDevelopment();

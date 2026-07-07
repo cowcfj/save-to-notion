@@ -4,8 +4,13 @@
  * 測試 scripts/utils/ApiErrorSanitizer.js 的功能
  */
 
-import { sanitizeApiError } from '../../../scripts/utils/ApiErrorSanitizer.js';
-import * as ApiErrorSanitizerExports from '../../../scripts/utils/ApiErrorSanitizer.js';
+let sanitizeApiError;
+let ApiErrorSanitizerExports;
+
+beforeAll(async () => {
+  ApiErrorSanitizerExports = await import('../../../scripts/utils/ApiErrorSanitizer.js');
+  ({ sanitizeApiError } = ApiErrorSanitizerExports);
+});
 
 describe('ApiErrorSanitizer', () => {
   describe('export surface', () => {

@@ -1,21 +1,17 @@
+/**
+ * @jest-environment jsdom
+ */
+
+import { jest } from '@jest/globals';
 import { StorageManager } from '../../../pages/options/StorageManager';
 import { URL_ALIAS_PREFIX } from '../../../scripts/config/shared/storage.js';
 import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
+import Logger from '../../../scripts/utils/Logger';
 import {
   buildChromeMock,
   buildStorageManagerTestDom,
   installBlobPolyfill,
-} from '../../helpers/storageManagerTestHarness.js';
-
-jest.mock('../../../scripts/utils/Logger', () => ({
-  info: jest.fn(),
-  error: jest.fn(),
-  warn: jest.fn(),
-  debug: jest.fn(),
-  start: jest.fn(),
-  finish: jest.fn(),
-  success: jest.fn(),
-}));
+} from './storageManagerTestHarness.js';
 
 installBlobPolyfill();
 
@@ -37,12 +33,19 @@ describe('StorageManager — 使用量與健康狀態', () => {
     globalThis.URL.createObjectURL = jest.fn(() => 'blob:url');
     globalThis.URL.revokeObjectURL = jest.fn();
 
+    jest.spyOn(Logger, 'info').mockImplementation(() => {});
+    jest.spyOn(Logger, 'error').mockImplementation(() => {});
+    jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+    jest.spyOn(Logger, 'debug').mockImplementation(() => {});
+    jest.spyOn(Logger, 'start').mockImplementation(() => {});
+    jest.spyOn(Logger, 'success').mockImplementation(() => {});
+
     storageManager = new StorageManager({ showStatus: jest.fn() });
     storageManager.init();
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    jest.restoreAllMocks();
     delete globalThis.chrome;
   });
 

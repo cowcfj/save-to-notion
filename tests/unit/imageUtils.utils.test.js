@@ -1,45 +1,67 @@
 // 圖片處理工具函數測試
 // 測試 scripts/utils/imageUtils.js 中的函數
 
-jest.mock('../../scripts/utils/Logger.js', () => ({
+const loggerMock = {
+  debug: jest.fn(),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+  info: jest.fn(),
+  log: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+};
+
+jest.unstable_mockModule('../../scripts/utils/Logger.js', () => ({
   __esModule: true,
-  default: {
-    debug: jest.fn(),
-    success: jest.fn(),
-    start: jest.fn(),
-    ready: jest.fn(),
-    info: jest.fn(),
-    log: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-  },
+  default: loggerMock,
 }));
 
-// 先設置 Chrome Mock,再導入源碼
-import '../mocks/chrome.js';
-import Logger from '../../scripts/utils/Logger.js';
+jest.doMock('../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: loggerMock,
+}));
 
-// 刪除 presetup.js 設定的 mock，讓 IIFE 能正常初始化
-delete globalThis.ImageUtils;
-delete globalThis.window?.ImageUtils;
+let Logger = null;
+let cleanImageUrl = null;
+let isValidImageUrl = null;
+let extractImageSrc = null;
+let extractBestUrlFromSrcset = null;
+let extractFromPicture = null;
+let extractFromBackgroundImage = null;
+let extractFromNoscript = null;
+let isValidCleanedImageUrl = null;
+let generateImageCacheKey = null;
+let IMAGE_ATTRIBUTES = null;
+let IMAGE_VALIDATION = null;
 
-// 載入原始 IIFE 模組（會將函數掛載到 global.ImageUtils）
-require('../../scripts/utils/imageUtils.js');
+beforeAll(async () => {
+  // 先設置 Chrome Mock，再導入源碼
+  await import('../mocks/chrome.cjs');
+  ({ default: Logger } = await import('../../scripts/utils/Logger.js'));
 
-// 從 global.ImageUtils 獲取函數
-const {
-  cleanImageUrl,
-  isValidImageUrl,
-  extractImageSrc,
-  extractBestUrlFromSrcset,
-  extractFromPicture,
-  extractFromBackgroundImage,
-  extractFromNoscript,
-  isValidCleanedImageUrl,
-  generateImageCacheKey,
-  IMAGE_ATTRIBUTES,
-  IMAGE_VALIDATION,
-} = globalThis.ImageUtils || globalThis.window?.ImageUtils || {};
+  // 刪除 presetup.js 設定的 mock，讓 IIFE 能正常初始化
+  delete globalThis.ImageUtils;
+  delete globalThis.window?.ImageUtils;
+
+  // 載入原始 IIFE 模組（會將函數掛載到 global.ImageUtils）
+  await import('../../scripts/utils/imageUtils.js');
+
+  // 從 global.ImageUtils 獲取函數
+  ({
+    cleanImageUrl,
+    isValidImageUrl,
+    extractImageSrc,
+    extractBestUrlFromSrcset,
+    extractFromPicture,
+    extractFromBackgroundImage,
+    extractFromNoscript,
+    isValidCleanedImageUrl,
+    generateImageCacheKey,
+    IMAGE_ATTRIBUTES,
+    IMAGE_VALIDATION,
+  } = globalThis.ImageUtils || globalThis.window?.ImageUtils || {});
+});
 
 describe('ImageUtils - cleanImageUrl', () => {
   describe('基本功能', () => {
@@ -302,9 +324,21 @@ describe('ImageUtils - extractBestUrlFromSrcset', () => {
     expect(extractBestUrlFromSrcset(srcset)).toBe('large.jpg');
   });
 
+  test('應該正確比較小數 x 描述符', () => {
+    const srcset = 'standard.jpg 1x, retina.jpg 1.5x';
+    expect(extractBestUrlFromSrcset(srcset)).toBe('retina.jpg');
+  });
+
   test('應該忽略 data URL', () => {
     const srcset =
       'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw== 1x, real.jpg 2x';
+    expect(extractBestUrlFromSrcset(srcset)).toBe('real.jpg');
+  });
+
+  test.each([
+    ['主解析路徑', 'DATA:image/png;base64== 3x, real.jpg 2x'],
+    ['fallback 路徑', 'real.jpg, Data:image/png;base64=='],
+  ])('應以不分大小寫方式忽略 data: URL（%s）', (_scenario, srcset) => {
     expect(extractBestUrlFromSrcset(srcset)).toBe('real.jpg');
   });
 
@@ -558,12 +592,15 @@ describe('ImageUtils - coverage 補強', () => {
     jest.clearAllMocks();
   });
 
-  test('extractBestUrlFromSrcset 應該處理 SrcsetParser 錯誤', () => {
+  test('extractBestUrlFromSrcset 應該脫敏 SrcsetParser 錯誤訊息', () => {
     const originalParser = globalThis.SrcsetParser;
+    const sensitiveToken = 'secret-parser-token';
     try {
       globalThis.SrcsetParser = {
         parse: jest.fn(() => {
-          throw new Error('Parser Error');
+          throw new Error(
+            `Parser failed for https://example.com/image.jpg?token=${sensitiveToken}&keep=1`
+          );
         }),
       };
 
@@ -573,8 +610,11 @@ describe('ImageUtils - coverage 補強', () => {
       expect(result).toBe('image.jpg');
       expect(Logger.error).toHaveBeenCalledWith(
         'SrcsetParser 失敗',
-        expect.objectContaining({ error: 'Parser Error' })
+        expect.objectContaining({
+          error: expect.stringContaining('[REDACTED_TOKEN]'),
+        })
       );
+      expect(Logger.error.mock.calls[0][1].error).not.toContain(sensitiveToken);
     } finally {
       globalThis.SrcsetParser = originalParser;
     }
@@ -668,7 +708,7 @@ describe('ImageUtils - coverage 補強', () => {
       globalThis.URL = jest.fn((url, base) => {
         const urlStr = url.toString();
 
-        if (urlStr === initialUrl || (base && urlStr === initialUrl)) {
+        if (urlStr === initialUrl) {
           return {
             protocol: 'https:',
             hostname: 'example.com',
@@ -680,7 +720,7 @@ describe('ImageUtils - coverage 補強', () => {
           };
         }
 
-        if (urlStr === cleanedUrl || (base && urlStr === cleanedUrl)) {
+        if (urlStr === cleanedUrl) {
           throw new Error('Pattern check failed');
         }
 

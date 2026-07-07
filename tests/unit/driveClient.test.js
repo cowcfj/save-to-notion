@@ -2,31 +2,63 @@
  * Drive Client API & Storage Tests
  */
 
-jest.mock('../../scripts/config/env/index.js', () => ({
+const envMockModule = {
+  __esModule: true,
   BUILD_ENV: {
     OAUTH_SERVER_URL: 'https://test-server.example.com',
   },
-}));
+};
 
-import {
-  ALL_DRIVE_SYNC_KEYS,
-  startDriveOAuthFlow,
-  getDriveSyncMetadata,
-  ensureDriveSyncIdentity,
-  setDriveConnection,
-  clearDriveSyncMetadata,
-  updateDriveSyncRunMetadata,
-  clearDriveSyncConflict,
-  fetchDriveConnectionStatus,
-  fetchDriveSnapshotStatus,
-  uploadDriveSnapshot,
-  downloadDriveSnapshot,
-  disconnectDrive,
-  setLastKnownRemoteUpdatedAt,
-} from '../../scripts/auth/driveClient.js';
-import * as accountSession from '../../scripts/auth/accountSession.js';
-import { DRIVE_SYNC_ERROR_CODES } from '../../scripts/config/extension/driveSyncErrorCodes.js';
-import Logger from '../../scripts/utils/Logger.js';
+const accountSessionMockModule = {
+  __esModule: true,
+  buildAccountAuthHeaders: jest.fn(),
+};
+
+jest.unstable_mockModule('../../scripts/config/env/index.js', () => envMockModule);
+jest.unstable_mockModule('../../scripts/auth/accountSession.js', () => accountSessionMockModule);
+jest.doMock('../../scripts/config/env/index.js', () => envMockModule);
+jest.doMock('../../scripts/auth/accountSession.js', () => accountSessionMockModule);
+
+let ALL_DRIVE_SYNC_KEYS;
+let startDriveOAuthFlow;
+let getDriveSyncMetadata;
+let ensureDriveSyncIdentity;
+let setDriveConnection;
+let clearDriveSyncMetadata;
+let updateDriveSyncRunMetadata;
+let clearDriveSyncConflict;
+let fetchDriveConnectionStatus;
+let fetchDriveSnapshotStatus;
+let uploadDriveSnapshot;
+let downloadDriveSnapshot;
+let disconnectDrive;
+let setLastKnownRemoteUpdatedAt;
+let accountSession;
+let DRIVE_SYNC_ERROR_CODES;
+let Logger;
+
+beforeAll(async () => {
+  ({
+    ALL_DRIVE_SYNC_KEYS,
+    startDriveOAuthFlow,
+    getDriveSyncMetadata,
+    ensureDriveSyncIdentity,
+    setDriveConnection,
+    clearDriveSyncMetadata,
+    updateDriveSyncRunMetadata,
+    clearDriveSyncConflict,
+    fetchDriveConnectionStatus,
+    fetchDriveSnapshotStatus,
+    uploadDriveSnapshot,
+    downloadDriveSnapshot,
+    disconnectDrive,
+    setLastKnownRemoteUpdatedAt,
+  } = await import('../../scripts/auth/driveClient.js'));
+  accountSession = await import('../../scripts/auth/accountSession.js');
+  ({ DRIVE_SYNC_ERROR_CODES } =
+    await import('../../scripts/config/extension/driveSyncErrorCodes.js'));
+  ({ default: Logger } = await import('../../scripts/utils/Logger.js'));
+});
 
 describe('Drive Client API', () => {
   let mockStorageLocal;
@@ -47,7 +79,7 @@ describe('Drive Client API', () => {
     mockFetch = jest.fn();
     globalThis.fetch = mockFetch;
 
-    jest.spyOn(accountSession, 'buildAccountAuthHeaders').mockResolvedValue({
+    accountSession.buildAccountAuthHeaders.mockResolvedValue({
       Authorization: 'Bearer test-token',
     });
 
@@ -154,31 +186,33 @@ describe('Drive Client API', () => {
       );
     });
 
-    it('updateDriveSyncRunMetadata should record success metrics', async () => {
-      await updateDriveSyncRunMetadata({ type: 'upload', success: true, remoteUpdatedAt: 'iso' });
-      expect(mockStorageLocal.set).toHaveBeenCalledWith(
-        expect.objectContaining({
+    it.each([
+      {
+        name: 'updateDriveSyncRunMetadata should record success metrics',
+        input: { type: 'upload', success: true, remoteUpdatedAt: 'iso' },
+        expected: {
           driveSyncLastRunType: 'upload',
           driveSyncLastErrorAt: null,
           driveSyncLastErrorCode: null,
           driveSyncLastSuccessfulUploadAt: '2023-01-01T00:00:00.000Z',
           driveSyncLastKnownRemoteUpdatedAt: 'iso',
           driveSyncNeedsManualReview: false,
-        })
-      );
-    });
-
-    it('updateDriveSyncRunMetadata should clear needsManualReview on successful download', async () => {
-      await updateDriveSyncRunMetadata({ type: 'download', success: true, remoteUpdatedAt: 'iso' });
-
-      expect(mockStorageLocal.set).toHaveBeenCalledWith(
-        expect.objectContaining({
+        },
+      },
+      {
+        name: 'updateDriveSyncRunMetadata should clear needsManualReview on successful download',
+        input: { type: 'download', success: true, remoteUpdatedAt: 'iso' },
+        expected: {
           driveSyncLastRunType: 'download',
           driveSyncLastSuccessfulDownloadAt: '2023-01-01T00:00:00.000Z',
           driveSyncLastKnownRemoteUpdatedAt: 'iso',
           driveSyncNeedsManualReview: false,
-        })
-      );
+        },
+      },
+    ])('$name', async ({ input, expected }) => {
+      await updateDriveSyncRunMetadata(input);
+
+      expect(mockStorageLocal.set).toHaveBeenCalledWith(expect.objectContaining(expected));
     });
 
     it('updateDriveSyncRunMetadata should record error and set needsManualReview if conflict', async () => {
@@ -284,6 +318,12 @@ describe('Drive Client API', () => {
   });
 
   describe('API Endpoints', () => {
+    const mockJsonResponse = json => ({
+      ok: true,
+      status: 200,
+      json: async () => json,
+    });
+
     describe('fetchDriveConnectionStatus', () => {
       it('buildAccountAuthHeaders 回傳空物件時應直接拒絕並提示重新登入，不應送出 request', async () => {
         accountSession.buildAccountAuthHeaders.mockResolvedValueOnce({});
@@ -293,67 +333,63 @@ describe('Drive Client API', () => {
         expect(mockFetch).not.toHaveBeenCalled();
       });
 
-      it('returns true on 200', async () => {
-        mockFetch.mockResolvedValue({
-          ok: true,
-          status: 200,
-          json: async () => ({
+      it.each([
+        {
+          name: 'returns true on 200',
+          response: {
             providerAccountEmail: 'a@a',
             connectedAt: '2023-01-01T00:00:00.000Z',
-          }),
-        });
-        const res = await fetchDriveConnectionStatus();
-        expect(res.connected).toBe(true);
-        expect(res.email).toBe('a@a');
-        expect(res.connectedAt).toBe('2023-01-01T00:00:00.000Z');
-      });
-
-      it('應將 snake_case 的 provider_account_email 與 connected_at 對應到 email / connectedAt', async () => {
-        mockFetch.mockResolvedValue({
-          ok: true,
-          status: 200,
-          json: async () => ({
+          },
+          expected: {
+            connected: true,
+            email: 'a@a',
+            connectedAt: '2023-01-01T00:00:00.000Z',
+          },
+        },
+        {
+          name: '應將 snake_case 的 provider_account_email 與 connected_at 對應到 email / connectedAt',
+          response: {
             provider_account_email: 'snake@example.com',
             connected_at: '2023-02-02T00:00:00.000Z',
-          }),
-        });
-        const res = await fetchDriveConnectionStatus();
-        expect(res.connected).toBe(true);
-        expect(res.email).toBe('snake@example.com');
-        expect(res.connectedAt).toBe('2023-02-02T00:00:00.000Z');
-      });
-
-      it('provider_account_email 應優先於 providerAccountEmail 與 email', async () => {
-        mockFetch.mockResolvedValue({
-          ok: true,
-          status: 200,
-          json: async () => ({
+          },
+          expected: {
+            connected: true,
+            email: 'snake@example.com',
+            connectedAt: '2023-02-02T00:00:00.000Z',
+          },
+        },
+        {
+          name: 'provider_account_email 應優先於 providerAccountEmail 與 email',
+          response: {
             provider_account_email: 'snake@example.com',
             providerAccountEmail: 'camel@example.com',
             email: 'plain@example.com',
             connected_at: '2023-03-03T00:00:00.000Z',
             connectedAt: '2023-03-04T00:00:00.000Z',
-          }),
-        });
-        const res = await fetchDriveConnectionStatus();
-        expect(res.connected).toBe(true);
-        expect(res.email).toBe('snake@example.com');
-        // connected_at 也應優先於 connectedAt
-        expect(res.connectedAt).toBe('2023-03-03T00:00:00.000Z');
-      });
-
-      it('當僅存在 json.email 時應退回到第三層 fallback，且 connectedAt 缺席時為 null', async () => {
-        mockFetch.mockResolvedValue({
-          ok: true,
-          status: 200,
-          json: async () => ({
+          },
+          expected: {
+            connected: true,
+            email: 'snake@example.com',
+            connectedAt: '2023-03-03T00:00:00.000Z',
+          },
+        },
+        {
+          name: '當僅存在 json.email 時應退回到第三層 fallback，且 connectedAt 缺席時為 null',
+          response: {
             email: 'plain@example.com',
-          }),
-        });
+          },
+          expected: {
+            connected: true,
+            email: 'plain@example.com',
+            connectedAt: null,
+          },
+        },
+      ])('$name', async ({ response, expected }) => {
+        mockFetch.mockResolvedValue(mockJsonResponse(response));
+
         const res = await fetchDriveConnectionStatus();
-        expect(res.connected).toBe(true);
-        expect(res.email).toBe('plain@example.com');
-        expect(res.connectedAt).toBeNull();
+
+        expect(res).toEqual(expect.objectContaining(expected));
       });
 
       it('returns false on 404', async () => {
@@ -379,141 +415,108 @@ describe('Drive Client API', () => {
         expect(mockFetch).not.toHaveBeenCalled();
       });
 
-      it('returns status on 200', async () => {
-        mockFetch.mockResolvedValue({
-          ok: true,
-          status: 200,
-          json: async () => ({ has_snapshot: true, remote_updated_at: 'time' }),
-        });
-        const res = await fetchDriveSnapshotStatus();
-        expect(res.exists).toBe(true);
-        expect(res.updatedAt).toBe('time');
-      });
-
       it('returns false on 404', async () => {
         mockFetch.mockResolvedValue({ ok: false, status: 404 });
         const res = await fetchDriveSnapshotStatus();
         expect(res.exists).toBe(false);
       });
 
-      it('defaults exists to false when backend omits has_snapshot and updatedAt', async () => {
-        mockFetch.mockResolvedValue({
-          ok: true,
-          status: 200,
-          json: async () => ({}),
-        });
-
-        const res = await fetchDriveSnapshotStatus();
-        expect(res.exists).toBe(false);
-        expect(res.updatedAt).toBeNull();
-      });
-
-      it('treats remote snapshot as existing when backend provides updatedAt', async () => {
-        mockFetch.mockResolvedValue({
-          ok: true,
-          status: 200,
-          json: async () => ({ remote_updated_at: 'time' }),
-        });
-
-        const res = await fetchDriveSnapshotStatus();
-        expect(res.exists).toBe(true);
-        expect(res.updatedAt).toBe('time');
-      });
-
-      it('可解析 source_installation_id / source_profile_id', async () => {
-        mockFetch.mockResolvedValue({
-          ok: true,
-          status: 200,
-          json: async () => ({
+      it.each([
+        {
+          name: 'returns status on 200',
+          response: { has_snapshot: true, remote_updated_at: 'time' },
+          expected: { exists: true, updatedAt: 'time' },
+        },
+        {
+          name: 'defaults exists to false when backend omits has_snapshot and updatedAt',
+          response: {},
+          expected: { exists: false, updatedAt: null },
+        },
+        {
+          name: 'treats remote snapshot as existing when backend provides updatedAt',
+          response: { remote_updated_at: 'time' },
+          expected: { exists: true, updatedAt: 'time' },
+        },
+        {
+          name: '可解析 source_installation_id / source_profile_id',
+          response: {
             has_snapshot: true,
             remote_updated_at: 'time',
             source_installation_id: 'install-abc',
             source_profile_id: 'profile-xyz',
-          }),
-        });
-
-        const res = await fetchDriveSnapshotStatus();
-        expect(res.sourceInstallationId).toBe('install-abc');
-        expect(res.sourceProfileId).toBe('profile-xyz');
-      });
-
-      it('可解析 camelCase 的 sourceInstallationId / sourceProfileId', async () => {
-        mockFetch.mockResolvedValue({
-          ok: true,
-          status: 200,
-          json: async () => ({
+          },
+          expected: {
+            exists: true,
+            updatedAt: 'time',
+            sourceInstallationId: 'install-abc',
+            sourceProfileId: 'profile-xyz',
+          },
+        },
+        {
+          name: '可解析 camelCase 的 sourceInstallationId / sourceProfileId',
+          response: {
             hasSnapshot: true,
             updatedAt: 'time-camel',
             sourceInstallationId: 'install-camel',
             sourceProfileId: 'profile-camel',
-          }),
-        });
-
-        const res = await fetchDriveSnapshotStatus();
-        expect(res.exists).toBe(true);
-        expect(res.updatedAt).toBe('time-camel');
-        expect(res.sourceInstallationId).toBe('install-camel');
-        expect(res.sourceProfileId).toBe('profile-camel');
-      });
-
-      it('source_installation_id / source_profile_id 應優先於 camelCase 對應欄位', async () => {
-        mockFetch.mockResolvedValue({
-          ok: true,
-          status: 200,
-          json: async () => ({
+          },
+          expected: {
+            exists: true,
+            updatedAt: 'time-camel',
+            sourceInstallationId: 'install-camel',
+            sourceProfileId: 'profile-camel',
+          },
+        },
+        {
+          name: 'source_installation_id / source_profile_id 應優先於 camelCase 對應欄位',
+          response: {
             has_snapshot: true,
             remote_updated_at: 'time',
             source_installation_id: 'install-snake',
             sourceInstallationId: 'install-camel',
             source_profile_id: 'profile-snake',
             sourceProfileId: 'profile-camel',
-          }),
-        });
-
-        const res = await fetchDriveSnapshotStatus();
-        expect(res.sourceInstallationId).toBe('install-snake');
-        expect(res.sourceProfileId).toBe('profile-snake');
-      });
-
-      it('可解析 camelCase 的 hasSnapshot / remoteUpdatedAt', async () => {
-        mockFetch.mockResolvedValue({
-          ok: true,
-          status: 200,
-          json: async () => ({
+          },
+          expected: {
+            sourceInstallationId: 'install-snake',
+            sourceProfileId: 'profile-snake',
+          },
+        },
+        {
+          name: '可解析 camelCase 的 hasSnapshot / remoteUpdatedAt',
+          response: {
             hasSnapshot: true,
             remoteUpdatedAt: 'time-remote-camel',
-          }),
-        });
-
-        const res = await fetchDriveSnapshotStatus();
-        expect(res.exists).toBe(true);
-        expect(res.updatedAt).toBe('time-remote-camel');
-      });
-
-      it('exists 應在僅有 camelCase remoteUpdatedAt 時為 true', async () => {
-        mockFetch.mockResolvedValue({
-          ok: true,
-          status: 200,
-          json: async () => ({
+          },
+          expected: {
+            exists: true,
+            updatedAt: 'time-remote-camel',
+          },
+        },
+        {
+          name: 'exists 應在僅有 camelCase remoteUpdatedAt 時為 true',
+          response: {
             remoteUpdatedAt: 'time-remote-camel',
-          }),
-        });
+          },
+          expected: {
+            exists: true,
+            updatedAt: 'time-remote-camel',
+          },
+        },
+        {
+          name: '缺少 source_installation_id 欄位時回傳 sourceInstallationId: null',
+          response: { has_snapshot: true },
+          expected: {
+            sourceInstallationId: null,
+            sourceProfileId: null,
+          },
+        },
+      ])('$name', async ({ response, expected }) => {
+        mockFetch.mockResolvedValue(mockJsonResponse(response));
 
         const res = await fetchDriveSnapshotStatus();
-        expect(res.exists).toBe(true);
-        expect(res.updatedAt).toBe('time-remote-camel');
-      });
 
-      it('缺少 source_installation_id 欄位時回傳 sourceInstallationId: null', async () => {
-        mockFetch.mockResolvedValue({
-          ok: true,
-          status: 200,
-          json: async () => ({ has_snapshot: true }),
-        });
-
-        const res = await fetchDriveSnapshotStatus();
-        expect(res.sourceInstallationId).toBeNull();
-        expect(res.sourceProfileId).toBeNull();
+        expect(res).toEqual(expect.objectContaining(expected));
       });
 
       it('404 時回傳 sourceInstallationId: null / sourceProfileId: null', async () => {

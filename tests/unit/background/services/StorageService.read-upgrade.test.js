@@ -7,16 +7,14 @@ import {
   URL_ALIAS_PREFIX,
 } from '../../../../scripts/background/services/StorageService.js';
 import {
+  buildAliasPageState,
   buildDeletedState,
   buildHighlight,
   buildStaleStableState,
-} from '../../../helpers/status-fixtures.js';
-import {
-  buildAliasPageState,
   createStorageServiceHarness,
-  mockStorageLookup,
   flushReadTimeUpgrade,
-} from '../../../helpers/storageServiceTestHarness.js';
+  mockStorageLookup,
+} from './serviceTestSupport.js';
 
 describe('StorageService - Read Write Upgrade', () => {
   let service = null;

@@ -3,7 +3,20 @@
  * 包含輸入驗證、並行清除、錯誤處理等新功能
  */
 
-const chrome = require('../../../mocks/chrome');
+import { jest } from '@jest/globals';
+
+import chrome from '../../../mocks/chrome.cjs';
+
+const mockLogger = {
+  log: jest.fn(),
+  debug: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+};
 
 // Phase 3: 模擬 chrome.runtime.sendMessage（預設返回失敗以測試 Fallback 路徑）
 if (!chrome.runtime) {
@@ -32,21 +45,23 @@ globalThis.localStorage = {
 
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
-  default: {
-    log: jest.fn(),
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    success: jest.fn(),
-    start: jest.fn(),
-    ready: jest.fn(),
-  },
+  default: mockLogger,
 }));
 
-// ES Module 導入
-import { HighlightStorageGateway } from '../../../../scripts/highlighter/core/HighlightStorageGateway.js';
-import Logger from '../../../../scripts/utils/Logger.js';
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('../../../../scripts/utils/Logger.js', () => ({
+    __esModule: true,
+    default: mockLogger,
+  }));
+}
+
+let HighlightStorageGateway;
+const Logger = mockLogger;
+
+beforeAll(async () => {
+  ({ HighlightStorageGateway } =
+    await import('../../../../scripts/highlighter/core/HighlightStorageGateway.js'));
+});
 
 describe('HighlightStorageGateway.clearHighlights - 改進版測試', () => {
   beforeEach(() => {

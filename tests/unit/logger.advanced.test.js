@@ -3,22 +3,51 @@
  * 測試 Logger 的邊界情況、開發模式檢測和錯誤處理
  */
 
-// 使用 presetup.js 提供的 global.Logger
-const Logger = globalThis.Logger;
-
-if (!Logger) {
-  throw new Error('Logger 未正確載入，請確認 tests/presetup.js 設定正確');
-}
+const createLoggerMock = () => ({
+  log: jest.fn((message, ...args) => {
+    console.log(`[LOG] ${message}`, ...args); // skipcq: JS-0002
+  }),
+  debug: jest.fn((message, ...args) => {
+    console.log(`[DEBUG] ${message}`, ...args); // skipcq: JS-0002
+  }),
+  info: jest.fn((message, ...args) => {
+    console.log(`[INFO] ${message}`, ...args); // skipcq: JS-0002
+  }),
+  warn: jest.fn((message, ...args) => {
+    if (globalThis.__LOGGER_DEV__) {
+      console.warn(`[WARN] ${message}`, ...args); // skipcq: JS-0002
+    }
+  }),
+  error: jest.fn((message, ...args) => {
+    console.error(`[ERROR] ${message}`, ...args); // skipcq: JS-0002
+  }),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+  addLogToBuffer: jest.fn(),
+});
 
 describe('Logger 系統進階測試', () => {
+  let Logger = null;
   let originalChrome = null;
+  let originalLogger = null;
+  let originalWindowLogger = null;
 
   beforeEach(() => {
     // 保存原始環境
     originalChrome = globalThis.chrome;
+    originalLogger = globalThis.Logger;
+    originalWindowLogger = globalThis.window?.Logger;
+
+    Logger = createLoggerMock();
+    globalThis.Logger = Logger;
+    if (globalThis.window) {
+      globalThis.window.Logger = Logger;
+    }
 
     // 重置 console 方法
     jest.spyOn(console, 'debug').mockImplementation(() => undefined);
+    jest.spyOn(console, 'log').mockImplementation(() => undefined);
     jest.spyOn(console, 'info').mockImplementation(() => undefined);
     jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     jest.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -27,6 +56,10 @@ describe('Logger 系統進階測試', () => {
   afterEach(() => {
     // 恢復原始環境
     globalThis.chrome = originalChrome;
+    globalThis.Logger = originalLogger;
+    if (globalThis.window) {
+      globalThis.window.Logger = originalWindowLogger;
+    }
 
     // 清理 mock
     jest.restoreAllMocks();

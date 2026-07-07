@@ -35,17 +35,96 @@ const ERROR_NOTION_TOKEN_PATTERN = /secret_[\dA-Za-z]+/g;
 const ERROR_SENSITIVE_ASSIGNMENT_PATTERN =
   /\b([\w.-]*(?:token|secret|password|credential|authorization|session|api[_-]?key)[\w.-]*)=(?:[^\s&"',)]+)/gi;
 
+const BLOCKED_INJECTION_HOSTS = [
+  { host: 'chrome.google.com', pathPrefix: '/webstore' },
+  { host: 'chromewebstore.google.com' },
+  { host: 'microsoftedge.microsoft.com', pathPrefix: '/addons' },
+  { host: 'addons.mozilla.org' },
+];
+const NOTION_DOMAINS = ['notion.so', 'notion.com', 'notion.site'];
+
+function isBlockedInjectionHost(urlObj) {
+  return BLOCKED_INJECTION_HOSTS.some(({ host, pathPrefix }) => {
+    if (urlObj.hostname !== host) {
+      return false;
+    }
+    return !pathPrefix || urlObj.pathname.startsWith(pathPrefix);
+  });
+}
+
+function isNotionInjectionHost(hostname) {
+  const normalizedHostname = String(hostname || '').toLowerCase();
+  return NOTION_DOMAINS.some(
+    domain => normalizedHostname === domain || normalizedHostname.endsWith(`.${domain}`)
+  );
+}
+
+function hasRestrictedInjectionProtocol(urlObj) {
+  const canonicalProtocol = urlObj.protocol.toLowerCase();
+  const canonicalHref = urlObj.href.toLowerCase();
+  return RESTRICTED_PROTOCOLS.some(protocol => {
+    const normalizedProtocol = protocol.toLowerCase();
+    return canonicalProtocol === normalizedProtocol || canonicalHref.startsWith(normalizedProtocol);
+  });
+}
+
 async function activateFloatingRailInPage() {
   const timeout = 2000;
   const interval = 100;
   const startTime = Date.now();
 
   /* eslint-disable unicorn/consistent-function-scoping -- chrome.scripting.executeScript 序列化限制：func 無法捕獲外部閉包，必須內聯定義 */
+  const notReady = () => ({ initialized: false, highlightCount: 0 });
+
+  function getRail() {
+    try {
+      return globalThis.HighlighterV2.rail;
+    } catch {
+      return null;
+    }
+  }
+
+  function getHighlightCount() {
+    try {
+      return globalThis.HighlighterV2.manager.getCount();
+    } catch {
+      return 0;
+    }
+  }
+
   function activateRail(rail) {
-    rail.show?.();
-    rail.activateHighlighting?.();
-    const count = globalThis.HighlighterV2?.manager?.getCount() || 0;
-    return { initialized: true, highlightCount: count };
+    const noop = () => {};
+    const { show = noop, activateHighlighting = noop } = rail;
+    show.call(rail);
+    activateHighlighting.call(rail);
+    return { initialized: true, highlightCount: getHighlightCount() };
+  }
+
+  async function waitForRailReady(remainingMs) {
+    if (remainingMs <= 0) {
+      return notReady();
+    }
+
+    const timeoutResult = { timedOut: true };
+    const readyResult = await Promise.race([
+      globalThis.__NOTION_RAIL_READY__.catch(() => ({ rejected: true })),
+      delay(Math.max(0, Math.min(interval, remainingMs))).then(() => timeoutResult),
+    ]);
+
+    if (readyResult?.timedOut) {
+      return null;
+    }
+
+    if (readyResult?.success) {
+      const rail = readyResult.rail || getRail();
+      if (rail) {
+        return activateRail(rail);
+      }
+      await delay(Math.max(0, Math.min(interval, remainingMs)));
+      return null;
+    }
+
+    return notReady();
   }
 
   function delay(ms) {
@@ -55,25 +134,23 @@ async function activateFloatingRailInPage() {
   /* eslint-enable unicorn/consistent-function-scoping */
 
   while (Date.now() - startTime <= timeout) {
-    if (globalThis.HighlighterV2?.rail) {
-      return activateRail(globalThis.HighlighterV2.rail);
+    const rail = getRail();
+    if (rail) {
+      return activateRail(rail);
     }
 
     if (globalThis.__NOTION_RAIL_READY__) {
-      const readyResult = await Promise.race([
-        globalThis.__NOTION_RAIL_READY__.catch(() => null),
-        delay(Math.max(0, timeout - (Date.now() - startTime))).then(() => null),
-      ]);
-      if (readyResult?.success && readyResult.rail) {
-        return activateRail(readyResult.rail);
+      const readyResult = await waitForRailReady(timeout - (Date.now() - startTime));
+      if (readyResult) {
+        return readyResult;
       }
-      return { initialized: false, highlightCount: 0 };
+      continue;
     }
 
     await delay(interval);
   }
 
-  return { initialized: false, highlightCount: 0 };
+  return notReady();
 }
 
 /**
@@ -89,45 +166,11 @@ function isRestrictedInjectionUrl(url) {
   }
 
   try {
-    // 使用統一配置的受限協議列表
-    if (RESTRICTED_PROTOCOLS.some(protocol => url.startsWith(protocol))) {
-      return true;
-    }
-
-    // 檢查 Chrome Web Store
-    if (url.startsWith('https://chrome.google.com/webstore')) {
-      return true;
-    }
-
-    // 解析 URL 檢查特定域名
     const urlObj = new URL(url);
-
-    // 檢查受限域名列表
-    const blockedHosts = [
-      { host: 'chrome.google.com', pathPrefix: '/webstore' },
-      { host: 'chromewebstore.google.com' },
-      { host: 'microsoftedge.microsoft.com', pathPrefix: '/addons' },
-      { host: 'addons.mozilla.org' },
-    ];
-
-    const isBlockedHost = blockedHosts.some(({ host, pathPrefix }) => {
-      if (urlObj.host !== host) {
-        return false;
-      }
-      if (!pathPrefix) {
-        return true;
-      }
-      return urlObj.pathname.startsWith(pathPrefix);
-    });
-
-    if (isBlockedHost) {
-      return true;
-    }
-
-    // 不對 Notion 自身頁面注入腳本 (包含子域名如 custom.notion.site)
-    const notionDomains = ['notion.so', 'notion.com', 'notion.site'];
-    return notionDomains.some(
-      domain => urlObj.host === domain || urlObj.host.endsWith(`.${domain}`)
+    return (
+      hasRestrictedInjectionProtocol(urlObj) ||
+      isBlockedInjectionHost(urlObj) ||
+      isNotionInjectionHost(urlObj.hostname)
     );
   } catch (error) {
     const sanitizedErrorMsg = String(error.message).replaceAll(url, '[invalid-url]');

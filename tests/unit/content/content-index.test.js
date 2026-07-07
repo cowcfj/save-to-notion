@@ -2,22 +2,25 @@
  * @jest-environment jsdom
  */
 
-import { extractPageContent } from '../../../scripts/content/index.js';
-import { ContentExtractor } from '../../../scripts/content/extractors/ContentExtractor.js';
-import { ConverterFactory } from '../../../scripts/content/converters/ConverterFactory.js';
-import { ImageCollector } from '../../../scripts/content/extractors/ImageCollector.js';
-import { mergeUniqueImages } from '../../../scripts/utils/imageUtils.js';
-import Logger from '../../../scripts/utils/Logger.js';
-import { CONTENT_QUALITY } from '../../../scripts/config/shared/content.js';
-import { DATA_SOURCE_MESSAGES } from '../../../scripts/config/messages/dataSourceMessages.js';
-import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
+const CONTENT_INDEX_MODULE = '../../../scripts/content/index.js';
+const CONTENT_EXTRACTOR_MODULE = '../../../scripts/content/extractors/ContentExtractor.js';
+const CONVERTER_FACTORY_MODULE = '../../../scripts/content/converters/ConverterFactory.js';
+const IMAGE_COLLECTOR_MODULE = '../../../scripts/content/extractors/ImageCollector.js';
+const IMAGE_UTILS_MODULE = '../../../scripts/utils/imageUtils.js';
+const LOGGER_MODULE = '../../../scripts/utils/Logger.js';
+const HIGHLIGHTER_ENTRY_AUTO_INIT_MODULE = '../../../scripts/highlighter/entryAutoInit.js';
 
-// Mock dependencies
-jest.mock('../../../scripts/content/extractors/ContentExtractor.js');
-jest.mock('../../../scripts/content/converters/ConverterFactory.js');
-jest.mock('../../../scripts/content/extractors/ImageCollector.js');
-jest.mock('../../../scripts/utils/imageUtils.js');
-jest.mock('../../../scripts/utils/Logger.js', () => ({
+let extractPageContent;
+let ContentExtractor;
+let ConverterFactory;
+let ImageCollector;
+let mergeUniqueImages;
+let Logger;
+let CONTENT_QUALITY;
+let DATA_SOURCE_MESSAGES;
+let UI_MESSAGES;
+
+const createLoggerMock = () => ({
   log: jest.fn(),
   info: jest.fn(),
   warn: jest.fn(),
@@ -26,7 +29,83 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
   success: jest.fn(),
   start: jest.fn(),
   ready: jest.fn(),
-}));
+});
+
+const createContentMocks = () => {
+  ContentExtractor = {
+    extractAsync: jest.fn(),
+  };
+  ConverterFactory = {
+    getConverter: jest.fn(),
+  };
+  ImageCollector = {
+    collectAdditionalImages: jest.fn(),
+  };
+  mergeUniqueImages = jest.fn();
+  Logger = createLoggerMock();
+};
+
+const registerContentMocks = async () => {
+  const contentExtractorFactory = () => ({
+    ContentExtractor,
+  });
+  const converterFactory = () => ({
+    ConverterFactory,
+  });
+  const imageCollectorFactory = () => ({
+    ImageCollector,
+  });
+  const imageUtilsFactory = () => ({
+    mergeUniqueImages,
+  });
+  const loggerFactory = () => ({
+    default: Logger,
+    ...Logger,
+    __esModule: true,
+  });
+  const highlighterEntryAutoInitFactory = () => ({});
+
+  jest.doMock(CONTENT_EXTRACTOR_MODULE, contentExtractorFactory);
+  jest.doMock(CONVERTER_FACTORY_MODULE, converterFactory);
+  jest.doMock(IMAGE_COLLECTOR_MODULE, imageCollectorFactory);
+  jest.doMock(IMAGE_UTILS_MODULE, imageUtilsFactory);
+  jest.doMock(LOGGER_MODULE, loggerFactory);
+  jest.doMock(HIGHLIGHTER_ENTRY_AUTO_INIT_MODULE, highlighterEntryAutoInitFactory);
+  jest.unstable_mockModule(CONTENT_EXTRACTOR_MODULE, contentExtractorFactory);
+  jest.unstable_mockModule(CONVERTER_FACTORY_MODULE, converterFactory);
+  jest.unstable_mockModule(IMAGE_COLLECTOR_MODULE, imageCollectorFactory);
+  jest.unstable_mockModule(IMAGE_UTILS_MODULE, imageUtilsFactory);
+  jest.unstable_mockModule(LOGGER_MODULE, loggerFactory);
+  jest.unstable_mockModule(HIGHLIGHTER_ENTRY_AUTO_INIT_MODULE, highlighterEntryAutoInitFactory);
+};
+
+const prepareContentModuleMocks = async () => {
+  jest.resetModules();
+  createContentMocks();
+  await registerContentMocks();
+};
+
+const importContentEntrypoint = async () => {
+  const contentModule = await import(CONTENT_INDEX_MODULE);
+  extractPageContent = contentModule.extractPageContent;
+  return contentModule;
+};
+
+const loadContentEntrypoint = async ({ resetMocks = true } = {}) => {
+  if (resetMocks) {
+    await prepareContentModuleMocks();
+  }
+  const contentModule = await importContentEntrypoint();
+
+  const allHandlers = globalThis.chrome.runtime.onMessage.addListener.mock.calls.map(c => c[0]);
+  const messageHandler = allHandlers.find(h => {
+    const mockSend = jest.fn();
+    const result = h({ action: 'PING' }, {}, mockSend);
+    return result === true && mockSend.mock.calls.length > 0;
+  });
+
+  return { contentModule, messageHandler };
+};
 
 function createDeferred() {
   let resolveDeferred;
@@ -39,20 +118,57 @@ function createDeferred() {
   return { promise, resolve: resolveDeferred, reject: rejectDeferred };
 }
 
+function createHandledRejectedPromise(error) {
+  /* eslint-disable promise/no-promise-in-callback -- This fixture intentionally creates a rejected promise. */
+  const promise = Promise.reject(error);
+  promise.catch(() => {});
+  /* eslint-enable promise/no-promise-in-callback */
+  return promise;
+}
+
 async function flushPromises() {
   for (let i = 0; i < 10; i++) {
     await Promise.resolve();
   }
 }
 
-describe('Content Script Entry (index.js)', () => {
-  test('content default page title uses centralized zh-TW fallback copy', () => {
-    expect(CONTENT_QUALITY.DEFAULT_PAGE_TITLE).toBe(DATA_SOURCE_MESSAGES.UNTITLED_PAGE);
-    expect(DATA_SOURCE_MESSAGES.UNTITLED_PAGE).toBe(UI_MESSAGES.DATA_SOURCE.UNTITLED_PAGE);
+function expectSendResponseFailure(sendResponse, error) {
+  expect(sendResponse).toHaveBeenCalledWith({
+    success: false,
+    error,
+  });
+}
+
+function mockReadabilityExtraction({
+  title = 'Test Title',
+  content = '<div>Test content</div>',
+  blocks = [],
+} = {}) {
+  ContentExtractor.extractAsync.mockResolvedValue({
+    content,
+    type: 'readability',
+    metadata: { title },
+    blocks,
   });
 
-  beforeEach(() => {
-    jest.clearAllMocks();
+  const mockConverter = {
+    convert: jest.fn().mockReturnValue([{ object: 'block', type: 'paragraph' }]),
+    imageCount: 0,
+  };
+  ConverterFactory.getConverter.mockReturnValue(mockConverter);
+
+  return mockConverter;
+}
+
+describe('Content Script Entry (index.js)', () => {
+  beforeAll(async () => {
+    ({ CONTENT_QUALITY } = await import('../../../scripts/config/shared/content.js'));
+    ({ DATA_SOURCE_MESSAGES } =
+      await import('../../../scripts/config/messages/dataSourceMessages.js'));
+    ({ UI_MESSAGES } = await import('../../../scripts/config/shared/messages.js'));
+  });
+
+  beforeEach(async () => {
     delete globalThis.HighlighterV2;
     delete globalThis.__NOTION_RAIL_READY__;
     delete globalThis.notionHighlighter;
@@ -84,12 +200,46 @@ describe('Content Script Entry (index.js)', () => {
     jest.restoreAllMocks();
   });
 
+  test('content default page title uses centralized zh-TW fallback copy', () => {
+    expect(CONTENT_QUALITY.DEFAULT_PAGE_TITLE).toBe(DATA_SOURCE_MESSAGES.UNTITLED_PAGE);
+    expect(DATA_SOURCE_MESSAGES.UNTITLED_PAGE).toBe(UI_MESSAGES.DATA_SOURCE.UNTITLED_PAGE);
+  });
+
+  test('createHandledRejectedPromise 在回傳前應先標記 rejection 已處理', async () => {
+    const catchSpy = jest.spyOn(Promise.prototype, 'catch');
+    const error = new Error('boom');
+
+    const promise = createHandledRejectedPromise(error);
+    const helperCatchCount = catchSpy.mock.calls.length;
+    const observedRejection = promise.catch(caughtError => caughtError);
+
+    expect(helperCatchCount).toBe(1);
+    expect(catchSpy.mock.contexts[0]).toBe(promise);
+    expect(catchSpy.mock.calls[0][0]).toEqual(expect.any(Function));
+    await expect(observedRejection).resolves.toBe(error);
+  });
+
   describe('Message Handlers & Side Effects', () => {
     let messageHandler;
     let sendMessageMock;
     let preloaderHandler;
 
-    beforeEach(() => {
+    const showFloatingRailAction = 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL';
+    const activateFloatingRailAction = 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT';
+    const railOperationFailure = {
+      success: false,
+      error: '浮動側欄操作失敗',
+    };
+    const railInitializationFailure = {
+      success: false,
+      error: '浮動側欄初始化失敗',
+    };
+    const railNotInitializedFailure = {
+      success: false,
+      error: '浮動側欄尚未初始化',
+    };
+
+    beforeEach(async () => {
       sendMessageMock = jest.fn();
       globalThis.chrome.runtime.onMessage.addListener = jest.fn();
       globalThis.chrome.runtime.onMessage.removeListener = jest.fn();
@@ -108,22 +258,32 @@ describe('Content Script Entry (index.js)', () => {
       };
       document.addEventListener('notion-preloader-request', preloaderHandler);
 
-      jest.isolateModules(() => {
-        require('../../../scripts/content/index.js');
-      });
-
-      // content/index.js 的 handler 是能回應 PING 的那個
-      const allHandlers = globalThis.chrome.runtime.onMessage.addListener.mock.calls.map(c => c[0]);
-      messageHandler = allHandlers.find(h => {
-        const mockSend = jest.fn();
-        const result = h({ action: 'PING' }, {}, mockSend);
-        return result === true && mockSend.mock.calls.length > 0;
-      });
+      ({ messageHandler } = await loadContentEntrypoint());
     });
 
     afterEach(() => {
       document.removeEventListener('notion-preloader-request', preloaderHandler);
     });
+
+    function dispatchMessage(message) {
+      const sendResponse = jest.fn();
+      const result = messageHandler(message, {}, sendResponse);
+
+      return { result, sendResponse };
+    }
+
+    function dispatchAction(action, payload = {}) {
+      return dispatchMessage({ action, ...payload });
+    }
+
+    function getReplayCallback() {
+      const replayCall = sendMessageMock.mock.calls.find(
+        call => call[0].action === 'REPLAY_BUFFERED_EVENTS'
+      );
+
+      expect(replayCall).toBeDefined();
+      return replayCall[1];
+    }
 
     test('PING 應該返回正確的元數據', () => {
       const sendResponse = jest.fn();
@@ -152,9 +312,8 @@ describe('Content Script Entry (index.js)', () => {
     test('showHighlighter 應優先調用 rail.show', () => {
       const showMock = jest.fn();
       globalThis.HighlighterV2 = { rail: { show: showMock } };
-      const sendResponse = jest.fn();
 
-      messageHandler({ action: 'showHighlighter' }, {}, sendResponse);
+      const { sendResponse } = dispatchAction('showHighlighter');
 
       expect(showMock).toHaveBeenCalled();
       expect(sendResponse).toHaveBeenCalledWith({ success: true });
@@ -169,70 +328,42 @@ describe('Content Script Entry (index.js)', () => {
           }),
         },
       };
-      const sendResponse = jest.fn();
 
-      messageHandler({ action: 'showHighlighter' }, {}, sendResponse);
+      const { sendResponse } = dispatchAction('showHighlighter');
 
-      expect(sendResponse).toHaveBeenCalledWith({
-        success: false,
-        error: '浮動側欄操作失敗',
-      });
+      expect(sendResponse).toHaveBeenCalledWith(railOperationFailure);
     });
 
     test('[REGRESSION] showHighlighter 不應在無 rail 時 fallback 到 notionHighlighter toolbar', async () => {
       delete globalThis.HighlighterV2;
       const showMock = jest.fn();
       globalThis.notionHighlighter = { show: showMock };
-      const sendResponse = jest.fn();
 
-      messageHandler({ action: 'showHighlighter' }, {}, sendResponse);
+      const { sendResponse } = dispatchAction('showHighlighter');
       await Promise.resolve();
       await Promise.resolve();
 
       expect(showMock).not.toHaveBeenCalled();
-      expect(sendResponse).toHaveBeenCalledWith({
-        success: false,
-        error: '浮動側欄尚未初始化',
-      });
+      expect(sendResponse).toHaveBeenCalledWith(railNotInitializedFailure);
       delete globalThis.notionHighlighter;
     });
 
-    test('[REGRESSION] showHighlighter 應等待 rail-ready 完成後才回應', async () => {
+    test.each([
+      {
+        title: '[REGRESSION] showHighlighter 應等待 rail-ready 完成後才回應',
+        action: 'showHighlighter',
+      },
+      {
+        title: '[REGRESSION] content bridge SHOW_FLOATING_RAIL 應等待 rail-ready 完成後才回應',
+        action: showFloatingRailAction,
+      },
+    ])('$title', async ({ action }) => {
       delete globalThis.HighlighterV2;
       const railReady = createDeferred();
       const showMock = jest.fn();
       globalThis.__NOTION_RAIL_READY__ = railReady.promise;
-      const sendResponse = jest.fn();
 
-      const result = messageHandler({ action: 'showHighlighter' }, {}, sendResponse);
-
-      expect(result).toBe(true);
-      expect(showMock).not.toHaveBeenCalled();
-      expect(sendResponse).not.toHaveBeenCalled();
-
-      railReady.resolve({
-        success: true,
-        rail: { show: showMock },
-      });
-      await flushPromises();
-
-      expect(showMock).toHaveBeenCalled();
-      expect(sendResponse).toHaveBeenCalledWith({ success: true });
-
-      delete globalThis.__NOTION_RAIL_READY__;
-    });
-
-    test('[REGRESSION] content bridge SHOW_FLOATING_RAIL 應等待 rail-ready 完成後才回應', async () => {
-      const railReady = createDeferred();
-      const showMock = jest.fn();
-      globalThis.__NOTION_RAIL_READY__ = railReady.promise;
-      const sendResponse = jest.fn();
-
-      const result = messageHandler(
-        { action: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL' },
-        {},
-        sendResponse
-      );
+      const { result, sendResponse } = dispatchAction(action);
 
       expect(result).toBe(true);
       expect(showMock).not.toHaveBeenCalled();
@@ -260,13 +391,8 @@ describe('Content Script Entry (index.js)', () => {
           show: showMock,
         },
       };
-      const sendResponse = jest.fn();
 
-      const result = messageHandler(
-        { action: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL' },
-        {},
-        sendResponse
-      );
+      const { result, sendResponse } = dispatchAction(showFloatingRailAction);
 
       expect(result).toBe(true);
       expect(undismissMock).toHaveBeenCalledWith();
@@ -280,75 +406,45 @@ describe('Content Script Entry (index.js)', () => {
         success: true,
         rail: { undismiss: undismissMock },
       });
-      const sendResponse = jest.fn();
 
-      messageHandler({ action: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL' }, {}, sendResponse);
+      const { sendResponse } = dispatchAction(showFloatingRailAction);
       await flushPromises();
 
       expect(undismissMock).not.toHaveBeenCalled();
-      expect(sendResponse).toHaveBeenCalledWith({
-        success: false,
-        error: '浮動側欄缺少 show() 方法',
-      });
+      expectSendResponseFailure(sendResponse, '浮動側欄缺少 show() 方法');
       expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
       delete globalThis.__NOTION_RAIL_READY__;
     });
 
-    test('[REGRESSION] SHOW_FLOATING_RAIL 在現有 rail 顯示失敗時應返回安全 fallback 訊息', () => {
-      globalThis.HighlighterV2 = {
-        rail: {
-          show: jest.fn(() => {
-            throw new Error('rail show failed');
-          }),
-        },
-      };
-      const sendResponse = jest.fn();
+    test.each([
+      {
+        title: '[REGRESSION] SHOW_FLOATING_RAIL 在現有 rail 顯示失敗時應返回安全 fallback 訊息',
+        show: jest.fn(() => {
+          throw new Error('rail show failed');
+        }),
+      },
+      {
+        title:
+          '[REGRESSION] SHOW_FLOATING_RAIL 在現有 rail 的 async show reject 時應返回安全 fallback 訊息',
+        show: jest.fn().mockRejectedValue(new Error('async rail show failed')),
+      },
+      {
+        title:
+          '[REGRESSION] SHOW_FLOATING_RAIL 在現有 rail 拋出無 message 的 Error 時應回傳安全 fallback 訊息',
+        show: jest.fn(() => {
+          const railError = new Error('unused');
+          delete railError.message;
+          railError.reason = 'rail show failed';
+          throw railError;
+        }),
+      },
+    ])('$title', async ({ show }) => {
+      globalThis.HighlighterV2 = { rail: { show } };
 
-      messageHandler({ action: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL' }, {}, sendResponse);
-
-      expect(sendResponse).toHaveBeenCalledWith({
-        success: false,
-        error: '浮動側欄操作失敗',
-      });
-    });
-
-    test('[REGRESSION] SHOW_FLOATING_RAIL 在現有 rail 的 async show reject 時應返回安全 fallback 訊息', async () => {
-      globalThis.HighlighterV2 = {
-        rail: {
-          show: jest.fn().mockRejectedValue(new Error('async rail show failed')),
-        },
-      };
-      const sendResponse = jest.fn();
-
-      messageHandler({ action: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL' }, {}, sendResponse);
+      const { sendResponse } = dispatchAction(showFloatingRailAction);
       await flushPromises();
 
-      expect(sendResponse).toHaveBeenCalledWith({
-        success: false,
-        error: '浮動側欄操作失敗',
-      });
-    });
-
-    test('[REGRESSION] SHOW_FLOATING_RAIL 在現有 rail 拋出無 message 的 Error 時應回傳安全 fallback 訊息', () => {
-      const railError = new Error('unused');
-      delete railError.message;
-      railError.reason = 'rail show failed';
-
-      globalThis.HighlighterV2 = {
-        rail: {
-          show: jest.fn(() => {
-            throw railError;
-          }),
-        },
-      };
-      const sendResponse = jest.fn();
-
-      messageHandler({ action: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL' }, {}, sendResponse);
-
-      expect(sendResponse).toHaveBeenCalledWith({
-        success: false,
-        error: '浮動側欄操作失敗',
-      });
+      expect(sendResponse).toHaveBeenCalledWith(railOperationFailure);
     });
 
     test('[REGRESSION] SHOW_FLOATING_RAIL 在 ready rail 缺少顯示方法時應返回明確錯誤', async () => {
@@ -356,43 +452,31 @@ describe('Content Script Entry (index.js)', () => {
         success: true,
         rail: {},
       });
-      const sendResponse = jest.fn();
 
-      messageHandler({ action: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL' }, {}, sendResponse);
+      const { sendResponse } = dispatchAction(showFloatingRailAction);
       await flushPromises();
 
-      expect(sendResponse).toHaveBeenCalledWith({
-        success: false,
-        error: '浮動側欄缺少 show() 方法',
-      });
+      expectSendResponseFailure(sendResponse, '浮動側欄缺少 show() 方法');
       expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
     });
 
     test('SHOW_FLOATING_RAIL 在 readyResult 未帶 error 時應返回通用初始化錯誤', async () => {
       globalThis.__NOTION_RAIL_READY__ = Promise.resolve({ success: false });
-      const sendResponse = jest.fn();
 
-      messageHandler({ action: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL' }, {}, sendResponse);
+      const { sendResponse } = dispatchAction(showFloatingRailAction);
       await flushPromises();
 
-      expect(sendResponse).toHaveBeenCalledWith({
-        success: false,
-        error: '浮動側欄初始化失敗',
-      });
+      expect(sendResponse).toHaveBeenCalledWith(railInitializationFailure);
       expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
     });
 
     test('SHOW_FLOATING_RAIL 在未初始化時應直接返回錯誤', () => {
       delete globalThis.HighlighterV2;
       delete globalThis.__NOTION_RAIL_READY__;
-      const sendResponse = jest.fn();
 
-      messageHandler({ action: 'CONTENT_BRIDGE_SHOW_FLOATING_RAIL' }, {}, sendResponse);
+      const { sendResponse } = dispatchAction(showFloatingRailAction);
 
-      expect(sendResponse).toHaveBeenCalledWith({
-        success: false,
-        error: '浮動側欄尚未初始化',
-      });
+      expect(sendResponse).toHaveBeenCalledWith(railNotInitializedFailure);
     });
 
     test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 應先喚回 dismissed 的 ready rail 再啟動標註', async () => {
@@ -401,13 +485,8 @@ describe('Content Script Entry (index.js)', () => {
       const undismissMock = jest.fn();
       const activateHighlightingMock = jest.fn();
       globalThis.__NOTION_RAIL_READY__ = railReady.promise;
-      const sendResponse = jest.fn();
 
-      const result = messageHandler(
-        { action: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT' },
-        {},
-        sendResponse
-      );
+      const { result, sendResponse } = dispatchAction(activateFloatingRailAction);
 
       expect(result).toBe(true);
       expect(showMock).not.toHaveBeenCalled();
@@ -445,9 +524,8 @@ describe('Content Script Entry (index.js)', () => {
           activateHighlighting: activateHighlightingMock,
         },
       };
-      const sendResponse = jest.fn();
 
-      messageHandler({ action: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT' }, {}, sendResponse);
+      const { sendResponse } = dispatchAction(activateFloatingRailAction);
 
       expect(undismissMock).toHaveBeenCalledWith();
       expect(showMock).not.toHaveBeenCalled();
@@ -465,114 +543,88 @@ describe('Content Script Entry (index.js)', () => {
           activateHighlighting: activateHighlightingMock,
         },
       };
-      const sendResponse = jest.fn();
 
-      messageHandler({ action: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT' }, {}, sendResponse);
+      const { sendResponse } = dispatchAction(activateFloatingRailAction);
 
       expect(activateHighlightingMock).toHaveBeenCalledWith();
-      expect(sendResponse).toHaveBeenCalledWith({
-        success: false,
-        error: '浮動側欄操作失敗',
-      });
+      expect(sendResponse).toHaveBeenCalledWith(railOperationFailure);
     });
 
     test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在現有 rail 缺少 activateHighlighting 時應回傳明確錯誤', () => {
+      expect.hasAssertions();
       globalThis.HighlighterV2 = {
         rail: {
           show: jest.fn(),
         },
       };
-      const sendResponse = jest.fn();
 
-      messageHandler({ action: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT' }, {}, sendResponse);
+      const { sendResponse } = dispatchAction(activateFloatingRailAction);
 
-      expect(sendResponse).toHaveBeenCalledWith({
-        success: false,
-        error: '浮動側欄缺少 activateHighlighting() 方法',
-      });
+      expectSendResponseFailure(sendResponse, '浮動側欄缺少 activateHighlighting() 方法');
     });
 
-    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在 ready rail 初始化失敗時應回傳標準化初始化錯誤', async () => {
-      globalThis.__NOTION_RAIL_READY__ = Promise.resolve({
-        success: false,
-        error: 'ready failed',
-      });
-      const sendResponse = jest.fn();
-
-      messageHandler({ action: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT' }, {}, sendResponse);
-      await flushPromises();
-
-      expect(sendResponse).toHaveBeenCalledWith({
-        success: false,
-        error: '浮動側欄初始化失敗',
-      });
-      expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
-    });
-
-    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在 ready rail 缺少 activateHighlighting 時應回傳明確錯誤', async () => {
-      globalThis.__NOTION_RAIL_READY__ = Promise.resolve({
-        success: true,
-        rail: {
-          show: jest.fn(),
+    test.each([
+      {
+        title:
+          '[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在 ready rail 初始化失敗時應回傳標準化初始化錯誤',
+        createReadyPromise: () =>
+          Promise.resolve({
+            success: false,
+            error: 'ready failed',
+          }),
+        response: railInitializationFailure,
+      },
+      {
+        title:
+          '[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在 ready rail 缺少 activateHighlighting 時應回傳明確錯誤',
+        createReadyPromise: () =>
+          Promise.resolve({
+            success: true,
+            rail: {
+              show: jest.fn(),
+            },
+          }),
+        response: {
+          success: false,
+          error: '浮動側欄缺少 activateHighlighting() 方法',
         },
-      });
-      const sendResponse = jest.fn();
+      },
+      {
+        title:
+          '[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在 ready rail 的 async activateHighlighting reject 時應回傳安全 fallback 訊息',
+        createReadyPromise: () =>
+          Promise.resolve({
+            success: true,
+            rail: {
+              show: jest.fn(),
+              activateHighlighting: jest.fn().mockRejectedValue(new Error('async activate failed')),
+            },
+          }),
+        response: railOperationFailure,
+      },
+      {
+        title:
+          '[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在 ready promise reject 時應回傳通用錯誤',
+        createReadyPromise: () => createHandledRejectedPromise(new Error('boom')),
+        response: railInitializationFailure,
+      },
+    ])('$title', async ({ createReadyPromise, response }) => {
+      globalThis.__NOTION_RAIL_READY__ = createReadyPromise();
 
-      messageHandler({ action: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT' }, {}, sendResponse);
+      const { sendResponse } = dispatchAction(activateFloatingRailAction);
       await flushPromises();
 
-      expect(sendResponse).toHaveBeenCalledWith({
-        success: false,
-        error: '浮動側欄缺少 activateHighlighting() 方法',
-      });
-      expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
-    });
-
-    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在 ready rail 的 async activateHighlighting reject 時應回傳安全 fallback 訊息', async () => {
-      globalThis.__NOTION_RAIL_READY__ = Promise.resolve({
-        success: true,
-        rail: {
-          show: jest.fn(),
-          activateHighlighting: jest.fn().mockRejectedValue(new Error('async activate failed')),
-        },
-      });
-      const sendResponse = jest.fn();
-
-      messageHandler({ action: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT' }, {}, sendResponse);
-      await flushPromises();
-
-      expect(sendResponse).toHaveBeenCalledWith({
-        success: false,
-        error: '浮動側欄操作失敗',
-      });
-      expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
-    });
-
-    test('[REGRESSION] ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在 ready promise reject 時應回傳通用錯誤', async () => {
-      globalThis.__NOTION_RAIL_READY__ = Promise.reject(new Error('boom'));
-      const sendResponse = jest.fn();
-
-      messageHandler({ action: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT' }, {}, sendResponse);
-      await flushPromises();
-
-      expect(sendResponse).toHaveBeenCalledWith({
-        success: false,
-        error: '浮動側欄初始化失敗',
-      });
+      expect(sendResponse).toHaveBeenCalledWith(response);
       expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
     });
 
     test('ACTIVATE_FLOATING_RAIL_HIGHLIGHT 在未初始化時應直接返回錯誤', () => {
       delete globalThis.HighlighterV2;
       delete globalThis.__NOTION_RAIL_READY__;
-      const sendResponse = jest.fn();
 
-      messageHandler({ action: 'ACTIVATE_FLOATING_RAIL_HIGHLIGHT' }, {}, sendResponse);
+      const { sendResponse } = dispatchAction(activateFloatingRailAction);
 
-      expect(sendResponse).toHaveBeenCalledWith({
-        success: false,
-        error: '浮動側欄尚未初始化',
-      });
+      expect(sendResponse).toHaveBeenCalledWith(railNotInitializedFailure);
     });
 
     test('REMOVE_HIGHLIGHT_DOM 應呼叫 manager.removeHighlight', () => {
@@ -655,10 +707,7 @@ describe('Content Script Entry (index.js)', () => {
     });
 
     test('REPLAY_BUFFERED_EVENTS callback 遇到 runtime.lastError 時應靜默忽略', () => {
-      const replayCall = sendMessageMock.mock.calls.find(
-        call => call[0].action === 'REPLAY_BUFFERED_EVENTS'
-      );
-      const replayCallback = replayCall[1];
+      const replayCallback = getReplayCallback();
       globalThis.chrome.runtime.lastError = { message: 'preloader missing' };
 
       replayCallback({ events: [{ type: 'shortcut' }] });
@@ -677,12 +726,7 @@ describe('Content Script Entry (index.js)', () => {
       };
       globalThis.HighlighterV2 = { rail };
 
-      // Simulate response to REPLAY_BUFFERED_EVENTS
-      const replayCall = sendMessageMock.mock.calls.find(
-        call => call[0].action === 'REPLAY_BUFFERED_EVENTS'
-      );
-      expect(replayCall).toBeDefined();
-      const replayCallback = replayCall[1];
+      const replayCallback = getReplayCallback();
 
       replayCallback({ events: [{ type: 'shortcut' }] });
       await flushPromises();
@@ -695,10 +739,7 @@ describe('Content Script Entry (index.js)', () => {
 
     test('重放 shortcut 事件時若 Highlighter 不可用應記錄警告', () => {
       delete globalThis.HighlighterV2;
-      const replayCall = sendMessageMock.mock.calls.find(
-        call => call[0].action === 'REPLAY_BUFFERED_EVENTS'
-      );
-      const replayCallback = replayCall[1];
+      const replayCallback = getReplayCallback();
 
       replayCallback({ events: [{ type: 'shortcut' }] });
 
@@ -717,10 +758,7 @@ describe('Content Script Entry (index.js)', () => {
       };
       globalThis.HighlighterV2 = { rail };
 
-      const replayCall = sendMessageMock.mock.calls.find(
-        call => call[0].action === 'REPLAY_BUFFERED_EVENTS'
-      );
-      const replayCallback = replayCall[1];
+      const replayCallback = getReplayCallback();
 
       replayCallback({ events: [{ type: 'shortcut' }] });
       await flushPromises();
@@ -741,10 +779,7 @@ describe('Content Script Entry (index.js)', () => {
       };
       globalThis.HighlighterV2 = { rail };
 
-      const replayCall = sendMessageMock.mock.calls.find(
-        call => call[0].action === 'REPLAY_BUFFERED_EVENTS'
-      );
-      const replayCallback = replayCall[1];
+      const replayCallback = getReplayCallback();
 
       replayCallback({ events: [{ type: 'shortcut' }] });
       await flushPromises();
@@ -770,10 +805,7 @@ describe('Content Script Entry (index.js)', () => {
         },
       };
 
-      const replayCall = sendMessageMock.mock.calls.find(
-        call => call[0].action === 'REPLAY_BUFFERED_EVENTS'
-      );
-      const replayCallback = replayCall[1];
+      const replayCallback = getReplayCallback();
 
       replayCallback({ events: [{ type: 'shortcut' }] });
       await flushPromises();
@@ -797,40 +829,31 @@ describe('Content Script Entry (index.js)', () => {
         delete globalThis.__NOTION_STABLE_URL__;
       });
 
-      test('應該接受帶有 query 參數的 URL', () => {
-        const sendResponse = jest.fn();
-        const result = messageHandler(
-          { action: 'SET_STABLE_URL', stableUrl: 'https://example.com/?p=123' },
-          {},
-          sendResponse
-        );
+      test.each([
+        ['應該接受帶有 query 參數的 URL', 'https://example.com/?p=123'],
+        ['應該接受帶有具體路徑的 URL', 'https://example.com/posts/123/'],
+      ])('%s', (_title, stableUrl) => {
+        const { result, sendResponse } = dispatchAction('SET_STABLE_URL', { stableUrl });
 
         expect(result).toBe(true);
-        expect(globalThis.__NOTION_STABLE_URL__).toBe('https://example.com/?p=123');
+        expect(globalThis.__NOTION_STABLE_URL__).toBe(stableUrl);
         expect(sendResponse).toHaveBeenCalledWith({ success: true });
       });
 
-      test('應該接受帶有具體路徑的 URL', () => {
-        const sendResponse = jest.fn();
-        const result = messageHandler(
-          { action: 'SET_STABLE_URL', stableUrl: 'https://example.com/posts/123/' },
-          {},
-          sendResponse
-        );
-
-        expect(result).toBe(true);
-        expect(globalThis.__NOTION_STABLE_URL__).toBe('https://example.com/posts/123/');
-        expect(sendResponse).toHaveBeenCalledWith({ success: true });
-      });
-
-      test('應該拒絕純首頁（無路徑無 query）', () => {
+      test.each([
+        {
+          title: '應該拒絕純首頁（無路徑無 query）',
+          stableUrl: 'https://example.com/',
+          logMessage: '拒絕設置首頁 URL 為穩定 URL',
+        },
+        {
+          title: '應該處理無效的 URL 字串',
+          stableUrl: 'not-a-valid-url',
+          logMessage: '拒絕設置無效 URL 為穩定 URL',
+        },
+      ])('$title', ({ stableUrl, logMessage }) => {
         globalThis.__NOTION_STABLE_URL__ = 'old-url';
-        const sendResponse = jest.fn();
-        const result = messageHandler(
-          { action: 'SET_STABLE_URL', stableUrl: 'https://example.com/' },
-          {},
-          sendResponse
-        );
+        const { result, sendResponse } = dispatchAction('SET_STABLE_URL', { stableUrl });
 
         expect(result).toBe(true);
         expect(globalThis.__NOTION_STABLE_URL__).toBe('old-url'); // Unchanged
@@ -838,38 +861,13 @@ describe('Content Script Entry (index.js)', () => {
           success: false,
           error: 'INVALID_STABLE_URL',
         });
-        expect(Logger.debug).toHaveBeenCalledWith(
-          '拒絕設置首頁 URL 為穩定 URL',
-          expect.any(Object)
-        );
-      });
-
-      test('應該處理無效的 URL 字串', () => {
-        globalThis.__NOTION_STABLE_URL__ = 'old-url';
-        const sendResponse = jest.fn();
-        const result = messageHandler(
-          { action: 'SET_STABLE_URL', stableUrl: 'not-a-valid-url' },
-          {},
-          sendResponse
-        );
-
-        expect(result).toBe(true);
-        expect(globalThis.__NOTION_STABLE_URL__).toBe('old-url'); // Unchanged
-        expect(sendResponse).toHaveBeenCalledWith({
-          success: false,
-          error: 'INVALID_STABLE_URL',
-        });
-        expect(Logger.debug).toHaveBeenCalledWith(
-          '拒絕設置無效 URL 為穩定 URL',
-          expect.any(Object)
-        );
+        expect(Logger.debug).toHaveBeenCalledWith(logMessage, expect.any(Object));
       });
 
       test('GET_STABLE_URL 應回傳目前 stableUrl', () => {
         globalThis.__NOTION_STABLE_URL__ = 'https://example.com/posts/123/';
-        const sendResponse = jest.fn();
 
-        const result = messageHandler({ action: 'GET_STABLE_URL' }, {}, sendResponse);
+        const { result, sendResponse } = dispatchAction('GET_STABLE_URL');
 
         expect(result).toBe(true);
         expect(sendResponse).toHaveBeenCalledWith({
@@ -878,9 +876,7 @@ describe('Content Script Entry (index.js)', () => {
       });
 
       test('INIT_BUNDLE 應回傳 bundle ready 狀態與 bufferedEvents', () => {
-        const sendResponse = jest.fn();
-
-        const result = messageHandler({ action: 'INIT_BUNDLE' }, {}, sendResponse);
+        const { result, sendResponse } = dispatchAction('INIT_BUNDLE');
 
         expect(result).toBe(true);
         expect(sendResponse).toHaveBeenCalledWith({
@@ -901,19 +897,16 @@ describe('Content Script Entry (index.js)', () => {
   });
 
   describe('extractPageContent', () => {
-    test('應該成功提取並轉換內容', async () => {
-      ContentExtractor.extractAsync.mockResolvedValue({
-        content: '<div>Test content</div>',
-        type: 'readability',
-        metadata: { title: 'Test Title' },
-        blocks: [],
-      });
-
-      const mockConverter = {
-        convert: jest.fn().mockReturnValue([{ object: 'block', type: 'paragraph' }]),
-        imageCount: 0,
+    beforeEach(async () => {
+      await prepareContentModuleMocks();
+      extractPageContent = async (...args) => {
+        const contentModule = await importContentEntrypoint();
+        return contentModule.extractPageContent(...args);
       };
-      ConverterFactory.getConverter.mockReturnValue(mockConverter);
+    });
+
+    test('應該成功提取並轉換內容', async () => {
+      mockReadabilityExtraction();
 
       ImageCollector.collectAdditionalImages.mockResolvedValue({
         images: [{ type: 'image', image: { external: { url: 'img1' } } }],
@@ -952,23 +945,28 @@ describe('Content Script Entry (index.js)', () => {
       });
     });
 
-    test('應該在圖片收集失敗時仍返回成功結果且 imageMetrics 為 null', async () => {
-      ContentExtractor.extractAsync.mockResolvedValue({
-        content: '<div>Test content</div>',
-        type: 'readability',
-        metadata: { title: 'Test Title' },
-        blocks: [],
-      });
-
-      const mockConverter = {
-        convert: jest.fn().mockReturnValue([{ object: 'block', type: 'paragraph' }]),
-        imageCount: 0,
-      };
-      ConverterFactory.getConverter.mockReturnValue(mockConverter);
-
-      ImageCollector.collectAdditionalImages.mockRejectedValue(
-        new Error('Image collection failed')
-      );
+    test.each([
+      {
+        title: '應該在圖片收集失敗時仍返回成功結果且 imageMetrics 為 null',
+        arrangeImages: () => {
+          ImageCollector.collectAdditionalImages.mockRejectedValue(
+            new Error('Image collection failed')
+          );
+        },
+      },
+      {
+        title: '應該在 imageResult 無 metrics 時 imageMetrics 為 null',
+        arrangeImages: () => {
+          ImageCollector.collectAdditionalImages.mockResolvedValue({
+            images: [],
+            coverImage: null,
+          });
+          mergeUniqueImages.mockReturnValue([]);
+        },
+      },
+    ])('$title', async ({ arrangeImages }) => {
+      mockReadabilityExtraction();
+      arrangeImages();
 
       const result = await extractPageContent();
 
@@ -977,47 +975,11 @@ describe('Content Script Entry (index.js)', () => {
       expect(result.debug.imageMetrics).toBeNull();
     });
 
-    test('應該在 imageResult 無 metrics 時 imageMetrics 為 null', async () => {
-      ContentExtractor.extractAsync.mockResolvedValue({
-        content: '<div>Test content</div>',
-        type: 'readability',
-        metadata: { title: 'Test Title' },
-        blocks: [],
-      });
-
-      const mockConverter = {
-        convert: jest.fn().mockReturnValue([{ object: 'block', type: 'paragraph' }]),
-        imageCount: 0,
-      };
-      ConverterFactory.getConverter.mockReturnValue(mockConverter);
-
-      // 回傳舊格式（無 metrics）
-      ImageCollector.collectAdditionalImages.mockResolvedValue({
-        images: [],
-        coverImage: null,
-      });
-
-      mergeUniqueImages.mockReturnValue([]);
-
-      const result = await extractPageContent();
-
-      expect(result.extractionStatus).toBe('success');
-      expect(result.debug.imageMetrics).toBeNull();
-    });
-
     test('應該在正文無圖片時將首張額外圖片插入到開頭', async () => {
-      ContentExtractor.extractAsync.mockResolvedValue({
+      mockReadabilityExtraction({
         content: '<div>No image</div>',
-        type: 'readability',
-        metadata: { title: 'No Image' },
-        blocks: [],
+        title: 'No Image',
       });
-
-      const mockConverter = {
-        convert: jest.fn().mockReturnValue([{ object: 'block', type: 'paragraph' }]),
-        imageCount: 0,
-      };
-      ConverterFactory.getConverter.mockReturnValue(mockConverter);
 
       const leadImg = { type: 'image', image: { external: { url: 'lead-img' } } };
       ImageCollector.collectAdditionalImages.mockResolvedValue({
@@ -1136,9 +1098,7 @@ describe('Content Script Entry (index.js)', () => {
       });
       mergeUniqueImages.mockReturnValue([]);
 
-      jest.isolateModules(() => {
-        require('../../../scripts/content/index.js');
-      });
+      await loadContentEntrypoint({ resetMocks: false });
       await flushPromises();
 
       expect(globalThis.__notion_extraction_result).toEqual(
@@ -1156,20 +1116,11 @@ describe('Content Script Entry (index.js)', () => {
   describe('SHOW_TOAST handler', () => {
     let messageHandler;
 
-    beforeEach(() => {
+    beforeEach(async () => {
       globalThis.chrome.runtime.onMessage.addListener = jest.fn();
       globalThis.chrome.runtime.sendMessage = jest.fn();
 
-      jest.isolateModules(() => {
-        require('../../../scripts/content/index.js');
-      });
-
-      const allHandlers = globalThis.chrome.runtime.onMessage.addListener.mock.calls.map(c => c[0]);
-      messageHandler = allHandlers.find(h => {
-        const mockSend = jest.fn();
-        const result = h({ action: 'PING' }, {}, mockSend);
-        return result === true && mockSend.mock.calls.length > 0;
-      });
+      ({ messageHandler } = await loadContentEntrypoint());
     });
 
     test('SHOW_TOAST 應呼叫 HighlighterV2.toast.show 並傳入 messageKey 與 level', () => {

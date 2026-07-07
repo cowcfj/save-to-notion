@@ -1,21 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { matchesSentinel, SENTINELS } from './bundle-boundary-sentinels.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
-
-// Sentinel 測試文案定義
-const SENTINELS = {
-  SAVE_TARGET_LABEL: '保存目標名稱（選填）', // Options / Sidepanel 專屬
-  CLOUD_BACKUP_LABEL: '雲端備份：',           // Options / Sidepanel / Cloud 專屬
-  NO_HIGHLIGHTS: '此網頁尚無標註',           // Sidepanel 專屬
-  HIGHLIGHT_DELETED: '標註已刪除',           // Highlighter / Toast (Content/Popup 專屬)
-  TOOLBAR_CONTAINER: 'Save to Notion 工具列', // Floating Rail (Content 專屬)
-  MISSING_TICKET: '登入失敗：缺少驗證票據',    // Auth Bridge 專屬
-  SAVE_PAGE_LABEL: '儲存頁面',               // Popup 專屬
-};
 
 // 每個 bundle 禁用的 sentinel 清單
 const BOUNDARY_RULES = {
@@ -25,6 +15,9 @@ const BOUNDARY_RULES = {
       SENTINELS.CLOUD_BACKUP_LABEL,
       SENTINELS.NO_HIGHLIGHTS,
       SENTINELS.MISSING_TICKET,
+      SENTINELS.PROFILE_MANAGER,
+      SENTINELS.OPTIONS_HTML,
+      SENTINELS.OPTIONS_JS,
     ],
   },
   'dist/scripts/background.js': {
@@ -35,6 +28,15 @@ const BOUNDARY_RULES = {
       SENTINELS.HIGHLIGHT_DELETED,
       SENTINELS.TOOLBAR_CONTAINER,
       SENTINELS.MISSING_TICKET,
+      SENTINELS.DOMPURIFY,
+      SENTINELS.SANITIZE_ARTICLE_HTML,
+      SENTINELS.HTML_SANITIZER,
+      SENTINELS.CONTENT_EXTRACTOR,
+      SENTINELS.READABILITY_ADAPTER,
+      SENTINELS.PROFILE_MANAGER,
+      SENTINELS.UI_MANAGER,
+      SENTINELS.DATA_SOURCE_MANAGER,
+      SENTINELS.MIGRATION_TOOL,
     ],
   },
   'dist/migration-executor.js': {
@@ -68,7 +70,9 @@ function reportBoundaryResult(relativePath, failures) {
     return;
   }
   console.error(`[FAIL] ${relativePath} 包含了禁用的 sentinel(s):`);
-  failures.forEach((fail) => console.error(`  - "${fail}"`));
+  failures.forEach(failure => {
+    console.error(`  - ${failure.label}: "${failure.value}"`);
+  });
 }
 
 // 處理缺少 bundle 的情況：requireAll 模式視為失敗，否則 [WARN] 跳過
@@ -89,7 +93,7 @@ function checkSingleBoundary(rootDir, relativePath, forbidden, requireAll) {
   }
 
   const content = fs.readFileSync(filePath, 'utf8');
-  const failures = forbidden.filter((sentinel) => content.includes(sentinel));
+  const failures = forbidden.filter(item => matchesSentinel(content, item));
   reportBoundaryResult(relativePath, failures);
   return failures.length === 0;
 }
@@ -99,7 +103,7 @@ export function checkBoundaries(rootDir, { requireAll = false } = {}) {
   console.log('開始進行 Bundle 訊息邊界檢查 (check-message-boundaries)...');
 
   const results = Object.entries(BOUNDARY_RULES).map(([relativePath, rule]) =>
-    checkSingleBoundary(rootDir, relativePath, rule.forbidden, requireAll),
+    checkSingleBoundary(rootDir, relativePath, rule.forbidden, requireAll)
   );
 
   return results.every(Boolean);
@@ -109,7 +113,7 @@ export function checkBoundaries(rootDir, { requireAll = false } = {}) {
 if (process.argv[1] === __filename) {
   const args = process.argv.slice(2);
   const requireAll = args.includes('--require-all');
-  const positionalRoot = args.find((arg) => !arg.startsWith('--'));
+  const positionalRoot = args.find(arg => !arg.startsWith('--'));
   const customRoot = positionalRoot ? path.resolve(process.cwd(), positionalRoot) : projectRoot;
   const success = checkBoundaries(customRoot, { requireAll });
   if (success) {

@@ -6,19 +6,34 @@
  * @author Content Extraction Team
  */
 
-// 將頁面複雜度檢測器轉為 CommonJS 格式，以便測試
-// 【重構】直接導入源代碼而非測試替身
-const {
-  detectPageComplexity,
-  selectExtractor,
-  getAnalysisReport,
-  logAnalysis,
-  isDocumentation,
-} = require('../../scripts/utils/pageComplexityDetector.js');
-const {
-  TECHNICAL_TERM_RULES,
-  TECHNICAL_TERM_GROUPS,
-} = require('../../scripts/config/shared/technicalTerms.js');
+const { createLoggerMock } = require('../helpers/loggerMock.cjs');
+
+const mockLogger = createLoggerMock();
+const mockLoggerModule = {
+  default: mockLogger,
+  ...mockLogger,
+};
+
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('../../scripts/utils/Logger.js', () => mockLoggerModule);
+}
+
+jest.mock('../../scripts/utils/Logger.js', () => mockLoggerModule);
+
+let detectPageComplexity;
+let selectExtractor;
+let getAnalysisReport;
+let logAnalysis;
+let isDocumentation;
+let TECHNICAL_TERM_RULES;
+let TECHNICAL_TERM_GROUPS;
+
+beforeAll(async () => {
+  ({ detectPageComplexity, selectExtractor, getAnalysisReport, logAnalysis, isDocumentation } =
+    await import('../../scripts/utils/pageComplexityDetector.js'));
+  ({ TECHNICAL_TERM_RULES, TECHNICAL_TERM_GROUPS } =
+    await import('../../scripts/config/shared/technicalTerms.js'));
+});
 
 describe('頁面複雜度檢測器', () => {
   describe('isDocumentation 函數 (替代 isTechnicalDoc)', () => {
@@ -612,7 +627,7 @@ describe('頁面複雜度檢測器', () => {
     test('Unicode whitespace characters should split words correctly', () => {
       // \u3000 = fullwidth space (CJK), \u2003 = em space, \u2009 = thin space
       document.documentElement.innerHTML =
-        '<body><p>function\u3000class\u2003method\u2009variable</p></body>';
+        '<body><p>function\u{3000}class\u{2003}method\u{2009}variable</p></body>';
       const result = detectPageComplexity(document);
       expect(result.technicalFeatures.technicalTermCount).toBe(4);
     });
@@ -620,7 +635,7 @@ describe('頁面複雜度檢測器', () => {
     test('mixed ASCII and Unicode whitespace should count words consistently', () => {
       // \u202F = narrow no-break space, \u205F = medium mathematical space, \uFEFF = BOM
       document.documentElement.innerHTML =
-        '<body><p>one\u202Ftwo\u205Fthree\uFEFFfour five</p></body>';
+        '<body><p>one\u{202F}two\u{205F}three\u{FEFF}four five</p></body>';
       const result = detectPageComplexity(document);
       // 5 words total, 0 technical terms
       expect(result.technicalFeatures.technicalTermCount).toBe(0);
@@ -642,7 +657,7 @@ describe('頁面複雜度檢測器', () => {
       }
     });
 
-    test('non-global technical term matcher should be evaluated once', () => {
+    test('non-global technical term matcher should be evaluated once', async () => {
       const NativeRegExp = globalThis.RegExp;
 
       function OneShotRegExp(pattern, flags) {
@@ -665,10 +680,9 @@ describe('頁面複雜度檢測器', () => {
 
       try {
         globalThis.RegExp = OneShotRegExp;
-        jest.isolateModules(() => {
-          const {
-            detectPageComplexity: detectWithOneShotMatcher,
-          } = require('../../scripts/utils/pageComplexityDetector.js');
+        await jest.isolateModulesAsync(async () => {
+          const { detectPageComplexity: detectWithOneShotMatcher } =
+            await import('../../scripts/utils/pageComplexityDetector.js');
 
           document.documentElement.innerHTML = '<body><p>function plain text</p></body>';
           const result = detectWithOneShotMatcher(document);

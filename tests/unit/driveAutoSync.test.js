@@ -4,16 +4,54 @@
  * 覆蓋 shouldRunAutoSync() 所有條件分支。
  */
 
-import {
-  shouldRunAutoSync,
-  runAutoUpload,
-} from '../../scripts/background/handlers/driveAutoSync.js';
-import * as driveClient from '../../scripts/auth/driveClient.js';
-import * as accountSession from '../../scripts/auth/accountSession.js';
-import * as driveSnapshot from '../../scripts/sync/driveSnapshot.js';
-import { RUNTIME_ACTIONS } from '../../scripts/config/shared/runtimeActions.js';
-import { DRIVE_SYNC_ERROR_CODES } from '../../scripts/config/extension/driveSyncErrorCodes.js';
-import Logger from '../../scripts/utils/Logger.js';
+const driveClientMockModule = {
+  __esModule: true,
+  getDriveSyncMetadata: jest.fn(),
+  ensureDriveSyncIdentity: jest.fn(),
+  updateDriveSyncRunMetadata: jest.fn(),
+  clearDriveDirty: jest.fn(),
+  uploadDriveSnapshot: jest.fn(),
+  writeDriveAutoSyncTelemetry: jest.fn(),
+};
+
+const accountSessionMockModule = {
+  __esModule: true,
+  getAccountAccessToken: jest.fn(),
+};
+
+const driveSnapshotMockModule = {
+  __esModule: true,
+  buildUnifiedPageStateFromLocalStorage: jest.fn(),
+  buildDriveSnapshot: jest.fn(),
+};
+
+jest.unstable_mockModule('../../scripts/auth/driveClient.js', () => driveClientMockModule);
+jest.unstable_mockModule('../../scripts/auth/accountSession.js', () => accountSessionMockModule);
+jest.unstable_mockModule('../../scripts/sync/driveSnapshot.js', () => driveSnapshotMockModule);
+jest.doMock('../../scripts/auth/driveClient.js', () => driveClientMockModule);
+jest.doMock('../../scripts/auth/accountSession.js', () => accountSessionMockModule);
+jest.doMock('../../scripts/sync/driveSnapshot.js', () => driveSnapshotMockModule);
+
+let shouldRunAutoSync;
+let runAutoUpload;
+let driveClient;
+let accountSession;
+let driveSnapshot;
+let RUNTIME_ACTIONS;
+let DRIVE_SYNC_ERROR_CODES;
+let Logger;
+
+beforeAll(async () => {
+  ({ shouldRunAutoSync, runAutoUpload } =
+    await import('../../scripts/background/handlers/driveAutoSync.js'));
+  driveClient = await import('../../scripts/auth/driveClient.js');
+  accountSession = await import('../../scripts/auth/accountSession.js');
+  driveSnapshot = await import('../../scripts/sync/driveSnapshot.js');
+  ({ RUNTIME_ACTIONS } = await import('../../scripts/config/shared/runtimeActions.js'));
+  ({ DRIVE_SYNC_ERROR_CODES } =
+    await import('../../scripts/config/extension/driveSyncErrorCodes.js'));
+  ({ default: Logger } = await import('../../scripts/utils/Logger.js'));
+});
 
 /**
  * 基礎合法 metadata（所有條件均滿足）。
@@ -122,6 +160,8 @@ describe('runAutoUpload()', () => {
   let mockSendMessage;
 
   beforeEach(() => {
+    jest.clearAllMocks();
+
     mockSendMessage = jest.fn().mockResolvedValue({});
     globalThis.chrome = {
       runtime: {
@@ -135,21 +175,23 @@ describe('runAutoUpload()', () => {
     jest.spyOn(Logger, 'success').mockImplementation(() => {});
 
     // 預設視為已登入；個別案例可覆寫
-    jest.spyOn(accountSession, 'getAccountAccessToken').mockResolvedValue('fake-token');
+    accountSession.getAccountAccessToken.mockResolvedValue('fake-token');
 
-    jest.spyOn(driveClient, 'getDriveSyncMetadata').mockResolvedValue(baseMetadata());
-    jest.spyOn(driveClient, 'ensureDriveSyncIdentity').mockResolvedValue('inst-1');
-    jest.spyOn(driveClient, 'updateDriveSyncRunMetadata').mockResolvedValue();
-    jest.spyOn(driveClient, 'clearDriveDirty').mockResolvedValue();
-    jest
-      .spyOn(driveClient, 'uploadDriveSnapshot')
-      .mockResolvedValue({ success: true, updatedAt: '2026-04-21T00:00:00.000Z' });
+    driveClient.getDriveSyncMetadata.mockResolvedValue(baseMetadata());
+    driveClient.ensureDriveSyncIdentity.mockResolvedValue('inst-1');
+    driveClient.updateDriveSyncRunMetadata.mockResolvedValue();
+    driveClient.clearDriveDirty.mockResolvedValue();
+    driveClient.writeDriveAutoSyncTelemetry.mockResolvedValue();
+    driveClient.uploadDriveSnapshot.mockResolvedValue({
+      success: true,
+      updatedAt: '2026-04-21T00:00:00.000Z',
+    });
 
-    jest.spyOn(driveSnapshot, 'buildUnifiedPageStateFromLocalStorage').mockResolvedValue({
+    driveSnapshot.buildUnifiedPageStateFromLocalStorage.mockResolvedValue({
       pages: new Map(),
       urlAliases: new Map(),
     });
-    jest.spyOn(driveSnapshot, 'buildDriveSnapshot').mockResolvedValue({
+    driveSnapshot.buildDriveSnapshot.mockResolvedValue({
       metadata: { updated_at: 'x', item_counts: {} },
       payload: {},
     });

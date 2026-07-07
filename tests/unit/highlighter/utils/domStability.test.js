@@ -2,8 +2,9 @@
  * @jest-environment jsdom
  */
 
-// 【重構】直接導入源代碼（Babel 自動處理 ES Module → CommonJS 轉換）
-const { waitForDOMStability } = require('../../../../scripts/highlighter/utils/domStability.js');
+import { jest } from '@jest/globals';
+
+import { waitForDOMStability } from '../../../../scripts/highlighter/utils/domStability.js';
 
 describe('utils/domStability', () => {
   beforeEach(() => {

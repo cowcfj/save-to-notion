@@ -2,8 +2,7 @@
  * @jest-environment jsdom
  */
 
-// 【重構】直接導入源代碼（Babel 自動處理 ES Module → CommonJS 轉換）
-const {
+import {
   isNonEmptyString,
   isValidRange,
   isCollapsedRange,
@@ -11,7 +10,7 @@ const {
   isValidUrl,
   isValidHighlightId,
   isValidHighlightData,
-} = require('../../../../scripts/highlighter/utils/validation.js');
+} from '../../../../scripts/highlighter/utils/validation.js';
 
 describe('utils/validation', () => {
   describe('isNonEmptyString', () => {

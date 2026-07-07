@@ -2,15 +2,7 @@
  * @jest-environment jsdom
  */
 
-jest.mock('../../../pages/options/confirmDialog.js', () => ({
-  confirmDialog: jest.fn().mockResolvedValue(true),
-}));
-
-import {
-  setCloudSyncCardVisibility,
-  renderCloudSyncCard,
-  initCloudSyncController,
-} from '../../../pages/options/DriveCloudSyncController.js';
+import { jest } from '@jest/globals';
 import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 import Logger from '../../../scripts/utils/Logger.js';
 import { DRIVE_SYNC_ERROR_CODES } from '../../../scripts/config/extension/driveSyncErrorCodes.js';
@@ -24,8 +16,19 @@ import {
   spyOnDriveClientDefaults,
 } from './DriveCloudSyncController.shared.js';
 
+let setCloudSyncCardVisibility;
+let renderCloudSyncCard;
+let initCloudSyncController;
+
 describe('DriveCloudSyncController', () => {
   let mockSendMessage;
+
+  beforeAll(async () => {
+    const controllerModule = await import('../../../pages/options/DriveCloudSyncController.js');
+    setCloudSyncCardVisibility = controllerModule.setCloudSyncCardVisibility;
+    renderCloudSyncCard = controllerModule.renderCloudSyncCard;
+    initCloudSyncController = controllerModule.initCloudSyncController;
+  });
 
   beforeEach(() => {
     jest.useFakeTimers();

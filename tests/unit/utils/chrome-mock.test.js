@@ -11,7 +11,7 @@ describe('Chrome mock 預設行為', () => {
 
   test('重新載入共用 mock 時，fresh module 與既有 global 參考的 lastError 都預設為 undefined', () => {
     jest.resetModules();
-    const chrome = require('../../mocks/chrome.js');
+    const chrome = require('../../mocks/chrome.cjs');
 
     // 這裡刻意不覆寫 globalThis.chrome，分開驗證 fresh module 與 setup.js 注入的既有參考
     // 都維持 lastError 預設為 undefined。

@@ -2,36 +2,53 @@
  * @jest-environment jsdom
  */
 
-import { HighlightManager } from '../../../../scripts/highlighter/core/HighlightManager.js';
-import Logger from '../../../../scripts/utils/Logger.js';
-import { restoreRangeWithRetry } from '../../../../scripts/highlighter/core/Range.js';
-// Mock dependencies
-jest.mock('../../../../scripts/highlighter/utils/dom.js', () => ({
+import { jest } from '@jest/globals';
+
+const mockDomUtils = {
   supportsHighlightAPI: jest.fn(() => true),
+};
+const mockLogger = {
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  log: jest.fn(),
+  debug: jest.fn(),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+};
+const mockRangeModule = {
+  serializeRange: jest.fn(),
+  restoreRangeWithRetry: jest.fn(),
+};
+let HighlightManager;
+const Logger = mockLogger;
+const { restoreRangeWithRetry } = mockRangeModule;
+
+// Mock dependencies
+jest.mock('../../../../scripts/highlighter/utils/dom.js', () => mockDomUtils);
+
+jest.mock('../../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: mockLogger,
+  ...mockLogger,
 }));
 
-jest.mock('../../../../scripts/utils/Logger.js', () => {
-  const mockLogger = {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    log: jest.fn(),
-    debug: jest.fn(),
-    success: jest.fn(),
-    start: jest.fn(),
-    ready: jest.fn(),
-  };
-  return {
+jest.mock('../../../../scripts/highlighter/core/Range.js', () => mockRangeModule);
+
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('../../../../scripts/highlighter/utils/dom.js', () => mockDomUtils);
+  jest.unstable_mockModule('../../../../scripts/utils/Logger.js', () => ({
     __esModule: true,
     default: mockLogger,
     ...mockLogger,
-  };
-});
+  }));
+  jest.unstable_mockModule('../../../../scripts/highlighter/core/Range.js', () => mockRangeModule);
+}
 
-jest.mock('../../../../scripts/highlighter/core/Range.js', () => ({
-  serializeRange: jest.fn(),
-  restoreRangeWithRetry: jest.fn(),
-}));
+beforeAll(async () => {
+  ({ HighlightManager } = await import('../../../../scripts/highlighter/core/HighlightManager.js'));
+});
 
 function createTextRange(text, start = 0, end = text.length) {
   const div = document.createElement('div');
@@ -212,7 +229,7 @@ describe('core/HighlightManager', () => {
 
       const id = manager.addHighlight(range, 'yellow');
 
-      expect(id).not.toBe(null);
+      expect(id).not.toBeNull();
       expect(id).toMatch(/^h\d+$/);
       expect(manager.highlights.size).toBe(1);
 
@@ -226,14 +243,14 @@ describe('core/HighlightManager', () => {
       const range = createTextRange('Test', 0, 0);
 
       const id = manager.addHighlight(range);
-      expect(id).toBe(null);
+      expect(id).toBeNull();
     });
 
     test('should return null for empty or whitespace-only range', () => {
       const range = createTextRange('   ');
 
       const id = manager.addHighlight(range);
-      expect(id).toBe(null);
+      expect(id).toBeNull();
     });
 
     test('should fallback to currentColor when styleManager returns no style', () => {

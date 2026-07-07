@@ -2,43 +2,80 @@
  * @jest-environment jsdom
  */
 
-jest.mock('../../../scripts/auth/notionOAuthInitiator.js', () => ({
-  initiateNotionOAuth: jest.fn(),
-}));
+import { afterEach, beforeAll, describe, expect, it, jest } from '@jest/globals';
 
-jest.mock('../../../scripts/auth/notionOAuthCompleter.js', () => ({
+const mockNotionOAuthInitiatorModule = {
+  initiateNotionOAuth: jest.fn(),
+};
+
+const mockNotionOAuthCompleterModule = {
   exchangeNotionOAuthCode: jest.fn(),
   saveNotionOAuthToken: jest.fn(),
-}));
+};
 
-jest.mock('../../../scripts/config/env/index.js', () => ({
+const mockEnvModule = {
   BUILD_ENV: {
     ENABLE_ACCOUNT: true,
   },
-}));
+};
 
-import {
-  TOTAL_STEPS,
-  ONBOARDING_COMPLETED_KEY,
-  showStep,
-  getCurrentStep,
-  nextStep,
-  skipToEnd,
-  markCompleted,
-  isNotionConnected,
-  runNotionOAuthFlow,
-  fetchNotionDatabases,
-  selectDataSource,
-  extractDatabaseTitle,
-  isAccountFeatureEnabled,
-  isAccountLoggedIn,
-} from '../../../pages/onboarding/onboardingController.js';
-import { initiateNotionOAuth } from '../../../scripts/auth/notionOAuthInitiator.js';
-import {
-  exchangeNotionOAuthCode,
-  saveNotionOAuthToken,
-} from '../../../scripts/auth/notionOAuthCompleter.js';
-import { BUILD_ENV } from '../../../scripts/config/env/index.js';
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule(
+    '../../../scripts/auth/notionOAuthInitiator.js',
+    () => mockNotionOAuthInitiatorModule
+  );
+  jest.unstable_mockModule(
+    '../../../scripts/auth/notionOAuthCompleter.js',
+    () => mockNotionOAuthCompleterModule
+  );
+  jest.unstable_mockModule('../../../scripts/config/env/index.js', () => mockEnvModule);
+}
+
+jest.mock('../../../scripts/auth/notionOAuthInitiator.js', () => mockNotionOAuthInitiatorModule);
+jest.mock('../../../scripts/auth/notionOAuthCompleter.js', () => mockNotionOAuthCompleterModule);
+jest.mock('../../../scripts/config/env/index.js', () => mockEnvModule);
+
+let TOTAL_STEPS;
+let ONBOARDING_COMPLETED_KEY;
+let showStep;
+let getCurrentStep;
+let nextStep;
+let skipToEnd;
+let markCompleted;
+let isNotionConnected;
+let runNotionOAuthFlow;
+let fetchNotionDatabases;
+let selectDataSource;
+let extractDatabaseTitle;
+let isAccountFeatureEnabled;
+let isAccountLoggedIn;
+let initiateNotionOAuth;
+let exchangeNotionOAuthCode;
+let saveNotionOAuthToken;
+let BUILD_ENV;
+
+beforeAll(async () => {
+  ({
+    TOTAL_STEPS,
+    ONBOARDING_COMPLETED_KEY,
+    showStep,
+    getCurrentStep,
+    nextStep,
+    skipToEnd,
+    markCompleted,
+    isNotionConnected,
+    runNotionOAuthFlow,
+    fetchNotionDatabases,
+    selectDataSource,
+    extractDatabaseTitle,
+    isAccountFeatureEnabled,
+    isAccountLoggedIn,
+  } = await import('../../../pages/onboarding/onboardingController.js'));
+  ({ initiateNotionOAuth } = await import('../../../scripts/auth/notionOAuthInitiator.js'));
+  ({ exchangeNotionOAuthCode, saveNotionOAuthToken } =
+    await import('../../../scripts/auth/notionOAuthCompleter.js'));
+  ({ BUILD_ENV } = await import('../../../scripts/config/env/index.js'));
+});
 
 function buildRoot() {
   const root = document.createElement('div');

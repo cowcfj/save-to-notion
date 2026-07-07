@@ -1,61 +1,22 @@
 /**
+ * @jest-environment jsdom
+ */
+/**
  * optionsLogExport.test.js
  *
  * Tests for debug log export functionality.
  */
 
-import { initOptions } from '../../../pages/options/options.js';
-import Logger from '../../../scripts/utils/Logger.js';
 import { sanitizeApiError } from '../../../scripts/utils/ApiErrorSanitizer.js';
-import {
-  flushAsyncClick,
-  buildOptionsShellDOM,
-  buildChromeMock,
-} from '../../helpers/optionsTestHarness.js';
+import { flushAsyncClick, buildOptionsShellDOM, buildChromeMock } from './optionsTestHarness.js';
+import { mockLogger as Logger, resetOptionsBootstrapMocks } from './optionsBootstrapTestSetup.js';
 
-// Mocks for dependencies
-jest.mock('../../../scripts/config/env/index.js', () => ({
-  BUILD_ENV: {
-    ENABLE_OAUTH: true,
-    ENABLE_ACCOUNT: true,
-    OAUTH_SERVER_URL: 'https://worker.test',
-    OAUTH_CLIENT_ID: '',
-    EXTENSION_API_KEY: '',
-  },
-}));
-jest.mock('../../../pages/options/UIManager.js');
-jest.mock('../../../pages/options/AuthManager.js');
-jest.mock('../../../pages/options/DataSourceManager.js');
-jest.mock('../../../pages/options/StorageManager.js');
-jest.mock('../../../pages/options/MigrationTool.js');
-jest.mock('../../../scripts/utils/Logger.js', () => ({
-  __esModule: true,
-  default: require('../../helpers/loggerMock.js').createLoggerMock(),
-}));
-jest.mock('../../../scripts/auth/accountSession.js', () => ({
-  getAccountProfile: jest.fn(),
-  getAccountAccessToken: jest.fn(),
-  clearAccountSession: jest.fn().mockResolvedValue(),
-}));
+let initOptions;
 
-jest.mock('../../../scripts/destinations/ProfileManager.js', () => ({
-  ProfileManager: jest.fn().mockImplementation(() => ({
-    listProfiles: jest.fn().mockResolvedValue([{ id: 'default' }]),
-    getDestinationEntitlement: jest
-      .fn()
-      .mockResolvedValue({ maxProfiles: 2, accountSignedIn: true, source: 'test' }),
-    ensureMigratedDefaultProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
-    createProfile: jest.fn().mockResolvedValue({ id: 'profile-2' }),
-    getProfile: jest.fn().mockResolvedValue({
-      id: 'default',
-      name: 'Default',
-      notionDataSourceId: 'source-1',
-      notionDataSourceType: 'database',
-    }),
-    updateProfile: jest.fn().mockResolvedValue({ id: 'default' }),
-    deleteProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
-  })),
-}));
+beforeAll(async () => {
+  const optionsModule = await import('../../../pages/options/options.js');
+  initOptions = optionsModule.initOptions;
+});
 
 describe('optionsLogExport', () => {
   describe('Log Export', () => {
@@ -65,6 +26,7 @@ describe('optionsLogExport', () => {
     let originalRevokeObjectURL = null;
 
     beforeEach(() => {
+      resetOptionsBootstrapMocks();
       jest.useFakeTimers();
       buildOptionsShellDOM(`
         <button id="export-logs-button">導出日誌</button>

@@ -11,7 +11,7 @@ import { expect } from '@playwright/test';
 export async function seedStorageAndMockNotionApi({ context, extensionId }) {
   await context.route('https://api.notion.com/v1/pages', async route => {
     const post = route.request().postDataJSON();
-    if (post?.parent && post?.properties) {
+    if (isMockNotionPagePost(post)) {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -27,80 +27,104 @@ export async function seedStorageAndMockNotionApi({ context, extensionId }) {
     }
   });
 
-  const optionsUrl = `chrome-extension://${extensionId}/pages/options/options.html`;
-  const optionsPage = await context.newPage();
-  await optionsPage.goto(optionsUrl);
-  await optionsPage.evaluate(async () => {
-    await chrome.storage.sync.set({
-      notionApiKey: 'secret_mock_key',
-      notionDataSourceId: 'mock-db-id',
-      notionDatabaseId: 'mock-db-id',
-    });
-  });
-  await optionsPage.close();
+  await withOptionsPage({ context, extensionId }, optionsPage =>
+    optionsPage.evaluate(async () => {
+      await chrome.storage.sync.set({
+        notionApiKey: 'synthetic-perf-api-key',
+        notionDataSourceId: 'mock-db-id',
+        notionDatabaseId: 'mock-db-id',
+      });
+    })
+  );
 }
 
 export async function resolveTargetTabIdAndMockQuery({ context, extensionId, urlSubstring }) {
-  const optionsUrl = `chrome-extension://${extensionId}/pages/options/options.html`;
-  const setupPage = await context.newPage();
-  await setupPage.goto(optionsUrl);
-
-  const tabId = await setupPage.evaluate(
-    sub =>
-      new Promise(resolve => {
-        chrome.tabs.query({}, tabs => {
-          let target = null;
-          for (const t of tabs) {
-            if (t.url?.includes(sub)) {
-              target = t;
-              break;
-            }
-          }
-          resolve(target ? target.id : null);
-        });
-      }),
-    urlSubstring
-  );
-
-  await setupPage.close();
+  const tabId = await resolveTargetTabId({ context, extensionId, urlSubstring });
   expect(tabId, `tab not found for substring "${urlSubstring}"`).not.toBeNull();
 
+  const worker = await getExtensionServiceWorker(context);
+  await worker.evaluate(installMockTabsQuery, {
+    mockId: tabId,
+    mockUrl: `https://example.com/?perf=${urlSubstring}`,
+  });
+
+  return tabId;
+}
+
+function isMockNotionPagePost(post) {
+  if (!post) {
+    return false;
+  }
+
+  return [post.parent, post.properties].every(Boolean);
+}
+
+async function withOptionsPage({ context, extensionId }, callback) {
+  const optionsUrl = `chrome-extension://${extensionId}/pages/options/options.html`;
+  const optionsPage = await context.newPage();
+  await optionsPage.goto(optionsUrl);
+
+  try {
+    return await callback(optionsPage);
+  } finally {
+    await optionsPage.close();
+  }
+}
+
+async function resolveTargetTabId({ context, extensionId, urlSubstring }) {
+  return withOptionsPage({ context, extensionId }, setupPage =>
+    setupPage.evaluate(findTabIdByUrlSubstring, urlSubstring)
+  );
+}
+
+function findTabIdByUrlSubstring(substring) {
+  return new Promise(resolve => {
+    chrome.tabs.query({}, tabs => {
+      const target = tabs.find(tab => tab.url?.includes(substring));
+      resolve(target ? target.id : null);
+    });
+  });
+}
+
+async function getExtensionServiceWorker(context) {
   let [worker] = context.serviceWorkers();
   if (!worker) {
     worker = await context.waitForEvent('serviceworker');
   }
 
-  await worker.evaluate(
-    ({ mockId, mockUrl }) => {
-      const original = chrome.tabs.query;
-      chrome.tabs.query = function (queryInfo, onQuery) {
-        if (queryInfo.active && queryInfo.currentWindow) {
-          const mockTab = {
-            id: mockId,
-            url: mockUrl,
-            title: 'Perf Fixture',
-            active: true,
-            windowId: 1,
-          };
-          if (onQuery) {
-            onQuery([mockTab]);
-          }
-          return Promise.resolve([mockTab]);
-        }
-        if (original) {
-          const result = original.call(this, queryInfo, onQuery);
-          return result ?? Promise.resolve([]);
-        }
-        if (onQuery) {
-          onQuery([]);
-        }
-        return Promise.resolve([]);
-      };
-    },
-    { mockId: tabId, mockUrl: `https://example.com/?perf=${urlSubstring}` }
-  );
+  return worker;
+}
 
-  return tabId;
+function installMockTabsQuery({ mockId, mockUrl }) {
+  const original = chrome.tabs.query;
+  const mockTabs = [
+    {
+      id: mockId,
+      url: mockUrl,
+      title: 'Perf Fixture',
+      active: true,
+      windowId: 1,
+    },
+  ];
+  const emptyTabs = [];
+
+  chrome.tabs.query = original
+    ? function queryWithOriginalTabs(queryInfo, onQuery) {
+        if ([queryInfo.active, queryInfo.currentWindow].every(Boolean)) {
+          onQuery?.(mockTabs);
+          return Promise.resolve(mockTabs);
+        }
+
+        const result = original.call(this, queryInfo, onQuery);
+        return result ?? Promise.resolve(emptyTabs);
+      }
+    : function queryWithoutOriginalTabs(queryInfo, onQuery) {
+        const tabs = [queryInfo.active, queryInfo.currentWindow].every(Boolean)
+          ? mockTabs
+          : emptyTabs;
+        onQuery?.(tabs);
+        return Promise.resolve(tabs);
+      };
 }
 
 /**

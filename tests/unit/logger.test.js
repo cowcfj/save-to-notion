@@ -14,7 +14,7 @@ describe('Logger', () => {
   /** @type {object} chrome.runtime mock 物件 */
   let mockRuntime;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // 保存原始 console
     originalConsole = globalThis.console;
 
@@ -41,7 +41,8 @@ describe('Logger', () => {
     // 確保 Logger 被重新評估（在 mock 掛載後）
     jest.resetModules();
 
-    Logger = require('../../scripts/utils/Logger.js').default;
+    const loggerModule = await import('../../scripts/utils/Logger.js');
+    Logger = loggerModule.default;
   });
 
   afterEach(() => {

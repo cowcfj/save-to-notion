@@ -1,17 +1,12 @@
 /**
+ * @jest-environment jsdom
+ */
+/**
  * optionsDestinationProfiles.test.js
  *
  * Tests for Destination profile options UI.
  */
 
-import { initOptions } from '../../../pages/options/options.js';
-import { UIManager } from '../../../pages/options/UIManager.js';
-import { AuthManager } from '../../../pages/options/AuthManager.js';
-import { DataSourceManager } from '../../../pages/options/DataSourceManager.js';
-import { StorageManager } from '../../../pages/options/StorageManager.js';
-import { MigrationTool } from '../../../pages/options/MigrationTool.js';
-import { BUILD_ENV } from '../../../scripts/config/env/index.js';
-import Logger from '../../../scripts/utils/Logger.js';
 import { sanitizeApiError } from '../../../scripts/utils/ApiErrorSanitizer.js';
 import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 import {
@@ -19,7 +14,27 @@ import {
   buildDestinationProfileDOM,
   buildChromeMock,
   buildProfileManagerMock,
-} from '../../helpers/optionsTestHarness.js';
+} from './optionsTestHarness.js';
+import {
+  mockAuthManager as AuthManager,
+  mockBuildEnv as BUILD_ENV,
+  mockDataSourceManager as DataSourceManager,
+  mockGetAccountAccessToken as getAccountAccessToken,
+  mockGetAccountProfile as getAccountProfile,
+  mockLogger as Logger,
+  mockMigrationTool as MigrationTool,
+  mockProfileManager as ProfileManager,
+  mockStorageManager as StorageManager,
+  mockUIManager as UIManager,
+  resetOptionsBootstrapMocks,
+} from './optionsBootstrapTestSetup.js';
+
+let initOptions;
+
+beforeAll(async () => {
+  const optionsModule = await import('../../../pages/options/options.js');
+  initOptions = optionsModule.initOptions;
+});
 
 function expectDestinationProfileRenderWarning(message, error, context) {
   expect(Logger.warn).toHaveBeenCalledWith(message, {
@@ -36,59 +51,40 @@ async function changeProfileSwitch(profileId, checked) {
   return input;
 }
 
-// Mocks for dependencies
-jest.mock('../../../scripts/config/env/index.js', () => ({
-  BUILD_ENV: {
-    ENABLE_OAUTH: true,
-    OAUTH_SERVER_URL: 'https://worker.test',
-    OAUTH_CLIENT_ID: '',
-    EXTENSION_API_KEY: '',
-    ENABLE_ACCOUNT: false, // will be configured in beforeEach
-  },
-}));
-jest.mock('../../../pages/options/UIManager.js');
-jest.mock('../../../pages/options/AuthManager.js');
-jest.mock('../../../pages/options/DataSourceManager.js');
-jest.mock('../../../pages/options/StorageManager.js');
-jest.mock('../../../pages/options/MigrationTool.js');
-jest.mock('../../../scripts/utils/Logger.js', () => ({
-  __esModule: true,
-  default: require('../../helpers/loggerMock.js').createLoggerMock(),
-}));
-jest.mock('../../../scripts/auth/accountSession.js', () => ({
-  getAccountProfile: jest.fn(),
-  getAccountAccessToken: jest.fn(),
-  clearAccountSession: jest.fn().mockResolvedValue(),
-}));
+async function renderDestinationProfilesWithService(service) {
+  ProfileManager.mockImplementationOnce(() => service);
+  initOptions();
+  await flushAsyncClick();
+}
 
-jest.mock('../../../scripts/destinations/ProfileManager.js', () => ({
-  ProfileManager: jest.fn().mockImplementation(() => ({
-    listProfiles: jest.fn().mockResolvedValue([{ id: 'default' }]),
-    getDestinationEntitlement: jest
-      .fn()
-      .mockResolvedValue({ maxProfiles: 2, accountSignedIn: true, source: 'test' }),
-    ensureMigratedDefaultProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
-    createProfile: jest.fn().mockResolvedValue({ id: 'profile-2' }),
-    getProfile: jest.fn().mockResolvedValue({
-      id: 'default',
-      name: 'Default',
-      notionDataSourceId: 'source-1',
-      notionDataSourceType: 'database',
-    }),
-    updateProfile: jest.fn(),
-    deleteProfile: jest.fn().mockResolvedValue([{ id: 'default' }]),
-  })),
-}));
+async function renderDestinationProfileRenameEditor(service) {
+  await renderDestinationProfilesWithService(service);
+  document.querySelector('button[data-action="rename"]').click();
+  await flushAsyncClick();
+  return document.querySelector('input[data-role="destination-profile-name-edit"]');
+}
+
+async function expectDestinationProfilesReadFailure({
+  methodName,
+  error,
+  renderAssertion,
+  warningMessage,
+  warningContext,
+}) {
+  const service = buildProfileManagerMock({
+    [methodName]: jest.fn().mockRejectedValue(error),
+  });
+  await renderDestinationProfilesWithService(service);
+
+  renderAssertion();
+  expectDestinationProfileRenderWarning(warningMessage, error, warningContext);
+}
 
 describe('Destination profile options UI', () => {
-  const { ProfileManager } = require('../../../scripts/destinations/ProfileManager.js');
-  const {
-    getAccountProfile,
-    getAccountAccessToken,
-  } = require('../../../scripts/auth/accountSession.js');
   let mockUiInstance = null;
 
   beforeEach(() => {
+    resetOptionsBootstrapMocks();
     jest.useFakeTimers();
     BUILD_ENV.ENABLE_ACCOUNT = false;
     buildDestinationProfileDOM();
@@ -113,35 +109,6 @@ describe('Destination profile options UI', () => {
     BUILD_ENV.ENABLE_ACCOUNT = true;
     jest.clearAllMocks();
   });
-
-  async function renderDestinationProfilesWithService(service) {
-    ProfileManager.mockImplementationOnce(() => service);
-    initOptions();
-    await flushAsyncClick();
-  }
-
-  async function renderDestinationProfileRenameEditor(service) {
-    await renderDestinationProfilesWithService(service);
-    document.querySelector('button[data-action="rename"]').click();
-    await flushAsyncClick();
-    return document.querySelector('input[data-role="destination-profile-name-edit"]');
-  }
-
-  async function expectDestinationProfilesReadFailure({
-    methodName,
-    error,
-    renderAssertion,
-    warningMessage,
-    warningContext,
-  }) {
-    const service = buildProfileManagerMock({
-      [methodName]: jest.fn().mockRejectedValue(error),
-    });
-    await renderDestinationProfilesWithService(service);
-
-    renderAssertion();
-    expectDestinationProfileRenderWarning(warningMessage, error, warningContext);
-  }
 
   async function expectCreateProfileValidationFailure({
     name,

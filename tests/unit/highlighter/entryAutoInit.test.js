@@ -1,32 +1,13 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-jest.mock('../../../scripts/highlighter/index.js', () => ({
-  setupHighlighter: jest.fn(),
-}));
-
-jest.mock('../../../scripts/utils/LogSanitizer.js', () => ({
-  sanitizeUrlForLogging: jest.fn(url => `sanitized:${url}`),
-}));
-
-jest.mock('../../../scripts/utils/Logger.js', () => ({
-  default: {
-    log: jest.fn(),
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    success: jest.fn(),
-    start: jest.fn(),
-    ready: jest.fn(),
-  },
-  __esModule: true,
-}));
-
-jest.mock('../../../scripts/highlighter/ui/FloatingRail.js', () => ({
-  FloatingRail: jest.fn(),
-  __esModule: true,
-}));
+const HIGHLIGHTER_INDEX_MODULE = '../../../scripts/highlighter/index.js';
+const LOG_SANITIZER_MODULE = '../../../scripts/utils/LogSanitizer.js';
+const LOGGER_MODULE = '../../../scripts/utils/Logger.js';
+const FLOATING_RAIL_MODULE = '../../../scripts/highlighter/ui/FloatingRail.js';
+const ENTRY_AUTO_INIT_MODULE = '../../../scripts/highlighter/entryAutoInit.js';
+const PERSISTENT_LISTENERS_MODULE = '../../../scripts/highlighter/autoInit/persistentListeners.js';
+const STABLE_URL_RESOLUTION_MODULE = '../../../scripts/highlighter/autoInit/stableUrlResolution.js';
 
 const ENTRY_AUTO_INIT_PATH = path.resolve(
   __dirname,
@@ -51,12 +32,76 @@ const hasAsyncAutoInitIife = source =>
 const hasTopLevelInitializeAwait = source =>
   sourceLines(source).some(line => line.trim() === 'await initializeExtension();');
 
+const createDeferred = () => {
+  let resolveDeferred;
+  let rejectDeferred;
+  const promise = new Promise((resolve, reject) => {
+    resolveDeferred = resolve;
+    rejectDeferred = reject;
+  });
+  return { promise, resolve: resolveDeferred, reject: rejectDeferred };
+};
+
 describe('entryAutoInit', () => {
   let mockSetupHighlighter;
   let mockLogger;
   let mockFloatingRail;
+  let mockSanitizeUrlForLogging;
   let runtimeMessageHandlers;
   let storageChangeHandlers;
+
+  const createLoggerMock = () => ({
+    log: jest.fn(),
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+  });
+
+  const createHighlighterMocks = () => {
+    mockSetupHighlighter = jest.fn();
+    mockSanitizeUrlForLogging = jest.fn(url => `sanitized:${url}`);
+    mockLogger = createLoggerMock();
+    mockFloatingRail = jest.fn();
+  };
+
+  const registerHighlighterMocks = async () => {
+    const highlighterIndexFactory = () => ({
+      setupHighlighter: mockSetupHighlighter,
+    });
+    const logSanitizerFactory = () => ({
+      sanitizeUrlForLogging: mockSanitizeUrlForLogging,
+    });
+    const loggerFactory = () => ({
+      default: mockLogger,
+      __esModule: true,
+    });
+    const floatingRailFactory = () => ({
+      FloatingRail: mockFloatingRail,
+      __esModule: true,
+    });
+
+    jest.doMock(HIGHLIGHTER_INDEX_MODULE, highlighterIndexFactory);
+    jest.doMock(LOG_SANITIZER_MODULE, logSanitizerFactory);
+    jest.doMock(LOGGER_MODULE, loggerFactory);
+    jest.doMock(FLOATING_RAIL_MODULE, floatingRailFactory);
+    jest.unstable_mockModule(HIGHLIGHTER_INDEX_MODULE, highlighterIndexFactory);
+    jest.unstable_mockModule(LOG_SANITIZER_MODULE, logSanitizerFactory);
+    jest.unstable_mockModule(LOGGER_MODULE, loggerFactory);
+    jest.unstable_mockModule(FLOATING_RAIL_MODULE, floatingRailFactory);
+  };
+
+  const loadEntryAutoInit = async ({ flush = true } = {}) => {
+    await import(ENTRY_AUTO_INIT_MODULE);
+    if (!flush) {
+      return;
+    }
+    await jest.runAllTimersAsync();
+    await flushAsyncSetup();
+  };
 
   const flushAsyncSetup = async () => {
     await Promise.resolve();
@@ -66,16 +111,14 @@ describe('entryAutoInit', () => {
     await Promise.resolve();
   };
 
-  const createPersistentListenersController = ({
+  const createPersistentListenersController = async ({
     onMessage,
     storage = {},
     getStableUrl = jest.fn(),
     onSetStableUrl = jest.fn(),
     onLegacyShowToolbar = jest.fn(),
   }) => {
-    const {
-      createPersistentListeners,
-    } = require('../../../scripts/highlighter/autoInit/persistentListeners.js');
+    const { createPersistentListeners } = await import(PERSISTENT_LISTENERS_MODULE);
 
     return createPersistentListeners({
       globalScope: {
@@ -100,9 +143,7 @@ describe('entryAutoInit', () => {
     globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(pageStatus);
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce(settings);
 
-    require('../../../scripts/highlighter/entryAutoInit.js');
-    await jest.runAllTimersAsync();
-    await flushAsyncSetup();
+    await loadEntryAutoInit();
 
     return runtimeMessageHandlers.at(-1);
   };
@@ -144,94 +185,24 @@ describe('entryAutoInit', () => {
     return { result, sendResponse };
   };
 
-  test('[REGRESSION] content-script entry should avoid top-level await during auto-init', () => {
-    const source = readEntryAutoInitSource();
+  const dispatchStableUrlToRegisteredHandlers = stableUrl => {
+    for (const handler of runtimeMessageHandlers) {
+      handler(
+        {
+          action: 'SET_STABLE_URL',
+          stableUrl,
+        },
+        {},
+        jest.fn()
+      );
+    }
+  };
 
-    expect(hasAsyncAutoInitIife(source)).toBe(true);
-    expect(hasTopLevelInitializeAwait(source)).toBe(false);
-  });
-
-  test('[REGRESSION] async auto-init check should not match across lines', () => {
-    const source = 'void (\n  async () => {';
-
-    expect(hasAsyncAutoInitIife(source)).toBe(false);
-    expect(hasAsyncAutoInitIife('void (async () => {')).toBe(true);
-  });
-
-  test('[REGRESSION] top-level await check should stay line-based', () => {
-    const source = 'const marker = true;\n  await initializeExtension();';
-
-    expect(hasTopLevelInitializeAwait(source)).toBe(true);
-    expect(hasTopLevelInitializeAwait('await initializeExtension();')).toBe(true);
-  });
-
-  test('[REGRESSION] persistent listener registration should use a shared lifecycle controller', () => {
-    const source = readPersistentListenersSource();
-
-    expect(source).toContain('function createPersistentListenerController');
-    expect(source).not.toMatch(CHANNEL_SPECIFIC_REGISTER_HELPER_PATTERN);
-  });
-
-  test('[REGRESSION] persistent listener registration should tolerate invalidated addListener', () => {
-    const onMessage = {
-      addListener: jest.fn(() => {
-        throw new Error('Extension context invalidated');
-      }),
-      removeListener: jest.fn(),
-    };
-    const controller = createPersistentListenersController({ onMessage });
-
-    expect(() => controller.register()).not.toThrow();
-
-    onMessage.addListener.mockImplementation(jest.fn());
-    controller.register();
-
-    expect(onMessage.addListener).toHaveBeenCalledTimes(2);
-  });
-
-  test('[REGRESSION] persistent listener unregister should tolerate invalidated removeListener', () => {
-    const onMessage = {
-      addListener: jest.fn(),
-      removeListener: jest.fn(() => {
-        throw new Error('Extension context invalidated');
-      }),
-    };
-    const controller = createPersistentListenersController({ onMessage });
-
-    controller.register();
-
-    expect(() => controller.unregister()).not.toThrow();
-
-    controller.register();
-
-    expect(onMessage.addListener).toHaveBeenCalledTimes(2);
-    expect(onMessage.removeListener).toHaveBeenCalledTimes(1);
-  });
-
-  test('[REGRESSION] persistent message handler should ignore invalid request payloads', () => {
-    let messageHandler;
-    const sendResponse = jest.fn();
-    const controller = createPersistentListenersController({
-      onMessage: {
-        addListener: jest.fn(handler => {
-          messageHandler = handler;
-        }),
-        removeListener: jest.fn(),
-      },
-    });
-
-    controller.register();
-
-    expect(messageHandler(null, {}, sendResponse)).toBeUndefined();
-    expect(messageHandler(undefined, {}, sendResponse)).toBeUndefined();
-    expect(messageHandler({ action: '__proto__' }, {}, sendResponse)).toBeUndefined();
-    expect(sendResponse).not.toHaveBeenCalled();
-  });
-
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.resetModules();
-    jest.clearAllMocks();
     jest.useFakeTimers();
+    createHighlighterMocks();
+    await registerHighlighterMocks();
 
     delete globalThis.HighlighterV2;
     delete globalThis.__NOTION_STABLE_URL__;
@@ -270,10 +241,6 @@ describe('entryAutoInit', () => {
       },
     };
 
-    const indexMock = require('../../../scripts/highlighter/index.js');
-    mockSetupHighlighter = indexMock.setupHighlighter;
-    mockLogger = require('../../../scripts/utils/Logger.js').default;
-    mockFloatingRail = require('../../../scripts/highlighter/ui/FloatingRail.js').FloatingRail;
     mockFloatingRail.mockImplementation(() => ({
       initialize: jest.fn().mockResolvedValue(undefined),
       hide: jest.fn(),
@@ -291,6 +258,90 @@ describe('entryAutoInit', () => {
     delete globalThis.__NOTION_RAIL_READY__;
   });
 
+  test('[REGRESSION] content-script entry should avoid top-level await during auto-init', () => {
+    const source = readEntryAutoInitSource();
+
+    expect(hasAsyncAutoInitIife(source)).toBe(true);
+    expect(hasTopLevelInitializeAwait(source)).toBe(false);
+  });
+
+  test('[REGRESSION] async auto-init check should not match across lines', () => {
+    const source = 'void (\n  async () => {';
+
+    expect(hasAsyncAutoInitIife(source)).toBe(false);
+    expect(hasAsyncAutoInitIife('void (async () => {')).toBe(true);
+  });
+
+  test('[REGRESSION] top-level await check should stay line-based', () => {
+    const source = 'const marker = true;\n  await initializeExtension();';
+
+    expect(hasTopLevelInitializeAwait(source)).toBe(true);
+    expect(hasTopLevelInitializeAwait('await initializeExtension();')).toBe(true);
+  });
+
+  test('[REGRESSION] persistent listener registration should use a shared lifecycle controller', () => {
+    const source = readPersistentListenersSource();
+
+    expect(source).toContain('function createPersistentListenerController');
+    expect(source).not.toMatch(CHANNEL_SPECIFIC_REGISTER_HELPER_PATTERN);
+  });
+
+  test('[REGRESSION] persistent listener registration should tolerate invalidated addListener', async () => {
+    const onMessage = {
+      addListener: jest.fn(() => {
+        throw new Error('Extension context invalidated');
+      }),
+      removeListener: jest.fn(),
+    };
+    const controller = await createPersistentListenersController({ onMessage });
+
+    expect(() => controller.register()).not.toThrow();
+
+    onMessage.addListener.mockImplementation(jest.fn());
+    controller.register();
+
+    expect(onMessage.addListener).toHaveBeenCalledTimes(2);
+  });
+
+  test('[REGRESSION] persistent listener unregister should tolerate invalidated removeListener', async () => {
+    const onMessage = {
+      addListener: jest.fn(),
+      removeListener: jest.fn(() => {
+        throw new Error('Extension context invalidated');
+      }),
+    };
+    const controller = await createPersistentListenersController({ onMessage });
+
+    controller.register();
+
+    expect(() => controller.unregister()).not.toThrow();
+
+    controller.register();
+
+    expect(onMessage.addListener).toHaveBeenCalledTimes(2);
+    expect(onMessage.removeListener).toHaveBeenCalledTimes(1);
+  });
+
+  test('[REGRESSION] persistent message handler should ignore invalid request payloads', async () => {
+    let messageHandler;
+    const sendResponse = jest.fn();
+    const controller = await createPersistentListenersController({
+      onMessage: {
+        addListener: jest.fn(handler => {
+          messageHandler = handler;
+        }),
+        removeListener: jest.fn(),
+      },
+    });
+
+    controller.register();
+
+    expect(messageHandler(null, {}, sendResponse)).toBeUndefined();
+    expect(messageHandler(undefined, {}, sendResponse)).toBeUndefined();
+    expect(messageHandler({ action: '__proto__' }, {}, sendResponse)).toBeUndefined();
+    expect(sendResponse).not.toHaveBeenCalled();
+  });
+
   test('正常初始化 (無 stableUrl, chrome API 返回正確值)', async () => {
     globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({
       isSaved: true,
@@ -300,7 +351,7 @@ describe('entryAutoInit', () => {
 
     // SET_STABLE_URL 不會被觸發，所以 `waitForStableUrl` 會超時
     // Timeout behavior
-    require('../../../scripts/highlighter/entryAutoInit.js');
+    await loadEntryAutoInit();
     jest.runAllTimers(); // trigger settimeout manually
     await flushAsyncSetup();
 
@@ -318,7 +369,7 @@ describe('entryAutoInit', () => {
     });
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({}); // default
 
-    require('../../../scripts/highlighter/entryAutoInit.js');
+    await loadEntryAutoInit();
     await jest.runAllTimersAsync();
     await flushAsyncSetup();
 
@@ -329,14 +380,18 @@ describe('entryAutoInit', () => {
   });
 
   test('[REGRESSION] skipRestore 時 rail-ready promise 應回傳失敗 contract 而非 pending', async () => {
-    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({
+    const pageStatusDeferred = createDeferred();
+    const settingsDeferred = createDeferred();
+    globalThis.chrome.runtime.sendMessage.mockReturnValueOnce(pageStatusDeferred.promise);
+    globalThis.chrome.storage.sync.get.mockReturnValueOnce(settingsDeferred.promise);
+
+    await loadEntryAutoInit({ flush: false });
+    const capturedPromise = globalThis.__NOTION_RAIL_READY__;
+    pageStatusDeferred.resolve({
       isSaved: false,
       wasDeleted: true,
     });
-    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
-
-    require('../../../scripts/highlighter/entryAutoInit.js');
-    const capturedPromise = globalThis.__NOTION_RAIL_READY__;
+    settingsDeferred.resolve({});
     await jest.runAllTimersAsync();
     await flushAsyncSetup();
 
@@ -350,11 +405,15 @@ describe('entryAutoInit', () => {
   });
 
   test('[REGRESSION] setup 後沒有 manager 時 rail-ready promise 應回傳失敗 contract', async () => {
-    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({ isSaved: true });
-    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+    const pageStatusDeferred = createDeferred();
+    const settingsDeferred = createDeferred();
+    globalThis.chrome.runtime.sendMessage.mockReturnValueOnce(pageStatusDeferred.promise);
+    globalThis.chrome.storage.sync.get.mockReturnValueOnce(settingsDeferred.promise);
 
-    require('../../../scripts/highlighter/entryAutoInit.js');
+    await loadEntryAutoInit({ flush: false });
     const capturedPromise = globalThis.__NOTION_RAIL_READY__;
+    pageStatusDeferred.resolve({ isSaved: true });
+    settingsDeferred.resolve({});
     await jest.runAllTimersAsync();
     await flushAsyncSetup();
 
@@ -374,7 +433,7 @@ describe('entryAutoInit', () => {
     });
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({ highlightStyle: 'underline' });
 
-    require('../../../scripts/highlighter/entryAutoInit.js');
+    await loadEntryAutoInit();
     await flushAsyncSetup();
 
     expect(mockSetupHighlighter).toHaveBeenCalledWith({
@@ -388,7 +447,7 @@ describe('entryAutoInit', () => {
     globalThis.chrome.runtime.sendMessage.mockRejectedValueOnce(new Error('no pageStatus'));
     globalThis.chrome.storage.sync.get.mockRejectedValueOnce(new Error('no storage sync'));
 
-    require('../../../scripts/highlighter/entryAutoInit.js');
+    await loadEntryAutoInit();
     jest.runAllTimers(); // clear timeout
     await flushAsyncSetup();
 
@@ -402,7 +461,7 @@ describe('entryAutoInit', () => {
     globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({ isSaved: true });
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({ highlightStyle: 'invalid-style' });
 
-    require('../../../scripts/highlighter/entryAutoInit.js');
+    await loadEntryAutoInit();
     await jest.runAllTimersAsync();
     await flushAsyncSetup();
 
@@ -423,7 +482,7 @@ describe('entryAutoInit', () => {
     globalThis.chrome.runtime.sendMessage = undefined;
     globalThis.chrome.storage.sync = undefined;
 
-    require('../../../scripts/highlighter/entryAutoInit.js');
+    await loadEntryAutoInit();
     await jest.runAllTimersAsync();
     await flushAsyncSetup();
 
@@ -437,11 +496,15 @@ describe('entryAutoInit', () => {
     mockSetupHighlighter.mockImplementationOnce(() => {
       throw new Error('Initial fail');
     });
-    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
-    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+    const pageStatusDeferred = createDeferred();
+    const settingsDeferred = createDeferred();
+    globalThis.chrome.runtime.sendMessage.mockReturnValueOnce(pageStatusDeferred.promise);
+    globalThis.chrome.storage.sync.get.mockReturnValueOnce(settingsDeferred.promise);
 
-    require('../../../scripts/highlighter/entryAutoInit.js');
+    await loadEntryAutoInit({ flush: false });
     const capturedPromise = globalThis.__NOTION_RAIL_READY__;
+    pageStatusDeferred.resolve(null);
+    settingsDeferred.resolve({});
     await jest.runAllTimersAsync(); // clear timeout and promise chain
     await flushAsyncSetup();
 
@@ -475,7 +538,7 @@ describe('entryAutoInit', () => {
     globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
 
-    require('../../../scripts/highlighter/entryAutoInit.js');
+    await loadEntryAutoInit();
     await jest.runAllTimersAsync();
     await flushAsyncSetup();
 
@@ -486,11 +549,15 @@ describe('entryAutoInit', () => {
     mockSetupHighlighter.mockImplementationOnce(() => {
       throw new Error('Initial fail');
     });
-    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
-    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+    const pageStatusDeferred = createDeferred();
+    const settingsDeferred = createDeferred();
+    globalThis.chrome.runtime.sendMessage.mockReturnValueOnce(pageStatusDeferred.promise);
+    globalThis.chrome.storage.sync.get.mockReturnValueOnce(settingsDeferred.promise);
 
-    require('../../../scripts/highlighter/entryAutoInit.js');
+    await loadEntryAutoInit({ flush: false });
     const capturedPromise = globalThis.__NOTION_RAIL_READY__;
+    pageStatusDeferred.resolve(null);
+    settingsDeferred.resolve({});
     await jest.runAllTimersAsync();
     await flushAsyncSetup();
 
@@ -515,11 +582,15 @@ describe('entryAutoInit', () => {
       .mockImplementationOnce(() => {
         throw new Error('Fallback fail');
       });
-    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
-    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+    const pageStatusDeferred = createDeferred();
+    const settingsDeferred = createDeferred();
+    globalThis.chrome.runtime.sendMessage.mockReturnValueOnce(pageStatusDeferred.promise);
+    globalThis.chrome.storage.sync.get.mockReturnValueOnce(settingsDeferred.promise);
 
-    require('../../../scripts/highlighter/entryAutoInit.js');
+    await loadEntryAutoInit({ flush: false });
     const capturedPromise = globalThis.__NOTION_RAIL_READY__;
+    pageStatusDeferred.resolve(null);
+    settingsDeferred.resolve({});
     await jest.runAllTimersAsync();
     await flushAsyncSetup();
 
@@ -537,11 +608,12 @@ describe('entryAutoInit', () => {
     expect(globalThis.__NOTION_RAIL_READY__).toBeUndefined();
   });
 
-  test('初始化完成前只註冊 waitForStableUrl 臨時監聽器', () => {
-    globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
-    globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
+  test('初始化完成前只註冊 waitForStableUrl 臨時監聽器', async () => {
+    globalThis.chrome.runtime.sendMessage.mockReturnValueOnce(new Promise(() => {}));
+    globalThis.chrome.storage.sync.get.mockReturnValueOnce(new Promise(() => {}));
 
-    require('../../../scripts/highlighter/entryAutoInit.js');
+    await loadEntryAutoInit({ flush: false });
+    await flushAsyncSetup();
 
     expect(globalThis.chrome.runtime.onMessage.addListener).toHaveBeenCalledTimes(1);
     expect(globalThis.chrome.storage.onChanged.addListener).not.toHaveBeenCalled();
@@ -551,7 +623,7 @@ describe('entryAutoInit', () => {
     globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
 
-    require('../../../scripts/highlighter/entryAutoInit.js');
+    await loadEntryAutoInit();
 
     jest.runAllTimers();
     await flushAsyncSetup();
@@ -569,7 +641,7 @@ describe('entryAutoInit', () => {
     globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
 
-    require('../../../scripts/highlighter/entryAutoInit.js');
+    await loadEntryAutoInit();
 
     jest.runAllTimers();
     await flushAsyncSetup();
@@ -580,7 +652,7 @@ describe('entryAutoInit', () => {
 
   test('初始化 stableUrl 日誌應使用脫敏後的 URL', async () => {
     const rawStableUrl = 'https://test.com/post?id=123#token=secret';
-    const { sanitizeUrlForLogging } = require('../../../scripts/utils/LogSanitizer.js');
+    const { sanitizeUrlForLogging } = await import(LOG_SANITIZER_MODULE);
 
     globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce({
       isSaved: true,
@@ -588,7 +660,7 @@ describe('entryAutoInit', () => {
     });
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
 
-    require('../../../scripts/highlighter/entryAutoInit.js');
+    await loadEntryAutoInit();
 
     jest.runAllTimers();
     await flushAsyncSetup();
@@ -604,10 +676,8 @@ describe('entryAutoInit', () => {
     expect(globalThis.__NOTION_STABLE_URL__).toBe(rawStableUrl);
   });
 
-  test('applyResolvedStableUrl 應只在 HighlighterAPI.setStableUrl 是函式時呼叫', () => {
-    const {
-      applyResolvedStableUrl,
-    } = require('../../../scripts/highlighter/autoInit/stableUrlResolution.js');
+  test('applyResolvedStableUrl 應只在 HighlighterAPI.setStableUrl 是函式時呼叫', async () => {
+    const { applyResolvedStableUrl } = await import(STABLE_URL_RESOLUTION_MODULE);
     const setStableUrl = jest.fn();
     const globalScope = {
       HighlighterAPI: {
@@ -627,10 +697,8 @@ describe('entryAutoInit', () => {
     expect(setStableUrl).toHaveBeenCalledWith('https://example.com/stable');
   });
 
-  test('applyResolvedStableUrl 遇到非函式 HighlighterAPI.setStableUrl 不應中斷初始化', () => {
-    const {
-      applyResolvedStableUrl,
-    } = require('../../../scripts/highlighter/autoInit/stableUrlResolution.js');
+  test('applyResolvedStableUrl 遇到非函式 HighlighterAPI.setStableUrl 不應中斷初始化', async () => {
+    const { applyResolvedStableUrl } = await import(STABLE_URL_RESOLUTION_MODULE);
     const globalScope = {
       HighlighterAPI: {
         setStableUrl: 'not-a-function',
@@ -649,10 +717,8 @@ describe('entryAutoInit', () => {
     expect(globalScope.__NOTION_STABLE_URL__).toBe('https://example.com/stable');
   });
 
-  test('applyResolvedStableUrl 遇到 HighlighterAPI.setStableUrl throw 應記錄 warning 並繼續', () => {
-    const {
-      applyResolvedStableUrl,
-    } = require('../../../scripts/highlighter/autoInit/stableUrlResolution.js');
+  test('applyResolvedStableUrl 遇到 HighlighterAPI.setStableUrl throw 應記錄 warning 並繼續', async () => {
+    const { applyResolvedStableUrl } = await import(STABLE_URL_RESOLUTION_MODULE);
     const compatibilityError = new Error('compatibility callback failed');
     const globalScope = {
       HighlighterAPI: {
@@ -683,10 +749,8 @@ describe('entryAutoInit', () => {
     );
   });
 
-  test('applyResolvedStableUrl 無 stableUrl 時應記錄 fallback 到原始 URL', () => {
-    const {
-      applyResolvedStableUrl,
-    } = require('../../../scripts/highlighter/autoInit/stableUrlResolution.js');
+  test('applyResolvedStableUrl 無 stableUrl 時應記錄 fallback 到原始 URL', async () => {
+    const { applyResolvedStableUrl } = await import(STABLE_URL_RESOLUTION_MODULE);
     const globalScope = {};
 
     applyResolvedStableUrl({
@@ -711,13 +775,10 @@ describe('entryAutoInit', () => {
     globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
 
-    require('../../../scripts/highlighter/entryAutoInit.js');
+    await loadEntryAutoInit({ flush: false });
+    await flushAsyncSetup();
 
-    const waitForStableUrlHandler = runtimeMessageHandlers[0];
-    waitForStableUrlHandler({
-      action: 'SET_STABLE_URL',
-      stableUrl: 'https://sent-from-bg.com',
-    });
+    dispatchStableUrlToRegisteredHandlers('https://sent-from-bg.com');
     jest.runAllTimers();
     await flushAsyncSetup();
 
@@ -832,7 +893,7 @@ describe('entryAutoInit', () => {
     globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
 
-    require('../../../scripts/highlighter/entryAutoInit.js');
+    await loadEntryAutoInit();
     jest.runAllTimers();
     await flushAsyncSetup();
 
@@ -871,7 +932,7 @@ describe('entryAutoInit', () => {
     globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
 
-    require('../../../scripts/highlighter/entryAutoInit.js');
+    await loadEntryAutoInit();
     jest.runAllTimers();
     await flushAsyncSetup();
 
@@ -918,7 +979,8 @@ describe('entryAutoInit', () => {
       floatingRailEnabled: false,
     });
 
-    require('../../../scripts/highlighter/entryAutoInit.js');
+    await loadEntryAutoInit({ flush: false });
+    await flushAsyncSetup();
     const capturedPromise = globalThis.__NOTION_RAIL_READY__;
     await jest.runAllTimersAsync();
     await flushAsyncSetup();
@@ -944,7 +1006,7 @@ describe('entryAutoInit', () => {
     globalThis.chrome.runtime.sendMessage.mockResolvedValueOnce(null);
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
 
-    require('../../../scripts/highlighter/entryAutoInit.js');
+    await loadEntryAutoInit();
     jest.runAllTimers();
     await flushAsyncSetup();
 
@@ -974,14 +1036,11 @@ describe('entryAutoInit', () => {
     });
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({ highlightStyle: 'background' });
 
-    require('../../../scripts/highlighter/entryAutoInit.js');
+    await loadEntryAutoInit({ flush: false });
+    await flushAsyncSetup();
 
     // 在 Promise.all 之前模擬 SET_STABLE_URL 先到
-    const waitForStableUrlHandler = runtimeMessageHandlers[0];
-    waitForStableUrlHandler({
-      action: 'SET_STABLE_URL',
-      stableUrl: stableUrlFromRuntime,
-    });
+    dispatchStableUrlToRegisteredHandlers(stableUrlFromRuntime);
 
     jest.runAllTimers();
     await flushAsyncSetup();
@@ -1001,7 +1060,7 @@ describe('entryAutoInit', () => {
     });
     globalThis.chrome.storage.sync.get.mockResolvedValueOnce({});
 
-    require('../../../scripts/highlighter/entryAutoInit.js');
+    await loadEntryAutoInit();
     // 不觸發 SET_STABLE_URL 訊息
     jest.runAllTimers();
     await flushAsyncSetup();

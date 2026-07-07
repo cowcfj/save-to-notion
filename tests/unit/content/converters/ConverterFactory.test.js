@@ -5,11 +5,6 @@
 import { ConverterFactory } from '../../../../scripts/content/converters/ConverterFactory.js';
 import { domConverter } from '../../../../scripts/content/converters/DomConverter.js';
 
-// Mock converters
-jest.mock('../../../../scripts/content/converters/DomConverter', () => ({
-  domConverter: { name: 'domConverter' },
-}));
-
 describe('ConverterFactory', () => {
   test('should return domConverter for "markdown"', () => {
     // Markdown now falls back to DomConverter or a specific handler

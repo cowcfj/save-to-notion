@@ -8,6 +8,41 @@ describe('Preloader Performance Script', () => {
   let originalAdd;
   let originalRemove;
 
+  const normalizeCapture = options => {
+    if (typeof options === 'boolean') {
+      return options;
+    }
+
+    return Boolean(options?.capture);
+  };
+
+  const removeTrackedDocumentListener = (type, listener, options) => {
+    const expectedCapture = normalizeCapture(options);
+    const index = testListeners.findIndex(
+      l =>
+        l.type === type &&
+        l.listener === listener &&
+        normalizeCapture(l.options) === expectedCapture
+    );
+    if (index !== -1) {
+      testListeners.splice(index, 1);
+    }
+    originalRemove.call(document, type, listener, options);
+  };
+
+  const setupTrackedDocumentListeners = () => {
+    originalAdd = document.addEventListener;
+    originalRemove = document.removeEventListener;
+    testListeners = [];
+
+    document.addEventListener = jest.fn((type, listener, options) => {
+      testListeners.push({ type, listener, options });
+      originalAdd.call(document, type, listener, options);
+    });
+
+    document.removeEventListener = jest.fn(removeTrackedDocumentListener);
+  };
+
   beforeEach(() => {
     // Reset global state
     jest.resetModules();
@@ -34,23 +69,7 @@ describe('Preloader Performance Script', () => {
     // Reset DOM
     document.body.innerHTML = '';
 
-    // Track event listeners strictly for cleanup
-    originalAdd = document.addEventListener;
-    originalRemove = document.removeEventListener;
-    testListeners = [];
-
-    document.addEventListener = jest.fn((type, listener, options) => {
-      testListeners.push({ type, listener, options });
-      originalAdd.call(document, type, listener, options);
-    });
-
-    document.removeEventListener = jest.fn((type, listener, options) => {
-      const index = testListeners.findIndex(l => l.type === type && l.listener === listener);
-      if (index !== -1) {
-        testListeners.splice(index, 1);
-      }
-      originalRemove.call(document, type, listener, options);
-    });
+    setupTrackedDocumentListeners();
   });
 
   afterEach(() => {
@@ -72,30 +91,47 @@ describe('Preloader Performance Script', () => {
   });
 
   /**
-   * Helper to execute the preloader script via require
+   * Helper to execute the preloader script via dynamic import.
    */
-  const runPreloader = () => {
-    // Use require to execute the script in the current environment
+  const runPreloader = async () => {
     // jest.resetModules() in beforeEach ensures it re-runs
-    require('../../../scripts/performance/preloader.js');
+    await import('../../../scripts/performance/preloader.js');
   };
 
   describe('Initialization Check', () => {
-    test('應該只初始化一次', () => {
-      runPreloader();
+    test('移除 listener 時應該比對 capture options，保留其他註冊', () => {
+      const handler = jest.fn();
+
+      document.addEventListener('click', handler, false);
+      document.addEventListener('click', handler, true);
+
+      document.removeEventListener('click', handler, false);
+
+      expect(testListeners).toHaveLength(1);
+      expect(testListeners[0]).toEqual(
+        expect.objectContaining({
+          type: 'click',
+          listener: handler,
+          options: true,
+        })
+      );
+    });
+
+    test('應該只初始化一次', async () => {
+      await runPreloader();
       expect(globalThis.__NOTION_PRELOADER_INITIALIZED__).toBe(true);
 
       // Reset mock to verify it's not called again
       mockChrome.runtime.onMessage.addListener.mockClear();
 
-      runPreloader();
+      await runPreloader();
       expect(mockChrome.runtime.onMessage.addListener).not.toHaveBeenCalled();
     });
 
-    test('當 chrome.runtime 不可用時不應拋錯，且仍保留 preloader cache 事件', () => {
+    test('當 chrome.runtime 不可用時不應拋錯，且仍保留 preloader cache 事件', async () => {
       globalThis.chrome = {};
 
-      expect(() => runPreloader()).not.toThrow();
+      await expect(runPreloader()).resolves.toBeUndefined();
 
       let responseDetail = null;
       document.addEventListener('notion-preloader-response', event => {
@@ -118,7 +154,7 @@ describe('Preloader Performance Script', () => {
   });
 
   describe('Cache Retrieval via Event', () => {
-    test('應該透過事件正確返回快取數據', () => {
+    test('應該透過事件正確返回快取數據', async () => {
       const nextData = { page: '/test', query: { id: '123' }, buildId: 'abc' };
       document.body.innerHTML = `
           <article>Article Content</article>
@@ -126,7 +162,7 @@ describe('Preloader Performance Script', () => {
           <link rel="shortlink" href="https://example.com/?p=123" />
         `;
 
-      runPreloader();
+      await runPreloader();
 
       let responseDetail = null;
       document.addEventListener('notion-preloader-response', e => {
@@ -141,13 +177,13 @@ describe('Preloader Performance Script', () => {
       expect(responseDetail.shortlink).toBe('https://example.com/?p=123');
     });
 
-    test('應該處理無效的 Next.js 數據 (缺少 page/query)', () => {
+    test('應該處理無效的 Next.js 數據 (缺少 page/query)', async () => {
       const invalidData = { foo: 'bar' }; // Missing page/query
       document.body.innerHTML = `
           <script id="__NEXT_DATA__" type="application/json">${JSON.stringify(invalidData)}</script>
         `;
 
-      runPreloader();
+      await runPreloader();
 
       let responseDetail = null;
       document.addEventListener('notion-preloader-response', e => {
@@ -158,12 +194,12 @@ describe('Preloader Performance Script', () => {
       expect(responseDetail.nextRouteInfo).toBeNull();
     });
 
-    test('應該處理無效的 Next.js JSON (語法錯誤)', () => {
+    test('應該處理無效的 Next.js JSON (語法錯誤)', async () => {
       document.body.innerHTML = `
           <script id="__NEXT_DATA__" type="application/json">{ invalid json </script>
         `;
 
-      runPreloader();
+      await runPreloader();
 
       let responseDetail = null;
       document.addEventListener('notion-preloader-response', e => {
@@ -174,13 +210,13 @@ describe('Preloader Performance Script', () => {
       expect(responseDetail.nextRouteInfo).toBeNull();
     });
 
-    test('應該拒絕類型錯誤的 Next.js 數據 (page 不是字串 或 query 不是物件)', () => {
+    test('應該拒絕類型錯誤的 Next.js 數據 (page 不是字串 或 query 不是物件)', async () => {
       const invalidTypeData = { page: 123, query: 'invalid' };
       document.body.innerHTML = `
           <script id="__NEXT_DATA__" type="application/json">${JSON.stringify(invalidTypeData)}</script>
         `;
 
-      runPreloader();
+      await runPreloader();
 
       let responseDetail = null;
       document.addEventListener('notion-preloader-response', e => {
@@ -191,12 +227,12 @@ describe('Preloader Performance Script', () => {
       expect(responseDetail.nextRouteInfo).toBeNull();
     });
 
-    test('應該拒絕沒有 query 參數的 shortlink (如首頁 URL)', () => {
+    test('應該拒絕沒有 query 參數的 shortlink (如首頁 URL)', async () => {
       document.body.innerHTML = `
           <link rel="shortlink" href="https://example.com/" />
         `;
 
-      runPreloader();
+      await runPreloader();
 
       let responseDetail = null;
       document.addEventListener('notion-preloader-response', e => {
@@ -208,12 +244,12 @@ describe('Preloader Performance Script', () => {
       expect(responseDetail.shortlink).toBeNull();
     });
 
-    test('應該處理無效的 shortlink URL 格式 (catch 區塊)', () => {
+    test('應該處理無效的 shortlink URL 格式 (catch 區塊)', async () => {
       document.body.innerHTML = `
           <link rel="shortlink" href="://invalid" />
         `;
 
-      runPreloader();
+      await runPreloader();
 
       let responseDetail = null;
       document.addEventListener('notion-preloader-response', e => {
@@ -227,12 +263,12 @@ describe('Preloader Performance Script', () => {
   });
 
   describe('Keyboard Shortcut handling', () => {
-    test('應該在按下 Ctrl+S 時發送激活訊息', () => {
-      runPreloader();
-      const event = new KeyboardEvent('keydown', {
-        ctrlKey: true,
-        key: 's',
-      });
+    test.each([
+      ['Ctrl+S', { ctrlKey: true, key: 's' }],
+      ['Cmd+S', { metaKey: true, key: 's' }],
+    ])('應該在按下 %s 時發送激活訊息', async (_shortcutLabel, keyboardOptions) => {
+      await runPreloader();
+      const event = new KeyboardEvent('keydown', keyboardOptions);
       document.dispatchEvent(event);
 
       expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith(
@@ -241,12 +277,9 @@ describe('Preloader Performance Script', () => {
       );
     });
 
-    test('應該在按下 Cmd+S 時發送激活訊息', () => {
-      runPreloader();
-      const event = new KeyboardEvent('keydown', {
-        metaKey: true,
-        key: 's',
-      });
+    test('Caps Lock 開啟時仍應該處理大寫 S 快捷鍵', async () => {
+      await runPreloader();
+      const event = new KeyboardEvent('keydown', { ctrlKey: true, key: 'S' });
       document.dispatchEvent(event);
 
       expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith(
@@ -255,8 +288,35 @@ describe('Preloader Performance Script', () => {
       );
     });
 
-    test('應該處理快捷鍵發送訊息後的回調 (緩衝事件)', () => {
-      runPreloader();
+    test('當 runtime.sendMessage 不可用時不應該發送快捷鍵訊息', async () => {
+      const originalSendMessage = globalThis.chrome.runtime.sendMessage;
+
+      try {
+        delete globalThis.chrome.runtime.sendMessage;
+
+        await runPreloader();
+        const event = new KeyboardEvent('keydown', { ctrlKey: true, key: 's' });
+
+        expect(() => {
+          document.dispatchEvent(event);
+        }).not.toThrow();
+
+        expect(testListeners).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              type: 'keydown',
+            }),
+          ])
+        );
+        expect(event.defaultPrevented).toBe(false);
+        expect(originalSendMessage).not.toHaveBeenCalled();
+      } finally {
+        globalThis.chrome.runtime.sendMessage = originalSendMessage;
+      }
+    });
+
+    test('應該處理快捷鍵發送訊息後的回調 (緩衝事件)', async () => {
+      await runPreloader();
       const event = new KeyboardEvent('keydown', { ctrlKey: true, key: 's' });
       document.dispatchEvent(event);
 
@@ -279,10 +339,10 @@ describe('Preloader Performance Script', () => {
       );
     });
 
-    test('應該處理快捷鍵發送訊息後的錯誤', () => {
+    test('應該處理快捷鍵發送訊息後的錯誤', async () => {
       const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-      runPreloader();
+      await runPreloader();
       const event = new KeyboardEvent('keydown', { ctrlKey: true, key: 's' });
       document.dispatchEvent(event);
 
@@ -301,9 +361,9 @@ describe('Preloader Performance Script', () => {
       mockChrome.runtime.lastError = null;
     });
 
-    test('當 Bundle 已就緒時不應該緩衝快捷鍵事件', () => {
+    test('當 Bundle 已就緒時不應該緩衝快捷鍵事件', async () => {
       globalThis.__NOTION_BUNDLE_READY__ = true;
-      runPreloader();
+      await runPreloader();
       const event = new KeyboardEvent('keydown', { ctrlKey: true, key: 's' });
       document.dispatchEvent(event);
 
@@ -321,8 +381,8 @@ describe('Preloader Performance Script', () => {
   });
 
   describe('Message Handling', () => {
-    test('應該正確執行 INIT_BUNDLE', () => {
-      runPreloader();
+    test('應該正確執行 INIT_BUNDLE', async () => {
+      await runPreloader();
       const onMessage = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
       const sendResponse = jest.fn();
 
@@ -330,8 +390,8 @@ describe('Preloader Performance Script', () => {
       expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ ready: true }));
     });
 
-    test('應該正確執行 REPLAY_BUFFERED_EVENTS', () => {
-      runPreloader();
+    test('應該正確執行 REPLAY_BUFFERED_EVENTS', async () => {
+      await runPreloader();
       const onMessage = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
       const sendResponse = jest.fn();
 
@@ -341,8 +401,8 @@ describe('Preloader Performance Script', () => {
       );
     });
 
-    test('PING 應該在 Bundle 未準備好時響應', () => {
-      runPreloader();
+    test('PING 應該在 Bundle 未準備好時響應', async () => {
+      await runPreloader();
       const onMessage = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
       const sendResponse = jest.fn();
 
@@ -352,9 +412,9 @@ describe('Preloader Performance Script', () => {
       );
     });
 
-    test('PING 不應該在 Bundle 已就緒時響應', () => {
+    test('PING 不應該在 Bundle 已就緒時響應', async () => {
       globalThis.__NOTION_BUNDLE_READY__ = true;
-      runPreloader();
+      await runPreloader();
       const onMessage = mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
       const sendResponse = jest.fn();
 
@@ -366,7 +426,7 @@ describe('Preloader Performance Script', () => {
 
   describe('Floating Rail auto-show performance boundary', () => {
     test('[REGRESSION] 初始化時不應讀取 chrome.storage.sync 設定', async () => {
-      runPreloader();
+      await runPreloader();
 
       await Promise.resolve();
 
@@ -374,7 +434,7 @@ describe('Preloader Performance Script', () => {
     });
 
     test('[REGRESSION] 初始化時不應發送 SHOW_FLOATING_RAIL action（獨立於設定）', async () => {
-      runPreloader();
+      await runPreloader();
       await Promise.resolve();
 
       expect(mockChrome.runtime.sendMessage).not.toHaveBeenCalledWith(

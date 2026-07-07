@@ -4,7 +4,162 @@
  */
 
 // Mock Chrome APIs
-const mockChrome = require('../../mocks/chrome');
+const mockChrome = require('../../mocks/chrome.cjs');
+
+let buildNotionPageResponse;
+let buildOpenPageRequest;
+let createJsonResponse;
+let mockNotionApiToken;
+let mockTabCreationResult;
+
+beforeAll(async () => {
+  ({
+    buildNotionPageResponse,
+    buildOpenPageRequest,
+    createJsonResponse,
+    mockNotionApiToken,
+    mockTabCreationResult,
+  } = await import('../../helpers/notionPageOperationsTestHarness.js'));
+});
+
+const NOTION_API_BASE_URL = 'https://api.notion.com/v1';
+const NOTION_VERSION = '2025-09-03';
+
+function createCheckNotionPageExists() {
+  return jest.fn(async (pageId, apiKey) => {
+    try {
+      const response = await fetch(`${NOTION_API_BASE_URL}/pages/${pageId}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Notion-Version': NOTION_VERSION,
+        },
+      });
+
+      if (response.ok) {
+        const pageData = await response.json();
+        return {
+          exists: true,
+          page: pageData,
+        };
+      }
+
+      if (response.status === 404) {
+        return {
+          exists: false,
+          error: 'Page not found',
+        };
+      }
+
+      const errorData = await response.json();
+
+      console.error('❌ 檢查 Notion 頁面失敗:', JSON.stringify(errorData));
+      return {
+        exists: false,
+        error: errorData.message || 'Unknown error',
+      };
+    } catch (error) {
+      console.error('❌ 檢查 Notion 頁面異常:', error);
+      return {
+        exists: false,
+        error: error.message,
+      };
+    }
+  });
+}
+
+function createHandleCheckNotionPageExistsMessage(checkNotionPageExists) {
+  return async (request, sendResponse) => {
+    try {
+      const { pageId } = request;
+
+      if (!pageId) {
+        sendResponse({
+          success: false,
+          error: 'Missing pageId parameter',
+        });
+        return;
+      }
+
+      await new Promise(resolve => {
+        chrome.storage.sync.get(['notionApiToken'], async result => {
+          try {
+            const apiKey = result.notionApiToken;
+
+            if (!apiKey) {
+              sendResponse({
+                success: false,
+                error: 'Notion API token not configured',
+              });
+              return;
+            }
+
+            const checkResult = await checkNotionPageExists(pageId, apiKey);
+
+            sendResponse({
+              success: true,
+              exists: checkResult.exists,
+              error: checkResult.error,
+            });
+          } catch (error) {
+            console.error('❌ 處理檢查頁面存在消息失敗:', error);
+            sendResponse({
+              success: false,
+              error: error.message,
+            });
+          } finally {
+            resolve();
+          }
+        });
+      });
+    } catch (error) {
+      console.error('❌ 處理檢查頁面存在消息失敗:', error);
+      sendResponse({
+        success: false,
+        error: error.message,
+      });
+    }
+  };
+}
+
+function createHandleOpenNotionPage() {
+  return jest.fn((request, sendResponse) => {
+    try {
+      const url = request.url;
+
+      if (!url) {
+        sendResponse({
+          success: false,
+          error: 'Missing URL parameter',
+        });
+        return;
+      }
+
+      chrome.tabs.create({ url }, tab => {
+        if (chrome.runtime.lastError) {
+          console.error('❌ 打開標籤頁失敗:', chrome.runtime.lastError);
+          sendResponse({
+            success: false,
+            error: chrome.runtime.lastError.message,
+          });
+          return;
+        }
+
+        sendResponse({
+          success: true,
+          tabId: tab.id,
+        });
+      });
+    } catch (error) {
+      console.error('❌ 處理打開 Notion 頁面失敗:', error);
+      sendResponse({
+        success: false,
+        error: error.message,
+      });
+    }
+  });
+}
+
 globalThis.chrome = mockChrome;
 
 // Mock console methods
@@ -25,138 +180,13 @@ describe('Background Notion Page Operations', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-
-    // Mock fetch responses
     globalThis.fetch.mockClear();
+    mockChrome.runtime.lastError = null;
 
-    // 模擬 checkNotionPageExists 函數
-    checkNotionPageExists = jest.fn(async (pageId, apiKey) => {
-      try {
-        const response = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Notion-Version': '2025-09-03',
-          },
-        });
-
-        if (response.ok) {
-          const pageData = await response.json();
-          return {
-            exists: true,
-            page: pageData,
-          };
-        } else if (response.status === 404) {
-          return {
-            exists: false,
-            error: 'Page not found',
-          };
-        }
-        const errorData = await response.json();
-
-        console.error('❌ 檢查 Notion 頁面失敗:', JSON.stringify(errorData));
-        return {
-          exists: false,
-          error: errorData.message || 'Unknown error',
-        };
-      } catch (error) {
-        console.error('❌ 檢查 Notion 頁面異常:', error);
-        return {
-          exists: false,
-          error: error.message,
-        };
-      }
-    });
-
-    // 模擬 handleCheckNotionPageExistsMessage 函數
-    handleCheckNotionPageExistsMessage = async (request, sendResponse) => {
-      try {
-        const { pageId } = request;
-
-        if (!pageId) {
-          sendResponse({
-            success: false,
-            error: 'Missing pageId parameter',
-          });
-          return;
-        }
-
-        // 獲取 API Key，使用 Promise 包裝以維持 async/await 流程
-        await new Promise(resolve => {
-          chrome.storage.sync.get(['notionApiToken'], async result => {
-            try {
-              const apiKey = result.notionApiToken;
-
-              if (!apiKey) {
-                sendResponse({
-                  success: false,
-                  error: 'Notion API token not configured',
-                });
-                return;
-              }
-
-              const checkResult = await checkNotionPageExists(pageId, apiKey);
-
-              sendResponse({
-                success: true,
-                exists: checkResult.exists,
-                error: checkResult.error,
-              });
-            } catch (error) {
-              console.error('❌ 處理檢查頁面存在消息失敗:', error);
-              sendResponse({
-                success: false,
-                error: error.message,
-              });
-            } finally {
-              resolve();
-            }
-          });
-        });
-      } catch (error) {
-        console.error('❌ 處理檢查頁面存在消息失敗:', error);
-        sendResponse({
-          success: false,
-          error: error.message,
-        });
-      }
-    };
-
-    // 模擬 handleOpenNotionPage 函數
-    handleOpenNotionPage = jest.fn((request, sendResponse) => {
-      try {
-        const url = request.url;
-
-        if (!url) {
-          sendResponse({
-            success: false,
-            error: 'Missing URL parameter',
-          });
-          return;
-        }
-
-        chrome.tabs.create({ url }, tab => {
-          if (chrome.runtime.lastError) {
-            console.error('❌ 打開標籤頁失敗:', chrome.runtime.lastError);
-            sendResponse({
-              success: false,
-              error: chrome.runtime.lastError.message,
-            });
-          } else {
-            sendResponse({
-              success: true,
-              tabId: tab.id,
-            });
-          }
-        });
-      } catch (error) {
-        console.error('❌ 處理打開 Notion 頁面失敗:', error);
-        sendResponse({
-          success: false,
-          error: error.message,
-        });
-      }
-    });
+    checkNotionPageExists = createCheckNotionPageExists();
+    handleCheckNotionPageExistsMessage =
+      createHandleCheckNotionPageExistsMessage(checkNotionPageExists);
+    handleOpenNotionPage = createHandleOpenNotionPage();
   });
 
   describe('checkNotionPageExists', () => {
@@ -170,21 +200,17 @@ describe('Background Notion Page Operations', () => {
         properties: {},
       };
 
-      globalThis.fetch.mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve(mockPageData),
-      });
+      globalThis.fetch.mockResolvedValue(buildNotionPageResponse(mockPageData));
 
       // Act
       const result = await checkNotionPageExists(pageId, apiKey);
 
       // Assert
-      expect(globalThis.fetch).toHaveBeenCalledWith(`https://api.notion.com/v1/pages/${pageId}`, {
+      expect(globalThis.fetch).toHaveBeenCalledWith(`${NOTION_API_BASE_URL}/pages/${pageId}`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${apiKey}`,
-          'Notion-Version': '2025-09-03',
+          'Notion-Version': NOTION_VERSION,
         },
       });
       expect(result).toEqual({
@@ -193,25 +219,44 @@ describe('Background Notion Page Operations', () => {
       });
     });
 
-    test('應該正確處理不存在的頁面', async () => {
+    test.each([
+      {
+        name: '應該正確處理不存在的頁面',
+        pageId: 'non-existent-page',
+        responseInit: {
+          ok: false,
+          status: 404,
+          body: { message: 'Page not found' },
+        },
+        expected: {
+          exists: false,
+          error: 'Page not found',
+        },
+      },
+      {
+        name: '應該處理沒有錯誤消息的 API 錯誤',
+        pageId: 'test-page-id',
+        responseInit: {
+          ok: false,
+          status: 500,
+          body: {},
+        },
+        expected: {
+          exists: false,
+          error: 'Unknown error',
+        },
+      },
+    ])('$name', async ({ pageId, responseInit, expected }) => {
       // Arrange
-      const pageId = 'non-existent-page';
       const apiKey = 'test-api-key';
 
-      globalThis.fetch.mockResolvedValue({
-        ok: false,
-        status: 404,
-        json: () => Promise.resolve({ message: 'Page not found' }),
-      });
+      globalThis.fetch.mockResolvedValue(createJsonResponse(responseInit));
 
       // Act
       const result = await checkNotionPageExists(pageId, apiKey);
 
       // Assert
-      expect(result).toEqual({
-        exists: false,
-        error: 'Page not found',
-      });
+      expect(result).toEqual(expected);
     });
 
     test('應該處理 API 錯誤', async () => {
@@ -261,27 +306,6 @@ describe('Background Notion Page Operations', () => {
       });
       expect(console.error).toHaveBeenCalledWith('❌ 檢查 Notion 頁面異常:', networkError);
     });
-
-    test('應該處理沒有錯誤消息的 API 錯誤', async () => {
-      // Arrange
-      const pageId = 'test-page-id';
-      const apiKey = 'test-api-key';
-
-      globalThis.fetch.mockResolvedValue({
-        ok: false,
-        status: 500,
-        json: () => Promise.resolve({}),
-      });
-
-      // Act
-      const result = await checkNotionPageExists(pageId, apiKey);
-
-      // Assert
-      expect(result).toEqual({
-        exists: false,
-        error: 'Unknown error',
-      });
-    });
   });
 
   describe('handleCheckNotionPageExistsMessage', () => {
@@ -290,9 +314,7 @@ describe('Background Notion Page Operations', () => {
       const request = { pageId: 'test-page-id' };
       const mockSendResponse = jest.fn();
 
-      mockChrome.storage.sync.get.mockImplementation((keys, mockCb) => {
-        mockCb({ notionApiToken: 'test-api-key' });
-      });
+      mockNotionApiToken(mockChrome.storage.sync.get, 'test-api-key');
 
       checkNotionPageExists.mockResolvedValue({
         exists: true,
@@ -335,9 +357,7 @@ describe('Background Notion Page Operations', () => {
       const request = { pageId: 'test-page-id' };
       const mockSendResponse = jest.fn();
 
-      mockChrome.storage.sync.get.mockImplementation((keys, mockCb) => {
-        mockCb({}); // 沒有 API Token
-      });
+      mockNotionApiToken(mockChrome.storage.sync.get);
 
       // Act
       await handleCheckNotionPageExistsMessage(request, mockSendResponse);
@@ -354,9 +374,7 @@ describe('Background Notion Page Operations', () => {
       const request = { pageId: 'test-page-id' };
       const mockSendResponse = jest.fn();
 
-      mockChrome.storage.sync.get.mockImplementation((keys, mockCb) => {
-        mockCb({ notionApiToken: 'test-api-key' });
-      });
+      mockNotionApiToken(mockChrome.storage.sync.get, 'test-api-key');
 
       checkNotionPageExists.mockRejectedValue(new Error('Check failed'));
 
@@ -379,13 +397,11 @@ describe('Background Notion Page Operations', () => {
   describe('handleOpenNotionPage', () => {
     test('應該成功打開 Notion 頁面', () => {
       // Arrange
-      const request = { url: 'https://notion.so/test-page' };
+      const request = buildOpenPageRequest();
       const mockSendResponse = jest.fn();
       const mockTab = { id: 123, url: request.url };
 
-      mockChrome.tabs.create.mockImplementation((options, mockCb) => {
-        mockCb(mockTab);
-      });
+      mockTabCreationResult(mockChrome.tabs.create, mockTab);
 
       // Act
       handleOpenNotionPage(request, mockSendResponse);
@@ -418,13 +434,11 @@ describe('Background Notion Page Operations', () => {
 
     test('應該處理創建標籤頁失敗', () => {
       // Arrange
-      const request = { url: 'https://notion.so/test-page' };
+      const request = buildOpenPageRequest();
       const mockSendResponse = jest.fn();
 
       mockChrome.runtime.lastError = { message: 'Tab creation failed' };
-      mockChrome.tabs.create.mockImplementation((options, mockCb) => {
-        mockCb(null);
-      });
+      mockTabCreationResult(mockChrome.tabs.create, null);
 
       // Act
       handleOpenNotionPage(request, mockSendResponse);
@@ -470,15 +484,9 @@ describe('Background Notion Page Operations', () => {
       const mockSendResponse = jest.fn();
       const mockPageData = { id: pageId, object: 'page' };
 
-      mockChrome.storage.sync.get.mockImplementation((keys, mockCb) => {
-        mockCb({ notionApiToken: apiKey });
-      });
+      mockNotionApiToken(mockChrome.storage.sync.get, apiKey);
 
-      globalThis.fetch.mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve(mockPageData),
-      });
+      globalThis.fetch.mockResolvedValue(buildNotionPageResponse(mockPageData));
 
       // Act
       await handleCheckNotionPageExistsMessage(request, mockSendResponse);
@@ -488,7 +496,7 @@ describe('Background Notion Page Operations', () => {
 
       // Assert
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        `https://api.notion.com/v1/pages/${pageId}`,
+        `${NOTION_API_BASE_URL}/pages/${pageId}`,
         expect.objectContaining({
           method: 'GET',
           headers: expect.objectContaining({
@@ -506,7 +514,7 @@ describe('Background Notion Page Operations', () => {
     test('完整的頁面打開流程應該正常工作', () => {
       // Arrange
       const url = 'https://notion.so/test-page-123';
-      const request = { url };
+      const request = buildOpenPageRequest(url);
       const mockSendResponse = jest.fn();
       const mockTab = { id: 456, url };
 

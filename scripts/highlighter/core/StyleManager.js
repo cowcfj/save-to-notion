@@ -212,7 +212,7 @@ export class StyleManager {
    * 清理資源，移除 CSS 註冊和樣式元素
    */
   cleanup() {
-    if (typeof CSS !== 'undefined' && CSS?.highlights) {
+    if (typeof CSS !== 'undefined' && CSS.highlights) {
       Object.keys(this.highlightObjects).forEach(color => {
         CSS.highlights.delete(this.getHighlightKey(color));
       });

@@ -6,24 +6,33 @@
 
 /* global chrome */
 
-// 匯入被測試的模組
-import {
-  getElements,
-  setStatus,
-  setButtonState,
-  updateUIForSavedPage,
-  updateUIForUnsavedPage,
-  formatSaveSuccessMessage,
-} from '../../pages/popup/popupUI.js';
-import {
-  checkSettings,
-  checkPageStatus,
-  savePage,
-  openNotionPage,
-  startHighlight,
-  getActiveTab,
-} from '../../pages/popup/popupActions.js';
-import { ERROR_MESSAGES } from '../../scripts/config/shared/messages.js';
+let getElements;
+let setStatus;
+let setButtonState;
+let updateUIForSavedPage;
+let updateUIForUnsavedPage;
+let formatSaveSuccessMessage;
+let checkSettings;
+let checkPageStatus;
+let savePage;
+let openNotionPage;
+let startHighlight;
+let getActiveTab;
+let ERROR_MESSAGES;
+
+beforeAll(async () => {
+  ({
+    getElements,
+    setStatus,
+    setButtonState,
+    updateUIForSavedPage,
+    updateUIForUnsavedPage,
+    formatSaveSuccessMessage,
+  } = await import('../../pages/popup/popupUI.js'));
+  ({ checkSettings, checkPageStatus, savePage, openNotionPage, startHighlight, getActiveTab } =
+    await import('../../pages/popup/popupActions.js'));
+  ({ ERROR_MESSAGES } = await import('../../scripts/config/shared/messages.js'));
+});
 
 describe('popupUI', () => {
   // DOM 元素 Mock

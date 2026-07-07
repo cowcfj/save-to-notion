@@ -1,39 +1,60 @@
-// @jest-environment jsdom
+/**
+ * @jest-environment jsdom
+ */
 /* global document, chrome */
-import { AuthManager } from '../../../pages/options/AuthManager.js';
-import { UIManager } from '../../../pages/options/UIManager.js';
-import Logger from '../../../scripts/utils/Logger.js';
+import { jest } from '@jest/globals';
 import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 import { NOTION_OAUTH } from '../../../scripts/config/extension/notionAuth.js';
-import { BUILD_ENV } from '../../../scripts/config/env/index.js';
 import { DATA_SOURCE_KEYS } from '../../../scripts/config/shared/storage.js';
 
-// Mock dependencies
-jest.mock('../../../scripts/config/env/index.js', () => ({
-  ...jest.requireActual('../../../scripts/config/env/index.js'),
-  BUILD_ENV: {
-    ENABLE_OAUTH: true,
-    OAUTH_SERVER_URL: 'https://test-server.example.com',
-    OAUTH_CLIENT_ID: 'test-client-id',
-    EXTENSION_API_KEY: 'test-api-key',
+const mockBuildEnv = {
+  ENABLE_OAUTH: true,
+  OAUTH_SERVER_URL: 'https://test-server.example.com',
+  OAUTH_CLIENT_ID: 'test-client-id',
+  EXTENSION_API_KEY: 'test-api-key',
+};
+
+const mockConfirmDialog = jest.fn().mockResolvedValue(true);
+
+const mockLogger = {
+  debug: jest.fn(),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+  info: jest.fn(),
+  error: jest.fn(),
+  warn: jest.fn(),
+};
+
+const mockEnvModule = {
+  BUILD_ENV: mockBuildEnv,
+  default: {
+    BUILD_ENV: mockBuildEnv,
   },
+};
+
+jest.unstable_mockModule('../../../scripts/config/env/index.js', () => mockEnvModule);
+jest.unstable_mockModule('../../../pages/options/confirmDialog.js', () => ({
+  confirmDialog: mockConfirmDialog,
 }));
-jest.mock('../../../pages/options/UIManager.js');
+jest.unstable_mockModule('../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: mockLogger,
+}));
+
+jest.mock('../../../scripts/config/env/index.js', () => mockEnvModule);
 jest.mock('../../../pages/options/confirmDialog.js', () => ({
-  confirmDialog: jest.fn().mockResolvedValue(true),
+  confirmDialog: mockConfirmDialog,
 }));
 jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
-  default: {
-    debug: jest.fn(),
-    success: jest.fn(),
-    start: jest.fn(),
-    ready: jest.fn(),
-    info: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn(),
-  },
+  default: mockLogger,
 }));
+
+let AuthManager;
+let UIManager;
+let Logger;
+let BUILD_ENV;
 
 const OAUTH_REDIRECT_ORIGIN = 'https://mocked.chromiumapp.org/';
 
@@ -174,6 +195,17 @@ function mockTokenExchangeResponse(body, { ok = true, status } = {}) {
     json: jest.fn().mockResolvedValue(body),
   });
 }
+
+beforeAll(async () => {
+  const authManagerModule = await import('../../../pages/options/AuthManager.js');
+  AuthManager = authManagerModule.AuthManager;
+  const uiManagerModule = await import('../../../pages/options/UIManager.js');
+  UIManager = uiManagerModule.UIManager;
+  const loggerModule = await import('../../../scripts/utils/Logger.js');
+  Logger = loggerModule.default;
+  const envModule = await import('../../../scripts/config/env/index.js');
+  BUILD_ENV = envModule.BUILD_ENV;
+});
 
 describe('AuthManager', () => {
   let authManager = null;
@@ -1093,8 +1125,7 @@ describe('AuthManager Extended', () => {
     });
 
     test('取消斷開 OAuth 時應維持 toggle ON 且不執行清除', async () => {
-      const { confirmDialog } = require('../../../pages/options/confirmDialog.js');
-      confirmDialog.mockResolvedValueOnce(false);
+      mockConfirmDialog.mockResolvedValueOnce(false);
 
       const checkAuthStatusSpy = jest.spyOn(authManager, 'checkAuthStatus').mockResolvedValue();
 

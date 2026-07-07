@@ -2,20 +2,10 @@
  * @jest-environment jsdom
  */
 
+import { jest } from '@jest/globals';
+import Logger from '../../../../scripts/utils/Logger.js';
 import { NextJsExtractor } from '../../../../scripts/content/extractors/NextJsExtractor.js';
 import bbcNewsBlocksFixture from '../../../fixtures/json/bbc-news-blocks.json';
-
-// Mock Logger to avoid cluttering test output
-jest.mock('../../../../scripts/utils/Logger.js', () => ({
-  __esModule: true,
-  default: {
-    log: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
-    info: jest.fn(),
-  },
-}));
 
 describe('NextJsExtractor Block Conversion', () => {
   let mockDoc;
@@ -38,6 +28,10 @@ describe('NextJsExtractor Block Conversion', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+    jest.spyOn(Logger, 'info').mockImplementation(() => {});
+    jest.spyOn(Logger, 'debug').mockImplementation(() => {});
+    jest.spyOn(Logger, 'error').mockImplementation(() => {});
 
     mockDoc = {
       getElementById: jest.fn(),
@@ -45,6 +39,10 @@ describe('NextJsExtractor Block Conversion', () => {
       querySelectorAll: jest.fn().mockReturnValue([]),
       defaultView: { location: { origin: 'https://example.com', pathname: '/' } },
     };
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   describe('BBC format (_isBbcFormat / _convertBbcBlocks / _extractBbcText)', () => {

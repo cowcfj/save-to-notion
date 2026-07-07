@@ -2,42 +2,84 @@
  * @jest-environment jsdom
  */
 
-// Mock Logger（保留 parseArgsToContext 的真實實作，因為它是純函數）
-jest.mock('../../../../scripts/utils/Logger.js', () => ({
+import { jest } from '@jest/globals';
+
+let createLogHandlers;
+
+function createLoggerMock(overrides = {}) {
+  return {
+    debugEnabled: false,
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
+    log: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    getBuffer: jest.fn(() => []),
+    addLogToBuffer: jest.fn(),
+    ...overrides,
+  };
+}
+
+function parseArgsToContext(args) {
+  if (!Array.isArray(args) || args.length === 0) {
+    return {};
+  }
+  if (typeof args[0] === 'object' && args[0] !== null) {
+    const context = { ...args[0] };
+    if (args.length > 1) {
+      context.details = args.slice(1);
+    }
+    return context;
+  }
+  return { details: args };
+}
+
+const mockLoggerModule = {
   __esModule: true,
-  default: require('../../../helpers/loggerMock.js').createLoggerMock(),
-  parseArgsToContext: args => {
-    if (!Array.isArray(args) || args.length === 0) {
-      return {};
-    }
-    if (typeof args[0] === 'object' && args[0] !== null) {
-      const context = { ...args[0] };
-      if (args.length > 1) {
-        context.details = args.slice(1);
-      }
-      return context;
-    }
-    return { details: args };
-  },
-}));
+  default: createLoggerMock(),
+  parseArgsToContext,
+};
 
-import { createLogHandlers } from '../../../../scripts/background/handlers/logHandlers.js';
-import { LogExporter } from '../../../../scripts/utils/LogExporter.js';
-import Logger from '../../../../scripts/utils/Logger.js';
-
-// Mock LogExporter
-jest.mock('../../../../scripts/utils/LogExporter.js', () => ({
+const mockLogExporterModule = {
+  __esModule: true,
   LogExporter: {
     exportLogs: jest.fn(),
   },
-}));
+};
+
+const Logger = mockLoggerModule.default;
+const { LogExporter } = mockLogExporterModule;
+
+if (process.env.NODE_OPTIONS?.includes('--experimental-vm-modules')) {
+  jest.unstable_mockModule('../../../../scripts/utils/Logger.js', () => mockLoggerModule);
+  jest.unstable_mockModule('../../../../scripts/utils/LogExporter.js', () => mockLogExporterModule);
+} else {
+  jest.mock('../../../../scripts/utils/Logger.js', () => mockLoggerModule);
+  jest.mock('../../../../scripts/utils/LogExporter.js', () => mockLogExporterModule);
+}
+
+beforeAll(async () => {
+  ({ createLogHandlers } = await import('../../../../scripts/background/handlers/logHandlers.js'));
+});
 
 describe('logHandlers', () => {
   let handlers = null;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    globalThis.chrome = {
+      runtime: {
+        id: 'mock-extension-id',
+      },
+    };
     handlers = createLogHandlers();
+  });
+
+  afterEach(() => {
+    delete globalThis.chrome;
   });
 
   describe('Security Checks', () => {

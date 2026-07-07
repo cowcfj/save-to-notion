@@ -5,10 +5,7 @@ import {
   URL_ALIAS_PREFIX,
   STORAGE_ERROR,
 } from '../../../../scripts/background/services/StorageService.js';
-import {
-  createStorageServiceHarness,
-  mockStorageLookup,
-} from '../../../helpers/storageServiceTestHarness.js';
+import { createStorageServiceHarness, mockStorageLookup } from './serviceTestSupport.js';
 
 describe('StorageService - Highlights', () => {
   let service = null;

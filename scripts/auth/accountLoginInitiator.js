@@ -15,7 +15,7 @@ import { buildAccountLoginStartUrl } from './accountLogin.js';
  * 啟動 account Google login flow。
  *
  * 構建 worker login URL 並以新 tab 開啟，由 worker callback bridge 與
- * scripts/background/handlers/accountAuthHandler.js 處理後續 ticket → auth.html 重導。
+ * scripts/background/handlers/accountAuthHandler.js 處理後續 ticket → canonical auth page 重導。
  *
  * @returns {Promise<{ success: boolean, error?: string }>}
  */

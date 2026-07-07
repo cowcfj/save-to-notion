@@ -12,20 +12,43 @@
  * 修復後：key 與 element id 都帶 `chrome.runtime.id` namespace，互不影響。
  */
 
-import { StyleManager } from '../../../../scripts/highlighter/core/StyleManager.js';
+import { jest } from '@jest/globals';
+
 import { COLORS } from '../../../../scripts/highlighter/utils/color.js';
-import Logger from '../../../../scripts/utils/Logger.js';
 
-jest.mock('../../../../scripts/highlighter/utils/dom.js', () => ({
+const mockDomUtils = {
   supportsHighlightAPI: jest.fn(() => true),
-}));
-
-jest.mock('../../../../scripts/utils/Logger.js', () => ({
+};
+const mockLogger = {
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
   log: jest.fn(),
+};
+const Logger = mockLogger;
+
+jest.mock('../../../../scripts/highlighter/utils/dom.js', () => mockDomUtils);
+
+jest.mock('../../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: mockLogger,
+  ...mockLogger,
 }));
+
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('../../../../scripts/highlighter/utils/dom.js', () => mockDomUtils);
+  jest.unstable_mockModule('../../../../scripts/utils/Logger.js', () => ({
+    __esModule: true,
+    default: mockLogger,
+    ...mockLogger,
+  }));
+}
+
+let StyleManager;
+
+beforeAll(async () => {
+  ({ StyleManager } = await import('../../../../scripts/highlighter/core/StyleManager.js'));
+});
 
 function setRuntimeId(id) {
   globalThis.chrome = globalThis.chrome ?? { runtime: {} };

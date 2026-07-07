@@ -1,3 +1,7 @@
+/**
+ * @jest-environment jsdom
+ */
+
 import { createToastContainer } from '../../../../../scripts/highlighter/ui/components/ToastContainer.js';
 
 describe('ToastContainer', () => {

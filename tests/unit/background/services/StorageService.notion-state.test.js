@@ -3,11 +3,12 @@ import {
   PAGE_PREFIX,
   URL_ALIAS_PREFIX,
 } from '../../../../scripts/background/services/StorageService.js';
-import { buildHighlight, buildSavedPageData } from '../../../helpers/status-fixtures.js';
 import {
+  buildHighlight,
+  buildSavedPageData,
   createStorageServiceHarness,
   mockStorageLookup,
-} from '../../../helpers/storageServiceTestHarness.js';
+} from './serviceTestSupport.js';
 
 describe('StorageService - Notion State', () => {
   const TEST_PAGE_URL = 'https://example.com/page';

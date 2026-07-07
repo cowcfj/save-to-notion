@@ -107,11 +107,15 @@ import { PRELOADER_ACTIONS } from '../config/runtimeActions/preloaderActions.js'
   const canSendRuntimeMessage = typeof runtime?.sendMessage === 'function';
   const canListenRuntimeMessage = typeof runtime?.onMessage?.addListener === 'function';
 
+  function isSaveShortcut(event) {
+    return (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's';
+  }
+
   /**
    * 監聽快捷鍵 Ctrl+S / Cmd+S
    */
   document.addEventListener('keydown', event => {
-    if ((event.ctrlKey || event.metaKey) && event.key === 's' && canSendRuntimeMessage) {
+    if (isSaveShortcut(event) && canSendRuntimeMessage) {
       event.preventDefault();
 
       // 發送訊息給 Background

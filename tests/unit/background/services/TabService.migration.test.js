@@ -8,6 +8,7 @@
  * - 在各測試中直接用 localStorage.setItem/clear 操作真實 JSDOM localStorage
  * - 不使用 delete globalThis.location（會破壞 JSDOM window，導致 localStorage 失效）
  *
+ * @jest-environment jsdom
  * @jest-environment-options {"url": "https://example.com/page"}
  */
 
@@ -148,5 +149,88 @@ describe('TabService Migration Script', () => {
       expect.stringContaining('Parse error'),
       expect.any(Object)
     );
+  });
+
+  test('應處理 trailing slash', () => {
+    globalThis.history.pushState({}, 'Slash', 'https://example.com/test/');
+    localStorage.setItem('highlights_https://example.com/test', '[{"text":"hi"}]');
+
+    const result = _migrationScript([]);
+
+    expect(result.migrated).toBe(true);
+  });
+
+  test('應處理 normalize 拋出例外', () => {
+    globalThis.history.pushState({}, 'Test', 'https://example.com/test');
+    localStorage.setItem('highlights_https://example.com/test', '[{"text":"hi"}]');
+
+    const originalURL = globalThis.URL;
+    try {
+      globalThis.URL = jest.fn().mockImplementation(() => {
+        throw new Error('mock error');
+      });
+
+      const result = _migrationScript([]);
+
+      expect(result.migrated).toBe(true);
+    } finally {
+      globalThis.URL = originalURL;
+    }
+  });
+
+  test('應處理取得的 raw 資料為 falsy 的情況', () => {
+    globalThis.history.pushState({}, 'Test', 'https://example.com/test');
+    localStorage.setItem('highlights_https://example.com/test', '');
+
+    const result = _migrationScript([]);
+
+    expect(result.migrated).toBe(false);
+  });
+
+  test('應找不到 key 時返回 migrated: false', () => {
+    const result = _migrationScript(['utm_source']);
+
+    expect(result.migrated).toBe(false);
+  });
+
+  test('應成功遷移資料 (Highlights_ 開頭)', () => {
+    localStorage.setItem('highlights_https://example.com/test', JSON.stringify([{ text: 'hi' }]));
+
+    const result = _migrationScript(['utm_source']);
+
+    expect(result.migrated).toBe(true);
+    expect(result.data[0].text).toBe('hi');
+    expect(localStorage.getItem('highlights_https://example.com/test')).toBeNull();
+  });
+
+  test('應成功遷移資料 (Fallback 遍歷)', () => {
+    globalThis.history.pushState({}, 'Other', 'https://example.com/other');
+    localStorage.setItem('highlights_some-old-key', JSON.stringify([{ text: 'hi2' }]));
+
+    const result = _migrationScript([]);
+
+    expect(result.migrated).toBe(true);
+    expect(result.data[0].text).toBe('hi2');
+  });
+
+  test('解析錯誤應被捕捉並返回 false', () => {
+    localStorage.setItem('highlights_https://example.com/test', 'invalid-json');
+
+    const result = _migrationScript(['utm_source']);
+
+    expect(result.migrated).toBe(false);
+    expect(console.error).toHaveBeenCalled();
+  });
+
+  test('異常應被捕獲並返回 false', () => {
+    const getItemSpy = jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('simulate error');
+    });
+
+    const result = _migrationScript(['utm_source']);
+
+    expect(result.migrated).toBe(false);
+    expect(result.error).toBeDefined();
+    getItemSpy.mockRestore();
   });
 });

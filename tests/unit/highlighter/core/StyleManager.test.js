@@ -2,20 +2,43 @@
  * @jest-environment jsdom
  */
 
-import { StyleManager } from '../../../../scripts/highlighter/core/StyleManager.js';
+import { jest } from '@jest/globals';
+
 import { VALID_STYLES, COLORS, TEXT_COLORS } from '../../../../scripts/highlighter/utils/color.js';
 
 // Mock dependencies
-jest.mock('../../../../scripts/highlighter/utils/dom.js', () => ({
+const mockDomUtils = {
   supportsHighlightAPI: jest.fn(() => true),
-}));
-
-jest.mock('../../../../scripts/utils/Logger.js', () => ({
+};
+const mockLogger = {
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
   log: jest.fn(),
+};
+
+jest.mock('../../../../scripts/highlighter/utils/dom.js', () => mockDomUtils);
+
+jest.mock('../../../../scripts/utils/Logger.js', () => ({
+  __esModule: true,
+  default: mockLogger,
+  ...mockLogger,
 }));
+
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('../../../../scripts/highlighter/utils/dom.js', () => mockDomUtils);
+  jest.unstable_mockModule('../../../../scripts/utils/Logger.js', () => ({
+    __esModule: true,
+    default: mockLogger,
+    ...mockLogger,
+  }));
+}
+
+let StyleManager;
+
+beforeAll(async () => {
+  ({ StyleManager } = await import('../../../../scripts/highlighter/core/StyleManager.js'));
+});
 
 describe('core/StyleManager', () => {
   let styleManager = null;

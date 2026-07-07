@@ -2,15 +2,7 @@
  * @jest-environment jsdom
  */
 
-jest.mock('../../../pages/options/confirmDialog.js', () => ({
-  confirmDialog: jest.fn().mockResolvedValue(true),
-}));
-
-import {
-  initCloudSyncController,
-  renderCloudSyncCard,
-} from '../../../pages/options/DriveCloudSyncController.js';
-import * as driveClient from '../../../scripts/auth/driveClient.js';
+import { jest } from '@jest/globals';
 import { RUNTIME_ACTIONS } from '../../../scripts/config/shared/runtimeActions.js';
 import { UI_MESSAGES } from '../../../scripts/config/shared/messages.js';
 import Logger from '../../../scripts/utils/Logger.js';
@@ -27,16 +19,28 @@ import {
   installChromeMock,
   setupConfirmDialogMock,
   spyOnDriveClientDefaults,
+  restoreDriveClientStorageDefaults,
   getConfirmDialogMock,
 } from './DriveCloudSyncController.shared.js';
 
 const UNKNOWN_USER_FACING_ERROR_MESSAGE = '發生未知錯誤，請稍後再試';
 const BACKGROUND_NO_RESPONSE_USER_FACING_MESSAGE = '背景無回應';
 
+let initCloudSyncController;
+let renderCloudSyncCard;
+let driveClient;
+
 describe('DriveCloudSyncController', () => {
   let mockSendMessage;
   let loggerErrorSpy;
   let loggerWarnSpy;
+
+  beforeAll(async () => {
+    const controllerModule = await import('../../../pages/options/DriveCloudSyncController.js');
+    initCloudSyncController = controllerModule.initCloudSyncController;
+    renderCloudSyncCard = controllerModule.renderCloudSyncCard;
+    driveClient = await import('../../../scripts/auth/driveClient.js');
+  });
 
   beforeEach(() => {
     jest.useFakeTimers();
@@ -775,8 +779,7 @@ describe('DriveCloudSyncController', () => {
       },
     ])('$name', async ({ eventTarget, eventName, email, visibilityState }) => {
       expect.hasAssertions();
-      driveClient.getDriveSyncMetadata.mockRestore();
-      driveClient.setDriveConnection.mockRestore();
+      restoreDriveClientStorageDefaults();
 
       driveClient.fetchDriveConnectionStatus
         .mockResolvedValueOnce({ ...DEFAULT_DISCONNECTED_CONNECTION })
@@ -805,8 +808,7 @@ describe('DriveCloudSyncController', () => {
     });
 
     it('focus 觸發的 snapshot status 同步 MUST NOT 清除 needsManualReview / lastErrorCode', async () => {
-      driveClient.getDriveSyncMetadata.mockRestore();
-      driveClient.setDriveConnection.mockRestore();
+      restoreDriveClientStorageDefaults();
 
       await chrome.storage.local.set({
         driveSyncConnectionEmail: 'conflict-safe@test.dev',
@@ -861,8 +863,7 @@ describe('DriveCloudSyncController', () => {
 
     it('focus 首次連線且本地缺少 connectedAt 時才 fallback 為目前時間', async () => {
       jest.setSystemTime(new Date('2026-04-22T10:00:00.000Z'));
-      driveClient.getDriveSyncMetadata.mockRestore();
-      driveClient.setDriveConnection.mockRestore();
+      restoreDriveClientStorageDefaults();
 
       driveClient.fetchDriveConnectionStatus
         .mockResolvedValueOnce({ ...DEFAULT_DISCONNECTED_CONNECTION })

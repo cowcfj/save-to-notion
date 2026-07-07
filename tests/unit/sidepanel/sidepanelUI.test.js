@@ -4,6 +4,7 @@
  * 測試所有純 UI 函數的 DOM 行為，不需要 mock Chrome API。
  */
 
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import {
   getElements,
   extractDomain,

@@ -97,7 +97,7 @@ function assertAccountLoginStarted(result) {
 }
 
 function setError(scope, message) {
-  const errorEl = root.querySelector(`[data-error="${scope}"]`);
+  const errorEl = root.querySelector(`[data-error="${CSS.escape(scope)}"]`);
   if (!errorEl) {
     return;
   }

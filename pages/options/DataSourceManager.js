@@ -80,9 +80,12 @@ export class DataSourceManager {
    * 建構資料來源管理器
    *
    * @param {object} uiManager - UI 管理器實例
-   * @param {Function|null} getApiKey - 取得 API Key 的函式（可選，用於依賴注入提升可測試性）
+   * @param {Function} getApiKey - 取得 API Key 的函式（必填）
    */
-  constructor(uiManager, getApiKey = null) {
+  constructor(uiManager, getApiKey) {
+    if (typeof getApiKey !== 'function') {
+      throw new TypeError('DataSourceManager 需要 getApiKey 函式');
+    }
     this.ui = uiManager;
     this.getApiKey = getApiKey;
     this.selector = null;
@@ -328,21 +331,10 @@ export class DataSourceManager {
       this.selector = new SearchableDatabaseSelector({
         showStatus: this.ui.showStatus.bind(this.ui),
         loadDataSources: this.loadDataSources.bind(this),
-        getApiKey: this.getApiKey || (() => this._fallbackGetApiKey()),
+        getApiKey: this.getApiKey,
       });
     }
     return this.selector;
-  }
-
-  /**
-   * 備用的 API Key 取得方式（Deprecated）
-   *
-   * @returns {string} API Key
-   * @private
-   */
-  _fallbackGetApiKey() {
-    Logger.warn('[DataSource] Fallback to DOM query for API Key (Deprecated)');
-    return document.querySelector('#api-key')?.value || '';
   }
 
   /**

@@ -2,14 +2,23 @@
   "description": "Canonical task routing map for choosing the right guide, knowledge file, and plan level.",
   "source_of_truth": "docs/guides/TASK_ROUTING.md",
   "cross_cutting": {
-    "guides": [],
+    "guides": ["docs/guides/CODE_NAMING_GUIDE.md"],
     "knowledge": [],
-    "note": "工具與 MCP 的通用規則由 AGENTS.md 與 user-level AGENTS.md 定義，不另路由 repo guide。"
+    "conditional_knowledge": [
+      ".agents/.shared/knowledge/message_bus.json",
+      ".agents/.shared/knowledge/storage_schema.json"
+    ],
+    "note": "CODE_NAMING_GUIDE.md applies before task-type routing when adding or renaming functions, modules, files, directories, or shared modules. Tool and MCP rules remain in AGENTS.md and user-level AGENTS.md."
   },
   "task_types": {
     "bug_fix": {
       "guides": ["docs/guides/DEBUGGING_GUIDE.md", "docs/guides/TESTING_GUIDE.md"],
       "knowledge": [".agents/.shared/knowledge/debugging_rules.json"],
+      "conditional_knowledge": [
+        ".agents/.shared/knowledge/message_bus.json",
+        ".agents/.shared/knowledge/storage_schema.json",
+        ".agents/.shared/knowledge/security_rules.json"
+      ],
       "default_plan_level": "lite_or_standard",
       "completion": {
         "lite": "May use Lite Completion Path and skip doc_impact_matrix.json.",
@@ -23,7 +32,8 @@
         "docs/guides/DOCUMENTATION_STRATEGY.md",
         "docs/guides/CHANGE_COMPLETION_WORKFLOW.md"
       ],
-      "knowledge": [
+      "knowledge": [],
+      "conditional_knowledge": [
         ".agents/.shared/knowledge/message_bus.json",
         ".agents/.shared/knowledge/storage_schema.json",
         ".agents/.shared/knowledge/notion_constraints.json",
@@ -41,7 +51,8 @@
         "docs/guides/TESTING_GUIDE.md",
         "docs/guides/CHANGE_COMPLETION_WORKFLOW.md"
       ],
-      "knowledge": [
+      "knowledge": [],
+      "conditional_knowledge": [
         ".agents/.shared/knowledge/message_bus.json",
         ".agents/.shared/knowledge/storage_schema.json",
         ".agents/.shared/knowledge/security_rules.json"
@@ -54,6 +65,11 @@
     "review": {
       "guides": ["docs/guides/CODE_REVIEW_GUIDE.md"],
       "knowledge": [".agents/.shared/knowledge/review_red_lines.json"],
+      "conditional_knowledge": [
+        ".agents/.shared/knowledge/message_bus.json",
+        ".agents/.shared/knowledge/storage_schema.json",
+        ".agents/.shared/knowledge/security_rules.json"
+      ],
       "default_plan_level": "lite",
       "completion": {
         "lite": "May use Lite Completion Path; doc checks are not required unless review policy docs are changed."
@@ -62,6 +78,7 @@
     "doc_report": {
       "guides": ["docs/guides/DOCUMENTATION_STRATEGY.md"],
       "knowledge": [".agents/.shared/knowledge/plan_policy.json"],
+      "conditional_knowledge": [".agents/.shared/knowledge/doc_impact_matrix.json"],
       "default_plan_level": "lite_or_standard",
       "completion": {
         "lite": "May use Lite Completion Path and skip doc_impact_matrix.json.",
@@ -76,9 +93,9 @@
       ],
       "knowledge": [
         ".agents/.shared/knowledge/message_bus.json",
-        ".agents/.shared/knowledge/storage_schema.json",
-        ".agents/.shared/knowledge/security_rules.json"
+        ".agents/.shared/knowledge/storage_schema.json"
       ],
+      "conditional_knowledge": [".agents/.shared/knowledge/security_rules.json"],
       "default_plan_level": "deep",
       "completion": {
         "deep": "Use Plan-Driven Completion Path and check doc_impact_matrix.json decision_change or bug_fix."
