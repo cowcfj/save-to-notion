@@ -15,26 +15,27 @@ function isRecord(value) {
 }
 
 function listActions(actionsByDomain) {
-  const rows = [];
-
   if (!isRecord(actionsByDomain)) {
-    return rows;
+    return [];
   }
 
-  for (const [domain, actions] of Object.entries(actionsByDomain)) {
+  return Object.entries(actionsByDomain).flatMap(([domain, actions]) => {
     if (!isRecord(actions)) {
-      continue;
+      return [];
     }
 
-    for (const [actionName, contract] of Object.entries(actions)) {
-      if (actionName.startsWith('$')) {
-        continue;
-      }
-      rows.push({ domain, actionName, contract });
-    }
-  }
+    return Object.entries(actions)
+      .filter(([actionName]) => !actionName.startsWith('$'))
+      .map(([actionName, contract]) => ({ domain, actionName, contract }));
+  });
+}
 
-  return rows;
+function buildSavePageActionsFixture(savePageContract) {
+  return {
+    save: {
+      savePage: savePageContract,
+    },
+  };
 }
 
 function collectMalformedActionDomainViolations(actionsByDomain) {
@@ -106,24 +107,16 @@ function collectMissingSaveActionWireValues(saveActions, runtimeValues) {
 
 describe('message_bus.json runtime message contract', () => {
   test('shape validator catches missing required action fields', () => {
-    const brokenActions = {
-      save: {
-        savePage: {
-          description: 'broken fixture',
-          payload: {},
-        },
-      },
-    };
+    const brokenActions = buildSavePageActionsFixture({
+      description: 'broken fixture',
+      payload: {},
+    });
 
     expect(collectActionShapeViolations(brokenActions)).toContain('actions.save.savePage.response');
   });
 
   test('shape validator does not duplicate metadata violations for missing action fields', () => {
-    const brokenActions = {
-      save: {
-        savePage: {},
-      },
-    };
+    const brokenActions = buildSavePageActionsFixture({});
 
     expect(collectActionShapeViolations(brokenActions)).toEqual([
       'actions.save.savePage.description',
@@ -133,15 +126,11 @@ describe('message_bus.json runtime message contract', () => {
   });
 
   test('shape validator rejects array payload and response contracts', () => {
-    const brokenActions = {
-      save: {
-        savePage: {
-          description: 'broken fixture',
-          payload: [],
-          response: [],
-        },
-      },
-    };
+    const brokenActions = buildSavePageActionsFixture({
+      description: 'broken fixture',
+      payload: [],
+      response: [],
+    });
 
     expect(collectActionShapeViolations(brokenActions)).toEqual([
       'actions.save.savePage.payload:not_object',
@@ -158,11 +147,7 @@ describe('message_bus.json runtime message contract', () => {
   });
 
   test('shape validator reports malformed action contracts', () => {
-    const brokenActions = {
-      save: {
-        savePage: null,
-      },
-    };
+    const brokenActions = buildSavePageActionsFixture(null);
 
     expect(collectActionShapeViolations(brokenActions)).toContain(
       'actions.save.savePage:not_object'

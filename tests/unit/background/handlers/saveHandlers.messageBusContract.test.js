@@ -2,18 +2,18 @@
  * @jest-environment jsdom
  */
 
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-
 import {
   createSaveHandlersTestContext,
   setupDefaultActionMocks,
   validSender,
 } from './saveHandlers.shared.js';
 import { buildCreatePageResult, buildSavedPageData } from './saveHandlersTestHarness.js';
-
-const messageBusPath = path.resolve(process.cwd(), '.agents/.shared/knowledge/message_bus.json');
-const messageBus = JSON.parse(readFileSync(messageBusPath, 'utf8'));
+import {
+  expectActionResponseDeclares,
+  expectMessageBusResponseContract,
+  getLastResponse,
+  loadMessageBusContract,
+} from './messageBusContractTestUtils.js';
 
 const SAVE_SUCCESS_CONTRACT_FIELDS = [
   'success',
@@ -33,35 +33,8 @@ const CHECK_STATUS_CONTRACT_FIELDS = [
   'notionUrl',
 ];
 
-function getLastResponse(sendResponse) {
-  return sendResponse.mock.calls.at(-1)?.[0];
-}
-
-function isRecord(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function expectJsonContractDeclares(actionName, fields) {
-  if (!Object.hasOwn(messageBus.actions.save, actionName)) {
-    throw new Error(`message_bus.json actions.save.${actionName} is missing`);
-  }
-
-  const responseContract = messageBus.actions.save[actionName].response;
-
-  if (!isRecord(responseContract)) {
-    throw new Error(`message_bus.json actions.save.${actionName}.response must be an object`);
-  }
-
-  for (const field of fields) {
-    expect(responseContract).toHaveProperty(field);
-  }
-}
-
-function expectResponseHasFields(response, fields) {
-  for (const field of fields) {
-    expect(response).toHaveProperty(field);
-  }
-}
+const OPEN_NOTION_PAGE_CONTRACT_FIELDS = ['success', 'tabId'];
+const OPEN_NOTION_PAGE_ERROR_FIELDS = ['success', 'error'];
 
 function createRailSender() {
   return {
@@ -71,45 +44,113 @@ function createRailSender() {
   };
 }
 
+function expectSaveResponseContract(actionName, declaredFields, response) {
+  expectMessageBusResponseContract({
+    group: 'save',
+    actionName,
+    declaredFields,
+    response,
+  });
+}
+
+function expectSavePageContract(response) {
+  expectSaveResponseContract('savePage', SAVE_SUCCESS_CONTRACT_FIELDS, response);
+}
+
+function expectCheckPageStatusContract(response) {
+  expectSaveResponseContract('checkPageStatus', CHECK_STATUS_CONTRACT_FIELDS, response);
+}
+
+function expectRailSaveContract(response) {
+  expectSaveResponseContract('SAVE_PAGE_FROM_RAIL', SAVE_SUCCESS_CONTRACT_FIELDS, response);
+}
+
+function expectOpenNotionPageContract(response, fields) {
+  expectSaveResponseContract('openNotionPage', fields, response);
+}
+
+function expectSavedStatusResponse(response, { notionPageId, notionUrl }) {
+  expect(response).toEqual(
+    expect.objectContaining({
+      success: true,
+      statusKind: 'saved',
+      canSave: false,
+      canSyncHighlights: true,
+      notionPageId,
+      notionUrl,
+    })
+  );
+}
+
+function expectStringErrorResponse(response, extraFields = {}) {
+  expect(response).toEqual(
+    expect.objectContaining({
+      success: false,
+      error: expect.any(String),
+      ...extraFields,
+    })
+  );
+}
+
+function expectOpenTabResponse(response, tabId) {
+  expect(response).toEqual(
+    expect.objectContaining({
+      success: true,
+      tabId,
+    })
+  );
+}
+
 describe('saveHandlers message_bus.json response contracts', () => {
   const context = createSaveHandlersTestContext();
+  const successfulCreateCases = [
+    {
+      name: 'savePage successful create response matches canonical save contract fields',
+      action: sendResponse => context.handlers.savePage({}, validSender, sendResponse),
+      assertContract: expectSavePageContract,
+      notionPageId: 'new-page-123',
+      notionUrl: 'https://notion.so/new-page-123',
+    },
+    {
+      name: 'SAVE_PAGE_FROM_RAIL successful create response is compatible with canonical save shape',
+      action: sendResponse =>
+        context.handlers.SAVE_PAGE_FROM_RAIL({}, createRailSender(), sendResponse),
+      assertContract: expectRailSaveContract,
+      notionPageId: 'rail-page-123',
+      notionUrl: 'https://notion.so/rail-page-123',
+    },
+  ];
 
   beforeEach(() => {
     setupDefaultActionMocks(context.mockServices);
   });
 
   test('contract helper reports missing save action by name', () => {
-    expect(() => expectJsonContractDeclares('missingSaveAction', ['success'])).toThrow(
+    expect(() => expectActionResponseDeclares('save', 'missingSaveAction', ['success'])).toThrow(
       /missingSaveAction/
     );
   });
 
-  test('savePage successful create response matches canonical save contract fields', async () => {
-    const sendResponse = jest.fn();
-    context.mockServices.storageService.getSavedPageData.mockResolvedValue(null);
-    context.mockServices.notionService.createPage.mockResolvedValue(
-      buildCreatePageResult({
-        pageId: 'new-page-123',
-        url: 'https://notion.so/new-page-123',
-      })
-    );
+  test.each(successfulCreateCases)(
+    '$name',
+    async ({ action, assertContract, notionPageId, notionUrl }) => {
+      expect.hasAssertions();
+      const sendResponse = jest.fn();
+      context.mockServices.storageService.getSavedPageData.mockResolvedValue(null);
+      context.mockServices.notionService.createPage.mockResolvedValue(
+        buildCreatePageResult({
+          pageId: notionPageId,
+          url: notionUrl,
+        })
+      );
 
-    await context.handlers.savePage({}, validSender, sendResponse);
+      await action(sendResponse);
 
-    const response = getLastResponse(sendResponse);
-    expectJsonContractDeclares('savePage', SAVE_SUCCESS_CONTRACT_FIELDS);
-    expectResponseHasFields(response, SAVE_SUCCESS_CONTRACT_FIELDS);
-    expect(response).toEqual(
-      expect.objectContaining({
-        success: true,
-        statusKind: 'saved',
-        canSave: false,
-        canSyncHighlights: true,
-        notionPageId: 'new-page-123',
-        notionUrl: 'https://notion.so/new-page-123',
-      })
-    );
-  });
+      const response = getLastResponse(sendResponse);
+      assertContract(response);
+      expectSavedStatusResponse(response, { notionPageId, notionUrl });
+    }
+  );
 
   test('savePage destination failure keeps error envelope contract', async () => {
     const sendResponse = jest.fn();
@@ -120,18 +161,14 @@ describe('saveHandlers message_bus.json response contracts', () => {
     await context.handlers.savePage({ profileId: 'missing' }, validSender, sendResponse);
 
     const response = getLastResponse(sendResponse);
+    const messageBus = loadMessageBusContract();
     expect(messageBus.actions.save.savePage.response).toHaveProperty('error');
     expect(messageBus.actions.save.savePage.response).toHaveProperty('errorCode');
-    expect(response).toEqual(
-      expect.objectContaining({
-        success: false,
-        error: expect.any(String),
-        errorCode: 'DESTINATION_PROFILE_NOT_FOUND',
-      })
-    );
+    expectStringErrorResponse(response, { errorCode: 'DESTINATION_PROFILE_NOT_FOUND' });
   });
 
   test('checkPageStatus saved response matches status contract fields', async () => {
+    expect.hasAssertions();
     const sendResponse = jest.fn();
     context.mockServices.storageService.getSavedPageData.mockResolvedValue(
       buildSavedPageData({
@@ -145,45 +182,11 @@ describe('saveHandlers message_bus.json response contracts', () => {
     await context.handlers.checkPageStatus({}, validSender, sendResponse);
 
     const response = getLastResponse(sendResponse);
-    expectJsonContractDeclares('checkPageStatus', CHECK_STATUS_CONTRACT_FIELDS);
-    expectResponseHasFields(response, CHECK_STATUS_CONTRACT_FIELDS);
-    expect(response).toEqual(
-      expect.objectContaining({
-        success: true,
-        statusKind: 'saved',
-        canSave: false,
-        canSyncHighlights: true,
-        notionPageId: 'saved-page-123',
-        notionUrl: 'https://notion.so/saved-page-123',
-      })
-    );
-  });
-
-  test('SAVE_PAGE_FROM_RAIL successful create response is compatible with canonical save shape', async () => {
-    const sendResponse = jest.fn();
-    context.mockServices.storageService.getSavedPageData.mockResolvedValue(null);
-    context.mockServices.notionService.createPage.mockResolvedValue(
-      buildCreatePageResult({
-        pageId: 'rail-page-123',
-        url: 'https://notion.so/rail-page-123',
-      })
-    );
-
-    await context.handlers.SAVE_PAGE_FROM_RAIL({}, createRailSender(), sendResponse);
-
-    const response = getLastResponse(sendResponse);
-    expectJsonContractDeclares('SAVE_PAGE_FROM_RAIL', SAVE_SUCCESS_CONTRACT_FIELDS);
-    expectResponseHasFields(response, SAVE_SUCCESS_CONTRACT_FIELDS);
-    expect(response).toEqual(
-      expect.objectContaining({
-        success: true,
-        statusKind: 'saved',
-        canSave: false,
-        canSyncHighlights: true,
-        notionPageId: 'rail-page-123',
-        notionUrl: 'https://notion.so/rail-page-123',
-      })
-    );
+    expectCheckPageStatusContract(response);
+    expectSavedStatusResponse(response, {
+      notionPageId: 'saved-page-123',
+      notionUrl: 'https://notion.so/saved-page-123',
+    });
   });
 
   test('SAVE_PAGE_FROM_RAIL validation failure keeps error envelope contract', async () => {
@@ -192,13 +195,54 @@ describe('saveHandlers message_bus.json response contracts', () => {
     await context.handlers.SAVE_PAGE_FROM_RAIL({}, { id: 'mock-extension-id' }, sendResponse);
 
     const response = getLastResponse(sendResponse);
+    const messageBus = loadMessageBusContract();
     expect(messageBus.actions.save.SAVE_PAGE_FROM_RAIL.response).toHaveProperty('success');
     expect(messageBus.actions.save.SAVE_PAGE_FROM_RAIL.response).toHaveProperty('error');
-    expect(response).toEqual(
-      expect.objectContaining({
-        success: false,
-        error: expect.any(String),
+    expectStringErrorResponse(response);
+  });
+
+  test('openNotionPage success response matches navigation contract fields', async () => {
+    expect.hasAssertions();
+    const sendResponse = jest.fn();
+    context.mockServices.storageService.getSavedPageData.mockResolvedValue(
+      buildSavedPageData({
+        notionPageId: 'open-page-123',
+        notionUrl: 'https://notion.so/open-page-123',
       })
     );
+    chrome.tabs.create.mockResolvedValue({ id: 99 });
+
+    await context.handlers.openNotionPage(
+      { url: 'https://example.com' },
+      validSender,
+      sendResponse
+    );
+
+    const response = getLastResponse(sendResponse);
+    expectOpenNotionPageContract(response, OPEN_NOTION_PAGE_CONTRACT_FIELDS);
+    expectOpenTabResponse(response, 99);
+  });
+
+  test('openNotionPage missing saved page keeps error envelope contract', async () => {
+    const sendResponse = jest.fn();
+    context.mockServices.tabService.resolveTabUrl.mockResolvedValue({
+      stableUrl: 'https://example.com/stable',
+      originalUrl: 'https://example.com/original',
+      migrated: false,
+    });
+    context.mockServices.storageService.getSavedPageData
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+
+    await context.handlers.openNotionPage(
+      { url: 'https://example.com/stable' },
+      validSender,
+      sendResponse
+    );
+
+    const response = getLastResponse(sendResponse);
+    expectOpenNotionPageContract(response, OPEN_NOTION_PAGE_ERROR_FIELDS);
+    expectStringErrorResponse(response);
+    expect(chrome.tabs.create).not.toHaveBeenCalled();
   });
 });
