@@ -596,39 +596,14 @@ describe('DataSourceManager', () => {
       expect(constructorConfig.getApiKey()).toBe('custom-key');
     });
 
-    test('無注入 getApiKey 時，fallback 到 DOM 查詢（且有 API Key）', () => {
-      const manager = new DataSourceManager(mockUiManager, null);
+    test('無注入 getApiKey 時，應拋出 TypeError', () => {
+      expect(() => {
+        new DataSourceManager(mockUiManager, null);
+      }).toThrow(TypeError);
 
-      const input = document.createElement('input');
-      input.id = 'api-key';
-      input.value = 'dom-api-key';
-      document.body.append(input);
-
-      try {
-        const mockData = [{ id: 'db-1', object: 'database' }];
-        manager.populateDataSourceSelect(mockData);
-
-        expect(SearchableDatabaseSelectorMock).toHaveBeenCalledTimes(1);
-        const constructorConfig = SearchableDatabaseSelectorMock.mock.calls[0][0];
-
-        const apiKey = constructorConfig.getApiKey();
-        expect(apiKey).toBe('dom-api-key');
-        expect(Logger.warn).toHaveBeenCalledWith(
-          expect.stringContaining('Fallback to DOM query for API Key')
-        );
-      } finally {
-        input.remove();
-      }
-    });
-
-    test('無注入 getApiKey 且 DOM 中無 #api-key 時，fallback 返回空字串', () => {
-      const manager = new DataSourceManager(mockUiManager, null);
-      const mockData = [{ id: 'db-1', object: 'database' }];
-      manager.populateDataSourceSelect(mockData);
-
-      const constructorConfig = SearchableDatabaseSelectorMock.mock.calls[0][0];
-      const apiKey = constructorConfig.getApiKey();
-      expect(apiKey).toBe('');
+      expect(() => {
+        new DataSourceManager(mockUiManager);
+      }).toThrow('DataSourceManager 需要 getApiKey 函式');
     });
 
     test.each([
