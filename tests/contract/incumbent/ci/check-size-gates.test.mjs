@@ -13,6 +13,8 @@ const testDir = path.dirname(testFilePath);
 
 describe('tools/check-size-gates.mjs', () => {
   const scriptPath = path.resolve(testDir, '../../../../tools/check-size-gates.mjs');
+  const DEFAULT_BUNDLE_SIZE = 1024;
+  const DEFAULT_UNPACKED_SIZE = 2048;
   let tempRoot;
 
   const writeSizedFile = (filePath, size) => {
@@ -36,11 +38,11 @@ describe('tools/check-size-gates.mjs', () => {
 
   const createBundleRoot = ({
     rootDir,
-    contentSize,
-    backgroundSize,
-    migrationSize,
-    preloaderSize = 1024,
-    unpackedSize,
+    contentSize = DEFAULT_BUNDLE_SIZE,
+    backgroundSize = DEFAULT_BUNDLE_SIZE,
+    migrationSize = DEFAULT_BUNDLE_SIZE,
+    preloaderSize = DEFAULT_BUNDLE_SIZE,
+    unpackedSize = DEFAULT_UNPACKED_SIZE,
   }) => {
     writeSizedFile(path.join(rootDir, 'dist/content.bundle.js'), contentSize);
     writeSizedFile(path.join(rootDir, 'dist/scripts/background.js'), backgroundSize);
@@ -64,11 +66,11 @@ describe('tools/check-size-gates.mjs', () => {
 
   const runHardBundleReport = ({
     rootDir,
-    contentSize = 1024,
-    backgroundSize = 1024,
-    migrationSize = 1024,
-    preloaderSize = 1024,
-    unpackedSize = 2048,
+    contentSize = DEFAULT_BUNDLE_SIZE,
+    backgroundSize = DEFAULT_BUNDLE_SIZE,
+    migrationSize = DEFAULT_BUNDLE_SIZE,
+    preloaderSize = DEFAULT_BUNDLE_SIZE,
+    unpackedSize = DEFAULT_UNPACKED_SIZE,
   }) => {
     const { unpackedDir, reportPath } = createBundleRoot({
       rootDir,
@@ -173,9 +175,6 @@ describe('tools/check-size-gates.mjs', () => {
       name: 'content bundle',
       sizes: {
         contentSize: 300_001,
-        backgroundSize: 1024,
-        migrationSize: 1024,
-        unpackedSize: 2048,
       },
       targetPattern: /content\.bundle\.js/,
       messagePattern: /content\.bundle\.js 超過硬性上限/,
@@ -183,11 +182,7 @@ describe('tools/check-size-gates.mjs', () => {
     {
       name: 'preloader bundle',
       sizes: {
-        contentSize: 1024,
-        backgroundSize: 1024,
-        migrationSize: 1024,
         preloaderSize: 8193,
-        unpackedSize: 2048,
       },
       targetPattern: /preloader\.js/,
       messagePattern: /preloader\.js 超過硬性上限/,
