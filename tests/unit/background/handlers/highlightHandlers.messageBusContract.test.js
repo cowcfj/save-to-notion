@@ -222,6 +222,44 @@ function expectUpdateHighlightsContract(response, actualFields) {
   );
 }
 
+function expectSyncHighlightsSuccessResponse(response) {
+  expect(response).toEqual(
+    expect.objectContaining({
+      success: true,
+      count: 1,
+    })
+  );
+}
+
+function expectHighlightErrorResponse(response, errorCode) {
+  expect(response).toEqual(
+    expect.objectContaining({
+      success: false,
+      errorCode,
+      error: expect.any(String),
+    })
+  );
+}
+
+function expectUpdateHighlightsSuccessResponse(response) {
+  expect(response).toEqual(
+    expect.objectContaining({
+      success: true,
+      highlightsUpdated: true,
+      highlightCount: 1,
+    })
+  );
+}
+
+function expectStringErrorResponse(response) {
+  expect(response).toEqual(
+    expect.objectContaining({
+      success: false,
+      error: expect.any(String),
+    })
+  );
+}
+
 describe('highlightHandlers message_bus.json response contracts', () => {
   let handlers;
   let mockServices;
@@ -268,6 +306,7 @@ describe('highlightHandlers message_bus.json response contracts', () => {
   }
 
   test('syncHighlights success response matches contract fields', async () => {
+    expect.hasAssertions();
     mockSavedPageData();
     mockHighlightSectionResult({ success: true });
 
@@ -275,12 +314,7 @@ describe('highlightHandlers message_bus.json response contracts', () => {
     const response = getLastResponse(sendResponse);
 
     expectSyncHighlightsContract(response, SYNC_HIGHLIGHTS_SUCCESS_FIELDS);
-    expect(response).toEqual(
-      expect.objectContaining({
-        success: true,
-        count: 1,
-      })
-    );
+    expectSyncHighlightsSuccessResponse(response);
   });
 
   test('syncHighlights PAGE_DELETION_PENDING keeps public error contract', async () => {
@@ -295,13 +329,7 @@ describe('highlightHandlers message_bus.json response contracts', () => {
     const response = getLastResponse(sendResponse);
 
     expectSyncHighlightsContract(response, SYNC_HIGHLIGHTS_ERROR_FIELDS);
-    expect(response).toEqual(
-      expect.objectContaining({
-        success: false,
-        errorCode: 'PAGE_DELETION_PENDING',
-        error: expect.any(String),
-      })
-    );
+    expectHighlightErrorResponse(response, 'PAGE_DELETION_PENDING');
     expect(response).not.toHaveProperty('details');
   });
 
@@ -321,17 +349,12 @@ describe('highlightHandlers message_bus.json response contracts', () => {
     const response = getLastResponse(sendResponse);
 
     expectSyncHighlightsContract(response, SYNC_HIGHLIGHTS_ERROR_FIELDS);
-    expect(response).toEqual(
-      expect.objectContaining({
-        success: false,
-        errorCode: 'PAGE_DELETED',
-        error: expect.any(String),
-      })
-    );
+    expectHighlightErrorResponse(response, 'PAGE_DELETED');
     expect(response).not.toHaveProperty('details');
   });
 
   test('updateHighlights success response matches remote update contract fields', async () => {
+    expect.hasAssertions();
     mockSavedPageData();
     mockHighlightSectionResult({ success: true });
 
@@ -339,27 +362,17 @@ describe('highlightHandlers message_bus.json response contracts', () => {
     const response = getLastResponse(sendResponse);
 
     expectUpdateHighlightsContract(response, UPDATE_HIGHLIGHTS_SUCCESS_FIELDS);
-    expect(response).toEqual(
-      expect.objectContaining({
-        success: true,
-        highlightsUpdated: true,
-        highlightCount: 1,
-      })
-    );
+    expectUpdateHighlightsSuccessResponse(response);
   });
 
   test('updateHighlights missing saved page keeps error envelope contract', async () => {
+    expect.hasAssertions();
     mockServices.storageService.getSavedPageData.mockResolvedValue(null);
 
     const sendResponse = await executeUpdateHighlights();
     const response = getLastResponse(sendResponse);
 
     expectUpdateHighlightsContract(response, UPDATE_HIGHLIGHTS_ERROR_FIELDS);
-    expect(response).toEqual(
-      expect.objectContaining({
-        success: false,
-        error: expect.any(String),
-      })
-    );
+    expectStringErrorResponse(response);
   });
 });

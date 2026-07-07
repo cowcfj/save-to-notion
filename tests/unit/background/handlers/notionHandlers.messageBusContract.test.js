@@ -60,6 +60,13 @@ function expectRefreshOAuthTokenContract(response) {
   );
 }
 
+function expectRefreshOAuthTokenResponse(response, { success, token }) {
+  expect(response).toEqual({
+    success,
+    token,
+  });
+}
+
 describe('notionHandlers message_bus.json response contracts', () => {
   let handlers;
   let mockNotionService;
@@ -150,6 +157,7 @@ describe('notionHandlers message_bus.json response contracts', () => {
   });
 
   test('refreshOAuthToken success response matches contract fields', async () => {
+    expect.hasAssertions();
     const sender = { id: 'mock-extension-id' };
     const sendResponse = jest.fn();
     refreshOAuthToken.mockResolvedValueOnce('oauth_token_refreshed');
@@ -158,13 +166,14 @@ describe('notionHandlers message_bus.json response contracts', () => {
 
     const response = getLastResponse(sendResponse);
     expectRefreshOAuthTokenContract(response);
-    expect(response).toEqual({
+    expectRefreshOAuthTokenResponse(response, {
       success: true,
       token: 'oauth_token_refreshed',
     });
   });
 
   test('refreshOAuthToken failure response keeps null token contract', async () => {
+    expect.hasAssertions();
     const sender = { id: 'mock-extension-id' };
     const sendResponse = jest.fn();
     refreshOAuthToken.mockResolvedValueOnce(null);
@@ -173,7 +182,7 @@ describe('notionHandlers message_bus.json response contracts', () => {
 
     const response = getLastResponse(sendResponse);
     expectRefreshOAuthTokenContract(response);
-    expect(response).toEqual({
+    expectRefreshOAuthTokenResponse(response, {
       success: false,
       token: null,
     });

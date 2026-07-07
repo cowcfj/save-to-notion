@@ -69,6 +69,38 @@ function expectOpenNotionPageContract(response, fields) {
   expectSaveResponseContract('openNotionPage', fields, response);
 }
 
+function expectSavedStatusResponse(response, { notionPageId, notionUrl }) {
+  expect(response).toEqual(
+    expect.objectContaining({
+      success: true,
+      statusKind: 'saved',
+      canSave: false,
+      canSyncHighlights: true,
+      notionPageId,
+      notionUrl,
+    })
+  );
+}
+
+function expectStringErrorResponse(response, extraFields = {}) {
+  expect(response).toEqual(
+    expect.objectContaining({
+      success: false,
+      error: expect.any(String),
+      ...extraFields,
+    })
+  );
+}
+
+function expectOpenTabResponse(response, tabId) {
+  expect(response).toEqual(
+    expect.objectContaining({
+      success: true,
+      tabId,
+    })
+  );
+}
+
 describe('saveHandlers message_bus.json response contracts', () => {
   const context = createSaveHandlersTestContext();
 
@@ -83,6 +115,7 @@ describe('saveHandlers message_bus.json response contracts', () => {
   });
 
   test('savePage successful create response matches canonical save contract fields', async () => {
+    expect.hasAssertions();
     const sendResponse = jest.fn();
     context.mockServices.storageService.getSavedPageData.mockResolvedValue(null);
     context.mockServices.notionService.createPage.mockResolvedValue(
@@ -96,16 +129,10 @@ describe('saveHandlers message_bus.json response contracts', () => {
 
     const response = getLastResponse(sendResponse);
     expectSavePageContract(response);
-    expect(response).toEqual(
-      expect.objectContaining({
-        success: true,
-        statusKind: 'saved',
-        canSave: false,
-        canSyncHighlights: true,
-        notionPageId: 'new-page-123',
-        notionUrl: 'https://notion.so/new-page-123',
-      })
-    );
+    expectSavedStatusResponse(response, {
+      notionPageId: 'new-page-123',
+      notionUrl: 'https://notion.so/new-page-123',
+    });
   });
 
   test('savePage destination failure keeps error envelope contract', async () => {
@@ -120,16 +147,11 @@ describe('saveHandlers message_bus.json response contracts', () => {
     const messageBus = loadMessageBusContract();
     expect(messageBus.actions.save.savePage.response).toHaveProperty('error');
     expect(messageBus.actions.save.savePage.response).toHaveProperty('errorCode');
-    expect(response).toEqual(
-      expect.objectContaining({
-        success: false,
-        error: expect.any(String),
-        errorCode: 'DESTINATION_PROFILE_NOT_FOUND',
-      })
-    );
+    expectStringErrorResponse(response, { errorCode: 'DESTINATION_PROFILE_NOT_FOUND' });
   });
 
   test('checkPageStatus saved response matches status contract fields', async () => {
+    expect.hasAssertions();
     const sendResponse = jest.fn();
     context.mockServices.storageService.getSavedPageData.mockResolvedValue(
       buildSavedPageData({
@@ -144,19 +166,14 @@ describe('saveHandlers message_bus.json response contracts', () => {
 
     const response = getLastResponse(sendResponse);
     expectCheckPageStatusContract(response);
-    expect(response).toEqual(
-      expect.objectContaining({
-        success: true,
-        statusKind: 'saved',
-        canSave: false,
-        canSyncHighlights: true,
-        notionPageId: 'saved-page-123',
-        notionUrl: 'https://notion.so/saved-page-123',
-      })
-    );
+    expectSavedStatusResponse(response, {
+      notionPageId: 'saved-page-123',
+      notionUrl: 'https://notion.so/saved-page-123',
+    });
   });
 
   test('SAVE_PAGE_FROM_RAIL successful create response is compatible with canonical save shape', async () => {
+    expect.hasAssertions();
     const sendResponse = jest.fn();
     context.mockServices.storageService.getSavedPageData.mockResolvedValue(null);
     context.mockServices.notionService.createPage.mockResolvedValue(
@@ -170,16 +187,10 @@ describe('saveHandlers message_bus.json response contracts', () => {
 
     const response = getLastResponse(sendResponse);
     expectRailSaveContract(response);
-    expect(response).toEqual(
-      expect.objectContaining({
-        success: true,
-        statusKind: 'saved',
-        canSave: false,
-        canSyncHighlights: true,
-        notionPageId: 'rail-page-123',
-        notionUrl: 'https://notion.so/rail-page-123',
-      })
-    );
+    expectSavedStatusResponse(response, {
+      notionPageId: 'rail-page-123',
+      notionUrl: 'https://notion.so/rail-page-123',
+    });
   });
 
   test('SAVE_PAGE_FROM_RAIL validation failure keeps error envelope contract', async () => {
@@ -191,15 +202,11 @@ describe('saveHandlers message_bus.json response contracts', () => {
     const messageBus = loadMessageBusContract();
     expect(messageBus.actions.save.SAVE_PAGE_FROM_RAIL.response).toHaveProperty('success');
     expect(messageBus.actions.save.SAVE_PAGE_FROM_RAIL.response).toHaveProperty('error');
-    expect(response).toEqual(
-      expect.objectContaining({
-        success: false,
-        error: expect.any(String),
-      })
-    );
+    expectStringErrorResponse(response);
   });
 
   test('openNotionPage success response matches navigation contract fields', async () => {
+    expect.hasAssertions();
     const sendResponse = jest.fn();
     context.mockServices.storageService.getSavedPageData.mockResolvedValue(
       buildSavedPageData({
@@ -217,12 +224,7 @@ describe('saveHandlers message_bus.json response contracts', () => {
 
     const response = getLastResponse(sendResponse);
     expectOpenNotionPageContract(response, OPEN_NOTION_PAGE_CONTRACT_FIELDS);
-    expect(response).toEqual(
-      expect.objectContaining({
-        success: true,
-        tabId: 99,
-      })
-    );
+    expectOpenTabResponse(response, 99);
   });
 
   test('openNotionPage missing saved page keeps error envelope contract', async () => {
@@ -244,12 +246,7 @@ describe('saveHandlers message_bus.json response contracts', () => {
 
     const response = getLastResponse(sendResponse);
     expectOpenNotionPageContract(response, OPEN_NOTION_PAGE_ERROR_FIELDS);
-    expect(response).toEqual(
-      expect.objectContaining({
-        success: false,
-        error: expect.any(String),
-      })
-    );
+    expectStringErrorResponse(response);
     expect(chrome.tabs.create).not.toHaveBeenCalled();
   });
 });
