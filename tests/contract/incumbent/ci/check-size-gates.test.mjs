@@ -99,6 +99,27 @@ describe('tools/check-size-gates.mjs', () => {
     return { report, check };
   };
 
+  const runHardBundleFailureOutput = ({ sizes }) => {
+    const rootDir = path.join(tempRoot, 'current');
+    const { unpackedDir } = createBundleRoot({
+      rootDir,
+      ...sizes,
+    });
+
+    try {
+      runCli([
+        '--mode=hard',
+        '--scope=bundle',
+        `--root=${rootDir}`,
+        `--unpacked-dir=${unpackedDir}`,
+      ]);
+    } catch (error) {
+      return `${error.stdout}${error.stderr}`;
+    }
+
+    throw new Error('Expected hard bundle check to fail');
+  };
+
   beforeEach(() => {
     tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'size-gates-'));
   });
@@ -148,62 +169,32 @@ describe('tools/check-size-gates.mjs', () => {
   });
 
   test('hard mode 應在 content bundle 超過 hard cap 時失敗', () => {
-    const rootDir = path.join(tempRoot, 'current');
-    const { unpackedDir } = createBundleRoot({
-      rootDir,
-      contentSize: 300_001,
-      backgroundSize: 1024,
-      migrationSize: 1024,
-      unpackedSize: 2048,
+    const failureOutput = runHardBundleFailureOutput({
+      sizes: {
+        contentSize: 300_001,
+        backgroundSize: 1024,
+        migrationSize: 1024,
+        unpackedSize: 2048,
+      },
     });
 
-    let thrownError;
-    try {
-      runCli([
-        '--mode=hard',
-        '--scope=bundle',
-        `--root=${rootDir}`,
-        `--unpacked-dir=${unpackedDir}`,
-      ]);
-    } catch (error) {
-      thrownError = error;
-    }
-
-    expect(thrownError).toBeDefined();
-    expect(`${thrownError.stdout}${thrownError.stderr}`).toMatch(/content\.bundle\.js/);
-    expect(`${thrownError.stdout}${thrownError.stderr}`).toMatch(
-      /content\.bundle\.js 超過硬性上限/
-    );
+    expect(failureOutput).toMatch(/content\.bundle\.js/);
+    expect(failureOutput).toMatch(/content\.bundle\.js 超過硬性上限/);
   });
 
   test('hard mode 應在 preloader bundle 超過 hard cap 時失敗', () => {
-    const rootDir = path.join(tempRoot, 'current');
-    const { unpackedDir } = createBundleRoot({
-      rootDir,
-      contentSize: 1024,
-      backgroundSize: 1024,
-      migrationSize: 1024,
-      preloaderSize: 8193,
-      unpackedSize: 2048,
+    const failureOutput = runHardBundleFailureOutput({
+      sizes: {
+        contentSize: 1024,
+        backgroundSize: 1024,
+        migrationSize: 1024,
+        preloaderSize: 8193,
+        unpackedSize: 2048,
+      },
     });
 
-    let thrownError;
-    try {
-      runCli([
-        '--mode=hard',
-        '--scope=bundle',
-        `--root=${rootDir}`,
-        `--unpacked-dir=${unpackedDir}`,
-      ]);
-    } catch (error) {
-      thrownError = error;
-    }
-
-    expect(thrownError).toBeDefined();
-    expect(`${thrownError.stdout}${thrownError.stderr}`).toMatch(/preloader\.js/);
-    expect(`${thrownError.stdout}${thrownError.stderr}`).toMatch(
-      /preloader\.js 超過硬性上限/
-    );
+    expect(failureOutput).toMatch(/preloader\.js/);
+    expect(failureOutput).toMatch(/preloader\.js 超過硬性上限/);
   });
 
   const contentBundleHardPassCases = [
