@@ -44,3 +44,18 @@ export function expectResponseHasFields(response, fields) {
     expect(response).toHaveProperty(field);
   }
 }
+
+export function getLastResponse(sendResponse) {
+  return sendResponse.mock.calls.at(-1)?.[0];
+}
+
+export function expectMessageBusResponseContract({
+  group,
+  actionName,
+  declaredFields,
+  response,
+  actualFields = declaredFields,
+}) {
+  expectActionResponseDeclares(group, actionName, declaredFields);
+  expectResponseHasFields(response, actualFields);
+}

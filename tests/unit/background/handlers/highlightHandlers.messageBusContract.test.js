@@ -1,8 +1,8 @@
 import { jest } from '@jest/globals';
 
 import {
-  expectActionResponseDeclares,
-  expectResponseHasFields,
+  expectMessageBusResponseContract,
+  getLastResponse,
 } from './messageBusContractTestUtils.js';
 
 let createHighlightHandlers;
@@ -106,8 +106,88 @@ function createSender({
   return { id, tab };
 }
 
-function getLastResponse(sendResponse) {
-  return sendResponse.mock.calls.at(-1)?.[0];
+function resetHighlightContractMocks() {
+  jest.resetAllMocks();
+}
+
+function configureDefaultHighlightContractMocks() {
+  mockSecurityUtils.validateContentScriptRequest.mockReturnValue(null);
+  mockSecurityUtils.validateInternalRequest.mockReturnValue(null);
+  mockInjectionService.isRestrictedInjectionUrl.mockReturnValue(false);
+  mockUrlUtils.normalizeUrl.mockImplementation(url => url);
+  mockUrlUtils.resolveStorageUrl.mockImplementation(url => url);
+  mockNotionAuth.ensureNotionApiKey.mockResolvedValue('key1');
+  mockApiErrorSanitizer.sanitizeApiError.mockImplementation(err =>
+    typeof err === 'string' ? err : err.message || 'unknown_error'
+  );
+  mockErrorHandler.ErrorHandler.formatUserMessage.mockImplementation(error => {
+    const key = error?.message ?? error;
+    return ERROR_MESSAGES.PATTERNS[key] ?? ERROR_MESSAGES.USER_MESSAGES[key] ?? key;
+  });
+  mockLogSanitizer.sanitizeUrlForLogging.mockImplementation(url => {
+    try {
+      return new URL(url).toString();
+    } catch {
+      return url;
+    }
+  });
+}
+
+function createHighlightContractMockServices() {
+  return {
+    notionService: {
+      updateHighlightsSection: jest.fn(),
+    },
+    storageService: {
+      getSavedPageData: jest.fn(),
+      getConfig: jest.fn(),
+      clearNotionStateWithRetry: jest.fn().mockResolvedValue({ cleared: true, attempts: 1 }),
+    },
+    tabService: {
+      resolveTabUrl: jest.fn().mockImplementation((_tabId, url) =>
+        Promise.resolve({
+          stableUrl: url,
+          originalUrl: url,
+          migrated: false,
+        })
+      ),
+      confirmRemotePageMissing: jest
+        .fn()
+        .mockReturnValue({ shouldDelete: false, deletionPending: true }),
+      resetRemotePageMissingState: jest
+        .fn()
+        .mockReturnValue({ shouldDelete: false, deletionPending: false }),
+    },
+    migrationService: {
+      migrateStorageKey: jest.fn().mockResolvedValue(false),
+    },
+    injectionService: {
+      collectHighlights: jest.fn().mockResolvedValue([{ text: 'hi' }]),
+    },
+  };
+}
+
+function installHighlightContractChromeMock() {
+  globalThis.chrome = {
+    runtime: { id: TEST_EXTENSION_ID, lastError: null },
+    tabs: {
+      query: jest.fn().mockResolvedValue([{ id: TEST_TAB_ID, url: TEST_URL }]),
+      sendMessage: jest.fn(),
+    },
+  };
+}
+
+function installHighlightContractLoggerMock() {
+  globalThis.Logger = {
+    log: jest.fn(),
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+  };
 }
 
 describe('highlightHandlers message_bus.json response contracts', () => {
@@ -115,79 +195,11 @@ describe('highlightHandlers message_bus.json response contracts', () => {
   let mockServices;
 
   beforeEach(() => {
-    jest.resetAllMocks();
-
-    mockSecurityUtils.validateContentScriptRequest.mockReturnValue(null);
-    mockSecurityUtils.validateInternalRequest.mockReturnValue(null);
-    mockInjectionService.isRestrictedInjectionUrl.mockReturnValue(false);
-    mockUrlUtils.normalizeUrl.mockImplementation(url => url);
-    mockUrlUtils.resolveStorageUrl.mockImplementation(url => url);
-    mockNotionAuth.ensureNotionApiKey.mockResolvedValue('key1');
-    mockApiErrorSanitizer.sanitizeApiError.mockImplementation(err =>
-      typeof err === 'string' ? err : err.message || 'unknown_error'
-    );
-    mockErrorHandler.ErrorHandler.formatUserMessage.mockImplementation(error => {
-      const key = error?.message ?? error;
-      return ERROR_MESSAGES.PATTERNS[key] ?? ERROR_MESSAGES.USER_MESSAGES[key] ?? key;
-    });
-    mockLogSanitizer.sanitizeUrlForLogging.mockImplementation(url => {
-      try {
-        return new URL(url).toString();
-      } catch {
-        return url;
-      }
-    });
-
-    mockServices = {
-      notionService: {
-        updateHighlightsSection: jest.fn(),
-      },
-      storageService: {
-        getSavedPageData: jest.fn(),
-        getConfig: jest.fn(),
-        clearNotionStateWithRetry: jest.fn().mockResolvedValue({ cleared: true, attempts: 1 }),
-      },
-      tabService: {
-        resolveTabUrl: jest.fn().mockImplementation((_tabId, url) =>
-          Promise.resolve({
-            stableUrl: url,
-            originalUrl: url,
-            migrated: false,
-          })
-        ),
-        confirmRemotePageMissing: jest
-          .fn()
-          .mockReturnValue({ shouldDelete: false, deletionPending: true }),
-        resetRemotePageMissingState: jest
-          .fn()
-          .mockReturnValue({ shouldDelete: false, deletionPending: false }),
-      },
-      migrationService: {
-        migrateStorageKey: jest.fn().mockResolvedValue(false),
-      },
-      injectionService: {
-        collectHighlights: jest.fn().mockResolvedValue([{ text: 'hi' }]),
-      },
-    };
-
-    globalThis.chrome = {
-      runtime: { id: TEST_EXTENSION_ID, lastError: null },
-      tabs: {
-        query: jest.fn().mockResolvedValue([{ id: TEST_TAB_ID, url: TEST_URL }]),
-        sendMessage: jest.fn(),
-      },
-    };
-    globalThis.Logger = {
-      log: jest.fn(),
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      success: jest.fn(),
-      start: jest.fn(),
-      ready: jest.fn(),
-    };
-
+    resetHighlightContractMocks();
+    configureDefaultHighlightContractMocks();
+    mockServices = createHighlightContractMockServices();
+    installHighlightContractChromeMock();
+    installHighlightContractLoggerMock();
     handlers = createHighlightHandlers(mockServices);
   });
 
@@ -230,8 +242,13 @@ describe('highlightHandlers message_bus.json response contracts', () => {
     const sendResponse = await executeSyncHighlights();
     const response = getLastResponse(sendResponse);
 
-    expectActionResponseDeclares('highlight', 'syncHighlights', SYNC_HIGHLIGHTS_CONTRACT_FIELDS);
-    expectResponseHasFields(response, ['success', 'count']);
+    expectMessageBusResponseContract({
+      group: 'highlight',
+      actionName: 'syncHighlights',
+      declaredFields: SYNC_HIGHLIGHTS_CONTRACT_FIELDS,
+      response,
+      actualFields: ['success', 'count'],
+    });
     expect(response).toEqual(
       expect.objectContaining({
         success: true,
@@ -251,8 +268,13 @@ describe('highlightHandlers message_bus.json response contracts', () => {
     const sendResponse = await executeSyncHighlights();
     const response = getLastResponse(sendResponse);
 
-    expectActionResponseDeclares('highlight', 'syncHighlights', SYNC_HIGHLIGHTS_CONTRACT_FIELDS);
-    expectResponseHasFields(response, ['success', 'errorCode', 'error']);
+    expectMessageBusResponseContract({
+      group: 'highlight',
+      actionName: 'syncHighlights',
+      declaredFields: SYNC_HIGHLIGHTS_CONTRACT_FIELDS,
+      response,
+      actualFields: ['success', 'errorCode', 'error'],
+    });
     expect(response).toEqual(
       expect.objectContaining({
         success: false,
@@ -278,8 +300,13 @@ describe('highlightHandlers message_bus.json response contracts', () => {
     const sendResponse = await executeSyncHighlights();
     const response = getLastResponse(sendResponse);
 
-    expectActionResponseDeclares('highlight', 'syncHighlights', SYNC_HIGHLIGHTS_CONTRACT_FIELDS);
-    expectResponseHasFields(response, ['success', 'errorCode', 'error']);
+    expectMessageBusResponseContract({
+      group: 'highlight',
+      actionName: 'syncHighlights',
+      declaredFields: SYNC_HIGHLIGHTS_CONTRACT_FIELDS,
+      response,
+      actualFields: ['success', 'errorCode', 'error'],
+    });
     expect(response).toEqual(
       expect.objectContaining({
         success: false,
@@ -297,12 +324,13 @@ describe('highlightHandlers message_bus.json response contracts', () => {
     const sendResponse = await executeUpdateHighlights();
     const response = getLastResponse(sendResponse);
 
-    expectActionResponseDeclares(
-      'highlight',
-      'updateHighlights',
-      UPDATE_HIGHLIGHTS_CONTRACT_FIELDS
-    );
-    expectResponseHasFields(response, ['success', 'highlightsUpdated', 'highlightCount']);
+    expectMessageBusResponseContract({
+      group: 'highlight',
+      actionName: 'updateHighlights',
+      declaredFields: UPDATE_HIGHLIGHTS_CONTRACT_FIELDS,
+      response,
+      actualFields: ['success', 'highlightsUpdated', 'highlightCount'],
+    });
     expect(response).toEqual(
       expect.objectContaining({
         success: true,
@@ -318,12 +346,13 @@ describe('highlightHandlers message_bus.json response contracts', () => {
     const sendResponse = await executeUpdateHighlights();
     const response = getLastResponse(sendResponse);
 
-    expectActionResponseDeclares(
-      'highlight',
-      'updateHighlights',
-      UPDATE_HIGHLIGHTS_CONTRACT_FIELDS
-    );
-    expectResponseHasFields(response, ['success', 'error']);
+    expectMessageBusResponseContract({
+      group: 'highlight',
+      actionName: 'updateHighlights',
+      declaredFields: UPDATE_HIGHLIGHTS_CONTRACT_FIELDS,
+      response,
+      actualFields: ['success', 'error'],
+    });
     expect(response).toEqual(
       expect.objectContaining({
         success: false,

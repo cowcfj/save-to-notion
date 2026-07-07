@@ -5,8 +5,8 @@
 import { jest } from '@jest/globals';
 
 import {
-  expectActionResponseDeclares,
-  expectResponseHasFields,
+  expectMessageBusResponseContract,
+  getLastResponse,
 } from './messageBusContractTestUtils.js';
 
 const SEARCH_NOTION_CONTRACT_FIELDS = ['success', 'data', 'error'];
@@ -33,10 +33,6 @@ beforeAll(async () => {
   ({ refreshOAuthToken, getActiveNotionToken } =
     await import('../../../../scripts/utils/notionAuth.js'));
 });
-
-function getLastResponse(sendResponse) {
-  return sendResponse.mock.calls.at(-1)?.[0];
-}
 
 describe('notionHandlers message_bus.json response contracts', () => {
   let handlers;
@@ -79,8 +75,13 @@ describe('notionHandlers message_bus.json response contracts', () => {
     await handlers.searchNotion({ query: 'test', apiKey: 'secret' }, sender, sendResponse);
 
     const response = getLastResponse(sendResponse);
-    expectActionResponseDeclares('auth', 'searchNotion', SEARCH_NOTION_CONTRACT_FIELDS);
-    expectResponseHasFields(response, ['success', 'data']);
+    expectMessageBusResponseContract({
+      group: 'auth',
+      actionName: 'searchNotion',
+      declaredFields: SEARCH_NOTION_CONTRACT_FIELDS,
+      response,
+      actualFields: ['success', 'data'],
+    });
     expect(response).toEqual({
       success: true,
       data: mockResult,
@@ -99,8 +100,13 @@ describe('notionHandlers message_bus.json response contracts', () => {
     );
 
     const response = getLastResponse(sendResponse);
-    expectActionResponseDeclares('auth', 'searchNotion', SEARCH_NOTION_CONTRACT_FIELDS);
-    expectResponseHasFields(response, ['success', 'error']);
+    expectMessageBusResponseContract({
+      group: 'auth',
+      actionName: 'searchNotion',
+      declaredFields: SEARCH_NOTION_CONTRACT_FIELDS,
+      response,
+      actualFields: ['success', 'error'],
+    });
     expect(response).toEqual(
       expect.objectContaining({
         success: false,
@@ -119,8 +125,13 @@ describe('notionHandlers message_bus.json response contracts', () => {
     await handlers.searchNotion({ query: 'test', apiKey: 'hacker-key' }, sender, sendResponse);
 
     const response = getLastResponse(sendResponse);
-    expectActionResponseDeclares('auth', 'searchNotion', SEARCH_NOTION_CONTRACT_FIELDS);
-    expectResponseHasFields(response, ['success', 'error']);
+    expectMessageBusResponseContract({
+      group: 'auth',
+      actionName: 'searchNotion',
+      declaredFields: SEARCH_NOTION_CONTRACT_FIELDS,
+      response,
+      actualFields: ['success', 'error'],
+    });
     expect(response).toEqual(
       expect.objectContaining({
         success: false,
@@ -138,8 +149,13 @@ describe('notionHandlers message_bus.json response contracts', () => {
     await handlers.refreshOAuthToken({ action: 'refreshOAuthToken' }, sender, sendResponse);
 
     const response = getLastResponse(sendResponse);
-    expectActionResponseDeclares('auth', 'refreshOAuthToken', REFRESH_OAUTH_TOKEN_CONTRACT_FIELDS);
-    expectResponseHasFields(response, ['success', 'token']);
+    expectMessageBusResponseContract({
+      group: 'auth',
+      actionName: 'refreshOAuthToken',
+      declaredFields: REFRESH_OAUTH_TOKEN_CONTRACT_FIELDS,
+      response,
+      actualFields: ['success', 'token'],
+    });
     expect(response).toEqual({
       success: true,
       token: 'oauth_token_refreshed',
@@ -154,8 +170,13 @@ describe('notionHandlers message_bus.json response contracts', () => {
     await handlers.refreshOAuthToken({ action: 'refreshOAuthToken' }, sender, sendResponse);
 
     const response = getLastResponse(sendResponse);
-    expectActionResponseDeclares('auth', 'refreshOAuthToken', REFRESH_OAUTH_TOKEN_CONTRACT_FIELDS);
-    expectResponseHasFields(response, ['success', 'token']);
+    expectMessageBusResponseContract({
+      group: 'auth',
+      actionName: 'refreshOAuthToken',
+      declaredFields: REFRESH_OAUTH_TOKEN_CONTRACT_FIELDS,
+      response,
+      actualFields: ['success', 'token'],
+    });
     expect(response).toEqual({
       success: false,
       token: null,
