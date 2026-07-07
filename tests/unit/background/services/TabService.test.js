@@ -157,28 +157,31 @@ const mockInjectionService = {
   injectHighlightRestore: jest.fn().mockResolvedValue(),
 };
 
+const createTabService = (overrides = {}) =>
+  new TabService({
+    logger: mockLogger,
+    injectionService: mockInjectionService,
+    normalizeUrl: url => url,
+    getSavedPageData: jest.fn().mockResolvedValue(null),
+    isRestrictedUrl: url => url.includes('chrome://'),
+    isRecoverableError: err => {
+      const msg = typeof err === 'string' ? err : err?.message || '';
+      return msg.includes('Cannot access');
+    },
+    checkPageExists: jest.fn().mockResolvedValue(true),
+    getApiKey: jest.fn().mockResolvedValue('test-api-key'),
+    clearPageState: jest.fn().mockResolvedValue(),
+    clearNotionState: jest.fn().mockResolvedValue(),
+    clearNotionStateWithRetry: jest.fn().mockResolvedValue({ cleared: true, attempts: 1 }),
+    setSavedPageData: jest.fn().mockResolvedValue(),
+    ...overrides,
+  });
+
 describe('TabService', () => {
   let service = null;
 
   beforeEach(() => {
-    service = new TabService({
-      logger: mockLogger,
-      injectionService: mockInjectionService,
-      normalizeUrl: url => url,
-      getSavedPageData: jest.fn().mockResolvedValue(null),
-      isRestrictedUrl: url => url.includes('chrome://'),
-      isRecoverableError: err => {
-        const msg = typeof err === 'string' ? err : err?.message || '';
-        return msg.includes('Cannot access');
-      },
-      // 注入 mock 依賴
-      checkPageExists: jest.fn().mockResolvedValue(true),
-      getApiKey: jest.fn().mockResolvedValue('test-api-key'),
-      clearPageState: jest.fn().mockResolvedValue(),
-      clearNotionState: jest.fn().mockResolvedValue(),
-      clearNotionStateWithRetry: jest.fn().mockResolvedValue({ cleared: true, attempts: 1 }),
-      setSavedPageData: jest.fn().mockResolvedValue(),
-    });
+    service = createTabService();
 
     // 初始化全局 chrome.runtime
     chrome.runtime = { lastError: null };
@@ -1042,6 +1045,28 @@ describe('TabService', () => {
       });
 
       expect(service.confirmRemotePageMissing('page-1')).toEqual({
+        shouldDelete: true,
+        deletionPending: false,
+      });
+    });
+
+    it('should treat pending deletion state as volatile after service re-instantiation', () => {
+      jest.spyOn(Date, 'now').mockReturnValue(30_000);
+
+      expect(service.confirmRemotePageMissing('page-1')).toEqual({
+        shouldDelete: false,
+        deletionPending: true,
+      });
+
+      const restartedService = createTabService();
+
+      expect(restartedService.confirmRemotePageMissing('page-1')).toEqual({
+        shouldDelete: false,
+        deletionPending: true,
+      });
+      expect(restartedService.deletionPendingPages.has('page-1')).toBe(true);
+
+      expect(restartedService.confirmRemotePageMissing('page-1')).toEqual({
         shouldDelete: true,
         deletionPending: false,
       });
