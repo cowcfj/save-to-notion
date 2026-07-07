@@ -11,7 +11,7 @@ import {
 let ImageCollector;
 let cachedQuery;
 let Logger;
-let extractImageSrc;
+let extractImageSource;
 let cleanImageUrl;
 let isValidCleanedImageUrl;
 
@@ -20,7 +20,7 @@ beforeAll(async () => {
   ImageCollector = modules.ImageCollector;
   cachedQuery = modules.cachedQuery;
   Logger = modules.Logger;
-  extractImageSrc = modules.extractImageSrc;
+  extractImageSource = modules.extractImageSrc;
   cleanImageUrl = modules.cleanImageUrl;
   isValidCleanedImageUrl = modules.isValidCleanedImageUrl;
 });
@@ -75,7 +75,7 @@ describe('ImageCollector', () => {
         }
         return null;
       });
-      extractImageSrc.mockReturnValue('https://example.com/featured.jpg');
+      extractImageSource.mockReturnValue('https://example.com/featured.jpg');
 
       const result = ImageCollector.collectFeaturedImage();
       expect(result).toBe('https://example.com/featured.jpg');
@@ -110,7 +110,7 @@ describe('ImageCollector', () => {
 
     test('should return null when extractImageSrc is missing (DOM fallback)', () => {
       const mockImg = document.createElement('img');
-      extractImageSrc.mockReturnValue(null); // 無效的 src
+      extractImageSource.mockReturnValue(null); // 無效的 src
 
       cachedQuery.mockImplementation((selector, context, options) => {
         if (selector.includes('meta')) {
@@ -159,7 +159,7 @@ describe('ImageCollector', () => {
             }
             return null;
           });
-          extractImageSrc.mockReturnValue(MALFORMED_FEATURED_IMAGE_URL);
+          extractImageSource.mockReturnValue(MALFORMED_FEATURED_IMAGE_URL);
         },
         collectFeaturedImage: () => ImageCollector._collectFeaturedFromDOM(),
         expectedLogContext: {
@@ -197,11 +197,23 @@ describe('ImageCollector', () => {
   });
 
   describe('processImageForCollection', () => {
+    test('should handle malformed URLs gracefully without throwing', () => {
+      const mockImg = document.createElement('img');
+      const malformedSource = 'http://[malformed]';
+
+      extractImageSource.mockReturnValue(malformedSource);
+      // document.baseURI might be a valid URL string or about:blank in JSDOM, but new URL with this malformed src will throw
+
+      expect(() => {
+        ImageCollector.processImageForCollection(mockImg, 0, null);
+      }).not.toThrow();
+    });
+
     test('should return null when extractImageSrc returns null', () => {
       const mockImg = document.createElement('img');
       mockImg.src = 'https://example.com/test.jpg';
 
-      extractImageSrc.mockReturnValue(null);
+      extractImageSource.mockReturnValue(null);
 
       const result = ImageCollector.processImageForCollection(mockImg, 0, null);
       expect(result).toBeNull();
@@ -210,10 +222,12 @@ describe('ImageCollector', () => {
     test('should process valid image', () => {
       const mockImg = document.createElement('img');
       mockImg.src = 'https://example.com/img.jpg';
-      Object.defineProperty(mockImg, 'naturalWidth', { value: 800 });
-      Object.defineProperty(mockImg, 'naturalHeight', { value: 600 });
+      Object.defineProperties(mockImg, {
+	naturalWidth: { value: 800 },
+	naturalHeight: { value: 600 },
+      });
 
-      extractImageSrc.mockReturnValue('https://example.com/img.jpg');
+      extractImageSource.mockReturnValue('https://example.com/img.jpg');
 
       const result = ImageCollector.processImageForCollection(mockImg, 0, null);
 
@@ -231,7 +245,7 @@ describe('ImageCollector', () => {
     test('should skip duplicate featured image', () => {
       const mockImg = document.createElement('img');
       mockImg.src = 'https://example.com/featured.jpg';
-      extractImageSrc.mockReturnValue('https://example.com/featured.jpg');
+      extractImageSource.mockReturnValue('https://example.com/featured.jpg');
 
       const result = ImageCollector.processImageForCollection(
         mockImg,
@@ -244,10 +258,12 @@ describe('ImageCollector', () => {
     test('should skip small images', () => {
       const mockImg = document.createElement('img');
       mockImg.src = 'https://example.com/small.jpg';
-      Object.defineProperty(mockImg, 'naturalWidth', { value: 500 });
-      Object.defineProperty(mockImg, 'naturalHeight', { value: 300 });
+      Object.defineProperties(mockImg, {
+	naturalWidth: { value: 500 },
+	naturalHeight: { value: 300 },
+      });
 
-      extractImageSrc.mockReturnValue('https://example.com/small.jpg');
+      extractImageSource.mockReturnValue('https://example.com/small.jpg');
 
       const result = ImageCollector.processImageForCollection(mockImg, 0, null);
       expect(result).toBeNull();
@@ -258,7 +274,7 @@ describe('ImageCollector', () => {
         throw new Error('Process Error');
       });
 
-      extractImageSrc.mockReturnValue('https://example.com/test.jpg');
+      extractImageSource.mockReturnValue('https://example.com/test.jpg');
 
       const img = document.createElement('img');
       const result = ImageCollector.processImageForCollection(img, 0);
@@ -272,7 +288,7 @@ describe('ImageCollector', () => {
 
     test('processImageForCollection should log and return null when src is missing', () => {
       const mockImg = document.createElement('img');
-      extractImageSrc.mockReturnValue(null);
+      extractImageSource.mockReturnValue(null);
 
       const result = ImageCollector.processImageForCollection(mockImg, 0, null);
 
@@ -284,7 +300,7 @@ describe('ImageCollector', () => {
       const mockImg = document.createElement('img');
       mockImg.src = 'https://example.com/invalid.jpg';
 
-      extractImageSrc.mockReturnValue('https://example.com/invalid.jpg');
+      extractImageSource.mockReturnValue('https://example.com/invalid.jpg');
       isValidCleanedImageUrl.mockReturnValue(false);
 
       const result = ImageCollector.processImageForCollection(mockImg, 0, null);
@@ -296,7 +312,7 @@ describe('ImageCollector', () => {
     test('processImageForCollection should allow image with unknown dimensions (0x0)', () => {
       const mockImg = document.createElement('img');
       mockImg.src = 'https://example.com/unknown.jpg';
-      extractImageSrc.mockReturnValue('https://example.com/unknown.jpg');
+      extractImageSource.mockReturnValue('https://example.com/unknown.jpg');
 
       const result = ImageCollector.processImageForCollection(mockImg, 0, null);
 

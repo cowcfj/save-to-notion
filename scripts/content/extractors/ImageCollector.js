@@ -10,7 +10,7 @@
 
 // ImageUtils Named Imports
 import {
-  extractImageSrc,
+  extractImageSrc as extractImageSource,
   isValidImageUrl,
   isValidCleanedImageUrl,
   cleanImageUrl,
@@ -98,12 +98,12 @@ const ImageCollector = {
       return null;
     }
 
-    const src = extractImageSrc?.(img);
-    if (!this._isValidFeaturedImageSource(src)) {
+    const source = extractImageSource?.(img);
+    if (!this._isValidFeaturedImageSource(source)) {
       return null;
     }
 
-    const cleanedUrl = this._normalizeFeaturedImageUrl(src, { selector, source: 'dom' });
+    const cleanedUrl = this._normalizeFeaturedImageUrl(source, { selector, source: 'dom' });
     if (!cleanedUrl) {
       return null;
     }
@@ -205,22 +205,22 @@ const ImageCollector = {
     return cleanedUrl;
   },
 
-  _isValidFeaturedImageSource(src) {
-    if (!src) {
+  _isValidFeaturedImageSource(source) {
+    if (!source) {
       return false;
     }
-    return Boolean(isValidImageUrl?.(src));
+    return Boolean(isValidImageUrl?.(source));
   },
 
-  _normalizeFeaturedImageUrl(src, metadata = {}) {
+  _normalizeFeaturedImageUrl(source, metadata = {}) {
     try {
-      const absoluteUrl = new URL(src, document.baseURI).href;
+      const absoluteUrl = new URL(source, document.baseURI).href;
       return cleanImageUrl?.(absoluteUrl) ?? absoluteUrl;
     } catch {
       Logger.warn('無效的圖片 URL', {
         action: 'collectFeaturedImage',
         ...metadata,
-        url: sanitizeUrlForLogging(src),
+        url: sanitizeUrlForLogging(source),
       });
       return null;
     }
@@ -281,15 +281,15 @@ const ImageCollector = {
   },
 
   _appendUniqueGalleryImages(elements, featuredImage, processedUrls, images) {
-    elements.forEach((el, index) => {
-      const imageObj = this.processImageForCollection(el, index, featuredImage);
-      const url = this._extractImageBlockUrl(imageObj);
+    elements.forEach((element, index) => {
+      const imageObject = this.processImageForCollection(element, index, featuredImage);
+      const url = this._extractImageBlockUrl(imageObject);
       if (!url || processedUrls.has(url)) {
         return;
       }
 
       processedUrls.add(url);
-      images.push(imageObj);
+      images.push(imageObject);
     });
   },
 
@@ -342,7 +342,13 @@ const ImageCollector = {
    * @private
    */
   _normalizeCandidateImageUrl(img, src) {
-    const absoluteUrl = new URL(src, document.baseURI).href;
+    let absoluteUrl = src;
+    try {
+      absoluteUrl = new URL(src, document.baseURI).href;
+    } catch {
+      // WHY: If src is completely malformed and document.baseURI cannot resolve it,
+      // new URL will throw. We gracefully fallback to the original src.
+    }
     return cleanImageUrl?.(absoluteUrl) ?? absoluteUrl;
   },
 
@@ -441,8 +447,8 @@ const ImageCollector = {
     };
   },
 
-  _evaluateImageUrlForCollection(img, src, featuredImage) {
-    const cleanedImageUrl = this._normalizeCandidateImageUrl(img, src);
+  _evaluateImageUrlForCollection(img, source, featuredImage) {
+    const cleanedImageUrl = this._normalizeCandidateImageUrl(img, source);
 
     if (featuredImage && cleanedImageUrl === featuredImage) {
       Logger.log('跳過重複的特色圖片', {
@@ -505,14 +511,14 @@ const ImageCollector = {
   },
 
   _evaluateImageForCollection(img, index, featuredImage) {
-    const src = extractImageSrc?.(img);
-    if (!src) {
+    const source = extractImageSource?.(img);
+    if (!source) {
       Logger.log('圖片缺少 src 屬性', { action: 'processImageForCollection', index: index + 1 });
       return { status: 'missing_src' };
     }
 
     try {
-      const urlOutcome = this._evaluateImageUrlForCollection(img, src, featuredImage);
+      const urlOutcome = this._evaluateImageUrlForCollection(img, source, featuredImage);
       if (urlOutcome.status !== 'accepted') {
         return urlOutcome;
       }
@@ -525,12 +531,12 @@ const ImageCollector = {
 
       return {
         status: 'accepted',
-        image: this._buildExternalImageBlock(img, src, urlOutcome.cleanedImageUrl),
+        image: this._buildExternalImageBlock(img, source, urlOutcome.cleanedImageUrl),
       };
     } catch (error) {
       Logger.warn('處理圖片失敗', {
         action: 'processImageForCollection',
-        src: sanitizeUrlForLogging(src),
+        src: sanitizeUrlForLogging(source),
         error: error.message,
       });
       return { status: 'error' };
@@ -615,16 +621,16 @@ const ImageCollector = {
    * @private
    */
   _recordTemporaryImageOutcome(outcome, context, logAction) {
-    const originalSrc = outcome.image?._meta?.originalSrc;
-    if (originalSrc && context.processedUrls.has(originalSrc)) {
+    const originalSource = outcome.image?._meta?.originalSrc;
+    if (originalSource && context.processedUrls.has(originalSource)) {
       Logger.log('跳過重複的 temporary 圖片 URL', {
         action: logAction,
-        url: sanitizeUrlForLogging(originalSrc),
+        url: sanitizeUrlForLogging(originalSource),
       });
       return;
     }
-    if (originalSrc) {
-      context.processedUrls.add(originalSrc);
+    if (originalSource) {
+      context.processedUrls.add(originalSource);
     }
     context.additionalImages.push(outcome.image);
   },
@@ -926,11 +932,11 @@ const ImageCollector = {
           count: articleImages.length,
         });
 
-        articleImages.forEach(img => {
+        for (const img of articleImages) {
           if (!allImages.includes(img)) {
             allImages.push(img);
           }
-        });
+        }
         if (allImages.length >= IMAGE_LIMITS.MAX_IMAGES_FROM_ARTICLE_SEARCH) {
           break;
         }
@@ -948,8 +954,8 @@ const ImageCollector = {
   _isImageExcludedFromExpansion(img) {
     for (const selector of EXCLUSION_SELECTORS) {
       const excludeElements = cachedQuery(selector, document, { all: true });
-      for (const excludeEl of excludeElements) {
-        if (excludeEl.contains(img)) {
+      for (const excludeElement of excludeElements) {
+        if (excludeElement.contains(img)) {
           return true;
         }
       }
@@ -962,10 +968,10 @@ const ImageCollector = {
     Logger.log('找到的圖片極少，嘗試選擇性擴展搜尋', { action: 'collectAdditionalImages' });
 
     const imgElements = cachedQuery('img', document, { all: true });
-    const docImages = Array.from(imgElements);
+    const documentImages = Array.from(imgElements);
 
     let addedFromExpansion = 0;
-    for (const img of docImages) {
+    for (const img of documentImages) {
       if (addedFromExpansion >= IMAGE_LIMITS.MAX_IMAGES_FROM_EXPANSION) {
         break;
       }
@@ -1132,7 +1138,7 @@ const ImageCollector = {
   _resolveImageSize(url, timeoutMs) {
     return new Promise((resolve, reject) => {
       const img = new Image();
-      let settled = false;
+      let isSettled = false;
 
       const cleanup = () => {
         clearTimeout(timeoutId);
@@ -1141,10 +1147,10 @@ const ImageCollector = {
       };
 
       const settle = callback => {
-        if (settled) {
+        if (isSettled) {
           return;
         }
-        settled = true;
+        isSettled = true;
         cleanup();
         callback();
       };
@@ -1236,13 +1242,13 @@ const ImageCollector = {
       return { status: 'budget_exhausted' };
     }
 
-    const src = extractImageSrc?.(img) || img.src;
-    if (!src) {
+    const source = extractImageSource?.(img) || img.src;
+    if (!source) {
       return { status: 'missing_src' };
     }
 
     try {
-      const size = await this._resolveImageSize(src, effectiveTimeout);
+      const size = await this._resolveImageSize(source, effectiveTimeout);
       if (this._writeResolvedImageSize(img, size)) {
         return { status: 'resolved' };
       }
@@ -1250,7 +1256,7 @@ const ImageCollector = {
     } catch {
       Logger.log('尺寸解析失敗', {
         action: '_resolveUnknownSizes',
-        src: sanitizeUrlForLogging(src),
+        src: sanitizeUrlForLogging(source),
       });
       return { status: 'failed' };
     }
@@ -1351,10 +1357,10 @@ const ImageCollector = {
    * @private
    */
   async _processImagesWithRetry(indexedImages, context, featuredImage) {
-    const processFn = item => this._processIndexedImageItem(item, featuredImage);
+    const processFunction = item => this._processIndexedImageItem(item, featuredImage);
 
     try {
-      const { results } = await batchProcessWithRetry(indexedImages, processFn, {
+      const { results } = await batchProcessWithRetry(indexedImages, processFunction, {
         maxAttempts: 3,
         isResultSuccessful: result => {
           const outcome = ImageCollector._normalizeImageProcessOutcome(result);
@@ -1379,10 +1385,10 @@ const ImageCollector = {
    * @private
    */
   async _processImagesWithSimpleBatch(indexedImages, context, featuredImage) {
-    const processFn = item => this._processIndexedImageItem(item, featuredImage);
+    const processFunction = item => this._processIndexedImageItem(item, featuredImage);
 
     try {
-      const results = await batchProcess(indexedImages, processFn);
+      const results = await batchProcess(indexedImages, processFunction);
       this._handleImageProcessingResults(results, context);
       return true;
     } catch (error) {
