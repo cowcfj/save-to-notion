@@ -168,22 +168,20 @@ describe('tools/check-size-gates.mjs', () => {
     expect(report.checks.every(check => check.status === 'pass')).toBe(true);
   });
 
-  test('hard mode 應在 content bundle 超過 hard cap 時失敗', () => {
-    const failureOutput = runHardBundleFailureOutput({
+  test.each([
+    {
+      name: 'content bundle',
       sizes: {
         contentSize: 300_001,
         backgroundSize: 1024,
         migrationSize: 1024,
         unpackedSize: 2048,
       },
-    });
-
-    expect(failureOutput).toMatch(/content\.bundle\.js/);
-    expect(failureOutput).toMatch(/content\.bundle\.js 超過硬性上限/);
-  });
-
-  test('hard mode 應在 preloader bundle 超過 hard cap 時失敗', () => {
-    const failureOutput = runHardBundleFailureOutput({
+      targetPattern: /content\.bundle\.js/,
+      messagePattern: /content\.bundle\.js 超過硬性上限/,
+    },
+    {
+      name: 'preloader bundle',
       sizes: {
         contentSize: 1024,
         backgroundSize: 1024,
@@ -191,10 +189,14 @@ describe('tools/check-size-gates.mjs', () => {
         preloaderSize: 8193,
         unpackedSize: 2048,
       },
-    });
+      targetPattern: /preloader\.js/,
+      messagePattern: /preloader\.js 超過硬性上限/,
+    },
+  ])('hard mode 應在 $name 超過 hard cap 時失敗', ({ sizes, targetPattern, messagePattern }) => {
+    const failureOutput = runHardBundleFailureOutput({ sizes });
 
-    expect(failureOutput).toMatch(/preloader\.js/);
-    expect(failureOutput).toMatch(/preloader\.js 超過硬性上限/);
+    expect(failureOutput).toMatch(targetPattern);
+    expect(failureOutput).toMatch(messagePattern);
   });
 
   const contentBundleHardPassCases = [
