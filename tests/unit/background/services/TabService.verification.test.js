@@ -100,20 +100,15 @@ describe('TabService verification and deletion confirmation', () => {
           result: 'cleanup_skipped',
         })
       );
-      expect(service.deletionPendingPages.has('page-123')).toBe(false);
+      expect(service.deletionPendingPages.has(NOTION_PAGE_ID)).toBe(false);
       expect(chrome.action.setBadgeText).toHaveBeenLastCalledWith({ text: '✓', tabId: 1 });
     });
 
     it('should fallback to cached status if verification fails', async () => {
-      const expiredData = {
-        pageId: '123',
-        notionPageId: 'page-123',
-        lastVerifiedAt: Date.now() - 70_000,
-      };
-      service.getSavedPageData = jest.fn().mockResolvedValue(expiredData);
+      mockExpiredPageData({ pageId: '123' });
       service.checkPageExists = jest.fn().mockRejectedValue(new Error('Notion API Error'));
 
-      await service.updateTabStatus(1, 'https://example.com');
+      await service.updateTabStatus(1, TEST_URL);
 
       expect(mockLogger.warn).toHaveBeenCalled();
       expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '✓', tabId: 1 });
@@ -123,21 +118,17 @@ describe('TabService verification and deletion confirmation', () => {
     it('getApiKey 返回 null 時不應清除 deletionPendingPages（OAuth 用戶迴歸）', async () => {
       // 情境：用戶使用 OAuth 模式，TabService.getApiKey 錯誤地返回 null
       // 預期行為：pending 狀態應被保留，不應被清除
-      const expiredData = {
-        notionPageId: 'page-123',
-        lastVerifiedAt: Date.now() - 70_000,
-      };
-      service.getSavedPageData = jest.fn().mockResolvedValue(expiredData);
+      mockExpiredPageData();
       service.getApiKey = jest.fn().mockResolvedValue(null); // 模擬 OAuth 用戶取不到 key
 
       // 先模擬 checkPageStatus 已將此頁面標記為 pending
-      service.consumeDeletionConfirmation('page-123', false);
+      service.consumeDeletionConfirmation(NOTION_PAGE_ID, false);
 
       // 執行背景的 tab 狀態更新（由 onActivated / onUpdated 觸發）
-      await service.updateTabStatus(1, 'https://example.com');
+      await service.updateTabStatus(1, TEST_URL);
 
       // 關鍵斷言：getApiKey 返回 null 時，不應重置 deletionPendingPages
-      expect(service.deletionPendingPages.has('page-123')).toBe(true);
+      expect(service.deletionPendingPages.has(NOTION_PAGE_ID)).toBe(true);
       // badge 應仍顯示已保存
       expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '✓', tabId: 1 });
       // 不應呼叫 checkPageExists（因為沒有 apiKey）
@@ -145,13 +136,9 @@ describe('TabService verification and deletion confirmation', () => {
     });
 
     it('should skip Verification if notionPageId is missing', async () => {
-      const expiredData = {
-        lastVerifiedAt: Date.now() - 70_000,
-        // 故意缺少 notionPageId
-      };
-      service.getSavedPageData = jest.fn().mockResolvedValue(expiredData);
+      mockExpiredPageData({ notionPageId: undefined }); // 故意缺少 notionPageId
 
-      await service.updateTabStatus(1, 'https://example.com');
+      await service.updateTabStatus(1, TEST_URL);
       expect(mockLogger.debug).toHaveBeenCalledWith(
         expect.stringContaining('No notionPageId in savedData')
       );
@@ -160,15 +147,10 @@ describe('TabService verification and deletion confirmation', () => {
     });
 
     it('should mark as pending on first deletion check failure', async () => {
-      const expiredData = {
-        notionPageId: 'page-123',
-        lastVerifiedAt: Date.now() - 70_000,
-      };
-      service.getSavedPageData = jest.fn().mockResolvedValue(expiredData);
-      service.checkPageExists = jest.fn().mockResolvedValue(false);
+      mockExpiredPageVerification(false);
       // 不 mock consumeDeletionConfirmation，讓它真實回傳 { deletionPending: true }
 
-      await service.updateTabStatus(1, 'https://example.com');
+      await service.updateTabStatus(1, TEST_URL);
 
       expect(mockLogger.warn).toHaveBeenCalledWith(
         expect.stringContaining('First deletion check failed'),
