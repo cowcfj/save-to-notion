@@ -70,6 +70,24 @@ function expectRefreshOAuthTokenResponse(response, { success, token }) {
 describe('notionHandlers message_bus.json response contracts', () => {
   let handlers;
   let mockNotionService;
+  const refreshOAuthTokenCases = [
+    {
+      name: 'refreshOAuthToken success response matches contract fields',
+      refreshResult: 'oauth_token_refreshed',
+      expectedResponse: {
+        success: true,
+        token: 'oauth_token_refreshed',
+      },
+    },
+    {
+      name: 'refreshOAuthToken failure response keeps null token contract',
+      refreshResult: null,
+      expectedResponse: {
+        success: false,
+        token: null,
+      },
+    },
+  ];
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -156,35 +174,16 @@ describe('notionHandlers message_bus.json response contracts', () => {
     expect(mockNotionService.search).not.toHaveBeenCalled();
   });
 
-  test('refreshOAuthToken success response matches contract fields', async () => {
+  test.each(refreshOAuthTokenCases)('$name', async ({ refreshResult, expectedResponse }) => {
     expect.hasAssertions();
     const sender = { id: 'mock-extension-id' };
     const sendResponse = jest.fn();
-    refreshOAuthToken.mockResolvedValueOnce('oauth_token_refreshed');
+    refreshOAuthToken.mockResolvedValueOnce(refreshResult);
 
     await handlers.refreshOAuthToken({ action: 'refreshOAuthToken' }, sender, sendResponse);
 
     const response = getLastResponse(sendResponse);
     expectRefreshOAuthTokenContract(response);
-    expectRefreshOAuthTokenResponse(response, {
-      success: true,
-      token: 'oauth_token_refreshed',
-    });
-  });
-
-  test('refreshOAuthToken failure response keeps null token contract', async () => {
-    expect.hasAssertions();
-    const sender = { id: 'mock-extension-id' };
-    const sendResponse = jest.fn();
-    refreshOAuthToken.mockResolvedValueOnce(null);
-
-    await handlers.refreshOAuthToken({ action: 'refreshOAuthToken' }, sender, sendResponse);
-
-    const response = getLastResponse(sendResponse);
-    expectRefreshOAuthTokenContract(response);
-    expectRefreshOAuthTokenResponse(response, {
-      success: false,
-      token: null,
-    });
+    expectRefreshOAuthTokenResponse(response, expectedResponse);
   });
 });
