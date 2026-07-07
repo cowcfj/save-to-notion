@@ -44,6 +44,31 @@ function createRailSender() {
   };
 }
 
+function expectSaveResponseContract(actionName, declaredFields, response) {
+  expectMessageBusResponseContract({
+    group: 'save',
+    actionName,
+    declaredFields,
+    response,
+  });
+}
+
+function expectSavePageContract(response) {
+  expectSaveResponseContract('savePage', SAVE_SUCCESS_CONTRACT_FIELDS, response);
+}
+
+function expectCheckPageStatusContract(response) {
+  expectSaveResponseContract('checkPageStatus', CHECK_STATUS_CONTRACT_FIELDS, response);
+}
+
+function expectRailSaveContract(response) {
+  expectSaveResponseContract('SAVE_PAGE_FROM_RAIL', SAVE_SUCCESS_CONTRACT_FIELDS, response);
+}
+
+function expectOpenNotionPageContract(response, fields) {
+  expectSaveResponseContract('openNotionPage', fields, response);
+}
+
 describe('saveHandlers message_bus.json response contracts', () => {
   const context = createSaveHandlersTestContext();
 
@@ -70,12 +95,7 @@ describe('saveHandlers message_bus.json response contracts', () => {
     await context.handlers.savePage({}, validSender, sendResponse);
 
     const response = getLastResponse(sendResponse);
-    expectMessageBusResponseContract({
-      group: 'save',
-      actionName: 'savePage',
-      declaredFields: SAVE_SUCCESS_CONTRACT_FIELDS,
-      response,
-    });
+    expectSavePageContract(response);
     expect(response).toEqual(
       expect.objectContaining({
         success: true,
@@ -123,12 +143,7 @@ describe('saveHandlers message_bus.json response contracts', () => {
     await context.handlers.checkPageStatus({}, validSender, sendResponse);
 
     const response = getLastResponse(sendResponse);
-    expectMessageBusResponseContract({
-      group: 'save',
-      actionName: 'checkPageStatus',
-      declaredFields: CHECK_STATUS_CONTRACT_FIELDS,
-      response,
-    });
+    expectCheckPageStatusContract(response);
     expect(response).toEqual(
       expect.objectContaining({
         success: true,
@@ -154,12 +169,7 @@ describe('saveHandlers message_bus.json response contracts', () => {
     await context.handlers.SAVE_PAGE_FROM_RAIL({}, createRailSender(), sendResponse);
 
     const response = getLastResponse(sendResponse);
-    expectMessageBusResponseContract({
-      group: 'save',
-      actionName: 'SAVE_PAGE_FROM_RAIL',
-      declaredFields: SAVE_SUCCESS_CONTRACT_FIELDS,
-      response,
-    });
+    expectRailSaveContract(response);
     expect(response).toEqual(
       expect.objectContaining({
         success: true,
@@ -206,12 +216,7 @@ describe('saveHandlers message_bus.json response contracts', () => {
     );
 
     const response = getLastResponse(sendResponse);
-    expectMessageBusResponseContract({
-      group: 'save',
-      actionName: 'openNotionPage',
-      declaredFields: OPEN_NOTION_PAGE_CONTRACT_FIELDS,
-      response,
-    });
+    expectOpenNotionPageContract(response, OPEN_NOTION_PAGE_CONTRACT_FIELDS);
     expect(response).toEqual(
       expect.objectContaining({
         success: true,
@@ -238,12 +243,7 @@ describe('saveHandlers message_bus.json response contracts', () => {
     );
 
     const response = getLastResponse(sendResponse);
-    expectMessageBusResponseContract({
-      group: 'save',
-      actionName: 'openNotionPage',
-      declaredFields: OPEN_NOTION_PAGE_ERROR_FIELDS,
-      response,
-    });
+    expectOpenNotionPageContract(response, OPEN_NOTION_PAGE_ERROR_FIELDS);
     expect(response).toEqual(
       expect.objectContaining({
         success: false,

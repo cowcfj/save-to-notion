@@ -11,6 +11,9 @@ import {
 
 const SEARCH_NOTION_CONTRACT_FIELDS = ['success', 'data', 'error'];
 const REFRESH_OAUTH_TOKEN_CONTRACT_FIELDS = ['success', 'token', 'error'];
+const SEARCH_NOTION_SUCCESS_FIELDS = ['success', 'data'];
+const SEARCH_NOTION_ERROR_FIELDS = ['success', 'error'];
+const REFRESH_OAUTH_TOKEN_FIELDS = ['success', 'token'];
 
 const mockNotionAuth = {
   refreshOAuthToken: jest.fn(),
@@ -33,6 +36,29 @@ beforeAll(async () => {
   ({ refreshOAuthToken, getActiveNotionToken } =
     await import('../../../../scripts/utils/notionAuth.js'));
 });
+
+function expectAuthResponseContract(actionName, declaredFields, response, actualFields) {
+  expectMessageBusResponseContract({
+    group: 'auth',
+    actionName,
+    declaredFields,
+    response,
+    actualFields,
+  });
+}
+
+function expectSearchNotionContract(response, actualFields) {
+  expectAuthResponseContract('searchNotion', SEARCH_NOTION_CONTRACT_FIELDS, response, actualFields);
+}
+
+function expectRefreshOAuthTokenContract(response) {
+  expectAuthResponseContract(
+    'refreshOAuthToken',
+    REFRESH_OAUTH_TOKEN_CONTRACT_FIELDS,
+    response,
+    REFRESH_OAUTH_TOKEN_FIELDS
+  );
+}
 
 describe('notionHandlers message_bus.json response contracts', () => {
   let handlers;
@@ -75,13 +101,7 @@ describe('notionHandlers message_bus.json response contracts', () => {
     await handlers.searchNotion({ query: 'test', apiKey: 'secret' }, sender, sendResponse);
 
     const response = getLastResponse(sendResponse);
-    expectMessageBusResponseContract({
-      group: 'auth',
-      actionName: 'searchNotion',
-      declaredFields: SEARCH_NOTION_CONTRACT_FIELDS,
-      response,
-      actualFields: ['success', 'data'],
-    });
+    expectSearchNotionContract(response, SEARCH_NOTION_SUCCESS_FIELDS);
     expect(response).toEqual({
       success: true,
       data: mockResult,
@@ -100,13 +120,7 @@ describe('notionHandlers message_bus.json response contracts', () => {
     );
 
     const response = getLastResponse(sendResponse);
-    expectMessageBusResponseContract({
-      group: 'auth',
-      actionName: 'searchNotion',
-      declaredFields: SEARCH_NOTION_CONTRACT_FIELDS,
-      response,
-      actualFields: ['success', 'error'],
-    });
+    expectSearchNotionContract(response, SEARCH_NOTION_ERROR_FIELDS);
     expect(response).toEqual(
       expect.objectContaining({
         success: false,
@@ -125,13 +139,7 @@ describe('notionHandlers message_bus.json response contracts', () => {
     await handlers.searchNotion({ query: 'test', apiKey: 'hacker-key' }, sender, sendResponse);
 
     const response = getLastResponse(sendResponse);
-    expectMessageBusResponseContract({
-      group: 'auth',
-      actionName: 'searchNotion',
-      declaredFields: SEARCH_NOTION_CONTRACT_FIELDS,
-      response,
-      actualFields: ['success', 'error'],
-    });
+    expectSearchNotionContract(response, SEARCH_NOTION_ERROR_FIELDS);
     expect(response).toEqual(
       expect.objectContaining({
         success: false,
@@ -149,13 +157,7 @@ describe('notionHandlers message_bus.json response contracts', () => {
     await handlers.refreshOAuthToken({ action: 'refreshOAuthToken' }, sender, sendResponse);
 
     const response = getLastResponse(sendResponse);
-    expectMessageBusResponseContract({
-      group: 'auth',
-      actionName: 'refreshOAuthToken',
-      declaredFields: REFRESH_OAUTH_TOKEN_CONTRACT_FIELDS,
-      response,
-      actualFields: ['success', 'token'],
-    });
+    expectRefreshOAuthTokenContract(response);
     expect(response).toEqual({
       success: true,
       token: 'oauth_token_refreshed',
@@ -170,13 +172,7 @@ describe('notionHandlers message_bus.json response contracts', () => {
     await handlers.refreshOAuthToken({ action: 'refreshOAuthToken' }, sender, sendResponse);
 
     const response = getLastResponse(sendResponse);
-    expectMessageBusResponseContract({
-      group: 'auth',
-      actionName: 'refreshOAuthToken',
-      declaredFields: REFRESH_OAUTH_TOKEN_CONTRACT_FIELDS,
-      response,
-      actualFields: ['success', 'token'],
-    });
+    expectRefreshOAuthTokenContract(response);
     expect(response).toEqual({
       success: false,
       token: null,

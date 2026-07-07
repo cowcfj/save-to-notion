@@ -15,12 +15,16 @@ const TEST_URL = 'https://example.com';
 const TEST_NOTION_PAGE_ID = 'page1';
 
 const SYNC_HIGHLIGHTS_CONTRACT_FIELDS = ['success', 'count', 'errorCode', 'error'];
+const SYNC_HIGHLIGHTS_SUCCESS_FIELDS = ['success', 'count'];
+const SYNC_HIGHLIGHTS_ERROR_FIELDS = ['success', 'errorCode', 'error'];
 const UPDATE_HIGHLIGHTS_CONTRACT_FIELDS = [
   'success',
   'highlightsUpdated',
   'highlightCount',
   'error',
 ];
+const UPDATE_HIGHLIGHTS_SUCCESS_FIELDS = ['success', 'highlightsUpdated', 'highlightCount'];
+const UPDATE_HIGHLIGHTS_ERROR_FIELDS = ['success', 'error'];
 
 const mockInjectionService = {
   __esModule: true,
@@ -190,6 +194,34 @@ function installHighlightContractLoggerMock() {
   };
 }
 
+function expectHighlightResponseContract(actionName, declaredFields, response, actualFields) {
+  expectMessageBusResponseContract({
+    group: 'highlight',
+    actionName,
+    declaredFields,
+    response,
+    actualFields,
+  });
+}
+
+function expectSyncHighlightsContract(response, actualFields) {
+  expectHighlightResponseContract(
+    'syncHighlights',
+    SYNC_HIGHLIGHTS_CONTRACT_FIELDS,
+    response,
+    actualFields
+  );
+}
+
+function expectUpdateHighlightsContract(response, actualFields) {
+  expectHighlightResponseContract(
+    'updateHighlights',
+    UPDATE_HIGHLIGHTS_CONTRACT_FIELDS,
+    response,
+    actualFields
+  );
+}
+
 describe('highlightHandlers message_bus.json response contracts', () => {
   let handlers;
   let mockServices;
@@ -242,13 +274,7 @@ describe('highlightHandlers message_bus.json response contracts', () => {
     const sendResponse = await executeSyncHighlights();
     const response = getLastResponse(sendResponse);
 
-    expectMessageBusResponseContract({
-      group: 'highlight',
-      actionName: 'syncHighlights',
-      declaredFields: SYNC_HIGHLIGHTS_CONTRACT_FIELDS,
-      response,
-      actualFields: ['success', 'count'],
-    });
+    expectSyncHighlightsContract(response, SYNC_HIGHLIGHTS_SUCCESS_FIELDS);
     expect(response).toEqual(
       expect.objectContaining({
         success: true,
@@ -268,13 +294,7 @@ describe('highlightHandlers message_bus.json response contracts', () => {
     const sendResponse = await executeSyncHighlights();
     const response = getLastResponse(sendResponse);
 
-    expectMessageBusResponseContract({
-      group: 'highlight',
-      actionName: 'syncHighlights',
-      declaredFields: SYNC_HIGHLIGHTS_CONTRACT_FIELDS,
-      response,
-      actualFields: ['success', 'errorCode', 'error'],
-    });
+    expectSyncHighlightsContract(response, SYNC_HIGHLIGHTS_ERROR_FIELDS);
     expect(response).toEqual(
       expect.objectContaining({
         success: false,
@@ -300,13 +320,7 @@ describe('highlightHandlers message_bus.json response contracts', () => {
     const sendResponse = await executeSyncHighlights();
     const response = getLastResponse(sendResponse);
 
-    expectMessageBusResponseContract({
-      group: 'highlight',
-      actionName: 'syncHighlights',
-      declaredFields: SYNC_HIGHLIGHTS_CONTRACT_FIELDS,
-      response,
-      actualFields: ['success', 'errorCode', 'error'],
-    });
+    expectSyncHighlightsContract(response, SYNC_HIGHLIGHTS_ERROR_FIELDS);
     expect(response).toEqual(
       expect.objectContaining({
         success: false,
@@ -324,13 +338,7 @@ describe('highlightHandlers message_bus.json response contracts', () => {
     const sendResponse = await executeUpdateHighlights();
     const response = getLastResponse(sendResponse);
 
-    expectMessageBusResponseContract({
-      group: 'highlight',
-      actionName: 'updateHighlights',
-      declaredFields: UPDATE_HIGHLIGHTS_CONTRACT_FIELDS,
-      response,
-      actualFields: ['success', 'highlightsUpdated', 'highlightCount'],
-    });
+    expectUpdateHighlightsContract(response, UPDATE_HIGHLIGHTS_SUCCESS_FIELDS);
     expect(response).toEqual(
       expect.objectContaining({
         success: true,
@@ -346,13 +354,7 @@ describe('highlightHandlers message_bus.json response contracts', () => {
     const sendResponse = await executeUpdateHighlights();
     const response = getLastResponse(sendResponse);
 
-    expectMessageBusResponseContract({
-      group: 'highlight',
-      actionName: 'updateHighlights',
-      declaredFields: UPDATE_HIGHLIGHTS_CONTRACT_FIELDS,
-      response,
-      actualFields: ['success', 'error'],
-    });
+    expectUpdateHighlightsContract(response, UPDATE_HIGHLIGHTS_ERROR_FIELDS);
     expect(response).toEqual(
       expect.objectContaining({
         success: false,

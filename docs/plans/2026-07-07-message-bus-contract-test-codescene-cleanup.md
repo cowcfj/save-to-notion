@@ -579,6 +579,7 @@ Required execution-time checks:
 
 - `npm test -- tests/unit/background/handlers/saveHandlers.messageBusContract.test.js tests/unit/config/messageBusContract.test.js tests/unit/background/handlers/highlightHandlers.messageBusContract.test.js tests/unit/background/handlers/notionHandlers.messageBusContract.test.js tests/unit/background/handlers/highlightHandlers.test.js --runInBand` → exit 0; 5 suites passed, 77 tests passed.
 - `npm run lint -- tests/unit/background/handlers/messageBusContractTestUtils.js tests/unit/background/handlers/saveHandlers.messageBusContract.test.js tests/unit/background/handlers/highlightHandlers.messageBusContract.test.js tests/unit/background/handlers/notionHandlers.messageBusContract.test.js tests/unit/config/messageBusContract.test.js tests/unit/background/handlers/highlightHandlers.test.js` → exit 0.
+- Follow-up CodeScene pasted diagnostics on 2026-07-07 were addressed by replacing repeated `expectMessageBusResponseContract({...})` object literals with save/highlight/auth-specific assertion helpers.
 - CodeScene IDE refresh was not available from CLI in this session; CLI evidence is Jest/lint plus the targeted structural cleanup.
 
 ### Updated Docs
@@ -595,6 +596,7 @@ Required execution-time checks:
 ### Implementation-Time Extensions
 
 - Added shared `getLastResponse()` and `expectMessageBusResponseContract()` helpers in the existing test-only message bus contract utility.
+- Added file-local semantic assertion helpers for save, highlight, and auth response contract checks after CodeScene still reported duplication in the shared-helper call sites.
 
 ### Scope Drift
 
