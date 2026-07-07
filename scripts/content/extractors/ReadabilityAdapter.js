@@ -524,15 +524,20 @@ function analyzeListTextLines(text) {
   const textLength = text.length;
 
   for (let i = 0; i <= textLength; i++) {
-    if (i === textLength || text.codePointAt(i) === 10) {
-      const line = text.slice(lineStart, i).trim();
-      if (line.length > 0) {
-        validLines++;
-        if (bulletPattern.test(line)) {
-          matchingLines++;
-        }
-      }
-      lineStart = i + 1;
+    if (i !== textLength && text.codePointAt(i) !== 10) {
+      continue;
+    }
+
+    const line = text.slice(lineStart, i).trim();
+    lineStart = i + 1;
+
+    if (line.length === 0) {
+      continue;
+    }
+
+    validLines++;
+    if (bulletPattern.test(line)) {
+      matchingLines++;
     }
   }
 
