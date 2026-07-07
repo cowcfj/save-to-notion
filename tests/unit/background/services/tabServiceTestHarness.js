@@ -77,6 +77,32 @@ if (typeof jest.unstable_mockModule === 'function') {
   jest.unstable_mockModule('../../../../scripts/utils/urlUtils.js', () => mockUrlUtils);
 }
 
+const applyLoggerMockDefaults = logger => {
+  for (const mockFn of Object.values(logger)) {
+    mockFn.mockReset();
+  }
+};
+
+const applyUrlUtilsMockDefaults = () => {
+  mockUrlUtils.resolveStorageUrl.mockReset();
+  mockUrlUtils.resolveStorageUrl.mockImplementation(url => url);
+  mockUrlUtils.buildStableUrlFromNextData.mockReset();
+  mockUrlUtils.hasSameOrigin.mockReset();
+  mockUrlUtils.normalizeUrl.mockReset();
+  mockUrlUtils.normalizeUrl.mockImplementation(url => url);
+  mockUrlUtils.isSafeStableUrl.mockReset();
+  mockUrlUtils.isSafeStableUrl.mockImplementation(url => {
+    try {
+      const parsedUrl = new URL(url);
+      return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  });
+  mockUrlUtils.isRootUrl.mockReset();
+  mockUrlUtils.isRootUrl.mockReturnValue(false);
+};
+
 export const loadedTabServiceModules = {
   TabService: null,
   _migrationScript: null,
@@ -104,18 +130,18 @@ beforeAll(async () => {
   loadedTabServiceModules.urlUtils = await import('../../../../scripts/utils/urlUtils.js');
 });
 
-globalThis.chrome = {
+const buildChromeMock = () => ({
   action: {
-    setBadgeText: jest.fn(),
-    setBadgeBackgroundColor: jest.fn(),
+    setBadgeText: jest.fn().mockResolvedValue(undefined),
+    setBadgeBackgroundColor: jest.fn().mockResolvedValue(undefined),
   },
   storage: {
     local: {
-      get: jest.fn(),
-      set: jest.fn(),
+      get: jest.fn().mockResolvedValue({}),
+      set: jest.fn().mockResolvedValue(undefined),
     },
     sync: {
-      get: jest.fn(),
+      get: jest.fn().mockResolvedValue({}),
     },
   },
   tabs: {
@@ -134,9 +160,11 @@ globalThis.chrome = {
     sendMessage: jest.fn().mockReturnValue(Promise.resolve()),
     query: jest.fn().mockResolvedValue([]),
     create: jest.fn().mockResolvedValue({}),
-    remove: jest.fn().mockResolvedValue(),
+    remove: jest.fn().mockResolvedValue(undefined),
   },
-};
+});
+
+globalThis.chrome = buildChromeMock();
 
 export const mockLogger = {
   log: jest.fn(),
@@ -153,6 +181,15 @@ export const mockInjectionService = {
   ensureBundleInjected: jest.fn().mockResolvedValue(true),
   injectWithResponse: jest.fn().mockResolvedValue({ migrated: false }),
   injectHighlightRestore: jest.fn().mockResolvedValue(),
+};
+
+const applyInjectionServiceDefaults = () => {
+  mockInjectionService.ensureBundleInjected.mockReset();
+  mockInjectionService.ensureBundleInjected.mockResolvedValue(true);
+  mockInjectionService.injectWithResponse.mockReset();
+  mockInjectionService.injectWithResponse.mockResolvedValue({ migrated: false });
+  mockInjectionService.injectHighlightRestore.mockReset();
+  mockInjectionService.injectHighlightRestore.mockResolvedValue(undefined);
 };
 
 export const createTabService = (overrides = {}) =>
@@ -176,6 +213,11 @@ export const createTabService = (overrides = {}) =>
   });
 
 export const resetTabServiceTestState = () => {
+  jest.restoreAllMocks();
+  globalThis.chrome = buildChromeMock();
   chrome.runtime = { lastError: null };
-  jest.clearAllMocks();
+  applyLoggerMockDefaults(mockLoggerModule);
+  applyLoggerMockDefaults(mockLogger);
+  applyInjectionServiceDefaults();
+  applyUrlUtilsMockDefaults();
 };

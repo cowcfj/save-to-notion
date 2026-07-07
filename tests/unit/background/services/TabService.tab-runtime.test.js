@@ -169,19 +169,21 @@ describe('TabService tab runtime', () => {
       // Spy on the public method we expect to be called
       const updateStatusSpy = jest.spyOn(service, 'updateTabStatus').mockImplementation(() => {});
 
-      service.setupListeners();
-      const updatedCallback = chrome.tabs.onUpdated.addListener.mock.calls[0][0];
+      try {
+        service.setupListeners();
+        const updatedCallback = chrome.tabs.onUpdated.addListener.mock.calls[0][0];
 
-      updatedCallback(1, { status: 'complete' }, { id: 1, url: 'https://example.com/updated' });
+        updatedCallback(1, { status: 'complete' }, { id: 1, url: 'https://example.com/updated' });
 
-      // 推進時間：等待 STATUS_UPDATE_DELAY_MS (100ms) 觸發延遲更新
-      jest.advanceTimersByTime(200);
+        // 推進時間：等待 STATUS_UPDATE_DELAY_MS (100ms) 觸發延遲更新
+        jest.advanceTimersByTime(200);
 
-      // 驗證延遲後的行為：應該呼叫 updateTabStatus
-      expect(updateStatusSpy).toHaveBeenCalledWith(1, 'https://example.com/updated');
-
-      jest.useRealTimers();
-      updateStatusSpy.mockRestore();
+        // 驗證延遲後的行為：應該呼叫 updateTabStatus
+        expect(updateStatusSpy).toHaveBeenCalledWith(1, 'https://example.com/updated');
+      } finally {
+        jest.useRealTimers();
+        updateStatusSpy.mockRestore();
+      }
     });
   });
 });
