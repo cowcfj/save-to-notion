@@ -35,3 +35,7 @@
 4. **Storage-bound and CPU-bound work won't speed up linearly.** chrome.storage IPC is serialized at the browser-process boundary; LevelDB writes serialize internally. JS is single-threaded for any CPU portion (JSON parse, normalization). Amdahl's Law caps the realistic speedup well below the mock-benchmark headline number.
 
 **Action:** When handling a batch of asynchronous operations, **first** verify independence (no shared keys, caches, or rate-limit pools), **then** apply parallelization with: (a) grouping by any shared key for serial execution within groups, (b) bounded concurrency across groups, (c) explicit output-order preservation. **Never** parallelize storage-mutating operations without a grouping or locking strategy. Treat mock-benchmark numbers as an upper bound, not an expectation.
+
+## 2025-05-19 - Replace chained array operations and avoid multiple NodeList-to-Array allocations in Readability fallback logic
+**Learning:** `Array.from(document.querySelectorAll(...)).forEach` creates unnecessary intermediate arrays when iterating through nodes in DOM, causing overhead during document analysis. Likewise, chaining `.split().map().filter()` for string parsing allocates multiple intermediate arrays on strings.
+**Action:** Use single-pass `for...of` loops over `NodeList` directly instead of `Array.from().forEach()`. Use manual single-pass loops over strings checking characters (e.g. `codePointAt(i) === 10` for newline) rather than chained array methods to avoid unnecessary memory allocations.
