@@ -149,8 +149,8 @@ function isContentGood(article) {
  * @param {Array} expanded - 用於記錄已展開元素的陣列
  */
 function openDetailsElements(expanded) {
-  const details = Array.from(document.querySelectorAll('details:not([open])'));
-  details.forEach(detail => {
+  const details = document.querySelectorAll('details:not([open])');
+  for (const detail of details) {
     try {
       detail.setAttribute('open', '');
       expanded.push(detail);
@@ -160,7 +160,7 @@ function openDetailsElements(expanded) {
         error: error.message,
       });
     }
-  });
+  }
 }
 
 /**
@@ -169,8 +169,8 @@ function openDetailsElements(expanded) {
  * @param {Array} expanded - 用於記錄已展開元素的陣列
  */
 function expandAriaControlledElements(expanded) {
-  const triggers = Array.from(document.querySelectorAll('[aria-expanded="false"]'));
-  triggers.forEach(trigger => {
+  const triggers = document.querySelectorAll('[aria-expanded="false"]');
+  for (const trigger of triggers) {
     try {
       trigger.setAttribute('aria-expanded', 'true');
       try {
@@ -201,7 +201,7 @@ function expandAriaControlledElements(expanded) {
         error: error.message,
       });
     }
-  });
+  }
 }
 
 /**
@@ -210,8 +210,8 @@ function expandAriaControlledElements(expanded) {
  * @param {Array} expanded - 用於記錄已展開元素的陣列
  */
 function expandCollapsedClassElements(expanded) {
-  const collapsedEls = Array.from(document.querySelectorAll('.collapsed, .collapse:not(.show)'));
-  collapsedEls.forEach(el => {
+  const collapsedEls = document.querySelectorAll('.collapsed, .collapse:not(.show)');
+  for (const el of collapsedEls) {
     try {
       el.classList.remove('collapsed', 'collapse');
       el.classList.add('expanded-by-clipper');
@@ -223,7 +223,7 @@ function expandCollapsedClassElements(expanded) {
         error: error.message,
       });
     }
-  });
+  }
 }
 
 /**
@@ -517,17 +517,36 @@ function findContentCmsFallback() {
  */
 function isListLikeContainer(container) {
   const text = container.textContent || '';
-  const lines = text
-    .split(/\r?\n/)
-    .map(line => line.trim())
-    .filter(Boolean);
-  if (lines.length < 4) {
+  if (!text) {
     return false;
   }
 
+  let validLines = 0;
+  let matchingLines = 0;
   const bulletPattern = LIST_PREFIX_PATTERNS.bulletPrefix;
-  const matchingLines = lines.filter(line => bulletPattern.test(line)).length;
-  return matchingLines >= Math.max(3, Math.floor(lines.length * 0.4));
+
+  // Single-pass check avoiding .split().map().filter() intermediate array allocations
+  let lineStart = 0;
+  const textLength = text.length;
+
+  for (let i = 0; i <= textLength; i++) {
+    if (i === textLength || text.codePointAt(i) === 10) { // \n or EOF
+      const line = text.slice(lineStart, i).trim();
+      if (line.length > 0) {
+        validLines++;
+        if (bulletPattern.test(line)) {
+          matchingLines++;
+        }
+      }
+      lineStart = i + 1;
+    }
+  }
+
+  if (validLines < 4) {
+    return false;
+  }
+
+  return matchingLines >= Math.max(3, Math.floor(validLines * 0.4));
 }
 
 /**
@@ -558,18 +577,33 @@ function collectListFallbackCandidates() {
  * @returns {number} 有效的項目數量
  */
 function getEffectiveListItemCount(candidate) {
-  const liItems = Array.from(candidate.querySelectorAll('li'));
-  const liCount = liItems.length;
+  const liCount = candidate.querySelectorAll('li').length;
   if (liCount > 0) {
     return liCount;
   }
 
-  const lines = (candidate.textContent || '')
-    .split(/\r?\n/)
-    .map(line => line.trim())
-    .filter(Boolean);
+  const text = candidate.textContent || '';
+  if (!text) {
+    return 0;
+  }
+
+  let matchingLines = 0;
   const bulletPattern = LIST_PREFIX_PATTERNS.bulletPrefix;
-  return lines.filter(line => bulletPattern.test(line)).length;
+
+  let lineStart = 0;
+  const textLength = text.length;
+
+  for (let i = 0; i <= textLength; i++) {
+    if (i === textLength || text.codePointAt(i) === 10) {
+      const line = text.slice(lineStart, i).trim();
+      if (line.length > 0 && bulletPattern.test(line)) {
+        matchingLines++;
+      }
+      lineStart = i + 1;
+    }
+  }
+
+  return matchingLines;
 }
 
 /**
