@@ -13,6 +13,8 @@ const testDir = path.dirname(testFilePath);
 
 describe('tools/check-size-gates.mjs', () => {
   const scriptPath = path.resolve(testDir, '../../../../tools/check-size-gates.mjs');
+  const DEFAULT_BUNDLE_SIZE = 1024;
+  const DEFAULT_UNPACKED_SIZE = 2048;
   let tempRoot;
 
   const writeSizedFile = (filePath, size) => {
@@ -36,14 +38,16 @@ describe('tools/check-size-gates.mjs', () => {
 
   const createBundleRoot = ({
     rootDir,
-    contentSize,
-    backgroundSize,
-    migrationSize,
-    unpackedSize,
+    contentSize = DEFAULT_BUNDLE_SIZE,
+    backgroundSize = DEFAULT_BUNDLE_SIZE,
+    migrationSize = DEFAULT_BUNDLE_SIZE,
+    preloaderSize = DEFAULT_BUNDLE_SIZE,
+    unpackedSize = DEFAULT_UNPACKED_SIZE,
   }) => {
     writeSizedFile(path.join(rootDir, 'dist/content.bundle.js'), contentSize);
     writeSizedFile(path.join(rootDir, 'dist/scripts/background.js'), backgroundSize);
     writeSizedFile(path.join(rootDir, 'dist/migration-executor.js'), migrationSize);
+    writeSizedFile(path.join(rootDir, 'dist/preloader.js'), preloaderSize);
 
     const unpackedDir = path.join(rootDir, '.tmp/extension-unpacked');
     writeSizedFile(path.join(unpackedDir, 'manifest.json'), 512);
@@ -62,16 +66,18 @@ describe('tools/check-size-gates.mjs', () => {
 
   const runHardBundleReport = ({
     rootDir,
-    contentSize = 1024,
-    backgroundSize = 1024,
-    migrationSize = 1024,
-    unpackedSize = 2048,
+    contentSize = DEFAULT_BUNDLE_SIZE,
+    backgroundSize = DEFAULT_BUNDLE_SIZE,
+    migrationSize = DEFAULT_BUNDLE_SIZE,
+    preloaderSize = DEFAULT_BUNDLE_SIZE,
+    unpackedSize = DEFAULT_UNPACKED_SIZE,
   }) => {
     const { unpackedDir, reportPath } = createBundleRoot({
       rootDir,
       contentSize,
       backgroundSize,
       migrationSize,
+      preloaderSize,
       unpackedSize,
     });
 
@@ -93,6 +99,27 @@ describe('tools/check-size-gates.mjs', () => {
     const check = report.checks.find(check => check.key === checkKey);
 
     return { report, check };
+  };
+
+  const runHardBundleFailureOutput = ({ sizes }) => {
+    const rootDir = path.join(tempRoot, 'current');
+    const { unpackedDir } = createBundleRoot({
+      rootDir,
+      ...sizes,
+    });
+
+    try {
+      runCli([
+        '--mode=hard',
+        '--scope=bundle',
+        `--root=${rootDir}`,
+        `--unpacked-dir=${unpackedDir}`,
+      ]);
+    } catch (error) {
+      return `${error.stdout}${error.stderr}`;
+    }
+
+    throw new Error('Expected hard bundle check to fail');
   };
 
   beforeEach(() => {
@@ -143,33 +170,28 @@ describe('tools/check-size-gates.mjs', () => {
     expect(report.checks.every(check => check.status === 'pass')).toBe(true);
   });
 
-  test('hard mode 應在 content bundle 超過 hard cap 時失敗', () => {
-    const rootDir = path.join(tempRoot, 'current');
-    const { unpackedDir } = createBundleRoot({
-      rootDir,
-      contentSize: 300_001,
-      backgroundSize: 1024,
-      migrationSize: 1024,
-      unpackedSize: 2048,
-    });
+  test.each([
+    {
+      name: 'content bundle',
+      sizes: {
+        contentSize: 300_001,
+      },
+      targetPattern: /content\.bundle\.js/,
+      messagePattern: /content\.bundle\.js 超過硬性上限/,
+    },
+    {
+      name: 'preloader bundle',
+      sizes: {
+        preloaderSize: 8193,
+      },
+      targetPattern: /preloader\.js/,
+      messagePattern: /preloader\.js 超過硬性上限/,
+    },
+  ])('hard mode 應在 $name 超過 hard cap 時失敗', ({ sizes, targetPattern, messagePattern }) => {
+    const failureOutput = runHardBundleFailureOutput({ sizes });
 
-    let thrownError;
-    try {
-      runCli([
-        '--mode=hard',
-        '--scope=bundle',
-        `--root=${rootDir}`,
-        `--unpacked-dir=${unpackedDir}`,
-      ]);
-    } catch (error) {
-      thrownError = error;
-    }
-
-    expect(thrownError).toBeDefined();
-    expect(`${thrownError.stdout}${thrownError.stderr}`).toMatch(/content\.bundle\.js/);
-    expect(`${thrownError.stdout}${thrownError.stderr}`).toMatch(
-      /content\.bundle\.js 超過硬性上限/
-    );
+    expect(failureOutput).toMatch(targetPattern);
+    expect(failureOutput).toMatch(messagePattern);
   });
 
   const contentBundleHardPassCases = [
@@ -203,6 +225,15 @@ describe('tools/check-size-gates.mjs', () => {
         hardLimit: 245_000,
       },
     },
+    {
+      name: 'preloader bundle 正好等於 hard cap',
+      sizes: { preloaderSize: 8192 },
+      checkKey: 'preloader_bundle',
+      expected: {
+        current: 8192,
+        hardLimit: 8192,
+      },
+    },
   ])('[REGRESSION] hard mode 應允許 $name 通過', ({ sizes, checkKey, expected }) => {
     expect.assertions(2);
 
@@ -213,6 +244,19 @@ describe('tools/check-size-gates.mjs', () => {
 
     expect(report.failed).toBe(false);
     expect(check).toEqual(expect.objectContaining({ status: 'pass', ...expected }));
+  });
+
+  test('[REGRESSION] bundle report 應涵蓋所有 production bundle targets', () => {
+    const report = runHardBundleReport({
+      rootDir: path.join(tempRoot, 'current'),
+    });
+
+    expect(report.checks.map(check => check.key)).toEqual([
+      'content_bundle',
+      'background_bundle',
+      'migration_bundle',
+      'preloader_bundle',
+    ]);
   });
 
   test('delta mode 應在增量超過門檻時失敗', () => {
