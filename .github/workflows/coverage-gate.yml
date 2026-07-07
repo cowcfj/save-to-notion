@@ -34,7 +34,7 @@ jobs:
       - name: 偵測覆蓋率相關變更
         id: changes
         if: github.event_name == 'pull_request'
-        uses: dorny/paths-filter@6852f92c20ea7fd3b0c25de3b5112db3a98da050
+        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590
         with:
           filters: |
             coverage-relevant:
@@ -43,7 +43,7 @@ jobs:
               - 'tests/**'
               - 'jest.config.js'
               - 'jest.config.*.js'
-              - 'jest.native-esm.config.cjs'
+              - 'jest.native-esm.config.js'
               - 'package.json'
               - 'package-lock.json'
               - 'sonar-project.properties'
@@ -88,7 +88,7 @@ jobs:
       - name: 設定 Node.js
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238
         with:
-          node-version: 20.x
+          node-version: 24.x
           cache: npm
 
       - name: 升級 npm
@@ -111,7 +111,7 @@ jobs:
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae
         with:
           path: .tmp/jest-cache-native-esm
-          key: ${{ runner.os }}-jest-v8-${{ hashFiles('jest.config.js', 'jest.config.*.js', 'jest.native-esm.config.cjs', 'package-lock.json') }}
+          key: ${{ runner.os }}-jest-v8-${{ hashFiles('jest.config.js', 'jest.config.*.js', 'jest.native-esm.config.js', 'package-lock.json') }}
           restore-keys: ${{ runner.os }}-jest-
 
       - name: 執行 V8 覆蓋率閘門

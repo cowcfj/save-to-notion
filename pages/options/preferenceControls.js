@@ -44,7 +44,9 @@ export function resolveEnabledHighlightContentStyle(value) {
  * @returns {string|null} 目前被選取的值，若無選取則回傳 null.
  */
 export function getRadioGroupValue(name) {
-  return document.querySelector(`input[type="radio"][name="${name}"]:checked`)?.value ?? null;
+  return (
+    document.querySelector(`input[type="radio"][name="${CSS.escape(name)}"]:checked`)?.value ?? null
+  );
 }
 
 /**
@@ -60,7 +62,9 @@ export function getRadioGroupValue(name) {
  */
 export function setRadioGroupValue(name, value, defaultValue) {
   const nextValue = value ?? defaultValue;
-  const input = document.querySelector(`input[type="radio"][name="${name}"][value="${nextValue}"]`);
+  const input = document.querySelector(
+    `input[type="radio"][name="${CSS.escape(name)}"][value="${CSS.escape(nextValue)}"]`
+  );
   if (input) {
     input.checked = true;
     return input.value;
@@ -68,7 +72,7 @@ export function setRadioGroupValue(name, value, defaultValue) {
 
   if (defaultValue !== undefined) {
     const fallback = document.querySelector(
-      `input[type="radio"][name="${name}"][value="${defaultValue}"]`
+      `input[type="radio"][name="${CSS.escape(name)}"][value="${CSS.escape(defaultValue)}"]`
     );
     if (fallback) {
       fallback.checked = true;
@@ -87,7 +91,7 @@ export function setRadioGroupValue(name, value, defaultValue) {
  * @returns {void}
  */
 export function setRadioGroupDisabled(name, disabled) {
-  document.querySelectorAll(`input[type="radio"][name="${name}"]`).forEach(input => {
+  document.querySelectorAll(`input[type="radio"][name="${CSS.escape(name)}"]`).forEach(input => {
     input.disabled = Boolean(disabled);
   });
 }

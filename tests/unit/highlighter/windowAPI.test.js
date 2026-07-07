@@ -1,4 +1,8 @@
-import { mountWindowAPI } from '../../../scripts/highlighter/windowAPI.js';
+let mountWindowAPI;
+
+beforeAll(async () => {
+  ({ mountWindowAPI } = await import('../../../scripts/highlighter/windowAPI.js'));
+});
 
 describe('windowAPI (Rail-only)', () => {
   let mockManager, mockStorage, warnSpy;

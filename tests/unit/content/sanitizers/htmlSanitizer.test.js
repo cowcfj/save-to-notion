@@ -2,15 +2,25 @@
  * @jest-environment jsdom
  */
 
-import {
-  sanitizeArticleHtml,
-  sanitizeAiOutputHtml,
-  sanitizeHtmlToText,
-  ARTICLE_HTML_ALLOWED_TAGS,
-  ARTICLE_HTML_ALLOWED_ATTR,
-  AI_OUTPUT_ALLOWED_TAGS,
-  AI_OUTPUT_ALLOWED_ATTR,
-} from '../../../../scripts/content/sanitizers/htmlSanitizer.js';
+let sanitizeArticleHtml;
+let sanitizeAiOutputHtml;
+let sanitizeHtmlToText;
+let ARTICLE_HTML_ALLOWED_TAGS;
+let ARTICLE_HTML_ALLOWED_ATTR;
+let AI_OUTPUT_ALLOWED_TAGS;
+let AI_OUTPUT_ALLOWED_ATTR;
+
+beforeAll(async () => {
+  ({
+    sanitizeArticleHtml,
+    sanitizeAiOutputHtml,
+    sanitizeHtmlToText,
+    ARTICLE_HTML_ALLOWED_TAGS,
+    ARTICLE_HTML_ALLOWED_ATTR,
+    AI_OUTPUT_ALLOWED_TAGS,
+    AI_OUTPUT_ALLOWED_ATTR,
+  } = await import('../../../../scripts/content/sanitizers/htmlSanitizer.js'));
+});
 
 describe('htmlSanitizer', () => {
   describe('ARTICLE_HTML_ALLOWED_TAGS & ARTICLE_HTML_ALLOWED_ATTR', () => {

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globa
 import { fileURLToPath } from 'node:url';
 import {
   assertTrustedBackgroundEntrypointPath,
+  assertTrustedBackgroundLifecycleTestSurfacePath,
   cleanup,
   importBackgroundEntrypoint,
   makeDefaultChrome,
@@ -18,15 +19,9 @@ jest.mock('../../../scripts/utils/Logger.js', () => ({
 }));
 
 await jest.unstable_mockModule(
-  '../../../scripts/background/utils/updateNotificationVersion.cjs',
+  '../../../scripts/background/utils/updateNotificationVersion.js',
   () => ({
     shouldShowUpdateNotification: jest.fn(() => false),
-    default: {
-      shouldShowUpdateNotification: jest.fn(() => false),
-    },
-    updateNotificationVersion: {
-      shouldShowUpdateNotification: jest.fn(() => false),
-    },
     __esModule: true,
   })
 );
@@ -161,6 +156,22 @@ describe('background lifecycle harness source guard', () => {
     await expect(assertTrustedBackgroundEntrypointPath(trustedPath)).resolves.toBeUndefined();
     await expect(assertTrustedBackgroundEntrypointPath(untrustedPath)).rejects.toThrow(
       'Refusing to evaluate untrusted background entrypoint'
+    );
+  });
+
+  test('rejects non-lifecycle test surface paths before VM evaluation', async () => {
+    const trustedPath = fileURLToPath(
+      new URL('../../../scripts/background/backgroundLifecycleTestSurface.js', import.meta.url)
+    );
+    const untrustedPath = fileURLToPath(
+      new URL('../../../scripts/config/shared/content.js', import.meta.url)
+    );
+
+    await expect(
+      assertTrustedBackgroundLifecycleTestSurfacePath(trustedPath)
+    ).resolves.toBeUndefined();
+    await expect(assertTrustedBackgroundLifecycleTestSurfacePath(untrustedPath)).rejects.toThrow(
+      'Refusing to evaluate untrusted background lifecycle test surface'
     );
   });
 });

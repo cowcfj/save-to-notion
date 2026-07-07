@@ -254,12 +254,13 @@ describe('highlightHandlers', () => {
     });
   };
 
-  beforeEach(() => {
+  const resetHighlightHandlerMocks = () => {
     jest.resetAllMocks();
     getActiveNotionToken.mockResolvedValue({ token: 'key1', mode: 'manual' });
     ensureNotionApiKey.mockResolvedValue('key1');
+  };
 
-    // Default mock behaviors for utilities
+  const configureDefaultHighlightHandlerMocks = () => {
     validateContentScriptRequest.mockReturnValue(null);
     validateInternalRequest.mockReturnValue(null);
     isRestrictedInjectionUrl.mockReturnValue(false);
@@ -275,63 +276,61 @@ describe('highlightHandlers', () => {
       }
     });
 
-    // Keep the user-message mapping behavior that the handler assertions depend on.
     ErrorHandler.formatUserMessage.mockImplementation(error => {
       const key = error?.message ?? error;
       return ERROR_MESSAGES.PATTERNS[key] ?? ERROR_MESSAGES.USER_MESSAGES[key] ?? key;
     });
-
-    // Fix sanitizeApiError mock
     sanitizeApiError.mockImplementation(err =>
       typeof err === 'string' ? err : err.message || 'unknown_error'
     );
+  };
 
-    mockServices = {
-      notionService: {
-        updateHighlights: jest.fn(),
-        syncHighlights: jest.fn(),
-        updateHighlightsSection: jest.fn(),
-        checkPageExists: jest.fn(),
-      },
-      storageService: {
-        getHighlighterState: jest.fn(),
-        setHighlighterState: jest.fn(),
-        getSavedPageData: jest.fn(),
-        getHighlights: jest.fn().mockResolvedValue([{ id: 'h1' }, { id: 'h2' }]),
-        getConfig: jest.fn(),
-        updateHighlights: jest.fn(),
-        clearNotionState: jest.fn(),
-        clearNotionStateWithRetry: jest.fn().mockResolvedValue({ cleared: true, attempts: 1 }),
-      },
-      tabService: {
-        getStableUrl: jest.fn().mockResolvedValue('https://example.com/stable'),
-        getPreloaderData: jest.fn().mockResolvedValue(null),
-        confirmRemotePageMissing: jest
-          .fn()
-          .mockReturnValue({ shouldDelete: false, deletionPending: true }),
-        resetRemotePageMissingState: jest
-          .fn()
-          .mockReturnValue({ shouldDelete: false, deletionPending: false }),
-        resolveTabUrl: jest.fn().mockImplementation((_tabId, url) =>
-          Promise.resolve({
-            stableUrl: url,
-            originalUrl: url,
-            migrated: false,
-          })
-        ),
-      },
-      injectionService: {
-        ensureBundleInjected: jest.fn(),
-        injectHighlighter: jest.fn(),
-        collectHighlights: jest.fn(),
-        clearPageHighlights: jest.fn(),
-      },
-      migrationService: {
-        migrateStorageKey: jest.fn().mockResolvedValue(false),
-      },
-    };
+  const createHighlightHandlerMockServices = () => ({
+    notionService: {
+      updateHighlights: jest.fn(),
+      syncHighlights: jest.fn(),
+      updateHighlightsSection: jest.fn(),
+      checkPageExists: jest.fn(),
+    },
+    storageService: {
+      getHighlighterState: jest.fn(),
+      setHighlighterState: jest.fn(),
+      getSavedPageData: jest.fn(),
+      getHighlights: jest.fn().mockResolvedValue([{ id: 'h1' }, { id: 'h2' }]),
+      getConfig: jest.fn(),
+      updateHighlights: jest.fn(),
+      clearNotionState: jest.fn(),
+      clearNotionStateWithRetry: jest.fn().mockResolvedValue({ cleared: true, attempts: 1 }),
+    },
+    tabService: {
+      getStableUrl: jest.fn().mockResolvedValue('https://example.com/stable'),
+      getPreloaderData: jest.fn().mockResolvedValue(null),
+      confirmRemotePageMissing: jest
+        .fn()
+        .mockReturnValue({ shouldDelete: false, deletionPending: true }),
+      resetRemotePageMissingState: jest
+        .fn()
+        .mockReturnValue({ shouldDelete: false, deletionPending: false }),
+      resolveTabUrl: jest.fn().mockImplementation((_tabId, url) =>
+        Promise.resolve({
+          stableUrl: url,
+          originalUrl: url,
+          migrated: false,
+        })
+      ),
+    },
+    injectionService: {
+      ensureBundleInjected: jest.fn(),
+      injectHighlighter: jest.fn(),
+      collectHighlights: jest.fn(),
+      clearPageHighlights: jest.fn(),
+    },
+    migrationService: {
+      migrateStorageKey: jest.fn().mockResolvedValue(false),
+    },
+  });
 
-    // Mock global chrome
+  const installHighlightHandlerChromeMock = () => {
     globalThis.chrome = {
       runtime: { id: TEST_EXTENSION_ID, lastError: null },
       tabs: {
@@ -340,6 +339,9 @@ describe('highlightHandlers', () => {
       },
       action: { setBadgeText: jest.fn() },
     };
+  };
+
+  const installHighlightHandlerLoggerMock = () => {
     globalThis.Logger = {
       log: jest.fn(),
       debug: jest.fn(),
@@ -350,7 +352,14 @@ describe('highlightHandlers', () => {
       start: jest.fn(),
       ready: jest.fn(),
     };
+  };
 
+  beforeEach(() => {
+    resetHighlightHandlerMocks();
+    configureDefaultHighlightHandlerMocks();
+    mockServices = createHighlightHandlerMockServices();
+    installHighlightHandlerChromeMock();
+    installHighlightHandlerLoggerMock();
     handlers = createHighlightHandlers(mockServices);
   });
 

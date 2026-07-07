@@ -1,4 +1,9 @@
-import { normalizeUrl, computeStableUrl } from '../../../scripts/utils/urlUtils.js';
+let normalizeUrl;
+let computeStableUrl;
+
+beforeAll(async () => {
+  ({ normalizeUrl, computeStableUrl } = await import('../../../scripts/utils/urlUtils.js'));
+});
 
 describe('Key Mismatch Reproduction', () => {
   const originalUrlEncoded =

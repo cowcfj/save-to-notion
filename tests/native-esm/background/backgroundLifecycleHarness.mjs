@@ -8,10 +8,18 @@ const harnessDirectory = path.dirname(fileURLToPath(import.meta.url));
 const backgroundEntrypointPath = fileURLToPath(
   new URL('../../../scripts/background.js', import.meta.url)
 );
+const backgroundLifecycleTestSurfacePath = fileURLToPath(
+  new URL('../../../scripts/background/backgroundLifecycleTestSurface.js', import.meta.url)
+);
 const trustedBackgroundEntrypointPath = path.resolve(
   harnessDirectory,
   '../../../scripts/background.js'
 );
+const trustedBackgroundLifecycleTestSurfacePath = path.resolve(
+  harnessDirectory,
+  '../../../scripts/background/backgroundLifecycleTestSurface.js'
+);
+let backgroundLifecycleTestSurfaceModule = null;
 
 function toHarnessImportSpecifier(absolutePath) {
   const relativePath = path.relative(harnessDirectory, absolutePath).replaceAll(path.sep, '/');
@@ -31,6 +39,16 @@ function createSyntheticModule(moduleNamespace, identifier, context) {
   );
 }
 
+async function importSyntheticLinkedModule(absolutePath, context) {
+  const moduleNamespace = await import(toHarnessImportSpecifier(absolutePath));
+  const syntheticModule = createSyntheticModule(
+    moduleNamespace,
+    `${pathToFileURL(absolutePath).href}?synthetic-native-esm`,
+    context
+  );
+  return { moduleNamespace, syntheticModule };
+}
+
 async function importLinkedModule(specifier, referencingModule) {
   if (!specifier.startsWith('.')) {
     const moduleNamespace = await import(specifier);
@@ -43,31 +61,55 @@ async function importLinkedModule(specifier, referencingModule) {
 
   const referencingPath = fileURLToPath(referencingModule.identifier);
   const absolutePath = path.resolve(path.dirname(referencingPath), specifier);
-  const moduleNamespace = await import(toHarnessImportSpecifier(absolutePath));
-  return createSyntheticModule(
-    moduleNamespace,
-    `${pathToFileURL(absolutePath).href}?synthetic-native-esm`,
-    referencingModule.context
-  );
+  if (absolutePath === backgroundLifecycleTestSurfacePath) {
+    await assertTrustedBackgroundLifecycleTestSurfacePath(absolutePath);
+    const { moduleNamespace, syntheticModule } = await importSyntheticLinkedModule(
+      absolutePath,
+      referencingModule.context
+    );
+    backgroundLifecycleTestSurfaceModule = moduleNamespace;
+    return syntheticModule;
+  }
+
+  return (await importSyntheticLinkedModule(absolutePath, referencingModule.context))
+    .syntheticModule;
 }
 
-async function resolveTrustedBackgroundEntrypointPath(candidatePath) {
+async function resolveTrustedRealPath(candidatePath, trustedPath, errorMessage) {
   const [candidateRealPath, trustedRealPath] = await Promise.all([
     fs.realpath(candidatePath),
-    fs.realpath(trustedBackgroundEntrypointPath),
+    fs.realpath(trustedPath),
   ]);
 
   if (candidateRealPath !== trustedRealPath) {
-    throw new TypeError(
-      `Refusing to evaluate untrusted background entrypoint: ${candidatePath}`
-    );
+    throw new TypeError(errorMessage(candidatePath));
   }
 
   return candidateRealPath;
 }
 
+async function resolveTrustedBackgroundEntrypointPath(candidatePath) {
+  return resolveTrustedRealPath(
+    candidatePath,
+    trustedBackgroundEntrypointPath,
+    path => `Refusing to evaluate untrusted background entrypoint: ${path}`
+  );
+}
+
+async function resolveTrustedBackgroundLifecycleTestSurfacePath(candidatePath) {
+  return resolveTrustedRealPath(
+    candidatePath,
+    trustedBackgroundLifecycleTestSurfacePath,
+    path => `Refusing to evaluate untrusted background lifecycle test surface: ${path}`
+  );
+}
+
 async function assertTrustedBackgroundEntrypointPath(candidatePath) {
   await resolveTrustedBackgroundEntrypointPath(candidatePath);
+}
+
+async function assertTrustedBackgroundLifecycleTestSurfacePath(candidatePath) {
+  await resolveTrustedBackgroundLifecycleTestSurfacePath(candidatePath);
 }
 
 async function readTrustedBackgroundEntrypointSource() {
@@ -86,10 +128,8 @@ async function importBackgroundEntrypoint() {
   const { identifier, source } = await readTrustedBackgroundEntrypointSource();
   const context = vm.createContext(globalThis);
   // Test-only VM execution of realpath-verified repo-local background.js for native ESM lifecycle parity.
-  const backgroundModule = new vm.SourceTextModule(source, { // NOSONAR - S1523: test-only realpath-verified repo-local background.js.
-    context,
-    identifier,
-  });
+  // prettier-ignore
+  const backgroundModule = new vm.SourceTextModule(source, { context, identifier }); // NOSONAR - S1523: test-only realpath-verified repo-local background.js.
 
   await backgroundModule.link(importLinkedModule);
   await backgroundModule.evaluate();
@@ -159,17 +199,28 @@ function makeLoggerMock() {
   };
 }
 
+function setupBackgroundEntrypointGlobals({
+  chrome = makeDefaultChrome(),
+  logger = makeLoggerMock(),
+} = {}) {
+  globalThis.module = { exports: {} };
+  globalThis.chrome = chrome;
+  globalThis.Logger = logger;
+  return { chrome, logger };
+}
+
 function unwrapTestExports(moduleNamespace) {
+  const testSurface = backgroundLifecycleTestSurfaceModule?.getBackgroundLifecycleTestSurface?.();
+  if (testSurface) {
+    return testSurface;
+  }
+
   if (moduleNamespace?.default !== undefined) {
     return moduleNamespace.default;
   }
 
   if (moduleNamespace && Object.keys(moduleNamespace).length > 0) {
     return moduleNamespace;
-  }
-
-  if (globalThis.module?.exports && typeof globalThis.module.exports === 'object') {
-    return globalThis.module.exports;
   }
 
   return moduleNamespace;
@@ -212,10 +263,12 @@ function cleanup(chromeLike = globalThis.chrome) {
 
 export {
   assertTrustedBackgroundEntrypointPath,
+  assertTrustedBackgroundLifecycleTestSurfacePath,
   cleanup,
   clearListenerRegistries,
   importBackgroundEntrypoint,
   makeDefaultChrome,
   makeLoggerMock,
+  setupBackgroundEntrypointGlobals,
   unwrapTestExports,
 };

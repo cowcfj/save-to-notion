@@ -1,5 +1,10 @@
-import { mountWindowAPI } from '../../../scripts/highlighter/windowAPI.js';
-import { HighlightManager } from '../../../scripts/highlighter/core/HighlightManager.js';
+let mountWindowAPI;
+let HighlightManager;
+
+beforeAll(async () => {
+  ({ mountWindowAPI } = await import('../../../scripts/highlighter/windowAPI.js'));
+  ({ HighlightManager } = await import('../../../scripts/highlighter/core/HighlightManager.js'));
+});
 
 describe('windowAPI.clearPageHighlights — skipStorage contract', () => {
   let manager;

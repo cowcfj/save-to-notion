@@ -2,37 +2,49 @@
  * @jest-environment jsdom
  */
 
-jest.mock('../../../scripts/utils/Logger.js', () => ({
+const loggerMock = {
+  debug: jest.fn(),
+  log: jest.fn(),
+  info: jest.fn(),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+};
+const loggerMockModule = {
   __esModule: true,
-  default: {
-    debug: jest.fn(),
-    log: jest.fn(),
-    info: jest.fn(),
-    success: jest.fn(),
-    start: jest.fn(),
-    ready: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-  },
-}));
-jest.mock('../../../scripts/config/env/index.js', () => ({
-  ...jest.requireActual('../../../scripts/config/env/index.js'),
-  BUILD_ENV: {
-    ENABLE_OAUTH: true,
-    OAUTH_SERVER_URL: 'https://test-server.example.com',
-    OAUTH_CLIENT_ID: 'test-client-id',
-    EXTENSION_API_KEY: 'test-api-key',
-  },
-}));
+  default: loggerMock,
+  ...loggerMock,
+};
 
-import Logger from '../../../scripts/utils/Logger.js';
-import { BUILD_ENV } from '../../../scripts/config/env/index.js';
-import {
-  getActiveNotionToken,
-  refreshOAuthToken,
-  isNonEmptyString,
-  migrateDataSourceKeys,
-} from '../../../scripts/utils/notionAuth.js';
+const BUILD_ENV = {
+  ENABLE_OAUTH: true,
+  OAUTH_SERVER_URL: 'https://test-server.example.com',
+  OAUTH_CLIENT_ID: 'test-client-id',
+  EXTENSION_API_KEY: 'test-api-key',
+};
+const envMockModule = {
+  __esModule: true,
+  BUILD_ENV,
+};
+
+jest.unstable_mockModule('../../../scripts/utils/Logger.js', () => loggerMockModule);
+jest.unstable_mockModule('../../../scripts/config/env/index.js', () => envMockModule);
+jest.doMock('../../../scripts/utils/Logger.js', () => loggerMockModule);
+jest.doMock('../../../scripts/config/env/index.js', () => envMockModule);
+
+let Logger;
+let getActiveNotionToken;
+let refreshOAuthToken;
+let isNonEmptyString;
+let migrateDataSourceKeys;
+
+beforeAll(async () => {
+  ({ default: Logger } = await import('../../../scripts/utils/Logger.js'));
+  ({ getActiveNotionToken, refreshOAuthToken, isNonEmptyString, migrateDataSourceKeys } =
+    await import('../../../scripts/utils/notionAuth.js'));
+});
 
 describe('notionAuth utils', () => {
   beforeEach(() => {

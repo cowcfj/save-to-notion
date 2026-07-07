@@ -1,5 +1,6 @@
-import { createSaveHandlers } from '../../../scripts/background/handlers/saveHandlers.js';
-import { getActiveNotionToken } from '../../../scripts/utils/notionAuth.js';
+let createSaveHandlers;
+let getActiveNotionToken;
+let validateInternalRequest;
 
 // Mocks
 const mockNotionService = {
@@ -50,31 +51,59 @@ const mockTabService = {
 const mockMigrationService = {
   migrateStorageKey: jest.fn().mockResolvedValue(false),
 };
+const mockLogger = {
+  log: jest.fn(),
+  debug: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+};
 
-jest.mock('../../../scripts/utils/securityUtils.js', () => ({
+const securityUtilsMock = {
   validateInternalRequest: jest.fn(),
   validateContentScriptRequest: jest.fn(),
   isValidNotionUrl: jest.fn().mockReturnValue(true),
   sanitizeUrlForLogging: jest.fn(url => url),
   normalizeUrl: jest.fn(url => url),
-}));
+};
 
-jest.mock('../../../scripts/utils/ApiErrorSanitizer.js', () => ({
+const apiErrorSanitizerMock = {
   sanitizeApiError: jest.fn(err => err),
-}));
+};
 
-jest.mock('../../../scripts/utils/notionAuth.js', () => ({
+const notionAuthMock = {
   getActiveNotionToken: jest.fn(),
-}));
+  ensureNotionApiKey: jest.fn(),
+};
 
-import { validateInternalRequest } from '../../../scripts/utils/securityUtils.js';
+jest.unstable_mockModule('../../../scripts/utils/securityUtils.js', () => securityUtilsMock);
+jest.unstable_mockModule(
+  '../../../scripts/utils/ApiErrorSanitizer.js',
+  () => apiErrorSanitizerMock
+);
+jest.unstable_mockModule('../../../scripts/utils/notionAuth.js', () => notionAuthMock);
+jest.doMock('../../../scripts/utils/securityUtils.js', () => securityUtilsMock);
+jest.doMock('../../../scripts/utils/ApiErrorSanitizer.js', () => apiErrorSanitizerMock);
+jest.doMock('../../../scripts/utils/notionAuth.js', () => notionAuthMock);
+
+beforeAll(async () => {
+  ({ createSaveHandlers } = await import('../../../scripts/background/handlers/saveHandlers.js'));
+  ({ getActiveNotionToken } = await import('../../../scripts/utils/notionAuth.js'));
+  ({ validateInternalRequest } = await import('../../../scripts/utils/securityUtils.js'));
+});
 
 describe('saveHandlers Security Verification', () => {
   let handlers;
   let originalChrome;
+  let originalLogger;
 
   beforeEach(() => {
     originalChrome = globalThis.chrome;
+    originalLogger = globalThis.Logger;
+    globalThis.Logger = mockLogger;
     mockNotionService.createPage.mockResolvedValue({
       success: true,
       pageId: 'test-page-id',
@@ -99,6 +128,7 @@ describe('saveHandlers Security Verification', () => {
 
   afterEach(() => {
     globalThis.chrome = originalChrome;
+    globalThis.Logger = originalLogger;
   });
 
   describe('savePage', () => {

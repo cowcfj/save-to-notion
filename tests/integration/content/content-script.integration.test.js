@@ -3,29 +3,32 @@
  * 使用最小化 mock（Readability、ImageUtils），並驗證它會產生
  * 合法的提取結果並暴露到 window.__notion_extraction_result。
  */
-const fs = require('node:fs');
-const path = require('node:path');
-const vm = require('node:vm');
-const childProcess = require('node:child_process');
+import childProcess from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
 
 const BUILD_TIMEOUT_MS = 60_000;
 const TEST_TIMEOUT_MS = 10_000;
 const POLL_RETRY_COUNT = 30;
 const POLL_INTERVAL_MS = 200;
-const PROJECT_ROOT = path.resolve(__dirname, '../../../');
+const TEST_FILE_PATH = fileURLToPath(import.meta.url);
+const TEST_DIRECTORY = path.dirname(TEST_FILE_PATH);
+const PROJECT_ROOT = path.resolve(TEST_DIRECTORY, '../../../');
 const CONTENT_BUNDLE_PATH = path.resolve(PROJECT_ROOT, 'dist/content.bundle.js');
 const CONTENT_TEST_PAGE_FIXTURE_PATH = path.resolve(
   PROJECT_ROOT,
   'tests/fixtures/html/content-script.integration.test-page.html'
 );
 
-function createExecutionContext(
+function createExecutionContext({
   browserWindow,
   chromeMock,
   loggerMock,
   readabilityMock,
-  imageUtilsMock
-) {
+  imageUtilitiesMock,
+}) {
   return vm.createContext(
     Object.assign(Object.create(globalThis), {
       window: browserWindow,
@@ -53,14 +56,14 @@ function createExecutionContext(
       chrome: chromeMock,
       Logger: loggerMock,
       Readability: readabilityMock,
-      ImageUtils: imageUtilsMock,
+      ImageUtils: imageUtilitiesMock,
       __UNIT_TESTING__: true,
     })
   );
 }
 
 async function waitForExtractionResult(executionContext, browserWindow) {
-  for (let i = 0; i < POLL_RETRY_COUNT; i++) {
+  for (let index = 0; index < POLL_RETRY_COUNT; index++) {
     await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
 
     if (executionContext.__notion_extraction_result) {
@@ -73,6 +76,80 @@ async function waitForExtractionResult(executionContext, browserWindow) {
   }
 
   return null;
+}
+
+function createReadabilityMock(browserWindow) {
+  return function ReadabilityMock(document_) {
+    const safeDocument = document_ || browserWindow.document;
+
+    return {
+      parse() {
+        return {
+          title: safeDocument.title || 'Test Page',
+          content: '<p>Mock content</p>',
+          length: 300,
+        };
+      },
+    };
+  };
+}
+
+function readImageSource(imageElement) {
+  if (typeof imageElement?.getAttribute !== 'function') {
+    return '';
+  }
+
+  return imageElement.getAttribute('src') || '';
+}
+
+function createImageUtilitiesMock() {
+  return {
+    cleanImageUrl: url => url,
+    isValidImageUrl: (..._arguments) => true,
+    extractImageSrc: imageElement => readImageSource(imageElement) || null,
+    generateImageCacheKey: imageElement => readImageSource(imageElement),
+  };
+}
+
+function extractBlockPlainText(blocks) {
+  return blocks
+    .flatMap(block => block?.[block.type]?.rich_text ?? [])
+    .map(richText => richText?.plain_text ?? richText?.text?.content ?? '')
+    .join('\n');
+}
+
+function setupContentTestDocument() {
+  document.documentElement.innerHTML = loadContentTestPageHtml();
+
+  return document.defaultView;
+}
+
+function installContentScriptTestGlobals(browserWindow, { readabilityMock, imageUtilitiesMock }) {
+  browserWindow.Readability = readabilityMock;
+  browserWindow.ImageUtils = imageUtilitiesMock;
+  browserWindow.__UNIT_TESTING__ = true;
+}
+
+function runContentBundleInTestContext({
+  browserWindow,
+  chromeMock,
+  loggerMock,
+  readabilityMock,
+  imageUtilitiesMock,
+}) {
+  const scriptCode = fs.readFileSync(CONTENT_BUNDLE_PATH, 'utf8');
+  const executionContext = createExecutionContext({
+    browserWindow,
+    chromeMock,
+    loggerMock,
+    readabilityMock,
+    imageUtilitiesMock,
+  });
+
+  // eslint-disable-next-line sonarjs/code-eval -- Intentional VM execution of local bundled content script in an isolated test context.
+  vm.runInContext(scriptCode, executionContext, { filename: CONTENT_BUNDLE_PATH });
+
+  return executionContext;
 }
 
 function ensureFreshContentBundle() {
@@ -144,9 +221,9 @@ describe('內容腳本整合測試', () => {
   beforeEach(() => {
     const sendMessage = jest.fn();
     const onMessageAddListener = jest.fn();
-    const storageSyncGet = jest.fn((keys, cb) => {
+    const storageSyncGet = jest.fn((keys, callback) => {
       const result = {};
-      cb(result);
+      callback(result);
     });
     const storageOnChangedAddListener = jest.fn();
 
@@ -182,11 +259,13 @@ describe('內容腳本整合測試', () => {
   afterEach(() => {
     jest.clearAllMocks();
 
-    if (globalThis.window) {
-      delete globalThis.window.__UNIT_TESTING__;
-      delete globalThis.window.__notion_extraction_result;
-      delete globalThis.window.Readability;
-      delete globalThis.window.ImageUtils;
+    const browserWindow = document.defaultView;
+
+    if (browserWindow) {
+      delete browserWindow.__UNIT_TESTING__;
+      delete browserWindow.__notion_extraction_result;
+      delete browserWindow.Readability;
+      delete browserWindow.ImageUtils;
     }
   });
 
@@ -198,54 +277,42 @@ describe('內容腳本整合測試', () => {
   test(
     '當 window.__UNIT_TESTING__ 為 true 時執行 content.js 並暴露提取結果',
     async () => {
-      const html = loadContentTestPageHtml();
-
-      document.documentElement.innerHTML = html;
-      const browserWindow = globalThis.window;
-
-      const readabilityMock = function (doc) {
-        const safeDoc = doc || browserWindow.document;
-
-        return {
-          parse() {
-            return {
-              title: safeDoc.title || 'Test Page',
-              content: '<p>Mock content</p>',
-              length: 300,
-            };
-          },
-        };
+      const browserWindow = setupContentTestDocument();
+      const contentScriptMocks = {
+        readabilityMock: createReadabilityMock(browserWindow),
+        imageUtilitiesMock: createImageUtilitiesMock(),
       };
 
-      const imageUtilsMock = {
-        cleanImageUrl: url => url,
-        isValidImageUrl: (..._args) => true,
-        extractImageSrc: img => (img?.getAttribute ? img.getAttribute('src') || '' : null),
-        generateImageCacheKey: img => (img?.getAttribute ? img.getAttribute('src') || '' : ''),
-      };
-
-      browserWindow.Readability = readabilityMock;
-      browserWindow.ImageUtils = imageUtilsMock;
-      browserWindow.__UNIT_TESTING__ = true;
-
-      const scriptPath = path.resolve(__dirname, '../../../dist/content.bundle.js');
-      const scriptCode = fs.readFileSync(scriptPath, 'utf8');
-      const executionContext = createExecutionContext(
+      installContentScriptTestGlobals(browserWindow, contentScriptMocks);
+      const executionContext = runContentBundleInTestContext({
         browserWindow,
         chromeMock,
         loggerMock,
-        readabilityMock,
-        imageUtilsMock
-      );
+        ...contentScriptMocks,
+      });
 
-      // eslint-disable-next-line sonarjs/code-eval -- Intentional VM execution of local bundled content script in an isolated test context.
-      vm.runInContext(scriptCode, executionContext, { filename: scriptPath });
+      expect(executionContext.__NOTION_BUNDLE_READY__).toBe(true);
+      expect(typeof executionContext.extractPageContent).toBe('function');
+      expect(typeof executionContext.ContentScript?.extractPageContent).toBe('function');
+      expect(typeof executionContext.__notion_extraction_promise?.then).toBe('function');
 
       const result = await waitForExtractionResult(executionContext, browserWindow);
+      const promisedResult = await executionContext.__notion_extraction_promise;
 
       expect(result).toBeDefined();
+      expect(promisedResult).toBe(result);
+      expect(executionContext.__notion_extraction_result).toBe(result);
+      expect(result.extractionStatus).not.toBe('failed');
       expect(result.title).toBe('Test Page');
-      expect(Array.isArray(result.blocks)).toBe(true);
+      expect(result.blocks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            object: 'block',
+            type: 'paragraph',
+          }),
+        ])
+      );
+      expect(extractBlockPlainText(result.blocks)).toMatch(/content\s+extraction pipeline/);
     },
     TEST_TIMEOUT_MS
   );

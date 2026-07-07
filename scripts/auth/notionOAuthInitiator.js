@@ -123,9 +123,10 @@ function extractAndValidateCode(url, csrfState, redirectUri) {
       action: 'initiateNotionOAuth',
       oauthError: errorParam || 'no_error_param',
     });
-    const callbackError = new Error(`Notion OAuth callback error: ${errorParam || 'unknown'}`);
+    const callbackError = new Error(`Notion OAuth callback error: ${errorParam || 'unknown'}`, {
+      cause: errorParam || 'unknown',
+    });
     callbackError.code = 'OAUTH_CALLBACK_ERROR';
-    callbackError.cause = errorParam || 'unknown';
     throw callbackError;
   }
   return { code, redirectUri, csrfState };

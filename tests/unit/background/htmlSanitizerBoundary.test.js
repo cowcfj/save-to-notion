@@ -1,6 +1,6 @@
 /* eslint-disable security/detect-non-literal-fs-filename */
-import fs from 'node:fs';
-import path from 'node:path';
+const fs = require('node:fs');
+const path = require('node:path');
 
 const REPO_ROOT = process.cwd();
 const BACKGROUND_ENTRY = path.join(REPO_ROOT, 'scripts/background.js');

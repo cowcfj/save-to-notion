@@ -1,4 +1,9 @@
-import { resolveAccountDisplayProfile } from '../../../scripts/utils/accountDisplayUtils.js';
+let resolveAccountDisplayProfile;
+
+beforeAll(async () => {
+  ({ resolveAccountDisplayProfile } =
+    await import('../../../scripts/utils/accountDisplayUtils.js'));
+});
 
 describe('accountDisplayUtils', () => {
   describe('resolveAccountDisplayProfile', () => {

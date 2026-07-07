@@ -108,7 +108,7 @@ export const resolveStorageUrl = mockUrlUtils.resolveStorageUrl;
 export const validateInternalRequest = mockSecurityUtils.validateInternalRequest;
 
 beforeAll(async () => {
-  const chromeMockModule = await import('../../../mocks/chrome.js');
+  const chromeMockModule = await import('../../../mocks/chrome.cjs');
   sharedChromeMock = chromeMockModule.default ?? chromeMockModule;
   restoreChromeMock();
   restoreLoggerMock();

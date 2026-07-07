@@ -1,37 +1,57 @@
-import {
-  ACCOUNT_GATED_FOUNDATION_ENTITLEMENT_SOURCE,
-  AccountGatedDestinationEntitlementProvider,
-  DESTINATION_PROFILE_ERROR_CODES,
-  DESTINATION_PROFILE_ERRORS,
-  DESTINATION_PROFILE_STORAGE_KEYS,
-  LocalDestinationProfileRepository,
-  resolveActiveProfile,
-} from '../../../scripts/destinations/ProfileStore.js';
-import { ProfileManager } from '../../../scripts/destinations/ProfileManager.js';
-import { ProfileResolver } from '../../../scripts/destinations/ProfileResolver.js';
-import {
-  getAccountSession,
-  isAccountSessionExpired,
-} from '../../../scripts/auth/accountSession.js';
-import Logger from '../../../scripts/utils/Logger.js';
+let ACCOUNT_GATED_FOUNDATION_ENTITLEMENT_SOURCE;
+let AccountGatedDestinationEntitlementProvider;
+let DESTINATION_PROFILE_ERROR_CODES;
+let DESTINATION_PROFILE_ERRORS;
+let DESTINATION_PROFILE_STORAGE_KEYS;
+let LocalDestinationProfileRepository;
+let resolveActiveProfile;
+let ProfileManager;
+let ProfileResolver;
+let getAccountSession;
+let isAccountSessionExpired;
+let Logger;
 
-jest.mock('../../../scripts/auth/accountSession.js', () => ({
+const accountSessionMockModule = {
   getAccountSession: jest.fn(),
   isAccountSessionExpired: jest.fn(),
-}));
+};
 
-jest.mock('../../../scripts/utils/Logger.js', () => ({
+const loggerMock = {
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+  info: jest.fn(),
+  debug: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+};
+const loggerMockModule = {
   __esModule: true,
-  default: {
-    success: jest.fn(),
-    start: jest.fn(),
-    ready: jest.fn(),
-    info: jest.fn(),
-    debug: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-  },
-}));
+  default: loggerMock,
+  ...loggerMock,
+};
+
+jest.unstable_mockModule('../../../scripts/auth/accountSession.js', () => accountSessionMockModule);
+jest.unstable_mockModule('../../../scripts/utils/Logger.js', () => loggerMockModule);
+jest.doMock('../../../scripts/auth/accountSession.js', () => accountSessionMockModule);
+jest.doMock('../../../scripts/utils/Logger.js', () => loggerMockModule);
+
+beforeAll(async () => {
+  ({
+    ACCOUNT_GATED_FOUNDATION_ENTITLEMENT_SOURCE,
+    AccountGatedDestinationEntitlementProvider,
+    DESTINATION_PROFILE_ERROR_CODES,
+    DESTINATION_PROFILE_ERRORS,
+    DESTINATION_PROFILE_STORAGE_KEYS,
+    LocalDestinationProfileRepository,
+    resolveActiveProfile,
+  } = await import('../../../scripts/destinations/ProfileStore.js'));
+  ({ ProfileManager } = await import('../../../scripts/destinations/ProfileManager.js'));
+  ({ ProfileResolver } = await import('../../../scripts/destinations/ProfileResolver.js'));
+  ({ getAccountSession, isAccountSessionExpired } =
+    await import('../../../scripts/auth/accountSession.js'));
+  ({ default: Logger } = await import('../../../scripts/utils/Logger.js'));
+});
 
 describe('Destination profile domain services', () => {
   let storageData = null;

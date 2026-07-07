@@ -1,0 +1,72 @@
+/**
+ * Jest 測試環境預設置
+ * 配置必須在模組載入前設定的全局 mocks
+ *
+ * 注意：此檔案在 setupFiles 中配置，確保在所有模組載入前執行
+ * 使用 jest.fn() 以支持測試中的 mockReturnValue() 等方法
+ */
+
+const { installCssEscapePolyfill } = require('./helpers/cssEscapePolyfill.cjs');
+
+// 確保 Web Streams API 在 jsdom / jest 環境中可用（某些 Node/undici 版本需要）
+if (globalThis.ReadableStream === undefined) {
+  const { ReadableStream, WritableStream, TransformStream } = require('node:stream/web');
+  globalThis.ReadableStream = ReadableStream;
+  globalThis.WritableStream = WritableStream;
+  globalThis.TransformStream = TransformStream;
+}
+
+if (globalThis.MessagePort === undefined) {
+  const { MessageChannel, MessagePort } = require('node:worker_threads');
+  globalThis.MessageChannel = MessageChannel;
+  globalThis.MessagePort = MessagePort;
+}
+
+// 提供全域 fetch stub（jsdom 環境可能缺少 fetch）
+// 各測試應自行 mock globalThis.fetch 來覆寫此行為
+if (globalThis.fetch === undefined) {
+  globalThis.fetch = async () => {
+    throw new Error('[presetup] 測試未提供 fetch mock，請在測試中設定 globalThis.fetch');
+  };
+}
+
+installCssEscapePolyfill();
+
+// Mock ImageUtils (用於依賴 window.ImageUtils 的模組)
+// 這個 mock 必須在任何模組載入前設定，否則解構會失敗
+globalThis.ImageUtils = {
+  extractImageSrc: jest.fn(img => img?.getAttribute?.('src') || img?.src || null),
+  cleanImageUrl: jest.fn(url => url),
+  isValidImageUrl: jest.fn(() => true),
+  isNotionCompatibleImageUrl: jest.fn(() => true),
+  extractBestUrlFromSrcset: jest.fn(() => null),
+  generateImageCacheKey: jest.fn(url => url),
+  extractFromSrcset: jest.fn(() => null),
+  extractFromAttributes: jest.fn(() => null),
+  extractFromPicture: jest.fn(() => null),
+  extractFromBackgroundImage: jest.fn(() => null),
+  extractFromNoscript: jest.fn(() => null),
+};
+
+// 同時設定 window.ImageUtils（對於 jsdom 環境）
+if (globalThis.window !== undefined) {
+  globalThis.window.ImageUtils = globalThis.ImageUtils;
+}
+
+// Mock Logger (基本實現，在 setup.js 中會被更完整的版本覆蓋)
+globalThis.Logger = {
+  log: jest.fn(),
+  debug: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+  addLogToBuffer: jest.fn(),
+};
+
+// 同時設定 window.Logger
+if (globalThis.window !== undefined) {
+  globalThis.window.Logger = globalThis.Logger;
+}

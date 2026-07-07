@@ -6,7 +6,7 @@ describe('Logger (背景環境整合測試)', () => {
   let mockAddEventListener;
   let consoleSpy;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.resetModules();
 
     // 在 Node 環境中，window 默認是 undefined，這符合 Logger.js 對 Background 環境的判斷條件
@@ -38,7 +38,7 @@ describe('Logger (背景環境整合測試)', () => {
 
     // 載入 Logger 模組
     // 注意：這會執行模組頂層代碼，包括 initDebugState -> initGlobalErrorHandlers
-    require('../../../scripts/utils/Logger.js');
+    await import('../../../scripts/utils/Logger.js');
   });
 
   afterEach(() => {
@@ -149,11 +149,12 @@ describe('Logger (背景環境整合測試)', () => {
   describe('addLogToBuffer (Background 模式)', () => {
     let TestLogger;
 
-    beforeEach(() => {
+    beforeEach(async () => {
       // 模擬在啟動時有開啟 debug mode 的標誌 (可透過 chrome storage get)
       globalThis.__NOTION_DEV_LOG_SINK = true;
-      jest.isolateModules(() => {
-        TestLogger = require('../../../scripts/utils/Logger.js').default;
+      await jest.isolateModulesAsync(async () => {
+        const loggerModule = await import('../../../scripts/utils/Logger.js');
+        TestLogger = loggerModule.default;
       });
     });
 
