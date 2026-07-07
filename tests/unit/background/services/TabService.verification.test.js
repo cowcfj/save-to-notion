@@ -9,6 +9,8 @@ import { jest } from '@jest/globals';
 import { createTabService, mockLogger, resetTabServiceTestState } from './tabServiceTestHarness.js';
 
 describe('TabService verification and deletion confirmation', () => {
+  const TEST_URL = 'https://example.com';
+  const NOTION_PAGE_ID = 'page-123';
   let service = null;
 
   beforeEach(() => {
@@ -17,52 +19,52 @@ describe('TabService verification and deletion confirmation', () => {
   });
 
   describe('Automatic Verification', () => {
-    it('should verify with Notion when cache is expired', async () => {
+    const mockExpiredPageData = (overrides = {}) => {
       const expiredData = {
-        notionPageId: 'page-123',
+        notionPageId: NOTION_PAGE_ID,
         lastVerifiedAt: Date.now() - 70_000, // 超過 60s
+        ...overrides,
       };
       service.getSavedPageData = jest.fn().mockResolvedValue(expiredData);
-      service.checkPageExists = jest.fn().mockResolvedValue(true);
+      return expiredData;
+    };
 
-      await service.updateTabStatus(1, 'https://example.com');
+    const mockExpiredPageVerification = pageExists => {
+      mockExpiredPageData();
+      service.checkPageExists = jest.fn().mockResolvedValue(pageExists);
+    };
 
-      expect(service.checkPageExists).toHaveBeenCalledWith('page-123', 'test-api-key');
+    it('should verify with Notion when cache is expired', async () => {
+      mockExpiredPageVerification(true);
+
+      await service.updateTabStatus(1, TEST_URL);
+
+      expect(service.checkPageExists).toHaveBeenCalledWith(NOTION_PAGE_ID, 'test-api-key');
       expect(service.setSavedPageData).toHaveBeenCalledWith(
-        'https://example.com',
+        TEST_URL,
         expect.objectContaining({ lastVerifiedAt: expect.any(Number) })
       );
       expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '✓', tabId: 1 });
     });
 
     it('should clear local state only after two consecutive false checks', async () => {
-      const expiredData = {
-        notionPageId: 'page-123',
-        lastVerifiedAt: Date.now() - 70_000,
-      };
-      service.getSavedPageData = jest.fn().mockResolvedValue(expiredData);
-      service.checkPageExists = jest.fn().mockResolvedValue(false); // 模擬已刪除
+      mockExpiredPageVerification(false);
 
-      await service.updateTabStatus(1, 'https://example.com');
+      await service.updateTabStatus(1, TEST_URL);
       expect(service.clearNotionStateWithRetry).not.toHaveBeenCalled();
 
-      await service.updateTabStatus(1, 'https://example.com');
+      await service.updateTabStatus(1, TEST_URL);
       expect(service.clearNotionStateWithRetry).toHaveBeenCalledWith(
-        'https://example.com',
+        TEST_URL,
         expect.objectContaining({ source: 'TabService._handleNotionVerificationResult' })
       );
       expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 1 });
     });
 
     it('should preserve saved badge and avoid re-arming deletion when cleanup is skipped', async () => {
-      const expiredData = {
-        notionPageId: 'page-123',
-        lastVerifiedAt: Date.now() - 70_000,
-      };
-      service.getSavedPageData = jest.fn().mockResolvedValue(expiredData);
-      service.checkPageExists = jest.fn().mockResolvedValue(false);
+      mockExpiredPageVerification(false);
       service.clearNotionStateWithRetry = jest.fn().mockImplementation(async (_url, options) => {
-        if (options?.expectedPageId === 'page-123') {
+        if (options?.expectedPageId === NOTION_PAGE_ID) {
           return {
             cleared: false,
             skipped: true,
@@ -79,14 +81,14 @@ describe('TabService verification and deletion confirmation', () => {
         };
       });
 
-      await service.updateTabStatus(1, 'https://example.com');
-      await service.updateTabStatus(1, 'https://example.com');
+      await service.updateTabStatus(1, TEST_URL);
+      await service.updateTabStatus(1, TEST_URL);
 
       expect(service.clearNotionStateWithRetry).toHaveBeenCalledWith(
-        'https://example.com',
+        TEST_URL,
         expect.objectContaining({
           source: 'TabService._handleNotionVerificationResult',
-          expectedPageId: 'page-123',
+          expectedPageId: NOTION_PAGE_ID,
         })
       );
       expect(mockLogger.warn).toHaveBeenCalledWith(
