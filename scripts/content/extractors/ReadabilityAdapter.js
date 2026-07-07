@@ -510,6 +510,36 @@ function findContentCmsFallback() {
 }
 
 /**
+ * 單次掃描文本行數與項目符號行數，避免 split/map/filter 配置中介陣列。
+ *
+ * @param {string} text - 要分析的文本
+ * @returns {{validLines: number, matchingLines: number}} 有效行與項目符號行統計
+ */
+function analyzeListTextLines(text) {
+  let validLines = 0;
+  let matchingLines = 0;
+  const bulletPattern = LIST_PREFIX_PATTERNS.bulletPrefix;
+
+  let lineStart = 0;
+  const textLength = text.length;
+
+  for (let i = 0; i <= textLength; i++) {
+    if (i === textLength || text.codePointAt(i) === 10) {
+      const line = text.slice(lineStart, i).trim();
+      if (line.length > 0) {
+        validLines++;
+        if (bulletPattern.test(line)) {
+          matchingLines++;
+        }
+      }
+      lineStart = i + 1;
+    }
+  }
+
+  return { validLines, matchingLines };
+}
+
+/**
  * 判斷一個容器元素是否呈現出類似列表的結構 (包含多個項目符號或數字)
  *
  * @param {Element} container - 要檢查的 DOM 容器
@@ -521,26 +551,7 @@ function isListLikeContainer(container) {
     return false;
   }
 
-  let validLines = 0;
-  let matchingLines = 0;
-  const bulletPattern = LIST_PREFIX_PATTERNS.bulletPrefix;
-
-  // Single-pass check avoiding .split().map().filter() intermediate array allocations
-  let lineStart = 0;
-  const textLength = text.length;
-
-  for (let i = 0; i <= textLength; i++) {
-    if (i === textLength || text.codePointAt(i) === 10) { // \n or EOF
-      const line = text.slice(lineStart, i).trim();
-      if (line.length > 0) {
-        validLines++;
-        if (bulletPattern.test(line)) {
-          matchingLines++;
-        }
-      }
-      lineStart = i + 1;
-    }
-  }
+  const { validLines, matchingLines } = analyzeListTextLines(text);
 
   if (validLines < 4) {
     return false;
@@ -555,19 +566,30 @@ function isListLikeContainer(container) {
  * @returns {Array} 所有候選元素的陣列
  */
 function collectListFallbackCandidates() {
-  const lists = Array.from(document.querySelectorAll('ul, ol'));
-  Logger.log('找到實際的列表元素', { action: 'extractLargestListFallback', count: lists.length });
+  const candidates = [];
+  let listCount = 0;
+  let possibleListContainerCount = 0;
 
-  const possibleListContainers = Array.from(
-    document.querySelectorAll('div, section, article')
-  ).filter(container => isListLikeContainer(container));
+  for (const list of document.querySelectorAll('ul, ol')) {
+    candidates.push(list);
+    listCount++;
+  }
+
+  Logger.log('找到實際的列表元素', { action: 'extractLargestListFallback', count: listCount });
+
+  for (const container of document.querySelectorAll('div, section, article')) {
+    if (isListLikeContainer(container)) {
+      candidates.push(container);
+      possibleListContainerCount++;
+    }
+  }
 
   Logger.log('找到可能的列表容器', {
     action: 'extractLargestListFallback',
-    count: possibleListContainers.length,
+    count: possibleListContainerCount,
   });
 
-  return [...lists, ...possibleListContainers];
+  return candidates;
 }
 
 /**
@@ -587,22 +609,7 @@ function getEffectiveListItemCount(candidate) {
     return 0;
   }
 
-  let matchingLines = 0;
-  const bulletPattern = LIST_PREFIX_PATTERNS.bulletPrefix;
-
-  let lineStart = 0;
-  const textLength = text.length;
-
-  for (let i = 0; i <= textLength; i++) {
-    if (i === textLength || text.codePointAt(i) === 10) {
-      const line = text.slice(lineStart, i).trim();
-      if (line.length > 0 && bulletPattern.test(line)) {
-        matchingLines++;
-      }
-      lineStart = i + 1;
-    }
-  }
-
+  const { matchingLines } = analyzeListTextLines(text);
   return matchingLines;
 }
 
