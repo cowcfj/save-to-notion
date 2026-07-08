@@ -47,14 +47,9 @@ function logFallbackSendResponseFailure({ action, logger, phase, sendError }) {
   });
 }
 
-function sendHandlerErrorResponse({ action, error, logger, phase, safeSendResponse }) {
+function sendHandlerErrorResponse({ action, error, phase, safeSendResponse }) {
   const errorResponse = MessageHandler._formatError(error, action);
-
-  try {
-    safeSendResponse(errorResponse, { phase });
-  } catch (sendError) {
-    logFallbackSendResponseFailure({ action, logger, phase, sendError });
-  }
+  safeSendResponse(errorResponse, { phase });
 }
 
 function sendReturnedHandlerResult(result, safeSendResponse) {
@@ -79,7 +74,6 @@ function attachAsyncHandlerResponse({ action, logger, handlerPromise, safeSendRe
       sendHandlerErrorResponse({
         action,
         error,
-        logger,
         phase: 'promiseCatch',
         safeSendResponse,
       });
@@ -197,7 +191,6 @@ class MessageHandler {
       sendHandlerErrorResponse({
         action,
         error,
-        logger: this.logger,
         phase: 'handleCatch',
         safeSendResponse,
       });
