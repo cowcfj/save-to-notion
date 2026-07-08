@@ -583,6 +583,19 @@ describe('ImageCollector collection strategies', () => {
       expect(allImages).toHaveLength(1);
     });
 
+    test('_collectImagesFromArticleSelector should return an empty array when image query is null', () => {
+      const articleEl = document.createElement('article');
+      cachedQuery.mockReturnValueOnce(articleEl).mockReturnValueOnce(null);
+
+      const result = ImageCollector._collectImagesFromArticleSelector('article');
+
+      expect(result).toEqual([]);
+      expect(Logger.log).toHaveBeenCalledWith(
+        '在指定區域找到圖片',
+        expect.objectContaining({ selector: 'article', count: 0 })
+      );
+    });
+
     test('_appendUniqueArticleImages should stop at the article image limit', () => {
       const articleImages = Array.from({ length: 6 }, () => document.createElement('img'));
       const allImages = [articleImages[0]];

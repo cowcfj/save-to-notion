@@ -947,7 +947,7 @@ const ImageCollector = {
     }
 
     const imgElements = cachedQuery('img', articleElement, { all: true });
-    const articleImages = Array.from(imgElements);
+    const articleImages = imgElements ? Array.from(imgElements) : [];
     Logger.log('在指定區域找到圖片', {
       action: 'collectAdditionalImages',
       selector,
