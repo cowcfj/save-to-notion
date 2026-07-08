@@ -63,6 +63,28 @@ describe('notionHandlers - Search Params Filtering', () => {
     );
   });
 
+  test('應該過濾 searchParams 中不在白名單內的屬性', async () => {
+    const request = {
+      apiKey: 'secret',
+      searchParams: {
+        query: 'safe query',
+        filter: { property: 'object', value: 'page' },
+        unsupportedField: 'should be ignored',
+      },
+      page_size: 25,
+    };
+
+    await handlers.searchNotion(request, sender, sendResponse);
+
+    expect(mockNotionService.search).toHaveBeenCalledWith(
+      {
+        query: 'safe query',
+        filter: { property: 'object', value: 'page' },
+      },
+      expect.objectContaining({ apiKey: 'secret' })
+    );
+  });
+
   test('應該從扁平結構構建參數', async () => {
     const request = {
       apiKey: 'secret',

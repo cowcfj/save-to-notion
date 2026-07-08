@@ -19,17 +19,14 @@ import { ERROR_MESSAGES } from '../../config/messages/errorMessages.js';
 const SEARCH_PARAM_FIELDS = ['query', 'filter', 'sort', 'page_size', 'start_cursor'];
 
 function buildNotionSearchParams(request) {
-  if (request.searchParams) {
-    return request.searchParams;
-  }
-
-  const fallback = {};
+  const source = request.searchParams ?? request;
+  const params = {};
   for (const field of SEARCH_PARAM_FIELDS) {
-    if (request[field] !== undefined) {
-      fallback[field] = request[field];
+    if (source[field] !== undefined) {
+      params[field] = source[field];
     }
   }
-  return fallback;
+  return params;
 }
 
 async function resolveSearchApiKey(apiKey) {
