@@ -11,14 +11,14 @@ import {
   validContentScriptSender,
   validSender,
 } from './saveHandlers.shared.js';
-import { buildSavedPageData } from '../../../helpers/status-fixtures.js';
 import {
+  buildSavedPageData,
   buildContentScriptSender,
   mockResolvedTabUrlSequence,
   mockSavedPageDataSequence,
   mockRemotePageDeleted,
   mockCleanupSkipped,
-} from '../../../helpers/saveHandlersTestHarness.js';
+} from './saveHandlersTestHarness.js';
 
 describe('saveHandlers status and deletion', () => {
   const context = createSaveHandlersTestContext();

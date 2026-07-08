@@ -2,25 +2,44 @@
  * @jest-environment jsdom
  */
 
-import { Toast } from '../../../../scripts/highlighter/ui/Toast.js';
-import Logger from '../../../../scripts/utils/Logger.js';
+import { jest } from '@jest/globals';
+import { registerUiTokenConstantsMock } from './uiTokenConstantsMock.js';
+
+const mockLogger = {
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  log: jest.fn(),
+  debug: jest.fn(),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+};
 
 jest.mock('../../../../scripts/utils/Logger.js', () => {
-  const mockLogger = {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    log: jest.fn(),
-    debug: jest.fn(),
-    success: jest.fn(),
-    start: jest.fn(),
-    ready: jest.fn(),
-  };
   return {
     __esModule: true,
     default: mockLogger,
     ...mockLogger,
   };
+});
+
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('../../../../scripts/utils/Logger.js', () => ({
+    __esModule: true,
+    default: mockLogger,
+    ...mockLogger,
+  }));
+}
+
+registerUiTokenConstantsMock(jest, '../../../../styles/ui-token-constants.js');
+
+let Toast;
+let Logger;
+
+beforeAll(async () => {
+  ({ default: Logger } = await import('../../../../scripts/utils/Logger.js'));
+  ({ Toast } = await import('../../../../scripts/highlighter/ui/Toast.js'));
 });
 
 const HOST_ID = 'notion-toast-host';

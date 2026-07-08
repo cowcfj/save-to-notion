@@ -919,10 +919,12 @@ async function _commitSnapshotWrite(toWrite, toRemove) {
       }
     }
     const wrapped = new Error(
-      `APPLY_INCOMPLETE: ${error instanceof Error ? error.message : String(error)}`
+      `APPLY_INCOMPLETE: ${error instanceof Error ? error.message : String(error)}`,
+      {
+        cause: error,
+      }
     );
     wrapped.code = 'APPLY_INCOMPLETE';
-    wrapped.cause = error;
     throw wrapped;
   }
 }

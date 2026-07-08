@@ -3,22 +3,33 @@
  */
 
 import {
-  imageCollectorTestModules,
+  importImageCollectorTestModules,
   setupImageCollectorTestLifecycle,
   trackSpy,
 } from './ImageCollectorTestSetup.js';
 
-const {
-  ImageCollector,
-  cachedQuery,
-  batchProcessWithRetry,
-  NextJsExtractor,
-  Logger,
-  ErrorHandler,
-  extractImageSrc,
-  isValidCleanedImageUrl,
-  isTemporaryImageUrl,
-} = imageCollectorTestModules;
+let ImageCollector;
+let cachedQuery;
+let batchProcessWithRetry;
+let NextJsExtractor;
+let Logger;
+let ErrorHandler;
+let extractImageSrc;
+let isValidCleanedImageUrl;
+let isTemporaryImageUrl;
+
+beforeAll(async () => {
+  const modules = await importImageCollectorTestModules();
+  ImageCollector = modules.ImageCollector;
+  cachedQuery = modules.cachedQuery;
+  batchProcessWithRetry = modules.batchProcessWithRetry;
+  NextJsExtractor = modules.NextJsExtractor;
+  Logger = modules.Logger;
+  ErrorHandler = modules.ErrorHandler;
+  extractImageSrc = modules.extractImageSrc;
+  isValidCleanedImageUrl = modules.isValidCleanedImageUrl;
+  isTemporaryImageUrl = modules.isTemporaryImageUrl;
+});
 
 describe('ImageCollector collection strategies', () => {
   setupImageCollectorTestLifecycle();
@@ -570,6 +581,29 @@ describe('ImageCollector collection strategies', () => {
       ImageCollector._collectFromArticle(allImages);
 
       expect(allImages).toHaveLength(1);
+    });
+
+    test('_collectImagesFromArticleSelector should return an empty array when image query is null', () => {
+      const articleEl = document.createElement('article');
+      cachedQuery.mockReturnValueOnce(articleEl).mockReturnValueOnce(null);
+
+      const result = ImageCollector._collectImagesFromArticleSelector('article');
+
+      expect(result).toEqual([]);
+      expect(Logger.log).toHaveBeenCalledWith(
+        '在指定區域找到圖片',
+        expect.objectContaining({ selector: 'article', count: 0 })
+      );
+    });
+
+    test('_appendUniqueArticleImages should stop at the article image limit', () => {
+      const articleImages = Array.from({ length: 6 }, () => document.createElement('img'));
+      const allImages = [articleImages[0]];
+
+      ImageCollector._appendUniqueArticleImages(allImages, articleImages);
+
+      expect(allImages).toHaveLength(5);
+      expect(allImages).toEqual(articleImages.slice(0, 5));
     });
 
     test('_collectFromExpansion should expand search excluding ads', () => {

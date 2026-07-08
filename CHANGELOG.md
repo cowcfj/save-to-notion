@@ -1,5 +1,47 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.82.0](https://github.com/cowcfj/save-to-notion/compare/v2.81.1...v2.82.0) (2026-07-05)
+
+
+### ✨ 新功能
+
+* **test:** clean up native ESM coverage and implement blocker ledger ([#760](https://github.com/cowcfj/save-to-notion/issues/760)) ([0f9f820](https://github.com/cowcfj/save-to-notion/commit/0f9f820375b65ea7e7941496307a1fdb2d5623f0))
+* **tests:** enhance native esm testing and logging consistency ([#762](https://github.com/cowcfj/save-to-notion/issues/762)) ([5a095f3](https://github.com/cowcfj/save-to-notion/commit/5a095f392479f72fc93a0e208dc212b3d9046475))
+
+
+### 🐛 Bug 修復
+
+* **account:** 移除 legacy auth callback surface ([#810](https://github.com/cowcfj/save-to-notion/issues/810)) ([6876103](https://github.com/cowcfj/save-to-notion/commit/6876103ff9b4df4d7560f95bf541e6e203a9e722))
+* **deps:** pin minipass license metadata ([#798](https://github.com/cowcfj/save-to-notion/issues/798)) ([5fbd3de](https://github.com/cowcfj/save-to-notion/commit/5fbd3de876312f782edbc8cd517bbdaca5a83602))
+* resolve eslint warnings in background scripts ([#811](https://github.com/cowcfj/save-to-notion/issues/811)) ([e12c3a1](https://github.com/cowcfj/save-to-notion/commit/e12c3a18a438c05065b36cfbed6f7e7c96c3aafc))
+
+
+### ♻️ 代碼重構
+
+* contain RetryManager module surface ([#802](https://github.com/cowcfj/save-to-notion/issues/802)) ([c384fdc](https://github.com/cowcfj/save-to-notion/commit/c384fdc0b18cb0b46acf3e62ccdee0b98b24b472))
+* **eslint:** stabilize eslint policy gate and refactor for performance ([#812](https://github.com/cowcfj/save-to-notion/issues/812)) ([807c0cf](https://github.com/cowcfj/save-to-notion/commit/807c0cf6a454821224576db5dba3a8b501d822e3))
+* **module-format:** clean up diagnostics and retire module boundaries ([#809](https://github.com/cowcfj/save-to-notion/issues/809)) ([36dc435](https://github.com/cowcfj/save-to-notion/commit/36dc435e043beefdcc9ed126e3671f21af19146f))
+* reduce codescene hotspots ([#800](https://github.com/cowcfj/save-to-notion/issues/800)) ([8ef9e69](https://github.com/cowcfj/save-to-notion/commit/8ef9e69d19416344cf6b615e902d2150d981416b))
+* **root:** cut over root package type to module ([#796](https://github.com/cowcfj/save-to-notion/issues/796)) ([57dbeae](https://github.com/cowcfj/save-to-notion/commit/57dbeaeaf57e53385f534c756d32f5b874e23735))
+* **tests:** clean up native ESM dual-run scaffolding ([#764](https://github.com/cowcfj/save-to-notion/issues/764)) ([79463b6](https://github.com/cowcfj/save-to-notion/commit/79463b647d104049a7d6d3864d726e1760368c60))
+
+## [2.81.1](https://github.com/cowcfj/save-to-notion/compare/v2.81.0...v2.81.1) (2026-06-24)
+
+
+### 🐛 Bug 修復
+
+* **auth:** harden auth callback bridge ([#757](https://github.com/cowcfj/save-to-notion/issues/757)) ([ac84e91](https://github.com/cowcfj/save-to-notion/commit/ac84e913723d5fc96ce39f1ea0a01b08fca7bb3b))
+
+
+### ♻️ 代碼重構
+
+* **auth:** reduce code complexity in auth and drive modules ([#751](https://github.com/cowcfj/save-to-notion/issues/751)) ([36477e0](https://github.com/cowcfj/save-to-notion/commit/36477e0bfdc1646afefe48ec70d8e90387aa780c))
+* prefer Number.NaN in update notification parser ([501bb5b](https://github.com/cowcfj/save-to-notion/commit/501bb5b856d09e9059cc38386f8176f6a97f0c33))
+* reduce notion auth complexity ([#748](https://github.com/cowcfj/save-to-notion/issues/748)) ([590cb6e](https://github.com/cowcfj/save-to-notion/commit/590cb6e49c72860e803212409c44bbb61827e6ed))
+* reduce service complexity ([#756](https://github.com/cowcfj/save-to-notion/issues/756)) ([d2ec657](https://github.com/cowcfj/save-to-notion/commit/d2ec6575701153000ca98b2836610d99b45a0297))
+* share update notification version check ([#739](https://github.com/cowcfj/save-to-notion/issues/739)) ([0ab51b8](https://github.com/cowcfj/save-to-notion/commit/0ab51b87e409a8a28bf96e7c8f9d9abd1909a55e))
+* simplify PerformanceOptimizer and preloader save shortcut ([#747](https://github.com/cowcfj/save-to-notion/issues/747)) ([6f1186e](https://github.com/cowcfj/save-to-notion/commit/6f1186e6bf0d94e469cffb06daaccf7aef22b4fd))
+
 ## [2.81.0](https://github.com/cowcfj/save-to-notion/compare/v2.80.0...v2.81.0) (2026-06-19)
 
 

@@ -3,9 +3,16 @@
   ><head
     ><title>Test Page</title></head
   ><body
-    ><article
+    ><article class="markdown-body"
       ><h1>Heading</h1
-      ><p>This is some long article content that should be picked up by Readability.</p></article
+      ><p
+        >This is some long article content that should be picked up by the content
+        extraction pipeline. It deliberately contains enough text to avoid the
+        empty-content fallback path and to prove that the integration test observes
+        converted Notion blocks from the fixture body instead of accepting a generic
+        fallback paragraph. The repeated article details keep the fixture stable
+        across extractor quality thresholds.</p
+      ></article
     ></body
   ></html
 >

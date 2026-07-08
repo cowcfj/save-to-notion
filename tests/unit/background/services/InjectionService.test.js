@@ -1,12 +1,6 @@
-import {
-  InjectionService,
-  isRestrictedInjectionUrl,
-  isRecoverableInjectionError,
-  getRuntimeErrorMessage,
-} from '../../../../scripts/background/services/InjectionService.js';
-import { RUNTIME_ACTIONS } from '../../../../scripts/config/shared/runtimeActions.js';
+import { jest } from '@jest/globals';
 
-jest.mock('../../../../scripts/utils/Logger.js', () => ({
+const mockLoggerModule = {
   __esModule: true,
   default: {
     info: jest.fn(),
@@ -17,9 +11,31 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
     start: jest.fn(),
     ready: jest.fn(),
   },
-}));
+};
 
-import Logger from '../../../../scripts/utils/Logger.js';
+if (process.env.NODE_OPTIONS?.includes('--experimental-vm-modules')) {
+  jest.unstable_mockModule('../../../../scripts/utils/Logger.js', () => mockLoggerModule);
+} else {
+  jest.mock('../../../../scripts/utils/Logger.js', () => mockLoggerModule);
+}
+
+let InjectionService;
+let isRestrictedInjectionUrl;
+let isRecoverableInjectionError;
+let getRuntimeErrorMessage;
+let RUNTIME_ACTIONS;
+let Logger;
+
+beforeAll(async () => {
+  ({
+    InjectionService,
+    isRestrictedInjectionUrl,
+    isRecoverableInjectionError,
+    getRuntimeErrorMessage,
+  } = await import('../../../../scripts/background/services/InjectionService.js'));
+  ({ RUNTIME_ACTIONS } = await import('../../../../scripts/config/shared/runtimeActions.js'));
+  ({ default: Logger } = await import('../../../../scripts/utils/Logger.js'));
+});
 
 function recreateInjectedFunction(func) {
   const source = func.toString();
@@ -107,6 +123,24 @@ describe('InjectionService', () => {
     it('should return true for webstore urls', () => {
       expect(isRestrictedInjectionUrl('https://chrome.google.com/webstore/detail/xyz')).toBe(true);
       expect(isRestrictedInjectionUrl('https://chromewebstore.google.com/detail/xyz')).toBe(true);
+    });
+
+    it('should restrict blocked hosts even when URL includes ports or case variants', () => {
+      expect(isRestrictedInjectionUrl('HTTPS://chrome.google.com:443/webstore/detail/xyz')).toBe(
+        true
+      );
+      expect(isRestrictedInjectionUrl('https://chromewebstore.google.com:8443/detail/xyz')).toBe(
+        true
+      );
+    });
+
+    it('should restrict Notion hosts even when URL includes ports or case variants', () => {
+      expect(isRestrictedInjectionUrl('HTTPS://www.notion.so:443/workspace')).toBe(true);
+      expect(isRestrictedInjectionUrl('https://team.notion.site:8443/page')).toBe(true);
+    });
+
+    it('should restrict protocols after URL canonicalization', () => {
+      expect(isRestrictedInjectionUrl('CHROME://extensions')).toBe(true);
     });
 
     it('should return false for normal urls', () => {
@@ -296,9 +330,93 @@ describe('InjectionService', () => {
         highlightCount: 0,
       });
     });
+
+    it('[REGRESSION] rail readiness timeout 時應回退為未初始化狀態', async () => {
+      jest.useFakeTimers();
+      try {
+        globalThis.__NOTION_RAIL_READY__ = new Promise(() => {});
+
+        chrome.scripting.executeScript.mockImplementation(async (opts, verifyResult) => {
+          if (opts.files) {
+            verifyResult([]);
+            return;
+          }
+
+          const injectedFunc = recreateInjectedFunction(opts.func);
+          const resultPromise = injectedFunc();
+          await jest.advanceTimersByTimeAsync(2000);
+          const result = await resultPromise;
+          verifyResult([{ result }]);
+        });
+
+        await expect(service.injectHighlighter(1)).resolves.toEqual({
+          initialized: false,
+          highlightCount: 0,
+        });
+      } finally {
+        delete globalThis.__NOTION_RAIL_READY__;
+        delete globalThis.HighlighterV2;
+        jest.useRealTimers();
+      }
+    });
+
+    it('[REGRESSION] rail ready 前應持續輪詢直到 activateRail', async () => {
+      jest.useFakeTimers();
+      try {
+        globalThis.HighlighterV2 = {
+          manager: { getCount: jest.fn(() => 7) },
+        };
+        const railShow = jest.fn();
+        const activateHighlighting = jest.fn();
+        let resolveRailReady = null;
+        globalThis.__NOTION_RAIL_READY__ = new Promise(resolve => {
+          resolveRailReady = resolve;
+        });
+
+        chrome.scripting.executeScript.mockImplementation(async (opts, verifyResult) => {
+          if (opts.files) {
+            verifyResult([]);
+            return;
+          }
+
+          const injectedFunc = recreateInjectedFunction(opts.func);
+          const resultPromise = injectedFunc();
+          resolveRailReady({ success: true });
+          await Promise.resolve();
+          await jest.advanceTimersByTimeAsync(100);
+          globalThis.HighlighterV2.rail = {
+            show: railShow,
+            activateHighlighting,
+          };
+          await jest.advanceTimersByTimeAsync(100);
+          const result = await resultPromise;
+          verifyResult([{ result }]);
+        });
+
+        await expect(service.injectHighlighter(1)).resolves.toEqual({
+          initialized: true,
+          highlightCount: 7,
+        });
+        expect(railShow).toHaveBeenCalledTimes(1);
+        expect(activateHighlighting).toHaveBeenCalledTimes(1);
+      } finally {
+        delete globalThis.__NOTION_RAIL_READY__;
+        delete globalThis.HighlighterV2;
+        jest.useRealTimers();
+      }
+    });
   });
 
   describe('ensureBundleInjected', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    });
+
     it('應在 Bundle 已存在時不重複注入', async () => {
       // Arrange: Bundle 已存在（返回 bundle_ready）
       chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
@@ -431,31 +549,26 @@ describe('InjectionService', () => {
     });
 
     it('應在 PING 超時時執行注入 (Timeout path)', async () => {
-      jest.useFakeTimers();
-      try {
-        // Arrange: sendMessage 不回應
-        chrome.tabs.sendMessage.mockImplementation(() => {});
-        chrome.scripting.executeScript.mockImplementation((opts, cb) => {
-          chrome.runtime.lastError = null;
-          cb();
-        });
+      // Arrange: sendMessage 不回應
+      chrome.tabs.sendMessage.mockImplementation(() => {});
+      chrome.scripting.executeScript.mockImplementation((opts, cb) => {
+        chrome.runtime.lastError = null;
+        cb();
+      });
 
-        const promise = service.ensureBundleInjected(1);
+      const promise = service.ensureBundleInjected(1);
 
-        // Fast-forward PING timeout
-        jest.advanceTimersByTime(2500);
+      // Fast-forward PING timeout
+      jest.advanceTimersByTime(2500);
 
-        const result = await promise;
-        expect(result).toBe(true);
-        expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
-          1,
-          { action: RUNTIME_ACTIONS.PING },
-          expect.any(Function)
-        );
-        expect(chrome.scripting.executeScript).toHaveBeenCalled();
-      } finally {
-        jest.useRealTimers();
-      }
+      const result = await promise;
+      expect(result).toBe(true);
+      expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+        1,
+        { action: RUNTIME_ACTIONS.PING },
+        expect.any(Function)
+      );
+      expect(chrome.scripting.executeScript).toHaveBeenCalled();
     });
 
     it('應在 PING 觸發 receiving end does not exist 時返回 false (可恢復錯誤)', async () => {
@@ -529,6 +642,50 @@ describe('InjectionService', () => {
         expect.any(Function)
       );
     });
+
+    it('應在 Bundle 注入遇可恢復錯誤時返回 false', async () => {
+      chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
+        chrome.runtime.lastError = undefined;
+        callback({ status: 'preloader_only' });
+      });
+      chrome.scripting.executeScript.mockImplementation((opts, callback) => {
+        chrome.runtime.lastError = { message: 'Cannot access contents of page' };
+        callback();
+      });
+
+      await expect(service.ensureBundleInjected(1)).resolves.toBe(false);
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Bundle injection skipped'),
+        expect.objectContaining({
+          action: 'ensureBundleInjected',
+          result: 'skipped',
+          error: expect.stringContaining('Cannot access contents of page'),
+        })
+      );
+    });
+
+    it('應在 Bundle 注入遇不可恢復錯誤時記錄並向外拋出', async () => {
+      chrome.tabs.sendMessage.mockImplementation((tabId, message, callback) => {
+        chrome.runtime.lastError = undefined;
+        callback({ status: 'preloader_only' });
+      });
+      chrome.scripting.executeScript.mockImplementation((opts, callback) => {
+        chrome.runtime.lastError = { message: 'SyntaxError: unexpected token' };
+        callback();
+      });
+
+      await expect(service.ensureBundleInjected(1)).rejects.toThrow(
+        'SyntaxError: unexpected token'
+      );
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Bundle injection failed'),
+        expect.objectContaining({
+          action: 'ensureBundleInjected',
+          result: 'failure',
+          error: expect.stringContaining('SyntaxError: unexpected token'),
+        })
+      );
+    });
   });
 
   describe('Edge Case Utilities', () => {
@@ -561,6 +718,10 @@ describe('InjectionService', () => {
         expect(msg).toContain('Runtime Error');
         expect(Logger.warn).toHaveBeenCalled();
       });
+
+      it('應將無 message 的 runtime error 序列化', () => {
+        expect(getRuntimeErrorMessage({ code: 'NO_MESSAGE' })).toBe('{"code":"NO_MESSAGE"}');
+      });
     });
   });
 
@@ -583,6 +744,11 @@ describe('InjectionService', () => {
       chrome.scripting.executeScript.mockImplementation((opts, cb) => cb());
       const result = await service.injectWithResponse(1, null, ['test.js']);
       expect(result).toEqual([{ result: { success: true } }]);
+    });
+
+    it('沒有 function 與 files 時應返回 null', async () => {
+      await expect(service.injectWithResponse(1, null, [])).resolves.toBeNull();
+      expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
     });
 
     it('應該在拋出異常時記錄脫敏後的錯誤並返回 null', async () => {
@@ -684,12 +850,54 @@ describe('InjectionService', () => {
       expect(activateHighlighting).toHaveBeenCalledWith();
     });
 
+    it('activateFloatingRailInPage 應直接啟動現有 rail 並回傳 highlight count', async () => {
+      const railShow = jest.fn();
+      const activateHighlighting = jest.fn();
+      globalThis.HighlighterV2 = {
+        rail: { show: railShow, activateHighlighting },
+        manager: { getCount: () => 5 },
+      };
+      chrome.scripting.executeScript.mockImplementation(async (opts, verifyResult) => {
+        if (opts.files) {
+          verifyResult([]);
+          return;
+        }
+        verifyResult([{ result: await opts.func() }]);
+      });
+
+      await expect(service.injectHighlighter(1)).resolves.toEqual({
+        initialized: true,
+        highlightCount: 5,
+      });
+      expect(railShow).toHaveBeenCalledTimes(1);
+      expect(activateHighlighting).toHaveBeenCalledTimes(1);
+    });
+
     it('collectHighlights 應該觸發無文件的注射並回傳陣列', async () => {
       chrome.scripting.executeScript.mockImplementation((opts, cb) => {
         cb([{ result: ['highlight1'] }]);
       });
       const result = await service.collectHighlights(1);
       expect(result).toEqual(['highlight1']);
+    });
+
+    it('collectHighlights 應執行頁面 callback 並回傳空陣列 fallback', async () => {
+      chrome.scripting.executeScript.mockImplementation(async (opts, cb) => {
+        cb([{ result: await opts.func() }]);
+      });
+
+      await expect(service.collectHighlights(1)).resolves.toEqual([]);
+    });
+
+    it('collectHighlights 應呼叫頁面 collectHighlights callback', async () => {
+      const collectHighlights = jest.fn(() => ['highlight-from-page']);
+      globalThis.collectHighlights = collectHighlights;
+      chrome.scripting.executeScript.mockImplementation(async (opts, cb) => {
+        cb([{ result: await opts.func() }]);
+      });
+
+      await expect(service.collectHighlights(1)).resolves.toEqual(['highlight-from-page']);
+      expect(collectHighlights).toHaveBeenCalledTimes(1);
     });
 
     it('clearPageHighlights 應該觸發無文件的注射', async () => {
@@ -704,6 +912,17 @@ describe('InjectionService', () => {
         }),
         expect.any(Function)
       );
+    });
+
+    it('clearPageHighlights 應呼叫頁面 clearPageHighlights callback', async () => {
+      const clearPageHighlights = jest.fn();
+      globalThis.clearPageHighlights = clearPageHighlights;
+      chrome.scripting.executeScript.mockImplementation(async (opts, cb) => {
+        cb([{ result: await opts.func() }]);
+      });
+
+      await expect(service.clearPageHighlights(1)).resolves.toBe(false);
+      expect(clearPageHighlights).toHaveBeenCalledTimes(1);
     });
 
     it('injectHighlightRestore 應該注入特定的腳本', async () => {

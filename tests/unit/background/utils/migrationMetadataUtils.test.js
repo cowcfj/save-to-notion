@@ -1,7 +1,10 @@
-import {
-  hasNotionData,
-  isSameNotionPage,
-} from '../../../../scripts/background/utils/migrationMetadataUtils.js';
+let hasNotionData;
+let isSameNotionPage;
+
+beforeAll(async () => {
+  ({ hasNotionData, isSameNotionPage } =
+    await import('../../../../scripts/background/utils/migrationMetadataUtils.js'));
+});
 
 describe('migrationMetadataUtils', () => {
   describe('hasNotionData', () => {

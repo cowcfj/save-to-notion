@@ -2,7 +2,12 @@
  * @jest-environment jsdom
  */
 
+import { jest } from '@jest/globals';
 import { createAccountAuthHandler } from '../../../../scripts/background/handlers/accountAuthHandler.js';
+
+globalThis.Logger = {
+  warn: jest.fn(),
+};
 
 describe('accountAuthHandler', () => {
   let runtime;
@@ -64,47 +69,61 @@ describe('accountAuthHandler', () => {
     ).not.toThrow();
   });
 
-  test('符合 callback bridge 條件時應導向 auth.html 並帶 account_ticket', async () => {
+  test.each([
+    {
+      name: '符合 callback bridge 條件時應導向 canonical auth page 並帶 account_ticket',
+      bridgeUrl:
+        'https://worker.test/v1/account/callback-bridge?account_ticket=ticket_123&ext_id=ext_id_123&mode=bridge',
+      expectedAuthPath: 'pages/auth/auth.html?account_ticket=ticket_123',
+      expectedAuthUrl:
+        'chrome-extension://ext_id_123/pages/auth/auth.html?account_ticket=ticket_123',
+    },
+    {
+      name: 'account_ticket 含特殊字元時應重新編碼後再導向 canonical auth page',
+      bridgeUrl:
+        'https://worker.test/v1/account/callback-bridge?account_ticket=ticket%26with%23parts%3Fx%3D1&ext_id=ext_id_123',
+      expectedAuthPath: 'pages/auth/auth.html?account_ticket=ticket%26with%23parts%3Fx%3D1',
+      expectedAuthUrl:
+        'chrome-extension://ext_id_123/pages/auth/auth.html?account_ticket=ticket%26with%23parts%3Fx%3D1',
+    },
+  ])('$name', async ({ bridgeUrl, expectedAuthPath, expectedAuthUrl }) => {
     handler.setupListeners();
 
-    await onUpdatedListener(12, {
-      url: 'https://worker.test/v1/account/callback-bridge?account_ticket=ticket_123&ext_id=ext_id_123&mode=bridge',
-    });
+    await onUpdatedListener(12, { url: bridgeUrl });
 
-    expect(runtime.getURL).toHaveBeenCalledWith('auth.html?account_ticket=ticket_123');
+    expect(runtime.getURL).toHaveBeenCalledWith(expectedAuthPath);
     expect(tabs.update).toHaveBeenCalledWith(12, {
-      url: 'chrome-extension://ext_id_123/auth.html?account_ticket=ticket_123',
+      url: expectedAuthUrl,
     });
   });
 
-  test('ext_id 與目前 extension 不一致時不應攔截', async () => {
+  test.each([
+    {
+      name: 'ext_id 與目前 extension 不一致時不應攔截',
+      changeInfo: {
+        url: 'https://worker.test/v1/account/callback-bridge?account_ticket=ticket_123&ext_id=other_ext_id',
+      },
+    },
+    {
+      name: 'origin 不一致時不應攔截',
+      changeInfo: {
+        url: 'https://evil.test/v1/account/callback-bridge?account_ticket=ticket_123&ext_id=ext_id_123',
+      },
+    },
+    {
+      name: 'pathname 不一致時不應攔截',
+      changeInfo: {
+        url: 'https://worker.test/v1/account/google/callback?account_ticket=ticket_123&ext_id=ext_id_123',
+      },
+    },
+    {
+      name: 'tab update 缺少 url 時不應攔截',
+      changeInfo: {},
+    },
+  ])('$name', async ({ changeInfo }) => {
     handler.setupListeners();
 
-    await onUpdatedListener(12, {
-      url: 'https://worker.test/v1/account/callback-bridge?account_ticket=ticket_123&ext_id=other_ext_id',
-    });
-
-    expect(runtime.getURL).not.toHaveBeenCalled();
-    expect(tabs.update).not.toHaveBeenCalled();
-  });
-
-  test('origin 不一致時不應攔截', async () => {
-    handler.setupListeners();
-
-    await onUpdatedListener(12, {
-      url: 'https://evil.test/v1/account/callback-bridge?account_ticket=ticket_123&ext_id=ext_id_123',
-    });
-
-    expect(runtime.getURL).not.toHaveBeenCalled();
-    expect(tabs.update).not.toHaveBeenCalled();
-  });
-
-  test('pathname 不一致時不應攔截', async () => {
-    handler.setupListeners();
-
-    await onUpdatedListener(12, {
-      url: 'https://worker.test/v1/account/google/callback?account_ticket=ticket_123&ext_id=ext_id_123',
-    });
+    await onUpdatedListener(12, changeInfo);
 
     expect(runtime.getURL).not.toHaveBeenCalled();
     expect(tabs.update).not.toHaveBeenCalled();
@@ -131,6 +150,23 @@ describe('accountAuthHandler', () => {
     await onUpdatedListener(12, { url: bridgeUrl });
 
     expect(tabs.update).toHaveBeenCalledTimes(1);
+  });
+
+  test('同一 tab 收到不同 bridge URL 時應清除舊去重狀態並重新處理', async () => {
+    handler.setupListeners();
+
+    const firstBridgeUrl =
+      'https://worker.test/v1/account/callback-bridge?account_ticket=ticket_123&ext_id=ext_id_123';
+    const secondBridgeUrl =
+      'https://worker.test/v1/account/callback-bridge?account_ticket=ticket_456&ext_id=ext_id_123';
+
+    await onUpdatedListener(12, { url: firstBridgeUrl });
+    await onUpdatedListener(12, { url: secondBridgeUrl });
+
+    expect(tabs.update).toHaveBeenCalledTimes(2);
+    expect(tabs.update).toHaveBeenNthCalledWith(2, 12, {
+      url: 'chrome-extension://ext_id_123/pages/auth/auth.html?account_ticket=ticket_456',
+    });
   });
 
   test('tab 關閉後應清除去重狀態，允許下一個 tab 重新處理', async () => {

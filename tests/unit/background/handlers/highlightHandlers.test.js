@@ -1,20 +1,9 @@
-import { createHighlightHandlers } from '../../../../scripts/background/handlers/highlightHandlers.js';
-import { ERROR_MESSAGES } from '../../../../scripts/config/shared/messages.js';
-import { RUNTIME_ACTIONS } from '../../../../scripts/config/shared/runtimeActions.js';
-import { CONTENT_BRIDGE_ACTIONS } from '../../../../scripts/config/runtimeActions/contentBridgeActions.js';
-import { isRestrictedInjectionUrl } from '../../../../scripts/background/services/InjectionService.js';
-import {
-  validateContentScriptRequest,
-  validateInternalRequest,
-} from '../../../../scripts/utils/securityUtils.js';
-import { sanitizeApiError } from '../../../../scripts/utils/ApiErrorSanitizer.js';
-import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
-const { ErrorHandler: ActualErrorHandler } = jest.requireActual(
-  '../../../../scripts/utils/ErrorHandler.js'
-);
-import { normalizeUrl } from '../../../../scripts/utils/urlUtils.js';
-import { getActiveNotionToken, ensureNotionApiKey } from '../../../../scripts/utils/notionAuth.js';
-import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
+import { jest } from '@jest/globals';
+
+let createHighlightHandlers;
+let ERROR_MESSAGES;
+let RUNTIME_ACTIONS;
+let CONTENT_BRIDGE_ACTIONS;
 
 const TEST_EXTENSION_ID = 'test-id';
 const TEST_TAB_ID = 1;
@@ -35,13 +24,91 @@ const createDefaultSender = ({
 } = {}) => ({ id, tab });
 const createInternalSender = (id = TEST_EXTENSION_ID) => ({ id });
 
-jest.mock('../../../../scripts/utils/Logger.js');
-jest.mock('../../../../scripts/background/services/InjectionService.js');
-jest.mock('../../../../scripts/utils/securityUtils.js');
-jest.mock('../../../../scripts/utils/ApiErrorSanitizer.js');
-jest.mock('../../../../scripts/utils/ErrorHandler.js');
-jest.mock('../../../../scripts/utils/urlUtils.js');
-jest.mock('../../../../scripts/utils/notionAuth.js');
+const mockInjectionService = {
+  __esModule: true,
+  isRestrictedInjectionUrl: jest.fn(),
+};
+
+const mockSecurityUtils = {
+  __esModule: true,
+  validateContentScriptRequest: jest.fn(),
+  validateInternalRequest: jest.fn(),
+  isValidUrl: jest.fn(url => typeof url === 'string' && url.startsWith('https://')),
+};
+
+const mockApiErrorSanitizer = {
+  __esModule: true,
+  sanitizeApiError: jest.fn(),
+};
+
+const mockErrorHandler = {
+  __esModule: true,
+  ErrorHandler: {
+    formatUserMessage: jest.fn(),
+  },
+};
+
+const mockUrlUtils = {
+  __esModule: true,
+  normalizeUrl: jest.fn(url => url),
+  computeStableUrl: jest.fn(url => url),
+  resolveStorageUrl: jest.fn(url => url),
+};
+
+const mockNotionAuth = {
+  __esModule: true,
+  getActiveNotionToken: jest.fn(),
+  ensureNotionApiKey: jest.fn(),
+};
+
+const mockLogSanitizer = {
+  __esModule: true,
+  sanitizeUrlForLogging: jest.fn(url => url),
+};
+
+const { isRestrictedInjectionUrl } = mockInjectionService;
+const { validateContentScriptRequest, validateInternalRequest } = mockSecurityUtils;
+const { sanitizeApiError } = mockApiErrorSanitizer;
+const { ErrorHandler } = mockErrorHandler;
+const { normalizeUrl } = mockUrlUtils;
+const { getActiveNotionToken, ensureNotionApiKey } = mockNotionAuth;
+const { sanitizeUrlForLogging } = mockLogSanitizer;
+
+if (process.env.NODE_OPTIONS?.includes('--experimental-vm-modules')) {
+  jest.unstable_mockModule(
+    '../../../../scripts/background/services/InjectionService.js',
+    () => mockInjectionService
+  );
+  jest.unstable_mockModule('../../../../scripts/utils/securityUtils.js', () => mockSecurityUtils);
+  jest.unstable_mockModule(
+    '../../../../scripts/utils/ApiErrorSanitizer.js',
+    () => mockApiErrorSanitizer
+  );
+  jest.unstable_mockModule('../../../../scripts/utils/ErrorHandler.js', () => mockErrorHandler);
+  jest.unstable_mockModule('../../../../scripts/utils/urlUtils.js', () => mockUrlUtils);
+  jest.unstable_mockModule('../../../../scripts/utils/notionAuth.js', () => mockNotionAuth);
+  jest.unstable_mockModule('../../../../scripts/utils/LogSanitizer.js', () => mockLogSanitizer);
+} else {
+  jest.mock(
+    '../../../../scripts/background/services/InjectionService.js',
+    () => mockInjectionService
+  );
+  jest.mock('../../../../scripts/utils/securityUtils.js', () => mockSecurityUtils);
+  jest.mock('../../../../scripts/utils/ApiErrorSanitizer.js', () => mockApiErrorSanitizer);
+  jest.mock('../../../../scripts/utils/ErrorHandler.js', () => mockErrorHandler);
+  jest.mock('../../../../scripts/utils/urlUtils.js', () => mockUrlUtils);
+  jest.mock('../../../../scripts/utils/notionAuth.js', () => mockNotionAuth);
+  jest.mock('../../../../scripts/utils/LogSanitizer.js', () => mockLogSanitizer);
+}
+
+beforeAll(async () => {
+  ({ createHighlightHandlers } =
+    await import('../../../../scripts/background/handlers/highlightHandlers.js'));
+  ({ ERROR_MESSAGES } = await import('../../../../scripts/config/shared/messages.js'));
+  ({ RUNTIME_ACTIONS } = await import('../../../../scripts/config/shared/runtimeActions.js'));
+  ({ CONTENT_BRIDGE_ACTIONS } =
+    await import('../../../../scripts/config/runtimeActions/contentBridgeActions.js'));
+});
 
 describe('highlightHandlers', () => {
   let handlers;
@@ -134,19 +201,6 @@ describe('highlightHandlers', () => {
     });
   };
 
-  const expectClearValidationRejected = ({
-    sendResponse,
-    sender,
-    validationError,
-    validator,
-    skippedValidator,
-  }) => {
-    expect(validator).toHaveBeenCalledWith(sender);
-    expect(skippedValidator).not.toHaveBeenCalled();
-    expect(mockServices.storageService.updateHighlights).not.toHaveBeenCalled();
-    expect(sendResponse).toHaveBeenCalledWith(validationError);
-  };
-
   const executeNoActiveTabQueryFailure = async executeAction => {
     mockNoActiveTab();
     const sendResponse = await executeAction();
@@ -200,71 +254,83 @@ describe('highlightHandlers', () => {
     });
   };
 
-  beforeEach(() => {
+  const resetHighlightHandlerMocks = () => {
     jest.resetAllMocks();
     getActiveNotionToken.mockResolvedValue({ token: 'key1', mode: 'manual' });
     ensureNotionApiKey.mockResolvedValue('key1');
+  };
 
-    // Default mock behaviors for utilities
+  const configureDefaultHighlightHandlerMocks = () => {
     validateContentScriptRequest.mockReturnValue(null);
     validateInternalRequest.mockReturnValue(null);
     isRestrictedInjectionUrl.mockReturnValue(false);
     normalizeUrl.mockImplementation(url => url);
+    mockSecurityUtils.isValidUrl.mockImplementation(
+      url => typeof url === 'string' && url.startsWith('https://')
+    );
+    sanitizeUrlForLogging.mockImplementation(url => {
+      try {
+        return new URL(url).toString();
+      } catch {
+        return url;
+      }
+    });
 
-    // Fix ErrorHandler mock
-    ErrorHandler.formatUserMessage.mockImplementation(ActualErrorHandler.formatUserMessage);
-
-    // Fix sanitizeApiError mock
+    ErrorHandler.formatUserMessage.mockImplementation(error => {
+      const key = error?.message ?? error;
+      return ERROR_MESSAGES.PATTERNS[key] ?? ERROR_MESSAGES.USER_MESSAGES[key] ?? key;
+    });
     sanitizeApiError.mockImplementation(err =>
       typeof err === 'string' ? err : err.message || 'unknown_error'
     );
+  };
 
-    mockServices = {
-      notionService: {
-        updateHighlights: jest.fn(),
-        syncHighlights: jest.fn(),
-        updateHighlightsSection: jest.fn(),
-        checkPageExists: jest.fn(),
-      },
-      storageService: {
-        getHighlighterState: jest.fn(),
-        setHighlighterState: jest.fn(),
-        getSavedPageData: jest.fn(),
-        getHighlights: jest.fn().mockResolvedValue([{ id: 'h1' }, { id: 'h2' }]),
-        getConfig: jest.fn(),
-        updateHighlights: jest.fn(),
-        clearNotionState: jest.fn(),
-        clearNotionStateWithRetry: jest.fn().mockResolvedValue({ cleared: true, attempts: 1 }),
-      },
-      tabService: {
-        getStableUrl: jest.fn().mockResolvedValue('https://example.com/stable'),
-        getPreloaderData: jest.fn().mockResolvedValue(null),
-        confirmRemotePageMissing: jest
-          .fn()
-          .mockReturnValue({ shouldDelete: false, deletionPending: true }),
-        resetRemotePageMissingState: jest
-          .fn()
-          .mockReturnValue({ shouldDelete: false, deletionPending: false }),
-        resolveTabUrl: jest.fn().mockImplementation((_tabId, url) =>
-          Promise.resolve({
-            stableUrl: url,
-            originalUrl: url,
-            migrated: false,
-          })
-        ),
-      },
-      injectionService: {
-        ensureBundleInjected: jest.fn(),
-        injectHighlighter: jest.fn(),
-        collectHighlights: jest.fn(),
-        clearPageHighlights: jest.fn(),
-      },
-      migrationService: {
-        migrateStorageKey: jest.fn().mockResolvedValue(false),
-      },
-    };
+  const createHighlightHandlerMockServices = () => ({
+    notionService: {
+      updateHighlights: jest.fn(),
+      syncHighlights: jest.fn(),
+      updateHighlightsSection: jest.fn(),
+      checkPageExists: jest.fn(),
+    },
+    storageService: {
+      getHighlighterState: jest.fn(),
+      setHighlighterState: jest.fn(),
+      getSavedPageData: jest.fn(),
+      getHighlights: jest.fn().mockResolvedValue([{ id: 'h1' }, { id: 'h2' }]),
+      getConfig: jest.fn(),
+      updateHighlights: jest.fn(),
+      clearNotionState: jest.fn(),
+      clearNotionStateWithRetry: jest.fn().mockResolvedValue({ cleared: true, attempts: 1 }),
+    },
+    tabService: {
+      getStableUrl: jest.fn().mockResolvedValue('https://example.com/stable'),
+      getPreloaderData: jest.fn().mockResolvedValue(null),
+      confirmRemotePageMissing: jest
+        .fn()
+        .mockReturnValue({ shouldDelete: false, deletionPending: true }),
+      resetRemotePageMissingState: jest
+        .fn()
+        .mockReturnValue({ shouldDelete: false, deletionPending: false }),
+      resolveTabUrl: jest.fn().mockImplementation((_tabId, url) =>
+        Promise.resolve({
+          stableUrl: url,
+          originalUrl: url,
+          migrated: false,
+        })
+      ),
+    },
+    injectionService: {
+      ensureBundleInjected: jest.fn(),
+      injectHighlighter: jest.fn(),
+      collectHighlights: jest.fn(),
+      clearPageHighlights: jest.fn(),
+    },
+    migrationService: {
+      migrateStorageKey: jest.fn().mockResolvedValue(false),
+    },
+  });
 
-    // Mock global chrome
+  const installHighlightHandlerChromeMock = () => {
     globalThis.chrome = {
       runtime: { id: TEST_EXTENSION_ID, lastError: null },
       tabs: {
@@ -273,12 +339,33 @@ describe('highlightHandlers', () => {
       },
       action: { setBadgeText: jest.fn() },
     };
+  };
 
+  const installHighlightHandlerLoggerMock = () => {
+    globalThis.Logger = {
+      log: jest.fn(),
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      success: jest.fn(),
+      start: jest.fn(),
+      ready: jest.fn(),
+    };
+  };
+
+  beforeEach(() => {
+    resetHighlightHandlerMocks();
+    configureDefaultHighlightHandlerMocks();
+    mockServices = createHighlightHandlerMockServices();
+    installHighlightHandlerChromeMock();
+    installHighlightHandlerLoggerMock();
     handlers = createHighlightHandlers(mockServices);
   });
 
   afterEach(() => {
     delete globalThis.chrome;
+    delete globalThis.Logger;
     jest.restoreAllMocks();
   });
 
@@ -1037,7 +1124,7 @@ describe('highlightHandlers', () => {
 
   describe('CLEAR_HIGHLIGHTS', () => {
     it('應該拒絕無效的 content script 請求', async () => {
-      expect.hasAssertions();
+      expect.assertions(4);
 
       const validationError = createValidationError('content script 驗證失敗');
       validateContentScriptRequest.mockReturnValueOnce(validationError);
@@ -1046,17 +1133,14 @@ describe('highlightHandlers', () => {
 
       const sendResponse = await executeClearHighlights({ sender });
 
-      expectClearValidationRejected({
-        sendResponse,
-        sender,
-        validationError,
-        validator: validateContentScriptRequest,
-        skippedValidator: validateInternalRequest,
-      });
+      expect(validateContentScriptRequest).toHaveBeenCalledWith(sender);
+      expect(validateInternalRequest).not.toHaveBeenCalled();
+      expect(mockServices.storageService.updateHighlights).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(validationError);
     });
 
     it('應該拒絕無效的 popup/internal 請求', async () => {
-      expect.hasAssertions();
+      expect.assertions(4);
 
       const validationError = createValidationError('internal 驗證失敗');
       validateInternalRequest.mockReturnValueOnce(validationError);
@@ -1066,13 +1150,10 @@ describe('highlightHandlers', () => {
 
       const sendResponse = await executeClearHighlights({ request, sender });
 
-      expectClearValidationRejected({
-        sendResponse,
-        sender,
-        validationError,
-        validator: validateInternalRequest,
-        skippedValidator: validateContentScriptRequest,
-      });
+      expect(validateInternalRequest).toHaveBeenCalledWith(sender);
+      expect(validateContentScriptRequest).not.toHaveBeenCalled();
+      expect(mockServices.storageService.updateHighlights).not.toHaveBeenCalled();
+      expect(sendResponse).toHaveBeenCalledWith(validationError);
     });
 
     it.each([

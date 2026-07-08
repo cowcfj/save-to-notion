@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/no-error-property-assignment, unicorn/no-unnecessary-global-this -- RetryManager keeps static/underscore helper contracts, Error.name checks, and global runtime probes for focused tests and extension compatibility. */
 /**
  * 重試管理器
  * 專門處理網絡請求和異步操作的重試邏輯
@@ -9,28 +10,28 @@ const DOM_TRANSIENT_ERROR_NAMES = new Set(['NotFoundError']);
 const DOM_READY_MESSAGE_FRAGMENTS = ['not ready', 'loading'];
 const DOM_TRANSIENT_MESSAGE_FRAGMENTS = ['not found'];
 
-function hasLogErrorMethod(ref) {
-  if (!ref) {
+function hasLogErrorMethod(reference) {
+  if (!reference) {
     return false;
   }
-  return typeof ref.logError === 'function';
+  return typeof reference.logError === 'function';
 }
 
-function isErrorHandlerInstance(ref) {
-  if (typeof ref !== 'object') {
+function isErrorHandlerInstance(reference) {
+  if (typeof reference !== 'object') {
     return false;
   }
-  return hasLogErrorMethod(ref);
+  return hasLogErrorMethod(reference);
 }
 
-function isErrorHandlerClass(ref) {
-  if (typeof ref !== 'function') {
+function isErrorHandlerClass(reference) {
+  if (typeof reference !== 'function') {
     return false;
   }
-  if (!ref.prototype) {
+  if (!reference.prototype) {
     return false;
   }
-  return hasLogErrorMethod(ref.prototype);
+  return hasLogErrorMethod(reference.prototype);
 }
 
 function messageIncludesAny(message, fragments) {
@@ -48,23 +49,23 @@ function getErrorHandler() {
   }
 
   // 於瀏覽器環境優先使用全域 ErrorHandler，以便在 runtime 覆蓋
-  const ref = globalThis.ErrorHandler; // 避免引用模組級符號造成遮蔽/循環
-  if (!ref) {
+  const reference = globalThis.ErrorHandler; // 避免引用模組級符號造成遮蔽/循環
+  if (!reference) {
     return null;
   }
 
   // 若已是實例（具備 logError 方法）
-  if (isErrorHandlerInstance(ref)) {
-    return ref;
+  if (isErrorHandlerInstance(reference)) {
+    return reference;
   }
 
   // 若是類別（原型上有 logError），則嘗試實例化
-  if (!isErrorHandlerClass(ref)) {
+  if (!isErrorHandlerClass(reference)) {
     return null;
   }
 
   try {
-    return Reflect.construct(ref, []);
+    return Reflect.construct(reference, []);
   } catch {
     return null;
   }
@@ -122,10 +123,10 @@ class RetryManager {
 
       try {
         const result = await operation();
-        this._recordSuccessContext(attempt, config, retryState.totalDelayMs);
+        this.#recordSuccessContext(attempt, config, retryState.totalDelayMs);
         return result;
       } catch (error) {
-        await this._handleFailedAttempt(error, attempt, config, retryState);
+        await this.#handleFailedAttempt(error, attempt, config, retryState);
       }
     }
     // 迴圈內確保了最終會拋出錯誤，此處代碼不可達
@@ -142,9 +143,9 @@ class RetryManager {
     return (url, options = {}) =>
       this.execute(
         async () => {
-          const res = await fetchFunction(url, options);
-          RetryManager._validateFetchResponse(res, retryOptions);
-          return res;
+          const response = await fetchFunction(url, options);
+          RetryManager._validateFetchResponse(response, retryOptions);
+          return response;
         },
         {
           contextType: 'network',
@@ -162,8 +163,8 @@ class RetryManager {
    * @returns {Function} 包裝後的函數
    */
   wrapDomOperation(domOperation, retryOptions = {}) {
-    return (...args) =>
-      this.execute(() => domOperation(...args), {
+    return (...arguments_) =>
+      this.execute(() => domOperation(...arguments_), {
         contextType: 'dom',
         maxRetries: 2, // DOM 操作通常重試次數較少
         baseDelay: 50,
@@ -240,8 +241,8 @@ class RetryManager {
       return true;
     }
 
-    const msg = String(error.message || '');
-    if (msg.includes('fetch')) {
+    const message = String(error.message || '');
+    if (message.includes('fetch')) {
       return true;
     }
 
@@ -262,13 +263,13 @@ class RetryManager {
    */
   static _shouldRetryDomError(error) {
     const name = String(error?.name || '');
-    const msg = String(error?.message || '');
-
     // DOM 還未準備好
     if (DOM_READY_ERROR_NAMES.has(name)) {
       return true;
     }
-    if (messageIncludesAny(msg, DOM_READY_MESSAGE_FRAGMENTS)) {
+
+    const message = String(error?.message || '');
+    if (messageIncludesAny(message, DOM_READY_MESSAGE_FRAGMENTS)) {
       return true;
     }
 
@@ -277,7 +278,7 @@ class RetryManager {
       return true;
     }
 
-    return messageIncludesAny(msg, DOM_TRANSIENT_MESSAGE_FRAGMENTS);
+    return messageIncludesAny(message, DOM_TRANSIENT_MESSAGE_FRAGMENTS);
   }
 
   /**
@@ -298,7 +299,7 @@ class RetryManager {
     // 添加隨機抖動以避免雷群效應（可注入隨機來源以利測試）
     if (config.jitter) {
       const rnd = RetryManager._resolveRandomValue(config);
-      delay = delay * (0.5 + rnd * 0.5);
+      delay *= 0.5 + rnd * 0.5;
     }
 
     return Math.floor(delay);
@@ -328,9 +329,7 @@ class RetryManager {
        */
       const onAbort = () => {
         cleanup();
-        const abortErr = new Error('已取消（AbortSignal）');
-        abortErr.name = 'AbortError';
-        reject(abortErr);
+        reject(RetryManager._createAbortError());
       };
 
       /**
@@ -367,8 +366,8 @@ class RetryManager {
    */
   static _logRetryAttempt({ error, attempt, maxAttempts, delay, contextType = 'network' }) {
     const logger = getLogger();
-    const msg = String(error?.message || '');
-    const message = `[重試] 第 ${attempt}/${maxAttempts} 次，延遲 ${delay}ms：${msg}`;
+    const message_ = String(error?.message || '');
+    const message = `[重試] 第 ${attempt}/${maxAttempts} 次，延遲 ${delay}ms：${message_}`;
 
     // 安全過濾：避免敏感資訊（如 API Key）洩漏到控制台
     const safeError = RetryManager._sanitizeErrorForLog(error);
@@ -440,8 +439,8 @@ class RetryManager {
     }
 
     const logger = getLogger();
-    const msg = String(error?.message || '');
-    const message = `[重試] 失敗（${contextType}），共重試 ${totalRetries} 次：${msg}`;
+    const message_ = String(error?.message || '');
+    const message = `[重試] 失敗（${contextType}），共重試 ${totalRetries} 次：${message_}`;
 
     // 安全過濾
     const safeError = RetryManager._sanitizeErrorForLog(error);
@@ -567,18 +566,24 @@ class RetryManager {
 
   // --- Helpers ---
 
-  async _handleFailedAttempt(error, attempt, config, retryState) {
+  async #handleFailedAttempt(error, attempt, config, retryState) {
     if (attempt > config.maxRetries) {
-      this._recordFailureContext(error, attempt, config, retryState.totalDelayMs);
+      this.#recordFailureContext(error, attempt, config, retryState.totalDelayMs);
       throw error;
     }
     if (!this._shouldRetry(error, config)) {
-      this._recordFailureContext(error, attempt, config, retryState.totalDelayMs);
+      this.#recordFailureContext(error, attempt, config, retryState.totalDelayMs);
       throw error;
     }
 
-    const delay = this._determineDelay(error, attempt, config);
-    this._checkTimeout(retryState.startTime, delay, config, attempt);
+    const delay = this.#determineDelay(error, attempt, config);
+    this.#checkTimeout({
+      startTime: retryState.startTime,
+      delay,
+      config,
+      attempt,
+      totalDelayMs: retryState.totalDelayMs,
+    });
 
     RetryManager._logRetryAttempt({
       error,
@@ -592,7 +597,7 @@ class RetryManager {
     retryState.totalDelayMs += delay;
   }
 
-  _recordSuccessContext(attempt, config, totalDelayMs) {
+  #recordSuccessContext(attempt, config, totalDelayMs) {
     if (attempt > 1) {
       RetryManager._logRetrySuccess(attempt - 1, config.contextType);
     }
@@ -605,7 +610,7 @@ class RetryManager {
     };
   }
 
-  _recordFailureContext(error, attempt, config, totalDelayMs) {
+  #recordFailureContext(error, attempt, config, totalDelayMs) {
     RetryManager._logRetryFailure(error, attempt - 1, config.contextType, config);
     this._lastStats = {
       lastTotalRetries: attempt - 1,
@@ -618,7 +623,7 @@ class RetryManager {
     };
   }
 
-  _determineDelay(error, attempt, config) {
+  #determineDelay(error, attempt, config) {
     const retryAfter = Number(error?.retryAfterMs);
     if (Number.isFinite(retryAfter) && retryAfter >= 0) {
       return retryAfter;
@@ -626,22 +631,24 @@ class RetryManager {
     return RetryManager._calculateDelay(attempt, config);
   }
 
-  _checkTimeout(startTime, delay, config, attempt) {
-    if (typeof config.totalTimeoutMs === 'number') {
-      const elapsed = Date.now() - startTime;
-      if (elapsed + delay > config.totalTimeoutMs) {
-        const timeoutErr = new Error('重試總時長已超時');
-        timeoutErr.name = 'TimeoutError';
-        RetryManager._logRetryFailure(timeoutErr, attempt - 1, config.contextType, config);
-        throw timeoutErr;
-      }
+  #checkTimeout({ startTime, delay, config, attempt, totalDelayMs }) {
+    if (typeof config.totalTimeoutMs !== 'number') {
+      return;
+    }
+
+    const elapsed = Date.now() - startTime;
+    if (elapsed + delay > config.totalTimeoutMs) {
+      const timeoutError = new Error('重試總時長已超時');
+      timeoutError.name = 'TimeoutError';
+      this.#recordFailureContext(timeoutError, attempt, config, totalDelayMs);
+      throw timeoutError;
     }
   }
 
   static _createAbortError() {
-    const abortErr = new Error('已取消（AbortSignal）');
-    abortErr.name = 'AbortError';
-    return abortErr;
+    const abortError = new Error('已取消（AbortSignal）');
+    abortError.name = 'AbortError';
+    return abortError;
   }
 
   static _throwIfAborted(signal) {
@@ -654,22 +661,22 @@ class RetryManager {
     throw RetryManager._createAbortError();
   }
 
-  static _validateFetchResponse(res, retryOptions) {
-    const status = RetryManager._getResponseStatus(res);
+  static _validateFetchResponse(response, retryOptions) {
+    const status = RetryManager._getResponseStatus(response);
     if (status === null) {
       return;
     }
 
-    if (!RetryManager._shouldRetryFetchResponse(res, status, retryOptions)) {
+    if (!RetryManager._shouldRetryFetchResponse(response, status, retryOptions)) {
       return;
     }
 
-    throw RetryManager._createRetryableHttpError(status, res);
+    throw RetryManager._createRetryableHttpError(status, response);
   }
 
-  static _parseRetryAfterHeader(res) {
+  static _parseRetryAfterHeader(response) {
     try {
-      const ra = RetryManager._getRetryAfterHeader(res);
+      const ra = RetryManager._getRetryAfterHeader(response);
       if (!ra) {
         return 0;
       }
@@ -731,48 +738,48 @@ class RetryManager {
     return RetryManager._random();
   }
 
-  static _getResponseStatus(res) {
-    if (!res) {
+  static _getResponseStatus(response) {
+    if (!response) {
       return null;
     }
-    if (typeof res.status !== 'number') {
+    if (typeof response.status !== 'number') {
       return null;
     }
-    return res.status;
+    return response.status;
   }
 
-  static _shouldRetryFetchResponse(res, status, retryOptions = {}) {
+  static _shouldRetryFetchResponse(response, status, retryOptions = {}) {
     const isDefaultRetryable = RetryManager._isRetryableHttpStatus(status);
     if (typeof retryOptions.shouldRetryResponse !== 'function') {
       return isDefaultRetryable;
     }
 
     try {
-      return Boolean(retryOptions.shouldRetryResponse(res));
+      return Boolean(retryOptions.shouldRetryResponse(response));
     } catch {
       return isDefaultRetryable;
     }
   }
 
-  static _createRetryableHttpError(status, res) {
-    const err = new Error(`可重試的 HTTP 狀態：${status}`);
-    err.name = 'HttpError';
-    err.status = status;
-    err.response = res;
+  static _createRetryableHttpError(status, response) {
+    const error = new Error(`可重試的 HTTP 狀態：${status}`);
+    error.name = 'HttpError';
+    error.status = status;
+    error.response = response;
 
-    const retryAfterMs = RetryManager._parseRetryAfterHeader(res);
+    const retryAfterMs = RetryManager._parseRetryAfterHeader(response);
     if (retryAfterMs > 0) {
-      err.retryAfterMs = retryAfterMs;
+      error.retryAfterMs = retryAfterMs;
     }
 
-    return err;
+    return error;
   }
 
-  static _getRetryAfterHeader(res) {
-    if (!res) {
+  static _getRetryAfterHeader(response) {
+    if (!response) {
       return null;
     }
-    const { headers } = res;
+    const { headers } = response;
     if (!headers) {
       return null;
     }
@@ -818,9 +825,9 @@ const defaultRetryManager = new RetryManager();
  * @param {object} options - 重試選項
  * @returns {Promise<*>} 操作結果
  */
-function withRetry(operation, options = {}) {
+const withRetry = (operation, options = {}) => {
   return defaultRetryManager.execute(operation, options);
-}
+};
 
 /**
  * 為 fetch 添加重試機制
@@ -830,16 +837,9 @@ function withRetry(operation, options = {}) {
  * @param {object} retryOptions - 重試選項
  * @returns {Promise<Response>} fetch 響應
  */
-function fetchWithRetry(url, options = {}, retryOptions = {}) {
+const fetchWithRetry = (url, options = {}, retryOptions = {}) => {
   const retryManager = new RetryManager();
   return retryManager.wrapFetch(fetch, retryOptions)(url, options);
-}
+};
 
-// 導出類和函數
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { RetryManager, withRetry, fetchWithRetry };
-} else {
-  globalThis.RetryManager = RetryManager;
-  globalThis.withRetry = withRetry;
-  globalThis.fetchWithRetry = fetchWithRetry;
-}
+export { RetryManager, withRetry, fetchWithRetry };

@@ -20,6 +20,7 @@ import { isNonEmptyString } from '../utils/notionAuth.js';
 import { BUILD_ENV } from '../config/env/index.js';
 
 const OAUTH_STATE_STORAGE_KEY = 'oauthState';
+const REQUIRED_IDENTITY_METHODS = ['getRedirectURL', 'launchWebAuthFlow'];
 
 /**
  * 檢查 chrome.identity API 是否可用。
@@ -27,13 +28,9 @@ const OAUTH_STATE_STORAGE_KEY = 'oauthState';
  * @throws {Error & { code: 'OAUTH_IDENTITY_UNAVAILABLE' }}
  */
 function checkIdentityApi() {
-  const missingIdentityApi = [];
-  if (typeof chrome?.identity?.getRedirectURL !== 'function') {
-    missingIdentityApi.push('getRedirectURL');
-  }
-  if (typeof chrome?.identity?.launchWebAuthFlow !== 'function') {
-    missingIdentityApi.push('launchWebAuthFlow');
-  }
+  const missingIdentityApi = REQUIRED_IDENTITY_METHODS.filter(
+    method => typeof chrome?.identity?.[method] !== 'function'
+  );
   if (missingIdentityApi.length > 0) {
     Logger.error('[Auth] OAuth Identity API 不可用', {
       action: 'initiateNotionOAuth',
@@ -45,6 +42,94 @@ function checkIdentityApi() {
     unavailableError.code = 'OAUTH_IDENTITY_UNAVAILABLE';
     throw unavailableError;
   }
+}
+
+/**
+ * 驗證 OAuth 用戶端配置是否存在。
+ *
+ * @throws {Error & { code: 'OAUTH_MISSING_CLIENT_ID' }}
+ */
+function assertClientConfig() {
+  if (!isNonEmptyString(BUILD_ENV.OAUTH_CLIENT_ID)) {
+    Logger.error('[Auth] OAuth Client ID 未設定', {
+      action: 'initiateNotionOAuth',
+      missingBuildEnvKeys: ['OAUTH_CLIENT_ID'],
+    });
+    const configError = new Error('OAUTH_CLIENT_ID is not configured');
+    configError.code = 'OAUTH_MISSING_CLIENT_ID';
+    throw configError;
+  }
+}
+
+/**
+ * 建立 Notion 授權 URL。
+ *
+ * @param {string} redirectUri
+ * @param {string} csrfState
+ * @returns {string}
+ */
+function buildAuthorizeUrl(redirectUri, csrfState) {
+  return (
+    `https://api.notion.com/v1/oauth/authorize?` +
+    `client_id=${encodeURIComponent(BUILD_ENV.OAUTH_CLIENT_ID)}&` +
+    `response_type=code&owner=user&` +
+    `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+    `state=${encodeURIComponent(csrfState)}`
+  );
+}
+
+/**
+ * 確保 callbackUrl 存在。
+ *
+ * @param {string | undefined} callbackUrl
+ * @throws {Error & { code: 'OAUTH_FLOW_CANCELLED' }}
+ */
+function ensureCallbackUrl(callbackUrl) {
+  if (!callbackUrl) {
+    const cancelledError = new Error('OAuth flow cancelled or no callback URL returned');
+    cancelledError.code = 'OAUTH_FLOW_CANCELLED';
+    throw cancelledError;
+  }
+}
+
+/**
+ * 驗證 CSRF state 是否匹配。
+ *
+ * @param {string | null} returnedState
+ * @param {any} storedState
+ * @throws {Error & { code: 'OAUTH_CSRF_MISMATCH' }}
+ */
+function validateCsrfState(returnedState, storedState) {
+  if (returnedState !== storedState[OAUTH_STATE_STORAGE_KEY]) {
+    const csrfError = new Error('CSRF state mismatch');
+    csrfError.code = 'OAUTH_CSRF_MISMATCH';
+    throw csrfError;
+  }
+}
+
+/**
+ * 自 callback URL 中解析並驗證 code。
+ *
+ * @param {URL} url
+ * @param {string} csrfState
+ * @param {string} redirectUri
+ * @returns {NotionOAuthAuthorizeResult}
+ */
+function extractAndValidateCode(url, csrfState, redirectUri) {
+  const code = url.searchParams.get('code');
+  if (!code) {
+    const errorParam = url.searchParams.get('error');
+    Logger.error('[Auth] Notion OAuth callback 錯誤', {
+      action: 'initiateNotionOAuth',
+      oauthError: errorParam || 'no_error_param',
+    });
+    const callbackError = new Error(`Notion OAuth callback error: ${errorParam || 'unknown'}`, {
+      cause: errorParam || 'unknown',
+    });
+    callbackError.code = 'OAUTH_CALLBACK_ERROR';
+    throw callbackError;
+  }
+  return { code, redirectUri, csrfState };
 }
 
 /**
@@ -60,7 +145,7 @@ function checkIdentityApi() {
  * Caller 應自行處理：
  * - UI loading 狀態
  * - 失敗時 UI 反應
- * - token 交換（將 code 送到 worker）
+ * - token exchange（將 code 送到 worker）
  * - token 落地（寫 chrome.storage.local）
  * - 清理 oauthState（chrome.storage.session）
  *
@@ -70,16 +155,7 @@ function checkIdentityApi() {
  */
 export async function initiateNotionOAuth() {
   checkIdentityApi();
-
-  if (!isNonEmptyString(BUILD_ENV.OAUTH_CLIENT_ID)) {
-    Logger.error('[Auth] OAuth Client ID 未設定', {
-      action: 'initiateNotionOAuth',
-      missingBuildEnvKeys: ['OAUTH_CLIENT_ID'],
-    });
-    const configError = new Error('OAUTH_CLIENT_ID is not configured');
-    configError.code = 'OAUTH_MISSING_CLIENT_ID';
-    throw configError;
-  }
+  assertClientConfig();
 
   // 1. 產生 CSRF state 並暫存
   const csrfState = crypto.randomUUID();
@@ -89,12 +165,7 @@ export async function initiateNotionOAuth() {
   const redirectUri = chrome.identity.getRedirectURL();
 
   // 3. 組成 Notion 授權 URL
-  const authUrl =
-    `https://api.notion.com/v1/oauth/authorize?` +
-    `client_id=${encodeURIComponent(BUILD_ENV.OAUTH_CLIENT_ID)}&` +
-    `response_type=code&owner=user&` +
-    `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-    `state=${encodeURIComponent(csrfState)}`;
+  const authUrl = buildAuthorizeUrl(redirectUri, csrfState);
 
   // 4. 啟動 OAuth 流程
   const callbackUrl = await chrome.identity.launchWebAuthFlow({
@@ -102,36 +173,16 @@ export async function initiateNotionOAuth() {
     interactive: true,
   });
 
-  if (!callbackUrl) {
-    const cancelledError = new Error('OAuth flow cancelled or no callback URL returned');
-    cancelledError.code = 'OAUTH_FLOW_CANCELLED';
-    throw cancelledError;
-  }
+  ensureCallbackUrl(callbackUrl);
 
   // 5. 解析 callback URL
   const url = new URL(callbackUrl);
-  const code = url.searchParams.get('code');
   const returnedState = url.searchParams.get('state');
 
   // 6. 驗證 CSRF state
   const storedState = await chrome.storage.session.get(OAUTH_STATE_STORAGE_KEY);
-  if (returnedState !== storedState[OAUTH_STATE_STORAGE_KEY]) {
-    const csrfError = new Error('CSRF state mismatch');
-    csrfError.code = 'OAUTH_CSRF_MISMATCH';
-    throw csrfError;
-  }
+  validateCsrfState(returnedState, storedState);
 
-  if (!code) {
-    const errorParam = url.searchParams.get('error');
-    Logger.error('[Auth] Notion OAuth callback 錯誤', {
-      action: 'initiateNotionOAuth',
-      oauthError: errorParam || 'no_error_param',
-    });
-    const callbackError = new Error(`Notion OAuth callback error: ${errorParam || 'unknown'}`);
-    callbackError.code = 'OAUTH_CALLBACK_ERROR';
-    callbackError.cause = errorParam || 'unknown';
-    throw callbackError;
-  }
-
-  return { code, redirectUri, csrfState };
+  // 7. 解析並驗證 code
+  return extractAndValidateCode(url, csrfState, redirectUri);
 }

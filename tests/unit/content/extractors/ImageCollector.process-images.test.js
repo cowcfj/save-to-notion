@@ -3,13 +3,25 @@
  */
 
 import {
-  imageCollectorTestModules,
+  importImageCollectorTestModules,
   setupImageCollectorTestLifecycle,
   trackSpy,
 } from './ImageCollectorTestSetup.js';
 
-const { ImageCollector, batchProcessWithRetry, Logger, extractImageSrc, isValidCleanedImageUrl } =
-  imageCollectorTestModules;
+let ImageCollector;
+let batchProcessWithRetry;
+let Logger;
+let extractImageSrc;
+let isValidCleanedImageUrl;
+
+beforeAll(async () => {
+  const modules = await importImageCollectorTestModules();
+  ImageCollector = modules.ImageCollector;
+  batchProcessWithRetry = modules.batchProcessWithRetry;
+  Logger = modules.Logger;
+  extractImageSrc = modules.extractImageSrc;
+  isValidCleanedImageUrl = modules.isValidCleanedImageUrl;
+});
 
 describe('ImageCollector process images', () => {
   setupImageCollectorTestLifecycle();

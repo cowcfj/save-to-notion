@@ -1,4 +1,6 @@
 /**
+ * @jest-environment jsdom
+ *
  * FloatingRailRuntime.js 單元測試
  *
  * 直接 import 真實模組（不可 jest.mock），覆蓋：

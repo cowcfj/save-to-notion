@@ -1,5 +1,10 @@
-import { LogBufferPersistence } from '../../../scripts/utils/LogBufferPersistence.js';
-import { LogBuffer } from '../../../scripts/utils/LogBuffer.js';
+let LogBufferPersistence;
+let LogBuffer;
+
+beforeAll(async () => {
+  ({ LogBufferPersistence } = await import('../../../scripts/utils/LogBufferPersistence.js'));
+  ({ LogBuffer } = await import('../../../scripts/utils/LogBuffer.js'));
+});
 
 const mockStorage = {};
 const mockAlarmListeners = [];

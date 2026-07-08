@@ -92,7 +92,7 @@ function resolveSettingsAuthState(syncResult, localResult) {
     localResult.notionAuthMode === AuthMode.OAUTH && localResult.notionOAuthToken
   );
   const hasManualApiKey = Boolean(syncResult.notionApiKey);
-  const hasAuth = Boolean(hasManualApiKey || isOAuth);
+  const hasAuth = hasManualApiKey || isOAuth;
   return { isOAuth, hasManualApiKey, hasAuth };
 }
 

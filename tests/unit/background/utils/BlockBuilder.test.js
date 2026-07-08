@@ -4,75 +4,47 @@
  * 測試 Notion 區塊構建工具函數
  */
 
-const fs = require('node:fs');
-const Module = require('node:module');
-const path = require('node:path');
-const vm = require('node:vm');
-const { transformSync } = require('@babel/core');
+let MAX_TEXT_LENGTH;
+let createRichText;
+let createParagraph;
+let createHeading;
+let createImage;
+let createCodeBlock;
+let createBulletItem;
+let createNumberedItem;
+let createQuote;
+let createDivider;
+let buildHighlightBlocks;
+let splitTextForHighlight;
+let textToParagraphs;
+let createFallbackBlocks;
+let isValidBlock;
+let NOTION_CODE_LANGUAGE_PLAIN_TEXT;
+let EXTRACTION_FALLBACK_MESSAGES;
 
-const {
-  MAX_TEXT_LENGTH,
-  createRichText,
-  createParagraph,
-  createHeading,
-  createImage,
-  createCodeBlock,
-  createBulletItem,
-  createNumberedItem,
-  createQuote,
-  createDivider,
-  buildHighlightBlocks,
-  splitTextForHighlight,
-  textToParagraphs,
-  createFallbackBlocks,
-  isValidBlock,
-} = require('../../../../scripts/background/utils/BlockBuilder');
-const {
-  NOTION_CODE_LANGUAGE_PLAIN_TEXT,
-} = require('../../../../scripts/config/shared/notionCodeLanguages.js');
-const {
-  EXTRACTION_FALLBACK_MESSAGES,
-} = require('../../../../scripts/config/messages/extractionFallbackMessages.js');
-
-const blockBuilderPath = path.resolve(
-  __dirname,
-  '../../../../scripts/background/utils/BlockBuilder.js'
-);
-
-function loadBlockBuilderInVm() {
-  const source = fs.readFileSync(blockBuilderPath, 'utf8');
-  const transformed = transformSync(source, {
-    filename: blockBuilderPath,
-    sourceType: 'unambiguous',
-    presets: [['@babel/preset-env', { targets: { node: 'current' }, modules: 'commonjs' }]],
-  });
-
-  const module = { exports: {} };
-  const localRequire = Module.createRequire(blockBuilderPath);
-  const dirname = path.dirname(blockBuilderPath);
-  const context = vm.createContext({
-    console,
-    process,
-    globalThis: {},
-    exports: module.exports,
-    module,
-    require: localRequire,
-    __filename: blockBuilderPath,
-    __dirname: dirname,
-  });
-
-  // eslint-disable-next-line sonarjs/code-eval -- Intentional VM execution of transformed local module code for isolated NaN parameter testing.
-  const wrapper = new vm.Script(
-    `(function (exports, require, module, __filename, __dirname) { ${transformed.code}\n})`,
-    {
-      filename: blockBuilderPath,
-    }
-  ).runInContext(context, { timeout: 1000 });
-
-  wrapper(module.exports, localRequire, module, blockBuilderPath, dirname);
-
-  return { context, exports: module.exports };
-}
+beforeAll(async () => {
+  ({
+    MAX_TEXT_LENGTH,
+    createRichText,
+    createParagraph,
+    createHeading,
+    createImage,
+    createCodeBlock,
+    createBulletItem,
+    createNumberedItem,
+    createQuote,
+    createDivider,
+    buildHighlightBlocks,
+    splitTextForHighlight,
+    textToParagraphs,
+    createFallbackBlocks,
+    isValidBlock,
+  } = await import('../../../../scripts/background/utils/BlockBuilder.js'));
+  ({ NOTION_CODE_LANGUAGE_PLAIN_TEXT } =
+    await import('../../../../scripts/config/shared/notionCodeLanguages.js'));
+  ({ EXTRACTION_FALLBACK_MESSAGES } =
+    await import('../../../../scripts/config/messages/extractionFallbackMessages.js'));
+});
 
 describe('BlockBuilder', () => {
   describe('createRichText', () => {
@@ -275,18 +247,7 @@ describe('BlockBuilder', () => {
     });
 
     test('maxLength 為 NaN 時應安全回退並返回原文', () => {
-      const { context, exports } = loadBlockBuilderInVm();
-      context.__splitTextForHighlight = exports.splitTextForHighlight;
-
-      // Intentional VM-based execution for isolated NaN parameter testing (SonarQube: sonarjs/code-eval)
-
-      new vm.Script(
-        "globalThis.__result = __splitTextForHighlight('需要保留的文字', Number.NaN);"
-      ).runInContext(context, {
-        timeout: 1000,
-      });
-
-      expect(context.globalThis.__result).toEqual(['需要保留的文字']);
+      expect(splitTextForHighlight('需要保留的文字', Number.NaN)).toEqual(['需要保留的文字']);
     });
   });
 

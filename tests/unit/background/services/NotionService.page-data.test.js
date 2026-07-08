@@ -1,22 +1,70 @@
 // NotionService.page-data.test.js
 // 1. Mocks MUST be at the very top
+import { jest } from '@jest/globals';
+
+const createTestLoggerMock = (overrides = {}) => ({
+  debugEnabled: false,
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+  info: jest.fn(),
+  debug: jest.fn(),
+  log: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  getBuffer: jest.fn(() => []),
+  addLogToBuffer: jest.fn(),
+  ...overrides,
+});
+
+const mockGetActiveNotionToken = jest.fn();
+const mockRefreshOAuthToken = jest.fn();
+
 jest.mock('../../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
-  default: require('../../../helpers/loggerMock.js').createLoggerMock({
+  default: createTestLoggerMock({
     debugEnabled: true,
   }),
 }));
 
 jest.mock('../../../../scripts/utils/notionAuth.js', () => ({
-  getActiveNotionToken: jest.fn(),
-  refreshOAuthToken: jest.fn(),
+  getActiveNotionToken: mockGetActiveNotionToken,
+  refreshOAuthToken: mockRefreshOAuthToken,
 }));
 
-import { NotionService } from '../../../../scripts/background/services/NotionService.js';
-import { CONTENT_QUALITY } from '../../../../scripts/config/index.js';
-import { NOTION_API } from '../../../../scripts/config/extension/notionApi.js';
-import { getActiveNotionToken, refreshOAuthToken } from '../../../../scripts/utils/notionAuth.js';
-import { buildPageDataOptions } from '../../../helpers/notionServiceTestHarness.js';
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('../../../../scripts/utils/Logger.js', () => ({
+    default: createTestLoggerMock({
+      debugEnabled: true,
+    }),
+  }));
+  jest.unstable_mockModule('../../../../scripts/utils/notionAuth.js', () => ({
+    getActiveNotionToken: mockGetActiveNotionToken,
+    refreshOAuthToken: mockRefreshOAuthToken,
+  }));
+}
+
+let NotionService;
+let CONTENT_QUALITY;
+let NOTION_API;
+let getActiveNotionToken;
+let refreshOAuthToken;
+
+beforeAll(async () => {
+  ({ NotionService } = await import('../../../../scripts/background/services/NotionService.js'));
+  ({ CONTENT_QUALITY } = await import('../../../../scripts/config/index.js'));
+  ({ NOTION_API } = await import('../../../../scripts/config/extension/notionApi.js'));
+  ({ getActiveNotionToken, refreshOAuthToken } =
+    await import('../../../../scripts/utils/notionAuth.js'));
+});
+
+const buildPageDataOptions = (overrides = {}) => ({
+  title: 'Test Title',
+  pageUrl: 'https://example.com/test',
+  dataSourceId: 'ds-123',
+  blocks: [],
+  ...overrides,
+});
 
 const createMockResponse = (data, ok = true, status = 200) => ({
   ok,
@@ -41,7 +89,7 @@ describe('NotionService - Page Data and Request Body', () => {
     jest.clearAllMocks();
     getActiveNotionToken.mockResolvedValue({ token: 'test-api-key', mode: 'manual' });
     refreshOAuthToken.mockResolvedValue(null);
-    mockLogger = require('../../../helpers/loggerMock.js').createLoggerMock({
+    mockLogger = createTestLoggerMock({
       debugEnabled: true,
     });
     globalThis.fetch = jest.fn().mockResolvedValue(mockFetchResponse);
@@ -58,36 +106,6 @@ describe('NotionService - Page Data and Request Body', () => {
   });
 
   const buildPageData = (overrides = {}) => service.buildPageData(buildPageDataOptions(overrides));
-
-  const expectExternalFile = (value, url) => {
-    expect(value).toEqual({
-      type: 'external',
-      external: { url },
-    });
-  };
-
-  const expectFetchRequest = expectedOptions => {
-    expect(globalThis.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/test'),
-      expectedOptions
-    );
-  };
-
-  const expectFetchWithoutBody = () => {
-    expectFetchRequest(
-      expect.not.objectContaining({
-        body: expect.anything(),
-      })
-    );
-  };
-
-  const expectFetchBody = body => {
-    expectFetchRequest(
-      expect.objectContaining({
-        body: JSON.stringify(body),
-      })
-    );
-  };
 
   describe('buildPageData', () => {
     it.each([
@@ -144,23 +162,25 @@ describe('NotionService - Page Data and Request Body', () => {
     });
 
     it('當提供時應該加入網站圖示', () => {
-      expect.hasAssertions();
-
       const url = 'https://example.com/icon.png';
 
       const result = buildPageData({ siteIcon: url });
 
-      expectExternalFile(result.pageData.icon, url);
+      expect(result.pageData.icon).toEqual({
+        type: 'external',
+        external: { url },
+      });
     });
 
     it('應該為一般 https URL 設定 page cover', () => {
-      expect.hasAssertions();
-
       const url = 'https://example.com/cover.jpg';
 
       const result = buildPageData({ coverImage: url });
 
-      expectExternalFile(result.pageData.cover, url);
+      expect(result.pageData.cover).toEqual({
+        type: 'external',
+        external: { url },
+      });
     });
 
     it('應該忽略非字串 coverImage 而不拋出錯誤', () => {
@@ -227,22 +247,28 @@ describe('NotionService - Page Data and Request Body', () => {
     it.each([{ desc: 'body 為 undefined', body: undefined }])(
       '應該在 $desc 時不包含 body',
       async ({ body }) => {
-        expect.hasAssertions();
-
         await service._apiRequest('/test', { method: 'POST', body });
 
-        expectFetchWithoutBody();
+        expect(globalThis.fetch).toHaveBeenCalledWith(
+          expect.stringContaining('/test'),
+          expect.not.objectContaining({
+            body: expect.anything(),
+          })
+        );
       }
     );
 
     it('應該正常處理普通對象 body', async () => {
-      expect.hasAssertions();
-
       const body = { key: 'value' };
 
       await service._apiRequest('/test', { method: 'POST', body });
 
-      expectFetchBody(body);
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/test'),
+        expect.objectContaining({
+          body: JSON.stringify(body),
+        })
+      );
     });
   });
 });

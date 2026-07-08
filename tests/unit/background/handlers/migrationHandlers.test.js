@@ -10,16 +10,39 @@
  * 重點測試安全性驗證邏輯 validatePrivilegedRequest
  */
 
-import { createMigrationHandlers } from '../../../../scripts/background/handlers/migrationHandlers.js';
+import { jest } from '@jest/globals';
 import { BACKGROUND_MESSAGES } from '../../../../scripts/config/messages/backgroundMessages.js';
 import { sanitizeUrlForLogging } from '../../../../scripts/utils/LogSanitizer.js';
-import { computeStableUrl } from '../../../../scripts/utils/urlUtils.js';
 
-jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
+const mockUrlUtils = {
   computeStableUrl: jest.fn(),
-}));
+};
+
+if (process.env.NODE_OPTIONS?.includes('--experimental-vm-modules')) {
+  jest.unstable_mockModule('../../../../scripts/utils/urlUtils.js', () => mockUrlUtils);
+} else {
+  jest.mock('../../../../scripts/utils/urlUtils.js', () => mockUrlUtils);
+}
+
+let createMigrationHandlers;
+let computeStableUrl;
+
+beforeAll(async () => {
+  ({ createMigrationHandlers } =
+    await import('../../../../scripts/background/handlers/migrationHandlers.js'));
+  ({ computeStableUrl } = await import('../../../../scripts/utils/urlUtils.js'));
+});
 
 // Mock Logger
+const Logger = (globalThis.Logger = {
+  start: jest.fn(),
+  success: jest.fn(),
+  ready: jest.fn(),
+  info: jest.fn(),
+  log: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+});
 
 // Mock chrome API
 
@@ -33,9 +56,25 @@ describe('migrationHandlers', () => {
   let mockServices = null;
   let mockStorageService = null;
   let mockMigrationScanner = null;
+  const invalidSender = { id: 'invalid-sender' };
+
+  const expectPrivilegedRequestRejected = async (handlerName, request) => {
+    const sendResponse = jest.fn();
+
+    await handlers[handlerName](request, invalidSender, sendResponse);
+
+    expect(sendResponse).toHaveBeenCalledWith(
+      expect.objectContaining({ error: expect.stringContaining('拒絕訪問') })
+    );
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
+    globalThis.chrome = {
+      runtime: {
+        id: 'mock-extension-id',
+      },
+    };
     computeStableUrl.mockReturnValue(null); // 預設不返回穩定 URL
 
     // StorageService mock（Phase 1+2 後所有 handler 均使用此服務）
@@ -63,6 +102,10 @@ describe('migrationHandlers', () => {
       migrationScanner: mockMigrationScanner,
     };
     handlers = createMigrationHandlers(mockServices);
+  });
+
+  afterEach(() => {
+    delete globalThis.chrome;
   });
 
   describe('validatePrivilegedRequest Security Checks', () => {
@@ -536,15 +579,31 @@ describe('migrationHandlers', () => {
     });
   });
 
-  describe('migration_get_pending', () => {
-    test('安全性驗證失敗時應回傳錯誤', async () => {
-      const sendResponse = jest.fn();
-      await handlers.migration_get_pending({}, { id: 'invalid-sender' }, sendResponse);
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ error: expect.stringContaining('拒絕訪問') })
-      );
-    });
+  describe('privileged request rejection', () => {
+    test.each([
+      {
+        scenario: 'migration_get_pending',
+        handlerName: 'migration_get_pending',
+        request: {},
+      },
+      {
+        scenario: 'migration_delete_failed',
+        handlerName: 'migration_delete_failed',
+        request: { url: 'https://example.com' },
+      },
+      {
+        scenario: 'migration_batch_delete',
+        handlerName: 'migration_batch_delete',
+        request: { urls: ['https://example.com'] },
+      },
+    ])('$scenario 安全性驗證失敗時應回傳錯誤', async ({ handlerName, request }) => {
+      expect.hasAssertions();
 
+      await expectPrivilegedRequestRejected(handlerName, request);
+    });
+  });
+
+  describe('migration_get_pending', () => {
     test('應該正確回收待處理和失敗的項目', async () => {
       const sendResponse = jest.fn();
 
@@ -582,18 +641,6 @@ describe('migrationHandlers', () => {
   });
 
   describe('migration_delete_failed', () => {
-    test('安全性驗證失敗時應回傳錯誤', async () => {
-      const sendResponse = jest.fn();
-      await handlers.migration_delete_failed(
-        { url: 'https://example.com' },
-        { id: 'invalid-sender' },
-        sendResponse
-      );
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ error: expect.stringContaining('拒絕訪問') })
-      );
-    });
-
     test('應該只刪除標記為失敗的標註', async () => {
       const url = 'https://example.com/mixed';
       const sendResponse = jest.fn();
@@ -639,55 +686,54 @@ describe('migrationHandlers', () => {
       );
     });
 
-    test('如果沒有提供 url 應回傳錯誤', async () => {
+    test.each([
+      {
+        scenario: '如果沒有提供 url 應回傳錯誤',
+        request: {},
+        expectedError: '缺少 URL',
+      },
+      {
+        scenario: '如果找不到對應的標註資料應回傳錯誤',
+        request: { url: 'https://no.data' },
+        setup: () => mockStorageService.getHighlights.mockResolvedValue(null),
+        expectedError: '標註數據',
+      },
+      {
+        scenario: '如果存儲服務拋出錯誤，應該捕捉並回傳錯誤訊息',
+        request: { url: 'https://error.com' },
+        setup: () =>
+          mockStorageService.getHighlights.mockRejectedValue(new Error('Storage exception')),
+        expectedError: '發生未知錯誤',
+      },
+    ])('$scenario', async ({ request, setup, expectedError }) => {
       const sendResponse = jest.fn();
-      await handlers.migration_delete_failed({}, defaultSender, sendResponse);
+      setup?.();
+
+      await handlers.migration_delete_failed(request, defaultSender, sendResponse);
+
       expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false, error: expect.stringContaining('缺少 URL') })
-      );
-    });
-
-    test('如果找不到對應的標註資料應回傳錯誤', async () => {
-      const sendResponse = jest.fn();
-      mockStorageService.getHighlights.mockResolvedValue(null);
-
-      await handlers.migration_delete_failed(
-        { url: 'https://no.data' },
-        defaultSender,
-        sendResponse
-      );
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false, error: expect.stringContaining('標註數據') })
-      );
-    });
-
-    test('如果存儲服務拋出錯誤，應該捕捉並回傳錯誤訊息', async () => {
-      const sendResponse = jest.fn();
-      mockStorageService.getHighlights.mockRejectedValue(new Error('Storage exception'));
-
-      await handlers.migration_delete_failed(
-        { url: 'https://error.com' },
-        defaultSender,
-        sendResponse
-      );
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ success: false, error: expect.stringContaining('發生未知錯誤') })
+        expect.objectContaining({ success: false, error: expect.stringContaining(expectedError) })
       );
     });
   });
 
   describe('migration_batch_delete', () => {
-    test('安全性驗證失敗時應回傳錯誤', async () => {
+    const setupBatchDeletePartialFailure = () => {
+      const urls = [
+        'https://cleanup.example.com/one',
+        'https://cleanup.example.com/two',
+        'https://cleanup.example.com/three',
+      ];
       const sendResponse = jest.fn();
-      await handlers.migration_batch_delete(
-        { urls: ['https://example.com'] },
-        { id: 'invalid-sender' },
-        sendResponse
-      );
-      expect(sendResponse).toHaveBeenCalledWith(
-        expect.objectContaining({ error: expect.stringContaining('拒絕訪問') })
-      );
-    });
+
+      mockStorageService.clearLegacyKeys.mockImplementation(async url => {
+        if (url === urls[1]) {
+          throw new Error('cleanup failed');
+        }
+      });
+
+      return { urls, sendResponse };
+    };
 
     test('應該成功批量刪除多個 URL 的數據', async () => {
       const urls = ['https://del1.com', 'https://del2.com'];
@@ -734,18 +780,7 @@ describe('migrationHandlers', () => {
     });
 
     test('單一 URL 清理失敗時仍應嘗試其他 URL 並回傳 partial results', async () => {
-      const urls = [
-        'https://cleanup.example.com/one',
-        'https://cleanup.example.com/two',
-        'https://cleanup.example.com/three',
-      ];
-      const sendResponse = jest.fn();
-
-      mockStorageService.clearLegacyKeys.mockImplementation(async url => {
-        if (url === urls[1]) {
-          throw new Error('cleanup failed');
-        }
-      });
+      const { urls, sendResponse } = setupBatchDeletePartialFailure();
 
       await handlers.migration_batch_delete({ urls }, defaultSender, sendResponse);
 
@@ -769,18 +804,7 @@ describe('migrationHandlers', () => {
     });
 
     test('partial failure 應回傳結構化 results 並保留成功項目狀態', async () => {
-      const urls = [
-        'https://cleanup.example.com/one',
-        'https://cleanup.example.com/two',
-        'https://cleanup.example.com/three',
-      ];
-      const sendResponse = jest.fn();
-
-      mockStorageService.clearLegacyKeys.mockImplementation(async url => {
-        if (url === urls[1]) {
-          throw new Error('cleanup failed');
-        }
-      });
+      const { urls, sendResponse } = setupBatchDeletePartialFailure();
 
       await handlers.migration_batch_delete({ urls }, defaultSender, sendResponse);
 

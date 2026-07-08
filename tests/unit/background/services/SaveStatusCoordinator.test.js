@@ -1,4 +1,4 @@
-import { buildSavedPageData } from '../../../helpers/status-fixtures.js';
+import { buildSavedPageData } from './serviceTestSupport.js';
 import { resolveSaveStatus } from '../../../../scripts/background/services/SaveStatusCoordinator.js';
 
 describe('SaveStatusCoordinator', () => {
@@ -41,6 +41,22 @@ describe('SaveStatusCoordinator', () => {
       forceRefresh: false,
     };
   });
+
+  const resolveCleanupSkippedStatus = async ({ reason, latestSavedData }) => {
+    context.forceRefresh = true;
+    deps.notionService.checkPageExists.mockResolvedValue(false);
+    deps.tabService.consumeDeletionConfirmation.mockReturnValue({
+      shouldDelete: true,
+      deletionPending: false,
+    });
+    deps.storageService.clearNotionStateWithRetry.mockResolvedValue({
+      skipped: true,
+      reason,
+    });
+    deps.storageService.getSavedPageData.mockResolvedValue(latestSavedData);
+
+    return resolveSaveStatus(context, deps);
+  };
 
   test('本地無保存資料時應回傳 unsaved', async () => {
     const result = await resolveSaveStatus(
@@ -138,6 +154,47 @@ describe('SaveStatusCoordinator', () => {
     );
   });
 
+  test('exists 為 false 且 deletion 未解決時不應回傳 saved', async () => {
+    context.forceRefresh = true;
+    deps.notionService.checkPageExists.mockResolvedValue(false);
+    deps.tabService.consumeDeletionConfirmation.mockReturnValue({
+      shouldDelete: false,
+      deletionPending: false,
+    });
+
+    const result = await resolveSaveStatus(context, deps);
+
+    expect(result.statusKind).toBe('deletion_pending');
+    expect(result.deletionPending).toBe(true);
+    expect(result.isSaved).toBe(true);
+    expect(result).not.toEqual(expect.objectContaining({ statusKind: 'saved' }));
+  });
+
+  test('exists 為 true 時應更新 lastVerifiedAt 並回傳 saved', async () => {
+    context.forceRefresh = true;
+    deps.notionService.checkPageExists.mockResolvedValue(true);
+    deps.tabService.consumeDeletionConfirmation.mockReturnValue({
+      shouldDelete: false,
+      deletionPending: false,
+    });
+
+    const result = await resolveSaveStatus(context, deps);
+
+    expect(deps.storageService.setSavedPageData).toHaveBeenCalledWith(
+      'https://example.com/article',
+      expect.objectContaining({ lastVerifiedAt: deps.now })
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: true,
+        statusKind: 'saved',
+        isSaved: true,
+        canSave: false,
+        canSyncHighlights: true,
+      })
+    );
+  });
+
   test('第二次命中遠端不存在且清理成功時應回傳 deleted_remote', async () => {
     context.forceRefresh = true;
     deps.notionService.checkPageExists.mockResolvedValue(false);
@@ -167,69 +224,45 @@ describe('SaveStatusCoordinator', () => {
     });
   });
 
-  test('cleanup skipped 時應保留 saved 狀態', async () => {
-    context.forceRefresh = true;
-    deps.notionService.checkPageExists.mockResolvedValue(false);
-    deps.tabService.consumeDeletionConfirmation.mockReturnValue({
-      shouldDelete: true,
-      deletionPending: false,
-    });
-    deps.storageService.clearNotionStateWithRetry.mockResolvedValue({
-      skipped: true,
+  test.each([
+    {
+      title: 'cleanup skipped 時應保留 saved 狀態',
       reason: 'page_id_changed',
-    });
-    deps.storageService.getSavedPageData.mockResolvedValue(
-      buildSavedPageData({
+      latestSavedData: buildSavedPageData({
         notionPageId: 'page-latest',
         notionUrl: 'https://notion.so/page-latest',
-      })
-    );
-
-    const result = await resolveSaveStatus(context, deps);
-
-    expect(deps.storageService.getSavedPageData).toHaveBeenCalledWith(
-      'https://example.com/article'
-    );
-    expect(result).toEqual(
-      expect.objectContaining({
+      }),
+      expectedResult: expect.objectContaining({
         success: true,
         statusKind: 'saved',
         isSaved: true,
         notionPageId: 'page-latest',
         canSave: false,
         canSyncHighlights: true,
-      })
-    );
-  });
-
-  test('cleanup skipped 且查無最新綁定時應回傳 unsaved', async () => {
-    context.forceRefresh = true;
-    deps.notionService.checkPageExists.mockResolvedValue(false);
-    deps.tabService.consumeDeletionConfirmation.mockReturnValue({
-      shouldDelete: true,
-      deletionPending: false,
-    });
-    deps.storageService.clearNotionStateWithRetry.mockResolvedValue({
-      skipped: true,
+      }),
+    },
+    {
+      title: 'cleanup skipped 且查無最新綁定時應回傳 unsaved',
       reason: 'pageId_mismatch',
-    });
-    deps.storageService.getSavedPageData.mockResolvedValue(null);
-
-    const result = await resolveSaveStatus(context, deps);
+      latestSavedData: null,
+      expectedResult: {
+        success: true,
+        statusKind: 'unsaved',
+        isSaved: false,
+        canSave: true,
+        canSyncHighlights: false,
+        stableUrl: 'https://example.com/article',
+        wasDeleted: false,
+        deletionPending: false,
+      },
+    },
+  ])('$title', async ({ reason, latestSavedData, expectedResult }) => {
+    const result = await resolveCleanupSkippedStatus({ reason, latestSavedData });
 
     expect(deps.storageService.getSavedPageData).toHaveBeenCalledWith(
       'https://example.com/article'
     );
-    expect(result).toEqual({
-      success: true,
-      statusKind: 'unsaved',
-      isSaved: false,
-      canSave: true,
-      canSyncHighlights: false,
-      stableUrl: 'https://example.com/article',
-      wasDeleted: false,
-      deletionPending: false,
-    });
+    expect(result).toEqual(expectedResult);
   });
 
   test('default deps (getActiveToken) should return unverified_saved', async () => {

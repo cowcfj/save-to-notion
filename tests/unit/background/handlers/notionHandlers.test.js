@@ -2,13 +2,29 @@
  * @jest-environment jsdom
  */
 
-jest.mock('../../../../scripts/utils/notionAuth.js', () => ({
+import { jest } from '@jest/globals';
+
+const mockNotionAuth = {
   refreshOAuthToken: jest.fn(),
   getActiveNotionToken: jest.fn(),
-}));
+};
 
-import { createNotionHandlers } from '../../../../scripts/background/handlers/notionHandlers.js';
-import { refreshOAuthToken, getActiveNotionToken } from '../../../../scripts/utils/notionAuth.js';
+if (process.env.NODE_OPTIONS?.includes('--experimental-vm-modules')) {
+  jest.unstable_mockModule('../../../../scripts/utils/notionAuth.js', () => mockNotionAuth);
+} else {
+  jest.mock('../../../../scripts/utils/notionAuth.js', () => mockNotionAuth);
+}
+
+let createNotionHandlers;
+let refreshOAuthToken;
+let getActiveNotionToken;
+
+beforeAll(async () => {
+  ({ createNotionHandlers } =
+    await import('../../../../scripts/background/handlers/notionHandlers.js'));
+  ({ refreshOAuthToken, getActiveNotionToken } =
+    await import('../../../../scripts/utils/notionAuth.js'));
+});
 
 // Mock Logger
 globalThis.Logger = {
@@ -28,10 +44,19 @@ describe('notionHandlers', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    globalThis.chrome = {
+      runtime: {
+        id: 'mock-extension-id',
+      },
+    };
     mockNotionService = {
       search: jest.fn(),
     };
     handlers = createNotionHandlers({ notionService: mockNotionService });
+  });
+
+  afterEach(() => {
+    delete globalThis.chrome;
   });
 
   describe('searchNotion', () => {

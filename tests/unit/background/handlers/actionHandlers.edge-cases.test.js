@@ -16,32 +16,51 @@
  * 針對 createActionHandlers 中的各種 handler 進行測試，包含 savePage 核心流程與其他輔助 handlers
  */
 
-// Logger.module.js 已刪除，使用 presetup.js 提供的 global.Logger
+import { jest } from '@jest/globals';
 
-jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
+let ErrorHandler;
+let ERROR_MESSAGES;
+let RUNTIME_ACTIONS;
+let validateContentScriptRequest;
+let getActiveNotionToken;
+let ensureNotionApiKey;
+let buildHighlightBlocks;
+let mergeHighlightsWithStyle;
+let CONTENT_QUALITY;
+let createSaveHandlers;
+let processContentResult;
+let createHighlightHandlers;
+let createMigrationHandlers;
+
+const mockUrlUtils = {
+  __esModule: true,
   normalizeUrl: jest.fn(url => url),
   computeStableUrl: jest.fn(() => null),
   resolveStorageUrl: jest.fn(url => url),
-}));
+};
 
-jest.mock('../../../../scripts/background/utils/BlockBuilder.js', () => ({
-  buildHighlightBlocks: jest.fn(highlights =>
+const mockBlockBuilder = {
+  __esModule: true,
+  buildHighlightBlocks: jest.fn((highlights = []) =>
     highlights.map(highlight => ({ type: 'quote', quote: { text: highlight.text } }))
   ),
-}));
+};
 
-jest.mock('../../../../scripts/background/utils/highlightStyleMerger.js', () => {
-  const actual = jest.requireActual('../../../../scripts/background/utils/highlightStyleMerger.js');
-  return {
-    __esModule: true,
-    ...actual,
-    mergeHighlightsWithStyle: jest.fn(blocks => blocks),
-  };
-});
+const mockHighlightStyleMerger = {
+  __esModule: true,
+  HIGHLIGHT_STYLE_OPTIONS: {
+    COLOR_SYNC: 'COLOR_SYNC',
+    COLOR_TEXT: 'COLOR_TEXT',
+    BOLD: 'BOLD',
+    NONE: 'NONE',
+  },
+  mergeHighlightsWithStyle: jest.fn(blocks => blocks),
+};
 
-jest.mock('../../../../scripts/background/services/InjectionService.js', () => ({
+const mockInjectionService = {
+  __esModule: true,
   isRestrictedInjectionUrl: jest.fn(url => url?.startsWith('chrome://')),
-}));
+};
 
 function mockSecurityFailure(error) {
   return { success: false, error };
@@ -88,6 +107,7 @@ function mockCreateSecurityUtilsMock() {
   };
 
   return {
+    __esModule: true,
     validateInternalRequest: mockCreateSenderValidator([
       { rejects: mockIsWrongExtension, error: errorMessages.internalOnly },
       { rejects: mockIsTabSenderOutsideExtension, error: errorMessages.internalOnly },
@@ -99,28 +119,82 @@ function mockCreateSecurityUtilsMock() {
     validatePrivilegedRequest: mockCreateSenderValidator([
       { rejects: mockIsWrongExtension, error: errorMessages.privilegedOnly },
     ]),
+    isValidUrl: jest.fn(url => typeof url === 'string' && /^https?:/.test(url)),
     isValidNotionUrl: jest.fn(() => true),
   };
 }
 
-jest.mock('../../../../scripts/utils/securityUtils.js', () => mockCreateSecurityUtilsMock());
+const mockSecurityUtils = mockCreateSecurityUtilsMock();
 
-jest.mock('../../../../scripts/utils/LogSanitizer.js', () => ({
+const mockLogSanitizer = {
+  __esModule: true,
+  LogSanitizer: {
+    sanitizeEntry: jest.fn((_message, context = {}) => ({ context })),
+  },
   sanitizeUrlForLogging: jest.fn(url => url),
-}));
+};
 
-jest.mock('../../../../scripts/utils/ApiErrorSanitizer.js', () => ({
+const mockApiErrorSanitizer = {
+  __esModule: true,
   sanitizeApiError: jest.fn(err => (err instanceof Error ? err.message : String(err))),
-}));
+};
 
-// 引入測試所需模組
-import { ErrorHandler } from '../../../../scripts/utils/ErrorHandler.js';
-import { ERROR_MESSAGES } from '../../../../scripts/config/shared/messages.js';
-import { RUNTIME_ACTIONS } from '../../../../scripts/config/shared/runtimeActions.js';
-import { validateContentScriptRequest } from '../../../../scripts/utils/securityUtils.js';
-import { getActiveNotionToken, ensureNotionApiKey } from '../../../../scripts/utils/notionAuth.js';
-import { buildHighlightBlocks } from '../../../../scripts/background/utils/BlockBuilder.js';
-import { mergeHighlightsWithStyle } from '../../../../scripts/background/utils/highlightStyleMerger.js';
+const mockCoreConfig = {
+  __esModule: true,
+  HANDLER_CONSTANTS: {
+    BUNDLE_READY_RETRY_DELAY: 1,
+    BUNDLE_READY_MAX_RETRIES: 2,
+    CHECK_DELAY: 1,
+    IMAGE_RETRY_DELAY: 1,
+    PAGE_STATUS_CACHE_TTL: 1000,
+  },
+};
+
+const mockNotionAuth = {
+  __esModule: true,
+  getActiveNotionToken: jest.fn(),
+  ensureNotionApiKey: jest.fn(),
+};
+
+if (process.env.NODE_OPTIONS?.includes('--experimental-vm-modules')) {
+  jest.unstable_mockModule('../../../../scripts/utils/urlUtils.js', () => mockUrlUtils);
+  jest.unstable_mockModule(
+    '../../../../scripts/background/utils/BlockBuilder.js',
+    () => mockBlockBuilder
+  );
+  jest.unstable_mockModule(
+    '../../../../scripts/background/utils/highlightStyleMerger.js',
+    () => mockHighlightStyleMerger
+  );
+  jest.unstable_mockModule(
+    '../../../../scripts/background/services/InjectionService.js',
+    () => mockInjectionService
+  );
+  jest.unstable_mockModule('../../../../scripts/utils/securityUtils.js', () => mockSecurityUtils);
+  jest.unstable_mockModule('../../../../scripts/utils/LogSanitizer.js', () => mockLogSanitizer);
+  jest.unstable_mockModule(
+    '../../../../scripts/utils/ApiErrorSanitizer.js',
+    () => mockApiErrorSanitizer
+  );
+  jest.unstable_mockModule('../../../../scripts/config/shared/core.js', () => mockCoreConfig);
+  jest.unstable_mockModule('../../../../scripts/utils/notionAuth.js', () => mockNotionAuth);
+} else {
+  jest.mock('../../../../scripts/utils/urlUtils.js', () => mockUrlUtils);
+  jest.mock('../../../../scripts/background/utils/BlockBuilder.js', () => mockBlockBuilder);
+  jest.mock(
+    '../../../../scripts/background/utils/highlightStyleMerger.js',
+    () => mockHighlightStyleMerger
+  );
+  jest.mock(
+    '../../../../scripts/background/services/InjectionService.js',
+    () => mockInjectionService
+  );
+  jest.mock('../../../../scripts/utils/securityUtils.js', () => mockSecurityUtils);
+  jest.mock('../../../../scripts/utils/LogSanitizer.js', () => mockLogSanitizer);
+  jest.mock('../../../../scripts/utils/ApiErrorSanitizer.js', () => mockApiErrorSanitizer);
+  jest.mock('../../../../scripts/config/shared/core.js', () => mockCoreConfig);
+  jest.mock('../../../../scripts/utils/notionAuth.js', () => mockNotionAuth);
+}
 
 const MOCK_EXTENSION_ID = 'mock-ext-id';
 const DEFAULT_TAB_ID = 1;
@@ -144,27 +218,6 @@ const CHROME_SETTINGS_URL = 'chrome://settings';
 const HTTP_TEST_URL = 'http://test.com';
 const WRONG_EXTENSION_ID = 'wrong-id';
 
-jest.mock('../../../../scripts/config/shared/core.js', () => {
-  const original = jest.requireActual('../../../../scripts/config/shared/core.js');
-  return {
-    __esModule: true,
-    ...original,
-    HANDLER_CONSTANTS: {
-      ...original.HANDLER_CONSTANTS,
-      BUNDLE_READY_RETRY_DELAY: 1,
-      BUNDLE_READY_MAX_RETRIES: 2,
-      CHECK_DELAY: 1,
-      IMAGE_RETRY_DELAY: 1,
-      PAGE_STATUS_CACHE_TTL: 1000,
-    },
-  };
-});
-
-jest.mock('../../../../scripts/utils/notionAuth.js', () => ({
-  getActiveNotionToken: jest.fn(),
-  ensureNotionApiKey: jest.fn(),
-}));
-
 // Mock chrome API
 globalThis.chrome = {
   tabs: {
@@ -181,18 +234,40 @@ globalThis.chrome = {
   runtime: {
     id: MOCK_EXTENSION_ID,
     lastError: null,
+    getManifest: jest.fn(() => ({ version: 'test' })),
   },
 };
 
-// 使用 presetup.js 提供的 global.Logger（若需要可在測試中透過 global.Logger 存取）
+globalThis.Logger = {
+  warn: jest.fn(),
+  error: jest.fn(),
+  log: jest.fn(),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+  info: jest.fn(),
+  debug: jest.fn(),
+  addLogToBuffer: jest.fn(),
+};
 
-// ES Module 導入 - 在 jest.mock 後執行
-import {
-  createSaveHandlers,
-  processContentResult,
-} from '../../../../scripts/background/handlers/saveHandlers.js';
-import { createHighlightHandlers } from '../../../../scripts/background/handlers/highlightHandlers.js';
-import { createMigrationHandlers } from '../../../../scripts/background/handlers/migrationHandlers.js';
+beforeAll(async () => {
+  ({ ErrorHandler } = await import('../../../../scripts/utils/ErrorHandler.js'));
+  ({ ERROR_MESSAGES } = await import('../../../../scripts/config/shared/messages.js'));
+  ({ RUNTIME_ACTIONS } = await import('../../../../scripts/config/shared/runtimeActions.js'));
+  ({ validateContentScriptRequest } = await import('../../../../scripts/utils/securityUtils.js'));
+  ({ getActiveNotionToken, ensureNotionApiKey } =
+    await import('../../../../scripts/utils/notionAuth.js'));
+  ({ buildHighlightBlocks } = await import('../../../../scripts/background/utils/BlockBuilder.js'));
+  ({ mergeHighlightsWithStyle } =
+    await import('../../../../scripts/background/utils/highlightStyleMerger.js'));
+  ({ CONTENT_QUALITY } = await import('../../../../scripts/config/shared/content.js'));
+  ({ createSaveHandlers, processContentResult } =
+    await import('../../../../scripts/background/handlers/saveHandlers.js'));
+  ({ createHighlightHandlers } =
+    await import('../../../../scripts/background/handlers/highlightHandlers.js'));
+  ({ createMigrationHandlers } =
+    await import('../../../../scripts/background/handlers/migrationHandlers.js'));
+});
 
 function createDefaultProfile(overrides = {}) {
   return {
@@ -453,7 +528,6 @@ describe('actionHandlers 覆蓋率補強', () => {
 
     test('應該處理 null/undefined 輸入', () => {
       const result = processContentResult(null, null);
-      const { CONTENT_QUALITY } = require('../../../../scripts/config/shared/content.js');
       expect(result.title).toBe(CONTENT_QUALITY.DEFAULT_PAGE_TITLE);
       expect(result.blocks).toEqual([]);
       expect(result.siteIcon).toBeNull();

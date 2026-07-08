@@ -172,6 +172,39 @@ class StorageService {
     return { lockKey: contract.mutationTargetKey, aliasCandidate, contract };
   }
 
+  _buildPageStateKeys(normalizedUrl) {
+    return {
+      pageKey: `${PAGE_PREFIX}${normalizedUrl}`,
+      savedKey: `${SAVED_PREFIX}${normalizedUrl}`,
+      aliasKey: `${URL_ALIAS_PREFIX}${normalizedUrl}`,
+    };
+  }
+
+  _buildLegacyPageState(savedKey, savedData, resolvedUrl = null) {
+    return {
+      format: 'legacy',
+      savedKey,
+      savedData,
+      ...(resolvedUrl ? { resolvedUrl } : {}),
+    };
+  }
+
+  async _getAliasedPageState(stableUrl) {
+    const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
+    const stableSavedKey = `${SAVED_PREFIX}${stableUrl}`;
+    const result = (await this.storage.local.get([stablePageKey, stableSavedKey])) || {};
+
+    if (result[stablePageKey]) {
+      return { format: 'new', key: stablePageKey, data: result[stablePageKey] };
+    }
+
+    if (result[stableSavedKey]) {
+      return this._buildLegacyPageState(stableSavedKey, result[stableSavedKey], stableUrl);
+    }
+
+    return null;
+  }
+
   /**
    * 批量讀取頁面狀態（新舊格式統一入口）
    *
@@ -183,9 +216,7 @@ class StorageService {
    * @private
    */
   async _getPageState(normalizedUrl) {
-    const pageKey = `${PAGE_PREFIX}${normalizedUrl}`;
-    const savedKey = `${SAVED_PREFIX}${normalizedUrl}`;
-    const aliasKey = `${URL_ALIAS_PREFIX}${normalizedUrl}`;
+    const { pageKey, savedKey, aliasKey } = this._buildPageStateKeys(normalizedUrl);
 
     const result = (await this.storage.local.get([pageKey, savedKey, aliasKey])) || {};
 
@@ -197,26 +228,13 @@ class StorageService {
     // 有 alias → 嘗試查詢 stable URL 的 page_*
     const stableUrl = result[aliasKey];
     if (stableUrl) {
-      const stablePageKey = `${PAGE_PREFIX}${stableUrl}`;
-      const stableSavedKey = `${SAVED_PREFIX}${stableUrl}`;
-      const r2 = (await this.storage.local.get([stablePageKey, stableSavedKey])) || {};
-      if (r2[stablePageKey]) {
-        return { format: 'new', key: stablePageKey, data: r2[stablePageKey] };
-      }
-      if (r2[stableSavedKey]) {
-        // 使用 stableUrl（而非 normalizedUrl）觸發升級，確保寫入正確的 key
-        return {
-          format: 'legacy',
-          savedKey: stableSavedKey,
-          savedData: r2[stableSavedKey],
-          resolvedUrl: stableUrl,
-        };
-      }
+      // 使用 stableUrl（而非 normalizedUrl）觸發升級，確保寫入正確的 key
+      return this._getAliasedPageState(stableUrl);
     }
 
     // 舊格式（saved_*）
     if (result[savedKey]) {
-      return { format: 'legacy', savedKey, savedData: result[savedKey] };
+      return this._buildLegacyPageState(savedKey, result[savedKey]);
     }
 
     return null;
@@ -653,26 +671,16 @@ class StorageService {
   _buildHighlightsUpdate(canonicalCurrent, migrationSource, highlights, normalizedUrl) {
     const now = Date.now();
     if (canonicalCurrent) {
-      return {
-        ...canonicalCurrent,
-        highlights,
-        metadata: {
-          ...canonicalCurrent.metadata,
-          lastUpdated: now,
-        },
-      };
+      return this._buildExistingHighlightsPage(canonicalCurrent, highlights, now);
     }
 
     if (migrationSource?.key?.startsWith(PAGE_PREFIX)) {
-      return {
-        ...migrationSource.value,
+      return this._buildExistingHighlightsPage(
+        migrationSource.value,
         highlights,
-        metadata: {
-          ...migrationSource.value.metadata,
-          lastUpdated: now,
-          migratedFrom: migrationSource.key,
-        },
-      };
+        now,
+        migrationSource.key
+      );
     }
 
     return this._buildPageObject(
@@ -681,6 +689,18 @@ class StorageService {
       normalizedUrl,
       migrationSource?.key || undefined
     );
+  }
+
+  _buildExistingHighlightsPage(pageData, highlights, now, migratedFrom = null) {
+    return {
+      ...pageData,
+      highlights,
+      metadata: {
+        ...pageData.metadata,
+        lastUpdated: now,
+        ...(migratedFrom ? { migratedFrom } : {}),
+      },
+    };
   }
 
   /**
@@ -741,19 +761,7 @@ class StorageService {
     const existing = this._pruneExpiredUpgradeFailure(url, now);
     const attempts = (existing?.attempts || 0) + 1;
     const firstFailureAt = existing?.firstFailureAt || now;
-    const reachedMaxAttempts = attempts >= UPGRADE_RETRY_MAX_ATTEMPTS;
-
-    let nextRetryAt;
-    if (reachedMaxAttempts) {
-      nextRetryAt = firstFailureAt + UPGRADE_RETRY_TTL_MS;
-    } else {
-      const delay = Math.min(
-        UPGRADE_RETRY_MAX_DELAY_MS,
-        UPGRADE_RETRY_BASE_DELAY_MS * Math.pow(2, attempts - 1)
-      );
-      const jitterDelay = Math.floor(delay * (0.5 + Math.random() * 0.5)); // eslint-disable-line sonarjs/pseudo-random
-      nextRetryAt = now + jitterDelay;
-    }
+    const nextRetryAt = this._resolveUpgradeNextRetryAt({ attempts, firstFailureAt, now });
 
     const state = {
       attempts,
@@ -763,6 +771,19 @@ class StorageService {
     };
     this._failedUpgradeAttempts.set(url, state);
     return state;
+  }
+
+  _resolveUpgradeNextRetryAt({ attempts, firstFailureAt, now }) {
+    if (attempts >= UPGRADE_RETRY_MAX_ATTEMPTS) {
+      return firstFailureAt + UPGRADE_RETRY_TTL_MS;
+    }
+
+    const delay = Math.min(
+      UPGRADE_RETRY_MAX_DELAY_MS,
+      UPGRADE_RETRY_BASE_DELAY_MS * Math.pow(2, attempts - 1)
+    );
+    const jitterDelay = Math.floor(delay * (0.5 + Math.random() * 0.5)); // eslint-disable-line sonarjs/pseudo-random
+    return now + jitterDelay;
   }
 
   /**
@@ -1301,8 +1322,8 @@ class StorageService {
       return null;
     }
 
-    const shortExpected = expectedPageId ? expectedPageId.slice(0, 4) : 'none';
-    const shortFound = state.data?.notion?.pageId?.slice(0, 4) || 'unknown';
+    const shortExpected = this._formatShortPageId(expectedPageId, 'none');
+    const shortFound = this._formatShortPageId(state.data?.notion?.pageId, 'unknown');
 
     this.logger.warn?.('[StorageService] clearNotionState skipped: pageId mismatch', {
       expectedPageId: shortExpected,
@@ -1311,6 +1332,10 @@ class StorageService {
     });
 
     return { skipped: true, reason: 'pageId_mismatch' };
+  }
+
+  _formatShortPageId(pageId, fallback) {
+    return pageId ? pageId.slice(0, 4) : fallback;
   }
 
   /**

@@ -8,7 +8,7 @@ import {
   createStorageServiceHarness,
   mockStorageLookup,
   expectLockKeysToTarget,
-} from '../../../helpers/storageServiceTestHarness.js';
+} from './serviceTestSupport.js';
 
 describe('StorageService - Canonical Lock', () => {
   let service = null;

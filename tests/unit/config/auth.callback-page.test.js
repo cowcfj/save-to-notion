@@ -1,7 +1,7 @@
 /**
  * auth callback page regression tests
  *
- * 驗證 auth.html 會以 ES module 載入 bundled auth.js，
+ * 驗證 canonical auth page 會以 ES module 載入 bundled auth.js，
  * 且 auth.js 會讀取 ../config/env/index.js 的設定。
  */
 
@@ -11,15 +11,25 @@ const path = require('node:path');
 describe('auth callback page regressions', () => {
   let authHtml;
   let authJs;
+  let rollupPagesConfig;
+  let callbackBridgeCss;
 
   beforeAll(() => {
-    authHtml = fs.readFileSync(path.resolve(__dirname, '../../../auth.html'), 'utf8');
+    authHtml = fs.readFileSync(path.resolve(__dirname, '../../../pages/auth/auth.html'), 'utf8');
     authJs = fs.readFileSync(path.resolve(__dirname, '../../../scripts/auth/auth.js'), 'utf8');
+    callbackBridgeCss = fs.readFileSync(
+      path.resolve(__dirname, '../../../styles/callback-bridge.css'),
+      'utf8'
+    );
+    rollupPagesConfig = fs.readFileSync(
+      path.resolve(__dirname, '../../../rollup/pages.config.mjs'),
+      'utf8'
+    );
   });
 
-  test('auth.html 應以 module script 載入 bundled auth.js', () => {
+  test('canonical auth page 應以 module script 載入 bundled auth.js', () => {
     expect(authHtml).toMatch(
-      /<script\b(?=[^>]*\bsrc="dist\/pages\/auth\.js")(?=[^>]*\btype="module")[^>]*><\/script>/
+      /<script\b(?=[^>]*\bsrc="..\/..\/dist\/pages\/auth\.js")(?=[^>]*\btype="module")[^>]*><\/script>/
     );
   });
 
@@ -28,9 +38,25 @@ describe('auth callback page regressions', () => {
     expect(authJs).not.toContain("import { BUILD_ENV } from '../config/env.example.js';");
   });
 
-  test('auth.html 應引用共用 callback stylesheet', () => {
+  test('canonical auth page 應引用共用 callback stylesheet', () => {
     expect(authHtml).toMatch(
-      /<link\s+rel="stylesheet"\s+href="styles\/callback-bridge\.css"\s*\/?>/
+      /<link\s+rel="stylesheet"\s+href="..\/..\/styles\/callback-bridge\.css"\s*\/?>/
     );
+  });
+
+  test('callback bridge layout 應由共用 stylesheet 維護', () => {
+    expect(authHtml).not.toMatch(/<style\b/);
+    expect(callbackBridgeCss).toContain('.card');
+    expect(callbackBridgeCss).toContain('.logo');
+    expect(callbackBridgeCss).toContain('.subtitle');
+  });
+
+  test('root auth.html legacy callback page 應已移除', () => {
+    expect(fs.existsSync(path.resolve(__dirname, '../../../auth.html'))).toBe(false);
+  });
+
+  test('pages bundle 不應再產生 auth-redirect entry', () => {
+    expect(rollupPagesConfig).toContain("auth: 'scripts/auth/auth.js'");
+    expect(rollupPagesConfig).not.toContain("'auth-redirect':");
   });
 });

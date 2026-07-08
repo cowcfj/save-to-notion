@@ -34,13 +34,7 @@ export default {
     json(),
     !isDev &&
       createTerserPlugin({
-        pureFuncs: [
-          'console.debug',
-          'console.info',
-          'Logger.debug',
-          'Logger.log',
-          'Logger.info',
-        ],
+        pureFuncs: ['console.debug', 'console.info', 'Logger.debug', 'Logger.log', 'Logger.info'],
       }),
     createVisualizerPlugin('pages-bundle', 'Pages Bundle Analysis'),
   ].filter(Boolean),

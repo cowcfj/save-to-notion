@@ -1,24 +1,41 @@
-import { initiateNotionOAuth } from '../../../scripts/auth/notionOAuthInitiator.js';
-import { BUILD_ENV } from '../../../scripts/config/env/index.js';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-jest.mock('../../../scripts/config/env/index.js', () => ({
+const mockEnvModule = {
   BUILD_ENV: {
     OAUTH_CLIENT_ID: 'test-client-id',
   },
-}));
+};
 
-jest.mock('../../../scripts/utils/Logger.js', () => ({
+const mockLogger = {
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+  info: jest.fn(),
+  debug: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+};
+
+const mockLoggerModule = {
   __esModule: true,
-  default: {
-    success: jest.fn(),
-    start: jest.fn(),
-    ready: jest.fn(),
-    info: jest.fn(),
-    debug: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-  },
-}));
+  default: mockLogger,
+};
+
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('../../../scripts/config/env/index.js', () => mockEnvModule);
+  jest.unstable_mockModule('../../../scripts/utils/Logger.js', () => mockLoggerModule);
+}
+
+jest.mock('../../../scripts/config/env/index.js', () => mockEnvModule);
+jest.mock('../../../scripts/utils/Logger.js', () => mockLoggerModule);
+
+let initiateNotionOAuth;
+let BUILD_ENV;
+
+beforeAll(async () => {
+  ({ initiateNotionOAuth } = await import('../../../scripts/auth/notionOAuthInitiator.js'));
+  ({ BUILD_ENV } = await import('../../../scripts/config/env/index.js'));
+});
 
 describe('initiateNotionOAuth', () => {
   let storedSession;

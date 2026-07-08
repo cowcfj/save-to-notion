@@ -2,14 +2,143 @@
  * @jest-environment jsdom
  */
 
-import * as driveClient from '../../../scripts/auth/driveClient.js';
+import { jest } from '@jest/globals';
 
-jest.mock('../../../pages/options/confirmDialog.js', () => ({
-  confirmDialog: jest.fn().mockResolvedValue(true),
+export const mockConfirmDialog = jest.fn().mockResolvedValue(true);
+
+const DRIVE_SYNC_STORAGE_KEYS = {
+  CONNECTION_EMAIL: 'driveSyncConnectionEmail',
+  CONNECTED_AT: 'driveSyncConnectedAt',
+  LAST_KNOWN_REMOTE_UPDATED_AT: 'driveSyncLastKnownRemoteUpdatedAt',
+  LAST_SUCCESSFUL_UPLOAD_AT: 'driveSyncLastSuccessfulUploadAt',
+  LAST_SUCCESSFUL_DOWNLOAD_AT: 'driveSyncLastSuccessfulDownloadAt',
+  LAST_ERROR_CODE: 'driveSyncLastErrorCode',
+  LAST_ERROR_AT: 'driveSyncLastErrorAt',
+  LAST_RUN_AT: 'driveSyncLastRunAt',
+  LAST_RUN_TYPE: 'driveSyncLastRunType',
+  NEEDS_MANUAL_REVIEW: 'driveSyncNeedsManualReview',
+  INSTALLATION_ID: 'driveSyncInstallationId',
+  PROFILE_ID: 'driveSyncProfileId',
+  FREQUENCY: 'driveSyncFrequency',
+  DIRTY_REVISION: 'driveSyncDirtyRevision',
+  LAST_UPLOADED_REVISION: 'driveSyncLastUploadedRevision',
+  LAST_SNAPSHOT_HASH: 'driveSyncLastSnapshotHash',
+  NEXT_ELIGIBLE_AT: 'driveSyncNextEligibleAt',
+};
+
+const DRIVE_SYNC_METADATA_FIELDS = [
+  { key: DRIVE_SYNC_STORAGE_KEYS.CONNECTION_EMAIL, prop: 'connectionEmail', defaultValue: null },
+  { key: DRIVE_SYNC_STORAGE_KEYS.CONNECTED_AT, prop: 'connectedAt', defaultValue: null },
+  {
+    key: DRIVE_SYNC_STORAGE_KEYS.LAST_KNOWN_REMOTE_UPDATED_AT,
+    prop: 'lastKnownRemoteUpdatedAt',
+    defaultValue: null,
+  },
+  {
+    key: DRIVE_SYNC_STORAGE_KEYS.LAST_SUCCESSFUL_UPLOAD_AT,
+    prop: 'lastSuccessfulUploadAt',
+    defaultValue: null,
+  },
+  {
+    key: DRIVE_SYNC_STORAGE_KEYS.LAST_SUCCESSFUL_DOWNLOAD_AT,
+    prop: 'lastSuccessfulDownloadAt',
+    defaultValue: null,
+  },
+  { key: DRIVE_SYNC_STORAGE_KEYS.LAST_ERROR_CODE, prop: 'lastErrorCode', defaultValue: null },
+  { key: DRIVE_SYNC_STORAGE_KEYS.LAST_ERROR_AT, prop: 'lastErrorAt', defaultValue: null },
+  { key: DRIVE_SYNC_STORAGE_KEYS.LAST_RUN_AT, prop: 'lastRunAt', defaultValue: null },
+  { key: DRIVE_SYNC_STORAGE_KEYS.LAST_RUN_TYPE, prop: 'lastRunType', defaultValue: null },
+  {
+    key: DRIVE_SYNC_STORAGE_KEYS.NEEDS_MANUAL_REVIEW,
+    prop: 'needsManualReview',
+    defaultValue: false,
+  },
+  { key: DRIVE_SYNC_STORAGE_KEYS.INSTALLATION_ID, prop: 'installationId', defaultValue: null },
+  { key: DRIVE_SYNC_STORAGE_KEYS.PROFILE_ID, prop: 'profileId', defaultValue: null },
+  { key: DRIVE_SYNC_STORAGE_KEYS.FREQUENCY, prop: 'frequency', defaultValue: 'off' },
+  { key: DRIVE_SYNC_STORAGE_KEYS.DIRTY_REVISION, prop: 'dirtyRevision', defaultValue: 0 },
+  {
+    key: DRIVE_SYNC_STORAGE_KEYS.LAST_UPLOADED_REVISION,
+    prop: 'lastUploadedRevision',
+    defaultValue: 0,
+  },
+  { key: DRIVE_SYNC_STORAGE_KEYS.LAST_SNAPSHOT_HASH, prop: 'lastSnapshotHash', defaultValue: null },
+  { key: DRIVE_SYNC_STORAGE_KEYS.NEXT_ELIGIBLE_AT, prop: 'nextEligibleAt', defaultValue: null },
+];
+
+const ALL_DRIVE_SYNC_KEYS = Object.values(DRIVE_SYNC_STORAGE_KEYS);
+const DRIVE_SYNC_CLEAR_KEYS = ALL_DRIVE_SYNC_KEYS.filter(
+  key => key !== DRIVE_SYNC_STORAGE_KEYS.INSTALLATION_ID
+);
+
+const readDriveSyncMetadataFromStorage = async () => {
+  const data = await chrome.storage.local.get(ALL_DRIVE_SYNC_KEYS);
+  const metadata = {};
+  for (const item of DRIVE_SYNC_METADATA_FIELDS) {
+    const value = data[item.key];
+    metadata[item.prop] = value !== undefined && value !== null ? value : item.defaultValue;
+  }
+  return metadata;
+};
+
+const setDriveConnectionInStorage = async (connection, options = {}) => {
+  const patch = {
+    [DRIVE_SYNC_STORAGE_KEYS.CONNECTION_EMAIL]: connection.email,
+    [DRIVE_SYNC_STORAGE_KEYS.CONNECTED_AT]: connection.connectedAt,
+  };
+  if (options.resetConflicts !== false) {
+    patch[DRIVE_SYNC_STORAGE_KEYS.NEEDS_MANUAL_REVIEW] = false;
+  }
+  await chrome.storage.local.set(patch);
+};
+
+const clearDriveSyncMetadataFromStorage = async () => {
+  await chrome.storage.local.remove(DRIVE_SYNC_CLEAR_KEYS);
+};
+
+const setLastKnownRemoteUpdatedAtInStorage = async updatedAt => {
+  await chrome.storage.local.set({
+    [DRIVE_SYNC_STORAGE_KEYS.LAST_KNOWN_REMOTE_UPDATED_AT]: updatedAt,
+  });
+};
+
+export const mockDriveClientModule = {
+  DRIVE_SYNC_STORAGE_KEYS,
+  DRIVE_SYNC_FREQUENCIES: ['off', 'daily', 'weekly', 'monthly'],
+  ALL_DRIVE_SYNC_KEYS,
+  startDriveOAuthFlow: jest.fn(),
+  getDriveSyncMetadata: jest.fn(),
+  ensureDriveSyncIdentity: jest.fn(),
+  setDriveConnection: jest.fn(),
+  clearDriveSyncMetadata: jest.fn(),
+  updateDriveSyncRunMetadata: jest.fn(),
+  clearDriveSyncConflict: jest.fn(),
+  setLastKnownRemoteUpdatedAt: jest.fn(),
+  fetchDriveConnectionStatus: jest.fn(),
+  fetchDriveSnapshotStatus: jest.fn(),
+  uploadDriveSnapshot: jest.fn(),
+  downloadDriveSnapshot: jest.fn(),
+  disconnectDrive: jest.fn(),
+  setDriveFrequency: jest.fn(),
+  markDriveDirty: jest.fn(),
+  clearDriveDirty: jest.fn(),
+  computeNextEligibleAt: jest.fn(),
+  writeDriveAutoSyncTelemetry: jest.fn(),
+};
+
+jest.unstable_mockModule('../../../pages/options/confirmDialog.js', () => ({
+  confirmDialog: mockConfirmDialog,
 }));
 
-export const getConfirmDialogMock = () =>
-  require('../../../pages/options/confirmDialog.js').confirmDialog;
+jest.unstable_mockModule('../../../scripts/auth/driveClient.js', () => mockDriveClientModule);
+
+jest.mock('../../../pages/options/confirmDialog.js', () => ({
+  confirmDialog: mockConfirmDialog,
+}));
+
+jest.mock('../../../scripts/auth/driveClient.js', () => mockDriveClientModule);
+
+export const getConfirmDialogMock = () => mockConfirmDialog;
 
 export async function flushAsyncWork() {
   // Let Jest flush queued Promise callbacks without advancing delayed status timers.
@@ -141,21 +270,39 @@ export function installChromeMock(sendMessage, storageState) {
 }
 
 export function setupConfirmDialogMock() {
-  getConfirmDialogMock().mockReset();
-  getConfirmDialogMock().mockResolvedValue(true);
+  const confirmDialogMock = getConfirmDialogMock();
+  if (typeof confirmDialogMock?.mockReset !== 'function') {
+    return;
+  }
+  confirmDialogMock.mockReset();
+  confirmDialogMock.mockResolvedValue(true);
 }
 
 export function spyOnDriveClientDefaults() {
-  jest.spyOn(driveClient, 'getDriveSyncMetadata');
-  jest.spyOn(driveClient, 'ensureDriveSyncIdentity').mockResolvedValue('local-install');
-  jest.spyOn(driveClient, 'startDriveOAuthFlow').mockResolvedValue();
-  jest.spyOn(driveClient, 'disconnectDrive').mockResolvedValue();
-  jest.spyOn(driveClient, 'clearDriveSyncMetadata').mockResolvedValue();
-  jest.spyOn(driveClient, 'fetchDriveConnectionStatus').mockResolvedValue({
+  for (const mockFn of Object.values(mockDriveClientModule)) {
+    if (typeof mockFn?.mockReset === 'function') {
+      mockFn.mockReset();
+    }
+  }
+  restoreDriveClientStorageDefaults();
+  mockDriveClientModule.ensureDriveSyncIdentity.mockResolvedValue('local-install');
+  mockDriveClientModule.startDriveOAuthFlow.mockResolvedValue();
+  mockDriveClientModule.disconnectDrive.mockResolvedValue();
+  mockDriveClientModule.fetchDriveConnectionStatus.mockResolvedValue({
     ...DEFAULT_DISCONNECTED_CONNECTION,
   });
-  jest.spyOn(driveClient, 'fetchDriveSnapshotStatus').mockResolvedValue({
+  mockDriveClientModule.fetchDriveSnapshotStatus.mockResolvedValue({
     ...DEFAULT_EMPTY_SNAPSHOT,
   });
-  jest.spyOn(driveClient, 'setDriveConnection');
+}
+
+export function restoreDriveClientStorageDefaults() {
+  mockDriveClientModule.getDriveSyncMetadata.mockImplementation(readDriveSyncMetadataFromStorage);
+  mockDriveClientModule.setDriveConnection.mockImplementation(setDriveConnectionInStorage);
+  mockDriveClientModule.clearDriveSyncMetadata.mockImplementation(
+    clearDriveSyncMetadataFromStorage
+  );
+  mockDriveClientModule.setLastKnownRemoteUpdatedAt.mockImplementation(
+    setLastKnownRemoteUpdatedAtInStorage
+  );
 }

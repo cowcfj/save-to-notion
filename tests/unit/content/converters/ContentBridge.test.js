@@ -1,16 +1,22 @@
 /**
  * ContentBridge 單元測試
+ *
+ * @jest-environment jsdom
  */
-const {
+import {
   bridgeContentToBlocks,
   createTextBlocks,
   createFallbackResult,
-} = require('../../../../scripts/content/converters/ContentBridge.js');
-const { TEXT_PROCESSING } = require('../../../../scripts/config/index.js');
+  extractAndBridge,
+} from '../../../../scripts/content/converters/ContentBridge.js';
+import { TEXT_PROCESSING } from '../../../../scripts/config/index.js';
 
 describe('ContentBridge', () => {
+  let originalDocument;
+
   // Mock Logger
   beforeAll(() => {
+    originalDocument = globalThis.document;
     globalThis.Logger = {
       log: jest.fn(),
       warn: jest.fn(),
@@ -33,7 +39,11 @@ describe('ContentBridge', () => {
 
   afterAll(() => {
     delete globalThis.Logger;
-    delete globalThis.document;
+    try {
+      globalThis.document = originalDocument;
+    } catch (error) {
+      console.debug('Failed to restore document', error);
+    }
   });
 
   describe('bridgeContentToBlocks', () => {
@@ -590,8 +600,6 @@ describe('ContentBridge', () => {
   });
 
   describe('extractAndBridge', () => {
-    const { extractAndBridge } = require('../../../../scripts/content/converters/ContentBridge.js');
-
     afterEach(() => {
       delete globalThis.ContentExtractor;
     });

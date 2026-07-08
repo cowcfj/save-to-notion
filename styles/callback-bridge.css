@@ -1,8 +1,12 @@
 /* 共用 callback bridge 狀態樣式 */
 
 :root {
+  --callback-page-bg: #0f172a;
+  --callback-card-bg: #1e293b;
+  --callback-heading-text: #f8fafc;
   --callback-spinner-border: #334155;
   --callback-spinner-accent: #6366f1;
+  --callback-page-text: #f1f5f9;
   --callback-text-default: #94a3b8;
   --callback-success-bg: rgba(34, 197, 94, 0.15);
   --callback-success-stroke: #22c55e;
@@ -12,6 +16,52 @@
   --callback-error-text: #fca5a5;
   --callback-detail-text: #64748b;
   --callback-hint-text: #475569;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--callback-page-bg, #0f172a);
+  color: var(--callback-page-text, #f1f5f9);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.card {
+  background: var(--callback-card-bg, #1e293b);
+  border-radius: 12px;
+  padding: 40px 48px;
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+.logo {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 20px;
+}
+
+h1 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--callback-heading-text, #f8fafc);
+}
+
+.subtitle {
+  font-size: 0.875rem;
+  color: var(--callback-text-default, #94a3b8);
+  margin-bottom: 28px;
 }
 
 /* === Visibility Utility === */
@@ -68,12 +118,24 @@
   stroke-linejoin: round;
 }
 
-.status-success .icon-circle { background: var(--callback-success-bg, rgba(34, 197, 94, 0.15)); }
-.status-error .icon-circle { background: var(--callback-error-bg, rgba(239, 68, 68, 0.15)); }
-.status-success .icon-circle svg { stroke: var(--callback-success-stroke, #22c55e); }
-.status-error .icon-circle svg { stroke: var(--callback-error-stroke, #ef4444); }
-.status-success .status-text { color: var(--callback-success-text, #86efac); }
-.status-error .status-text { color: var(--callback-error-text, #fca5a5); }
+.status-success .icon-circle {
+  background: var(--callback-success-bg, rgba(34, 197, 94, 0.15));
+}
+.status-error .icon-circle {
+  background: var(--callback-error-bg, rgba(239, 68, 68, 0.15));
+}
+.status-success .icon-circle svg {
+  stroke: var(--callback-success-stroke, #22c55e);
+}
+.status-error .icon-circle svg {
+  stroke: var(--callback-error-stroke, #ef4444);
+}
+.status-success .status-text {
+  color: var(--callback-success-text, #86efac);
+}
+.status-error .status-text {
+  color: var(--callback-error-text, #fca5a5);
+}
 
 .error-detail {
   font-size: 0.75rem;

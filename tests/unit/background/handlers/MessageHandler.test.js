@@ -169,7 +169,7 @@ describe('MessageHandler', () => {
     });
 
     it('AppError 帶 code 時 envelope 應透傳 errorCode (ADR 0007)', async () => {
-      const { Errors } = jest.requireActual('../../../../scripts/utils/ErrorHandler.js');
+      const { Errors } = await import('../../../../scripts/utils/ErrorHandler.js');
       const errorHandler = jest.fn(() => {
         throw Errors.notionApi('Page not saved', { phase: 'createPage' }, 'PAGE_NOT_SAVED');
       });
@@ -220,6 +220,36 @@ describe('MessageHandler', () => {
 
       expect(sendResponse).toHaveBeenCalledTimes(1);
       expect(sendResponse).toHaveBeenCalledWith({ success: true, from: 'direct' });
+    });
+
+    it('sendResponse 通道關閉時 safeSendResponse 應吞掉例外並記錄 warning', async () => {
+      const sendFailure = new Error('response channel closed');
+      const mockHandler = jest.fn((req, sender, sendResponse) => {
+        sendResponse({ success: true });
+      });
+      handler.register('closedChannelAction', mockHandler);
+
+      const sendResponse = jest.fn(() => {
+        throw sendFailure;
+      });
+
+      expect(() =>
+        handler.handle({ action: 'closedChannelAction' }, {}, sendResponse)
+      ).not.toThrow();
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        '錯誤回應發送失敗',
+        expect.objectContaining({
+          action: 'closedChannelAction',
+          operation: 'fallbackSendResponse',
+          phase: 'sendResponse',
+          result: 'failed',
+          reason: 'response_channel_closed',
+          error: sendFailure,
+        })
+      );
     });
 
     it('應該在最外層錯誤回應發送失敗時記錄 warning', async () => {

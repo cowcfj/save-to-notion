@@ -1,4 +1,4 @@
-const { test, expect } = require('../fixtures');
+import { test, expect } from '../fixtures.js';
 
 /**
  * Migration Execute E2E 測試

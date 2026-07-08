@@ -185,6 +185,21 @@ class ImageService {
     this.validator = validator;
   }
 
+  static _normalizeImageUrlInput(url) {
+    if (typeof url !== 'string') {
+      return null;
+    }
+
+    const trimmedUrl = url.trim();
+    return trimmedUrl || null;
+  }
+
+  static _hasSupportedImageSource(pathname) {
+    return (
+      IMAGE_EXTENSIONS.test(pathname) || IMAGE_PATH_PATTERNS.some(pattern => pattern.test(pathname))
+    );
+  }
+
   /**
    * 本地輕量級驗證器（回退方案）
    *
@@ -193,27 +208,22 @@ class ImageService {
    * @private
    */
   static _validateLocally(url) {
-    if (!url || typeof url !== 'string' || url.trim().length === 0) {
+    const trimmedUrl = ImageService._normalizeImageUrlInput(url);
+    if (!trimmedUrl) {
       return false;
     }
 
     try {
-      const urlObj = new URL(url);
+      const urlObj = new URL(trimmedUrl);
 
       // 驗證協議是 http 或 https
-      if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+      const isHttpUrl = urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+      if (!isHttpUrl) {
         return false;
       }
 
-      // 檢查常見圖片擴展名
       const pathname = urlObj.pathname.toLowerCase();
-      const hasImageExtension = IMAGE_EXTENSIONS.test(pathname);
-
-      // 檢查路徑是否包含圖片關鍵詞
-      const hasImageKeyword = IMAGE_PATH_PATTERNS.some(pattern => pattern.test(pathname));
-
-      // 至少滿足一個條件
-      return hasImageExtension || hasImageKeyword;
+      return ImageService._hasSupportedImageSource(pathname);
     } catch {
       return false;
     }
@@ -227,11 +237,7 @@ class ImageService {
    */
   isValidImageUrl(url) {
     // 輸入驗證
-    if (!url || typeof url !== 'string') {
-      return false;
-    }
-
-    const trimmedUrl = url.trim();
+    const trimmedUrl = ImageService._normalizeImageUrlInput(url);
     if (!trimmedUrl) {
       return false;
     }

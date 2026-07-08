@@ -2,37 +2,49 @@
  * @jest-environment jsdom
  */
 
-jest.mock('../../../scripts/utils/Logger.js', () => ({
+const loggerMock = {
+  debug: jest.fn(),
+  log: jest.fn(),
+  info: jest.fn(),
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+};
+const loggerMockModule = {
   __esModule: true,
-  default: {
-    debug: jest.fn(),
-    log: jest.fn(),
-    info: jest.fn(),
-    success: jest.fn(),
-    start: jest.fn(),
-    ready: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-  },
-}));
-jest.mock('../../../scripts/config/env/index.js', () => ({
-  ...jest.requireActual('../../../scripts/config/env/index.js'),
-  BUILD_ENV: {
-    ENABLE_OAUTH: true,
-    OAUTH_SERVER_URL: 'https://test-server.example.com',
-    OAUTH_CLIENT_ID: 'test-client-id',
-    EXTENSION_API_KEY: 'test-api-key',
-  },
-}));
+  default: loggerMock,
+  ...loggerMock,
+};
 
-import Logger from '../../../scripts/utils/Logger.js';
-import { BUILD_ENV } from '../../../scripts/config/env/index.js';
-import {
-  getActiveNotionToken,
-  refreshOAuthToken,
-  isNonEmptyString,
-  migrateDataSourceKeys,
-} from '../../../scripts/utils/notionAuth.js';
+const BUILD_ENV = {
+  ENABLE_OAUTH: true,
+  OAUTH_SERVER_URL: 'https://test-server.example.com',
+  OAUTH_CLIENT_ID: 'test-client-id',
+  EXTENSION_API_KEY: 'test-api-key',
+};
+const envMockModule = {
+  __esModule: true,
+  BUILD_ENV,
+};
+
+jest.unstable_mockModule('../../../scripts/utils/Logger.js', () => loggerMockModule);
+jest.unstable_mockModule('../../../scripts/config/env/index.js', () => envMockModule);
+jest.doMock('../../../scripts/utils/Logger.js', () => loggerMockModule);
+jest.doMock('../../../scripts/config/env/index.js', () => envMockModule);
+
+let Logger;
+let getActiveNotionToken;
+let refreshOAuthToken;
+let isNonEmptyString;
+let migrateDataSourceKeys;
+
+beforeAll(async () => {
+  ({ default: Logger } = await import('../../../scripts/utils/Logger.js'));
+  ({ getActiveNotionToken, refreshOAuthToken, isNonEmptyString, migrateDataSourceKeys } =
+    await import('../../../scripts/utils/notionAuth.js'));
+});
 
 describe('notionAuth utils', () => {
   beforeEach(() => {
@@ -242,6 +254,7 @@ describe('notionAuth utils', () => {
           'X-Extension-Key': BUILD_ENV.EXTENSION_API_KEY,
         }),
         body: expect.stringContaining('"refresh_proof":"refresh_proof_2"'),
+        signal: expect.any(AbortSignal),
       })
     );
     expect(chrome.storage.local.set).toHaveBeenCalledWith({
@@ -363,13 +376,14 @@ describe('notionAuth utils', () => {
     });
   });
 
-  test('refreshOAuthToken 回應缺少 access_token 時不應覆寫 storage', async () => {
+  test.each([
+    ['access_token', { refresh_token: 'refresh_token_2_new' }],
+    ['refresh_token', { access_token: 'access_token_2' }],
+  ])('refreshOAuthToken 回應缺少 %s 時不應覆寫 storage', async (missingField, jsonResponse) => {
     chrome.storage.local.get.mockResolvedValueOnce({ notionRefreshToken: 'refresh_token_2' });
     globalThis.fetch.mockResolvedValueOnce({
       ok: true,
-      json: jest.fn().mockResolvedValue({
-        refresh_token: 'refresh_token_2_new',
-      }),
+      json: jest.fn().mockResolvedValue(jsonResponse),
     });
 
     const result = await refreshOAuthToken();
@@ -384,53 +398,55 @@ describe('notionAuth utils', () => {
     });
   });
 
-  test('refreshOAuthToken 回應缺少 refresh_token 時不應覆寫 storage', async () => {
-    chrome.storage.local.get.mockResolvedValueOnce({ notionRefreshToken: 'refresh_token_2' });
-    globalThis.fetch.mockResolvedValueOnce({
-      ok: true,
-      json: jest.fn().mockResolvedValue({
-        access_token: 'access_token_2',
-      }),
-    });
+  test.each([
+    [
+      '已切離 OAuth 模式',
+      {
+        notionAuthMode: 'oauth',
+        notionRefreshToken: 'refresh_token_abort',
+        notionRefreshProof: 'refresh_proof_abort',
+        notionAuthEpoch: 20,
+      },
+      {
+        notionAuthMode: 'manual',
+        notionRefreshToken: 'refresh_token_abort',
+        notionAuthEpoch: 21,
+      },
+    ],
+    [
+      'auth epoch 改變',
+      {
+        notionAuthMode: 'oauth',
+        notionRefreshToken: 'refresh_token_abort',
+        notionRefreshProof: 'refresh_proof_abort',
+        notionAuthEpoch: 40,
+      },
+      {
+        notionAuthMode: 'oauth',
+        notionRefreshToken: 'refresh_token_abort',
+        notionAuthEpoch: 41,
+      },
+    ],
+  ])(
+    'refreshOAuthToken 若刷新期間 %s 則不應覆寫 storage',
+    async (description, initialLocal, updatedLocal) => {
+      chrome.storage.local.get.mockResolvedValueOnce(initialLocal);
+      chrome.storage.local.get.mockResolvedValueOnce(updatedLocal);
+      globalThis.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          access_token: 'access_token_abort',
+          refresh_token: 'refresh_token_abort_new',
+        }),
+      });
 
-    const result = await refreshOAuthToken();
+      const result = await refreshOAuthToken();
 
-    expect(result).toBeNull();
-    expect(chrome.storage.local.set).not.toHaveBeenCalled();
-    expect(Logger.success).not.toHaveBeenCalled();
-    expect(Logger.error).toHaveBeenCalledWith('OAuth Token 刷新回應缺少必要欄位', {
-      action: 'refreshOAuthToken',
-      phase: 'validate',
-      error: expect.any(String),
-    });
-  });
-
-  test('refreshOAuthToken 若刷新期間已切離 OAuth 模式則不應覆寫 storage', async () => {
-    chrome.storage.local.get.mockResolvedValueOnce({
-      notionAuthMode: 'oauth',
-      notionRefreshToken: 'refresh_token_switched_mode',
-      notionRefreshProof: 'refresh_proof_switched_mode',
-      notionAuthEpoch: 20,
-    });
-    chrome.storage.local.get.mockResolvedValueOnce({
-      notionAuthMode: 'manual',
-      notionRefreshToken: 'refresh_token_switched_mode',
-      notionAuthEpoch: 21,
-    });
-    globalThis.fetch.mockResolvedValueOnce({
-      ok: true,
-      json: jest.fn().mockResolvedValue({
-        access_token: 'access_token_switched_mode',
-        refresh_token: 'refresh_token_switched_mode_new',
-      }),
-    });
-
-    const result = await refreshOAuthToken();
-
-    expect(result).toBeNull();
-    expect(chrome.storage.local.set).not.toHaveBeenCalled();
-    expect(chrome.storage.local.remove).not.toHaveBeenCalled();
-  });
+      expect(result).toBeNull();
+      expect(chrome.storage.local.set).not.toHaveBeenCalled();
+      expect(chrome.storage.local.remove).not.toHaveBeenCalled();
+    }
+  );
 
   test('refreshOAuthToken 若刷新期間 refresh token 已變更則不應清除 proof', async () => {
     chrome.storage.local.get.mockResolvedValueOnce({
@@ -458,32 +474,6 @@ describe('notionAuth utils', () => {
     expect(chrome.storage.local.remove).not.toHaveBeenCalled();
   });
 
-  test('refreshOAuthToken 若刷新期間 auth epoch 改變則不應覆寫 storage', async () => {
-    chrome.storage.local.get.mockResolvedValueOnce({
-      notionAuthMode: 'oauth',
-      notionRefreshToken: 'refresh_token_epoch',
-      notionRefreshProof: 'refresh_proof_epoch',
-      notionAuthEpoch: 40,
-    });
-    chrome.storage.local.get.mockResolvedValueOnce({
-      notionAuthMode: 'oauth',
-      notionRefreshToken: 'refresh_token_epoch',
-      notionAuthEpoch: 41,
-    });
-    globalThis.fetch.mockResolvedValueOnce({
-      ok: true,
-      json: jest.fn().mockResolvedValue({
-        access_token: 'access_token_epoch',
-        refresh_token: 'refresh_token_epoch_new',
-      }),
-    });
-
-    const result = await refreshOAuthToken();
-
-    expect(result).toBeNull();
-    expect(chrome.storage.local.set).not.toHaveBeenCalled();
-  });
-
   test('refreshOAuthToken 在非 background context 應委派給 background action', async () => {
     chrome.runtime.sendMessage = jest.fn().mockResolvedValue({
       success: true,
@@ -499,53 +489,49 @@ describe('notionAuth utils', () => {
 });
 
 describe('migrateDataSourceKeys', () => {
-  test('local 已有 notionDataSourceId 時不應遷移', async () => {
-    const storageArea = { set: jest.fn() };
+  test('未提供 options 時應視為無需遷移', async () => {
+    await expect(migrateDataSourceKeys()).resolves.toBe(false);
+    await expect(migrateDataSourceKeys(null)).resolves.toBe(false);
+  });
 
-    const result = await migrateDataSourceKeys({
+  test.each([
+    {
+      description: 'local 已有 notionDataSourceId',
       localData: { notionDataSourceId: 'existing-id' },
       syncData: { notionDataSourceId: 'sync-id' },
-      storageArea,
-    });
-
-    expect(result).toBe(false);
-    expect(storageArea.set).not.toHaveBeenCalled();
-  });
-
-  test('local 已有 notionDatabaseId (legacy) 時不應遷移', async () => {
-    const storageArea = { set: jest.fn() };
-
-    const result = await migrateDataSourceKeys({
+      storageArea: { set: jest.fn() },
+    },
+    {
+      description: 'local 已有 notionDatabaseId (legacy)',
       localData: { notionDatabaseId: 'legacy-local-id' },
       syncData: { notionDataSourceId: 'sync-id' },
-      storageArea,
-    });
-
-    expect(result).toBe(false);
-    expect(storageArea.set).not.toHaveBeenCalled();
-  });
-
-  test('sync 無 dataSourceId 時不應遷移', async () => {
-    const storageArea = { set: jest.fn() };
-
-    const result = await migrateDataSourceKeys({
+      storageArea: { set: jest.fn() },
+    },
+    {
+      description: 'sync 無 dataSourceId',
       localData: {},
       syncData: {},
-      storageArea,
-    });
-
-    expect(result).toBe(false);
-    expect(storageArea.set).not.toHaveBeenCalled();
-  });
-
-  test('storageArea.set 不存在時不應遷移', async () => {
-    const result = await migrateDataSourceKeys({
+      storageArea: { set: jest.fn() },
+    },
+    {
+      description: 'storageArea.set 不存在',
       localData: {},
       syncData: { notionDataSourceId: 'sync-id' },
       storageArea: {},
+    },
+  ])('$description 時不應遷移', async ({ localData, syncData, storageArea }) => {
+    const result = await migrateDataSourceKeys({
+      localData,
+      syncData,
+      storageArea,
     });
 
     expect(result).toBe(false);
+    if (storageArea.set) {
+      expect(storageArea.set).not.toHaveBeenCalled();
+    } else {
+      expect(storageArea.set).toBeUndefined();
+    }
   });
 
   test('local 空 + sync 有 notionDataSourceId 時應遷移並回傳 true', async () => {

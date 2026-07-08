@@ -3,39 +3,62 @@
  * 驗證不同 API Key 的請求不會互相干擾 (修復競態條件)
  */
 
-import { NotionService } from '../../../../scripts/background/services/NotionService.js';
-import { Client } from '@notionhq/client';
-import { getActiveNotionToken, refreshOAuthToken } from '../../../../scripts/utils/notionAuth.js';
+import { jest } from '@jest/globals';
+
+const mockGetActiveNotionToken = jest.fn();
+const mockRefreshOAuthToken = jest.fn();
+const mockClientImplementation = config => {
+  return {
+    auth: config.auth,
+    request: jest.fn().mockResolvedValue({ success: true }),
+    search: jest.fn().mockResolvedValue({ results: [], next_cursor: null }),
+    pages: {
+      retrieve: jest.fn().mockResolvedValue({ archived: false }),
+    },
+    blocks: {
+      children: {
+        list: jest.fn().mockResolvedValue({ results: [] }),
+        append: jest.fn().mockResolvedValue({ results: [] }),
+      },
+    },
+    databases: {
+      retrieve: jest.fn().mockResolvedValue({ properties: {} }),
+      query: jest.fn().mockResolvedValue({ results: [] }),
+    },
+  };
+};
+const mockClientConstructor = jest.fn().mockImplementation(mockClientImplementation);
 
 jest.mock('../../../../scripts/utils/notionAuth.js', () => ({
-  getActiveNotionToken: jest.fn(),
-  refreshOAuthToken: jest.fn(),
+  getActiveNotionToken: mockGetActiveNotionToken,
+  refreshOAuthToken: mockRefreshOAuthToken,
 }));
 
 // Mock Notion SDK
-jest.mock('@notionhq/client', () => {
-  return {
-    Client: jest.fn().mockImplementation(config => {
-      return {
-        auth: config.auth,
-        request: jest.fn().mockResolvedValue({ success: true }),
-        search: jest.fn().mockResolvedValue({ results: [], next_cursor: null }),
-        pages: {
-          retrieve: jest.fn().mockResolvedValue({ archived: false }),
-        },
-        blocks: {
-          children: {
-            list: jest.fn().mockResolvedValue({ results: [] }),
-            append: jest.fn().mockResolvedValue({ results: [] }),
-          },
-        },
-        databases: {
-          retrieve: jest.fn().mockResolvedValue({ properties: {} }),
-          query: jest.fn().mockResolvedValue({ results: [] }),
-        },
-      };
-    }),
-  };
+jest.mock('@notionhq/client', () => ({
+  Client: mockClientConstructor,
+}));
+
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('../../../../scripts/utils/notionAuth.js', () => ({
+    getActiveNotionToken: mockGetActiveNotionToken,
+    refreshOAuthToken: mockRefreshOAuthToken,
+  }));
+  jest.unstable_mockModule('@notionhq/client', () => ({
+    Client: mockClientConstructor,
+  }));
+}
+
+let NotionService;
+let Client;
+let getActiveNotionToken;
+let refreshOAuthToken;
+
+beforeAll(async () => {
+  ({ NotionService } = await import('../../../../scripts/background/services/NotionService.js'));
+  ({ Client } = await import('@notionhq/client'));
+  ({ getActiveNotionToken, refreshOAuthToken } =
+    await import('../../../../scripts/utils/notionAuth.js'));
 });
 
 describe('NotionService Race Condition Fix Verification', () => {

@@ -1,43 +1,70 @@
-import {
-  exchangeNotionOAuthCode,
-  saveNotionOAuthToken,
-} from '../../../scripts/auth/notionOAuthCompleter.js';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-jest.mock('../../../scripts/config/env/index.js', () => ({
+const mockEnvModule = {
   BUILD_ENV: {
     OAUTH_SERVER_URL: 'https://worker.test',
   },
-}));
+};
 
-jest.mock('../../../scripts/config/extension/notionAuth.js', () => ({
+const mockNotionAuthConfigModule = {
   NOTION_OAUTH: {
     TOKEN_ENDPOINT: '/v1/oauth/token',
   },
-}));
+};
 
-jest.mock('../../../scripts/utils/notionAuth.js', () => ({
+const mockNotionAuthModule = {
   isNonEmptyString: value => typeof value === 'string' && value.trim().length > 0,
   getNextAuthEpoch: jest.fn().mockResolvedValue(42),
-}));
+};
 
-jest.mock('../../../scripts/utils/Logger.js', () => ({
+const mockLogger = {
+  success: jest.fn(),
+  start: jest.fn(),
+  ready: jest.fn(),
+  info: jest.fn(),
+  debug: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+};
+
+const mockLoggerModule = {
   __esModule: true,
-  default: {
-    success: jest.fn(),
-    start: jest.fn(),
-    ready: jest.fn(),
-    info: jest.fn(),
-    debug: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-  },
-}));
+  default: mockLogger,
+};
 
-jest.mock('../../../scripts/utils/ApiErrorSanitizer.js', () => ({
+const mockApiErrorSanitizerModule = {
   sanitizeApiError: jest.fn(error => error?.message ?? 'unknown'),
-}));
+};
 
-import Logger from '../../../scripts/utils/Logger.js';
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('../../../scripts/config/env/index.js', () => mockEnvModule);
+  jest.unstable_mockModule(
+    '../../../scripts/config/extension/notionAuth.js',
+    () => mockNotionAuthConfigModule
+  );
+  jest.unstable_mockModule('../../../scripts/utils/notionAuth.js', () => mockNotionAuthModule);
+  jest.unstable_mockModule('../../../scripts/utils/Logger.js', () => mockLoggerModule);
+  jest.unstable_mockModule(
+    '../../../scripts/utils/ApiErrorSanitizer.js',
+    () => mockApiErrorSanitizerModule
+  );
+}
+
+jest.mock('../../../scripts/config/env/index.js', () => mockEnvModule);
+jest.mock('../../../scripts/config/extension/notionAuth.js', () => mockNotionAuthConfigModule);
+jest.mock('../../../scripts/utils/notionAuth.js', () => mockNotionAuthModule);
+jest.mock('../../../scripts/utils/Logger.js', () => mockLoggerModule);
+jest.mock('../../../scripts/utils/ApiErrorSanitizer.js', () => mockApiErrorSanitizerModule);
+
+let exchangeNotionOAuthCode;
+let saveNotionOAuthToken;
+let Logger;
+
+beforeAll(async () => {
+  ({ exchangeNotionOAuthCode, saveNotionOAuthToken } =
+    await import('../../../scripts/auth/notionOAuthCompleter.js'));
+  ({ default: Logger } = await import('../../../scripts/utils/Logger.js'));
+});
 
 describe('exchangeNotionOAuthCode', () => {
   let fetchMock;
@@ -80,15 +107,32 @@ describe('exchangeNotionOAuthCode', () => {
     expect(result.workspace_name).toBe('My Workspace');
   });
 
-  it('後端非 2xx 時應拋出含 message 的錯誤', async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: false,
-      status: 400,
-      json: async () => ({ message: 'bad request' }),
-    });
+  it.each([
+    {
+      name: '後端非 2xx 時應拋出含 message 的錯誤',
+      response: {
+        ok: false,
+        status: 400,
+        json: async () => ({ message: 'bad request' }),
+      },
+      expectedMessage: 'bad request',
+    },
+    {
+      name: '後端非 2xx 且 json 解析失敗時應使用 status 構造預設訊息',
+      response: {
+        ok: false,
+        status: 502,
+        json: async () => {
+          throw new Error('not json');
+        },
+      },
+      expectedMessage: 'Token 交換失敗 (502)',
+    },
+  ])('$name', async ({ response, expectedMessage }) => {
+    fetchMock.mockResolvedValueOnce(response);
 
     await expect(exchangeNotionOAuthCode({ code: 'c', redirectUri: 'r' })).rejects.toThrow(
-      'bad request'
+      expectedMessage
     );
   });
 
@@ -124,20 +168,6 @@ describe('exchangeNotionOAuthCode', () => {
 
     await expect(exchangeNotionOAuthCode({ code: 'c', redirectUri: 'r' })).rejects.toThrow(
       'OAuth token 回應缺少必要欄位'
-    );
-  });
-
-  it('後端非 2xx 且 json 解析失敗時應使用 status 構造預設訊息', async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: false,
-      status: 502,
-      json: async () => {
-        throw new Error('not json');
-      },
-    });
-
-    await expect(exchangeNotionOAuthCode({ code: 'c', redirectUri: 'r' })).rejects.toThrow(
-      'Token 交換失敗 (502)'
     );
   });
 

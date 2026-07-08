@@ -34,6 +34,60 @@ const TOKEN_EXCHANGE_TIMEOUT_MS = 10_000;
  */
 
 /**
+ * 處理 token 交換請求的 fetch 錯誤（如網路不通、逾時等）。
+ *
+ * @param {any} error
+ * @throws {Error}
+ */
+function handleExchangeFetchError(error) {
+  const isAbort = error?.name === 'AbortError';
+  Logger.warn('[Auth] Notion OAuth token 交換請求失敗', {
+    action: 'exchangeNotionOAuthCode',
+    result: isAbort ? 'blocked' : 'failed',
+    error: sanitizeApiError(error, 'exchangeNotionOAuthCode'),
+  });
+  if (isAbort) {
+    const timeoutError = new Error('Token exchange request timed out');
+    timeoutError.code = 'OAUTH_TOKEN_EXCHANGE_TIMEOUT';
+    throw timeoutError;
+  }
+  throw error;
+}
+
+/**
+ * 處理 token 交換非 2xx 的錯誤回應，解析其 error_code 並拋出詳細 Error。
+ *
+ * @param {Response} tokenResponse
+ * @returns {Promise<never>}
+ * @throws {Error}
+ */
+async function handleExchangeErrorResponse(tokenResponse) {
+  const errorData = await tokenResponse.json().catch(() => ({}));
+  const error = new Error(
+    errorData.message || errorData.error || `Token 交換失敗 (${tokenResponse.status})`
+  );
+  if (typeof errorData.error_code === 'string' && errorData.error_code.trim()) {
+    error.code = errorData.error_code;
+  }
+  throw error;
+}
+
+/**
+ * 驗證並確保 token 欄位包含必要項目。
+ *
+ * @param {any} tokenData
+ * @throws {Error}
+ */
+function validateTokenData(tokenData) {
+  const hasAccessToken = isNonEmptyString(tokenData.access_token);
+  const hasRefreshToken = isNonEmptyString(tokenData.refresh_token);
+
+  if (!hasAccessToken || !hasRefreshToken) {
+    throw new Error('OAuth token 回應缺少必要欄位');
+  }
+}
+
+/**
  * 把 authorization code 送到後端 worker 交換 access / refresh token。
  *
  * @param {{ code: string, redirectUri: string }} params
@@ -54,40 +108,17 @@ export async function exchangeNotionOAuthCode({ code, redirectUri }) {
       signal: controller.signal,
     });
   } catch (error) {
-    const isAbort = error?.name === 'AbortError';
-    Logger.warn('[Auth] Notion OAuth token 交換請求失敗', {
-      action: 'exchangeNotionOAuthCode',
-      result: isAbort ? 'blocked' : 'failed',
-      error: sanitizeApiError(error, 'exchangeNotionOAuthCode'),
-    });
-    if (isAbort) {
-      const timeoutError = new Error('Token exchange request timed out');
-      timeoutError.code = 'OAUTH_TOKEN_EXCHANGE_TIMEOUT';
-      throw timeoutError;
-    }
-    throw error;
+    handleExchangeFetchError(error);
   } finally {
     clearTimeout(timeoutId);
   }
 
   if (!tokenResponse.ok) {
-    const errorData = await tokenResponse.json().catch(() => ({}));
-    const error = new Error(
-      errorData.message || errorData.error || `Token 交換失敗 (${tokenResponse.status})`
-    );
-    if (typeof errorData.error_code === 'string' && errorData.error_code.trim()) {
-      error.code = errorData.error_code;
-    }
-    throw error;
+    await handleExchangeErrorResponse(tokenResponse);
   }
 
   const tokenData = await tokenResponse.json();
-  const hasAccessToken = isNonEmptyString(tokenData.access_token);
-  const hasRefreshToken = isNonEmptyString(tokenData.refresh_token);
-
-  if (!hasAccessToken || !hasRefreshToken) {
-    throw new Error('OAuth token 回應缺少必要欄位');
-  }
+  validateTokenData(tokenData);
 
   return tokenData;
 }

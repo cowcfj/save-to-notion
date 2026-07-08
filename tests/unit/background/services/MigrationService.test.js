@@ -2,11 +2,9 @@
  * @jest-environment jsdom
  */
 
-import { MigrationService } from '../../../../scripts/background/services/MigrationService.js';
-import Logger from '../../../../scripts/utils/Logger.js';
+import { jest } from '@jest/globals';
 
-// Mock dependencies
-jest.mock('../../../../scripts/utils/Logger.js', () => ({
+const mockLoggerModule = {
   __esModule: true,
   default: {
     info: jest.fn(),
@@ -18,24 +16,66 @@ jest.mock('../../../../scripts/utils/Logger.js', () => ({
     debug: jest.fn(),
     success: jest.fn(),
   },
-}));
+};
 
-jest.mock('../../../../scripts/utils/LogSanitizer.js', () => ({
+const mockLogSanitizerModule = {
+  __esModule: true,
   sanitizeUrlForLogging: jest.fn(url => `safe://${url}`),
-}));
+};
 
-jest.mock('../../../../scripts/utils/urlUtils.js', () => ({
+const mockUrlUtilsModule = {
+  __esModule: true,
   isRootUrl: jest.fn(() => false),
   computeStableUrl: jest.fn(url => url),
-}));
+};
 
-jest.mock('../../../../scripts/background/utils/migrationMetadataUtils.js', () => ({
+const mockMigrationMetadataUtilsModule = {
+  __esModule: true,
   hasNotionData: jest.fn(),
   isSameNotionPage: jest.fn(),
-}));
+};
+
+if (process.env.NODE_OPTIONS?.includes('--experimental-vm-modules')) {
+  jest.unstable_mockModule('../../../../scripts/utils/Logger.js', () => mockLoggerModule);
+  jest.unstable_mockModule(
+    '../../../../scripts/utils/LogSanitizer.js',
+    () => mockLogSanitizerModule
+  );
+  jest.unstable_mockModule('../../../../scripts/utils/urlUtils.js', () => mockUrlUtilsModule);
+  jest.unstable_mockModule(
+    '../../../../scripts/background/utils/migrationMetadataUtils.js',
+    () => mockMigrationMetadataUtilsModule
+  );
+} else {
+  jest.mock('../../../../scripts/utils/Logger.js', () => mockLoggerModule);
+  jest.mock('../../../../scripts/utils/LogSanitizer.js', () => mockLogSanitizerModule);
+  jest.mock('../../../../scripts/utils/urlUtils.js', () => mockUrlUtilsModule);
+  jest.mock(
+    '../../../../scripts/background/utils/migrationMetadataUtils.js',
+    () => mockMigrationMetadataUtilsModule
+  );
+}
+
+let MigrationService;
+let Logger;
+let urlUtils;
+let migrationMetadataUtils;
+
+beforeAll(async () => {
+  ({ MigrationService } =
+    await import('../../../../scripts/background/services/MigrationService.js'));
+  ({ default: Logger } = await import('../../../../scripts/utils/Logger.js'));
+  urlUtils = await import('../../../../scripts/utils/urlUtils.js');
+  migrationMetadataUtils =
+    await import('../../../../scripts/background/utils/migrationMetadataUtils.js');
+});
 
 function getMetadataUtils() {
-  return require('../../../../scripts/background/utils/migrationMetadataUtils.js');
+  return migrationMetadataUtils;
+}
+
+function getUrlUtils() {
+  return urlUtils;
 }
 
 describe('MigrationService', () => {
@@ -129,7 +169,7 @@ describe('MigrationService', () => {
     });
 
     test('should block migration to root URL', async () => {
-      const { isRootUrl } = require('../../../../scripts/utils/urlUtils.js');
+      const { isRootUrl } = getUrlUtils();
       isRootUrl.mockReturnValueOnce(true);
       expect(await service.migrateStorageKey('https://example.com/', legacyUrl)).toBe(false);
       expect(Logger.warn).toHaveBeenCalledWith(
@@ -197,9 +237,7 @@ describe('MigrationService', () => {
     });
 
     test('should supplement notion metadata when target already has highlights', async () => {
-      const {
-        hasNotionData,
-      } = require('../../../../scripts/background/utils/migrationMetadataUtils.js');
+      const { hasNotionData } = getMetadataUtils();
       // legacyData is pageData, stableData is null. we want legacy to have notion, stable to not have notion.
       hasNotionData.mockImplementation(data => data === pageData);
 
@@ -392,9 +430,7 @@ describe('MigrationService', () => {
 
     test('should not throw if setUrlAlias is not a function or throws', async () => {
       mockStorageService.setUrlAlias = undefined;
-      const {
-        hasNotionData,
-      } = require('../../../../scripts/background/utils/migrationMetadataUtils.js');
+      const { hasNotionData } = getMetadataUtils();
       hasNotionData.mockReturnValue(false);
 
       mockStorageService.getSavedPageData.mockImplementation(url =>
@@ -548,14 +584,14 @@ describe('MigrationService', () => {
     const url = 'https://example.com/article';
 
     function mockBatchLegacyLookup(legacyData) {
-      const { computeStableUrl } = require('../../../../scripts/utils/urlUtils.js');
+      const { computeStableUrl } = getUrlUtils();
       computeStableUrl.mockReturnValueOnce(url);
       mockStorageService.getHighlights.mockResolvedValueOnce(legacyData);
       service._applyInPlaceConversion = jest.fn().mockResolvedValue();
     }
 
     test('should normalize wrapped legacy highlights object before batch migration', async () => {
-      const { computeStableUrl } = require('../../../../scripts/utils/urlUtils.js');
+      const { computeStableUrl } = getUrlUtils();
       const oldHighlights = [{ id: 'legacy-1' }];
 
       computeStableUrl.mockReturnValueOnce(url);
@@ -598,7 +634,7 @@ describe('MigrationService', () => {
     });
 
     test('should call _tryBatchStableMigration when shouldMigrateToStable is true', async () => {
-      const { computeStableUrl } = require('../../../../scripts/utils/urlUtils.js');
+      const { computeStableUrl } = getUrlUtils();
       const stableUrl = 'https://example.com/stable';
       const oldHighlights = [{ id: 'legacy-1' }];
 
@@ -626,7 +662,7 @@ describe('MigrationService', () => {
     });
 
     test('should update reportUrl to stableUrl when hasStableUrl and supplemented is true', async () => {
-      const { computeStableUrl } = require('../../../../scripts/utils/urlUtils.js');
+      const { computeStableUrl } = getUrlUtils();
       const stableUrl = 'https://example.com/stable';
       const oldHighlights = [{ id: 'legacy-2', rangeInfo: { start: 1 } }];
 
@@ -649,7 +685,7 @@ describe('MigrationService', () => {
     });
 
     test('should migrate batch highlights when stable side only has saved metadata', async () => {
-      const { computeStableUrl } = require('../../../../scripts/utils/urlUtils.js');
+      const { computeStableUrl } = getUrlUtils();
       const stableUrl = 'https://example.com/stable';
       const oldHighlights = [{ id: 'legacy-3', rangeInfo: { start: 1 } }];
       const stablePageData = { notionPageId: 'stable-page-id' };
@@ -696,9 +732,7 @@ describe('MigrationService', () => {
     const stableUrl = 'https://example.com/stable';
 
     test('should supplement batch metadata via shared helper and keep batch log context', async () => {
-      const {
-        hasNotionData,
-      } = require('../../../../scripts/background/utils/migrationMetadataUtils.js');
+      const { hasNotionData } = getMetadataUtils();
       const legacySavedData = { notionPageId: 'legacy-page-id' };
 
       hasNotionData.mockImplementation(data => Boolean(data?.notionPageId));
@@ -728,10 +762,7 @@ describe('MigrationService', () => {
     });
 
     test('should log conflict with batch context when notion metadata conflicts', async () => {
-      const {
-        hasNotionData,
-        isSameNotionPage,
-      } = require('../../../../scripts/background/utils/migrationMetadataUtils.js');
+      const { hasNotionData, isSameNotionPage } = getMetadataUtils();
       const stableSavedData = { notionPageId: 'stable-page-id' };
       const legacySavedData = { notionPageId: 'legacy-page-id' };
 
@@ -762,9 +793,7 @@ describe('MigrationService', () => {
     });
 
     test('should still set alias when supplement logic throws', async () => {
-      const {
-        hasNotionData,
-      } = require('../../../../scripts/background/utils/migrationMetadataUtils.js');
+      const { hasNotionData } = getMetadataUtils();
       const legacySavedData = { notionPageId: 'legacy-page-id' };
 
       hasNotionData.mockImplementation(data => Boolean(data?.notionPageId));
@@ -793,7 +822,7 @@ describe('MigrationService', () => {
     });
 
     test('should return false and skip metadata/alias when stableUrl is root URL', async () => {
-      const { isRootUrl } = require('../../../../scripts/utils/urlUtils.js');
+      const { isRootUrl } = getUrlUtils();
       isRootUrl.mockReturnValueOnce(true);
 
       const result = await service._supplementBatchSavedMetadata(
@@ -904,7 +933,7 @@ describe('MigrationService', () => {
     });
 
     test('should fallback without alias when stableUrl is root URL and migrateStorageKey returns false', async () => {
-      const { isRootUrl } = require('../../../../scripts/utils/urlUtils.js');
+      const { isRootUrl } = getUrlUtils();
       const rootStableUrl = 'https://example.com/';
 
       isRootUrl.mockReturnValueOnce(true);

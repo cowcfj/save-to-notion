@@ -1,15 +1,27 @@
-import {
-  buildAccountApiUrl,
-  buildAccountLoginStartUrl,
-  getOptionsAdvancedUrl,
-} from '../../../scripts/auth/accountLogin.js';
-import { BUILD_ENV } from '../../../scripts/config/env/index.js';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-jest.mock('../../../scripts/config/env/index.js', () => ({
+const mockEnvModule = {
   BUILD_ENV: {
     OAUTH_SERVER_URL: 'https://worker.test',
   },
-}));
+};
+
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule('../../../scripts/config/env/index.js', () => mockEnvModule);
+}
+
+jest.mock('../../../scripts/config/env/index.js', () => mockEnvModule);
+
+let buildAccountApiUrl;
+let buildAccountLoginStartUrl;
+let getOptionsAdvancedUrl;
+let BUILD_ENV;
+
+beforeAll(async () => {
+  ({ buildAccountApiUrl, buildAccountLoginStartUrl, getOptionsAdvancedUrl } =
+    await import('../../../scripts/auth/accountLogin.js'));
+  ({ BUILD_ENV } = await import('../../../scripts/config/env/index.js'));
+});
 
 describe('accountLogin.js', () => {
   beforeEach(() => {

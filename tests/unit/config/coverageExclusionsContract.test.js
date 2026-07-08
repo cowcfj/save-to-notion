@@ -1,7 +1,13 @@
-const fs = require('node:fs');
-const path = require('node:path');
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const rootDir = path.resolve(__dirname, '../../..');
+import { jest } from '@jest/globals';
+
+import { loadConfig } from '../../helpers/nodeConfigLoader.cjs';
+
+const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
+const rootDirectory = path.resolve(currentDirectory, '../../..');
 
 function normalizeCoveragePattern(pattern) {
   return pattern
@@ -12,15 +18,15 @@ function normalizeCoveragePattern(pattern) {
 }
 
 function readSonarProperties() {
-  const properties = fs.readFileSync(path.join(rootDir, 'sonar-project.properties'), 'utf8');
+  const properties = fs.readFileSync(path.join(rootDirectory, 'sonar-project.properties'), 'utf8');
   return properties
     .split(/\r?\n/)
     .map(line => line.trim())
     .filter(line => line && !line.startsWith('#'));
 }
 
-function readJestCoverageExclusions() {
-  const { collectCoverageFrom } = require('../../../jest.config.js');
+async function readJestCoverageExclusions() {
+  const { collectCoverageFrom } = await readJestConfig();
   return new Set(
     collectCoverageFrom
       .filter(pattern => pattern.startsWith('!'))
@@ -29,9 +35,27 @@ function readJestCoverageExclusions() {
   );
 }
 
-function readJestProjectCacheDirectories() {
-  const { projects } = require('../../../jest.config.js');
+async function readJestProjectCacheDirectories() {
+  const { projects } = await readJestConfig();
   return projects.map(project => project.cacheDirectory);
+}
+
+async function readJestConfig() {
+  return loadConfig(path.join(rootDirectory, 'jest.config.js'));
+}
+
+async function readNativeEsmConfig() {
+  return loadConfig(path.join(rootDirectory, 'jest.native-esm.config.js'));
+}
+
+async function readNativeEsmCoverageInclusions() {
+  const { collectCoverageFrom } = await readNativeEsmConfig();
+  return new Set(
+    collectCoverageFrom
+      .filter(pattern => !pattern.startsWith('!'))
+      .map(pattern => normalizeCoveragePattern(pattern))
+      .filter(Boolean)
+  );
 }
 
 function escapeRegExp(value) {
@@ -102,11 +126,13 @@ describe('coverage exclusion contract', () => {
     expect(readCommaSeparatedSonarProperty(sonarProperties, 'sonar.sources')).toEqual(['site']);
   });
 
-  test('Jest keeps production coverage exclusions explicit', () => {
-    const jestExclusions = readJestCoverageExclusions();
+  test('Jest keeps production coverage exclusions explicit', async () => {
+    const jestExclusions = await readJestCoverageExclusions();
     const productionCoverageExclusions = [
       'scripts/config/index.js',
       'scripts/config/extension/**/*.js',
+      'scripts/config/env/build.example.js',
+      'scripts/postinstall.js',
       'scripts/highlighter/ui/Toolbar.js',
       'scripts/highlighter/ui/ToolbarRuntime.js',
       'scripts/highlighter/ui/ToolbarState.js',
@@ -117,12 +143,20 @@ describe('coverage exclusion contract', () => {
       'scripts/highlighter/ui/components/ToolbarContainer.js',
     ];
 
-    productionCoverageExclusions.forEach(pattern => {
+    for (const pattern of productionCoverageExclusions) {
       expect({
         pattern,
         jest: jestExclusions.has(pattern),
       }).toEqual({ pattern, jest: true });
-    });
+    }
+  });
+
+  test('native ESM coverage keeps the zero canary but excludes config examples', async () => {
+    const nativeEsmInclusions = await readNativeEsmCoverageInclusions();
+
+    expect(nativeEsmInclusions.has('pages/update-notification/update-notification.js')).toBe(true);
+    expect(nativeEsmInclusions.has('scripts/config/env/build.example.js')).toBe(false);
+    expect(nativeEsmInclusions.has('scripts/postinstall.js')).toBe(false);
   });
 
   test('SonarCloud automatic analysis does not declare a CI LCOV import contract', () => {
@@ -132,15 +166,15 @@ describe('coverage exclusion contract', () => {
     expect(hasSonarProperty(sonarProperties, 'sonar.coverage.exclusions')).toBe(false);
   });
 
-  test('unit spec files remain excluded from Jest coverage accounting', () => {
-    const jestExclusions = readJestCoverageExclusions();
+  test('unit spec files remain excluded from Jest coverage accounting', async () => {
+    const jestExclusions = await readJestCoverageExclusions();
 
     expect(jestExclusions.has('scripts/**/*.test.js')).toBe(true);
     expect(jestExclusions.has('scripts/**/*.spec.js')).toBe(true);
   });
 
-  test('Jest project cache directories align with the GitHub Actions cache path', () => {
-    expect(readJestProjectCacheDirectories()).toEqual([
+  test('Jest project cache directories align with the GitHub Actions cache path', async () => {
+    await expect(readJestProjectCacheDirectories()).resolves.toEqual([
       '<rootDir>/.jest-cache',
       '<rootDir>/.jest-cache',
     ]);

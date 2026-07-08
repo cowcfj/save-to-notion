@@ -1,24 +1,33 @@
 /**
  * @jest-environment jsdom
  */
-import { DataSourceManager } from '../../../pages/options/DataSourceManager.js';
-import { UIManager } from '../../../pages/options/UIManager.js';
+import { jest } from '@jest/globals';
+import Logger from '../../../scripts/utils/Logger.js';
 
-// Mock dependencies
-jest.mock('../../../pages/options/UIManager.js');
-jest.mock('../../../pages/options/SearchableDatabaseSelector.js');
-jest.mock('../../../scripts/utils/Logger.js', () => ({
-  __esModule: true,
-  default: {
-    debug: jest.fn(),
-    success: jest.fn(),
-    start: jest.fn(),
-    ready: jest.fn(),
-    info: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn(),
-  },
+// Setup common mocks that work across ESM and CJS
+const mockPopulateDataSources = jest.fn();
+const mockConstructor = jest.fn().mockImplementation(function () {
+  this.populateDataSources = mockPopulateDataSources;
+});
+
+// For native ESM
+jest.unstable_mockModule('../../../pages/options/SearchableDatabaseSelector.js', () => ({
+  SearchableDatabaseSelector: mockConstructor,
 }));
+
+// For CommonJS
+jest.mock('../../../pages/options/SearchableDatabaseSelector.js', () => {
+  const mockPopulateDataSourcesInner = jest.fn();
+  const mockConstructorInner = jest.fn().mockImplementation(function () {
+    this.populateDataSources = mockPopulateDataSourcesInner;
+  });
+  return {
+    SearchableDatabaseSelector: mockConstructorInner,
+  };
+});
+
+let DataSourceManager;
+let UIManager;
 
 // Mock chrome API
 globalThis.chrome = {
@@ -32,14 +41,32 @@ describe('DataSourceManager Messaging Error Handling', () => {
   let dataSourceManager;
   let mockUiManager;
 
+  beforeAll(async () => {
+    const dsmModule = await import('../../../pages/options/DataSourceManager.js');
+    DataSourceManager = dsmModule.DataSourceManager;
+    const uimModule = await import('../../../pages/options/UIManager.js');
+    UIManager = uimModule.UIManager;
+  });
+
   beforeEach(() => {
-    // Reset mocks
-    jest.clearAllMocks();
+    jest.spyOn(Logger, 'info').mockImplementation(() => {});
+    jest.spyOn(Logger, 'error').mockImplementation(() => {});
+    jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+    jest.spyOn(Logger, 'debug').mockImplementation(() => {});
+    jest.spyOn(Logger, 'start').mockImplementation(() => {});
+    jest.spyOn(Logger, 'success').mockImplementation(() => {});
+    jest.spyOn(Logger, 'ready').mockImplementation(() => {});
+
     globalThis.chrome.runtime.lastError = null;
+    globalThis.chrome.runtime.sendMessage.mockReset();
 
     mockUiManager = new UIManager();
     mockUiManager.showStatus = jest.fn();
     dataSourceManager = new DataSourceManager(mockUiManager, () => 'test-api-key');
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   test('_fetchFromNotion 應該正確處理 chrome.runtime.lastError', async () => {

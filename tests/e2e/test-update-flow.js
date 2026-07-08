@@ -1,9 +1,7 @@
 // 測試更新通知完整流程
-console.log('🧪 開始測試更新通知功能');
+import { shouldShowUpdateNotification } from '../../scripts/background/utils/updateNotificationVersion.js';
 
-const {
-  shouldShowUpdateNotification,
-} = require('../../scripts/background/utils/updateNotificationVersion.cjs');
+console.log('🧪 開始測試更新通知功能');
 
 // 測試 1: 版本比較邏輯（只有 Major/Minor 才通知）
 function testVersionComparison() {
@@ -17,13 +15,13 @@ function testVersionComparison() {
     { prev: '2.48.0', curr: '2.47.0', expected: false, desc: '降級，不通知' },
   ];
 
-  testCases.forEach(test => {
+  for (const test of testCases) {
     const result = shouldShowUpdateNotification(test.prev, test.curr);
     const status = result === test.expected ? '✅' : '❌';
     console.log(
       `${status} ${test.prev} → ${test.curr}: ${result ? '顯示' : '不顯示'} (${test.desc})`
     );
-  });
+  }
 }
 
 // 測試 2: 文件完整性檢查
@@ -37,9 +35,9 @@ function testFileIntegrity() {
   ];
 
   console.log('✅ 所有必需文件:');
-  requiredFiles.forEach(file => {
+  for (const file of requiredFiles) {
     console.log(`   - ${file}`);
-  });
+  }
 
   console.log('✅ 修改的文件:');
   console.log(
@@ -61,7 +59,7 @@ function testArchitectureFeatures() {
     '✅ 只有 Major/Minor 升版才顯示通知',
   ];
 
-  features.forEach(feature => console.log(feature));
+  for (const feature of features) {console.log(feature);}
 }
 
 // 執行所有測試

@@ -12,15 +12,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { test, expect } from '../fixtures';
-import { measureN, writeBaseline, printDelta } from './timingHelpers';
+import { test, expect } from '../fixtures.js';
+import { measureN, writeBaseline, printDelta } from './timingHelpers.js';
 import {
   seedStorageAndMockNotionApi,
   resolveTargetTabIdAndMockQuery,
   triggerSavePage,
-} from './perfSetup';
+} from './perfSetup.js';
 
-const FIXTURE_PATH = path.resolve(__dirname, 'fixtures/nextjs-article.html');
+const FIXTURE_PATH = path.resolve(process.cwd(), 'tests/e2e/perf/fixtures/nextjs-article.html');
 const FIXTURE_URL = 'https://example.com/perf-nextjs-fixture';
 
 test('perf: save round-trip on Next.js fixture', async ({ page, context, extensionId }) => {

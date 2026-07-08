@@ -2,10 +2,10 @@
  * @jest-environment jsdom
  */
 
-/* global jest, describe, it, expect, beforeEach, afterEach */
+import { afterEach, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 // Mock controller
-jest.mock('../../../pages/onboarding/onboardingController.js', () => ({
+const mockOnboardingControllerModule = {
   TOTAL_STEPS: 6,
   showStep: jest.fn(),
   getCurrentStep: jest.fn(),
@@ -18,31 +18,78 @@ jest.mock('../../../pages/onboarding/onboardingController.js', () => ({
   selectDataSource: jest.fn(),
   isAccountFeatureEnabled: jest.fn(),
   isAccountLoggedIn: jest.fn(),
-}));
+};
 
 // Mock login initiator
-jest.mock('../../../scripts/auth/accountLoginInitiator.js', () => ({
+const mockAccountLoginInitiatorModule = {
   startAccountLogin: jest.fn(),
-}));
+};
 
-jest.mock('../../../scripts/utils/Logger.js', () => ({
+const mockLogger = {
+  debug: jest.fn(),
+  error: jest.fn(),
+  info: jest.fn(),
+  ready: jest.fn(),
+  start: jest.fn(),
+  success: jest.fn(),
+  warn: jest.fn(),
+};
+
+const mockLoggerModule = {
   __esModule: true,
-  default: require('../../helpers/loggerMock.js').createLoggerMock(),
-}));
+  default: mockLogger,
+};
 
-import {
-  showStep,
-  nextStep,
-  skipToEnd,
-  isNotionConnected,
-  runNotionOAuthFlow,
-  fetchNotionDatabases,
-  selectDataSource,
-  isAccountFeatureEnabled,
-  isAccountLoggedIn,
-} from '../../../pages/onboarding/onboardingController.js';
-import { startAccountLogin } from '../../../scripts/auth/accountLoginInitiator.js';
-import Logger from '../../../scripts/utils/Logger.js';
+if (typeof jest.unstable_mockModule === 'function') {
+  jest.unstable_mockModule(
+    '../../../pages/onboarding/onboardingController.js',
+    () => mockOnboardingControllerModule
+  );
+  jest.unstable_mockModule(
+    '../../../scripts/auth/accountLoginInitiator.js',
+    () => mockAccountLoginInitiatorModule
+  );
+  jest.unstable_mockModule('../../../scripts/utils/Logger.js', () => mockLoggerModule);
+}
+
+jest.mock(
+  '../../../pages/onboarding/onboardingController.js',
+  () => mockOnboardingControllerModule
+);
+jest.mock('../../../scripts/auth/accountLoginInitiator.js', () => mockAccountLoginInitiatorModule);
+jest.mock('../../../scripts/utils/Logger.js', () => mockLoggerModule);
+
+const IS_NATIVE_ESM = process.env.NODE_OPTIONS?.includes('--experimental-vm-modules');
+
+let showStep;
+let nextStep;
+let skipToEnd;
+let markCompleted;
+let isNotionConnected;
+let runNotionOAuthFlow;
+let fetchNotionDatabases;
+let selectDataSource;
+let isAccountFeatureEnabled;
+let isAccountLoggedIn;
+let startAccountLogin;
+let Logger;
+
+beforeAll(async () => {
+  ({
+    showStep,
+    nextStep,
+    skipToEnd,
+    markCompleted,
+    isNotionConnected,
+    runNotionOAuthFlow,
+    fetchNotionDatabases,
+    selectDataSource,
+    isAccountFeatureEnabled,
+    isAccountLoggedIn,
+  } = await import('../../../pages/onboarding/onboardingController.js'));
+  ({ startAccountLogin } = await import('../../../scripts/auth/accountLoginInitiator.js'));
+  ({ default: Logger } = await import('../../../scripts/utils/Logger.js'));
+});
 
 describe('onboarding entry script (onboarding.js)', () => {
   let root;
@@ -119,7 +166,13 @@ describe('onboarding entry script (onboarding.js)', () => {
     window.close = originalWindowClose;
   });
 
-  const loadEntryScript = () => {
+  const loadEntryScript = async () => {
+    if (IS_NATIVE_ESM) {
+      jest.resetModules();
+      await import('../../../pages/onboarding/onboarding.js');
+      return;
+    }
+
     jest.isolateModules(() => {
       require('../../../pages/onboarding/onboarding.js');
     });
@@ -154,7 +207,7 @@ describe('onboarding entry script (onboarding.js)', () => {
     isNotionConnected.mockResolvedValue(true);
     fetchNotionDatabases.mockResolvedValue(databases);
 
-    loadEntryScript();
+    await loadEntryScript();
     await clickActionAndFlush('retry-databases');
 
     return root.querySelector('[data-database-list]');
@@ -190,7 +243,7 @@ describe('onboarding entry script (onboarding.js)', () => {
     isAccountLoggedIn.mockResolvedValue(false);
     startAccountLogin.mockResolvedValue({ success: true });
 
-    loadEntryScript();
+    await loadEntryScript();
     const loginBtn = await clickActionAndFlush('login-account');
 
     return {
@@ -203,7 +256,7 @@ describe('onboarding entry script (onboarding.js)', () => {
   const showConnectNotionError = async error => {
     runNotionOAuthFlow.mockRejectedValue(error);
 
-    loadEntryScript();
+    await loadEntryScript();
     await clickActionAndFlush('connect-notion');
 
     return getErrorElement('connect-notion');
@@ -215,8 +268,8 @@ describe('onboarding entry script (onboarding.js)', () => {
     });
   };
 
-  it('載入時應初始化步驟 1 並綁定 actions', () => {
-    loadEntryScript();
+  it('載入時應初始化步驟 1 並綁定 actions', async () => {
+    await loadEntryScript();
     expect(showStep).toHaveBeenCalledWith(root, 1);
     expect(Logger.ready).toHaveBeenCalledWith('[Onboarding] entry loaded', {
       action: 'onboarding_init',
@@ -224,8 +277,8 @@ describe('onboarding entry script (onboarding.js)', () => {
     });
   });
 
-  it('點擊 next 應調用 nextStep', () => {
-    loadEntryScript();
+  it('點擊 next 應調用 nextStep', async () => {
+    await loadEntryScript();
     nextStep.mockReturnValue(5);
 
     clickAction('next');
@@ -233,8 +286,8 @@ describe('onboarding entry script (onboarding.js)', () => {
     expect(nextStep).toHaveBeenCalledWith(root);
   });
 
-  it('點擊 skip 應調用 skipToEnd', () => {
-    loadEntryScript();
+  it('點擊 skip 應調用 skipToEnd', async () => {
+    await loadEntryScript();
     skipToEnd.mockReturnValue(6);
 
     clickAction('skip');
@@ -242,8 +295,8 @@ describe('onboarding entry script (onboarding.js)', () => {
     expect(skipToEnd).toHaveBeenCalledWith(root);
   });
 
-  it('點擊 finish 應關閉視窗', () => {
-    loadEntryScript();
+  it('點擊 finish 應關閉視窗', async () => {
+    await loadEntryScript();
 
     clickAction('finish');
 
@@ -255,7 +308,7 @@ describe('onboarding entry script (onboarding.js)', () => {
       isNotionConnected.mockResolvedValue(true);
       nextStep.mockReturnValue(3);
 
-      loadEntryScript();
+      await loadEntryScript();
 
       runNotionOAuthFlow.mockResolvedValue(undefined);
       nextStep.mockReturnValue(3);
@@ -270,7 +323,7 @@ describe('onboarding entry script (onboarding.js)', () => {
       isNotionConnected.mockResolvedValue(false);
       runNotionOAuthFlow.mockRejectedValue(new Error('oauth_error'));
 
-      loadEntryScript();
+      await loadEntryScript();
 
       const connectBtn = getActionButton('connect-notion');
       const originalText = connectBtn.textContent;
@@ -325,7 +378,7 @@ describe('onboarding entry script (onboarding.js)', () => {
       isNotionConnected.mockResolvedValue(true);
       fetchNotionDatabases.mockRejectedValue(new Error('network_error'));
 
-      loadEntryScript();
+      await loadEntryScript();
       await clickActionAndFlush('retry-databases');
 
       const errorState = getStep3State('error');
@@ -366,7 +419,7 @@ describe('onboarding entry script (onboarding.js)', () => {
 
       // 此測試中不需監聽 storage 變更
 
-      loadEntryScript();
+      await loadEntryScript();
 
       const loginBtn = getActionButton('login-account');
       const originalText = loginBtn.textContent;
@@ -386,7 +439,7 @@ describe('onboarding entry script (onboarding.js)', () => {
       isAccountLoggedIn.mockResolvedValue(false);
       startAccountLogin.mockResolvedValue({ success: false, error: 'login_failed' });
 
-      loadEntryScript();
+      await loadEntryScript();
 
       const loginBtn = await clickActionAndFlush('login-account');
 
@@ -431,7 +484,7 @@ describe('onboarding entry script (onboarding.js)', () => {
 
       runNotionOAuthFlow.mockRejectedValue(new Error('test_error'));
 
-      loadEntryScript();
+      await loadEntryScript();
 
       // 應該不拋錯
       await expect(
@@ -449,7 +502,7 @@ describe('onboarding entry script (onboarding.js)', () => {
       isNotionConnected.mockResolvedValue(true);
       fetchNotionDatabases.mockResolvedValue([{ id: 'db-1', title: 'DB One' }]);
 
-      loadEntryScript();
+      await loadEntryScript();
 
       // 應該不拋錯
       await expect(
@@ -460,7 +513,7 @@ describe('onboarding entry script (onboarding.js)', () => {
     });
 
     it('handleConfirmDatabase 未選資料庫時應直接返回', async () => {
-      loadEntryScript();
+      await loadEntryScript();
 
       const confirmBtn = root.querySelector('[data-step3-confirm]');
       confirmBtn.disabled = false;
@@ -472,8 +525,8 @@ describe('onboarding entry script (onboarding.js)', () => {
       expect(selectDataSource).not.toHaveBeenCalled();
     });
 
-    it('點擊非 action 元素應不觸發任何 handler', () => {
-      loadEntryScript();
+    it('點擊非 action 元素應不觸發任何 handler', async () => {
+      await loadEntryScript();
 
       const section = root.querySelector('[data-step="1"]');
       section.click();
@@ -484,7 +537,7 @@ describe('onboarding entry script (onboarding.js)', () => {
     });
 
     it('event.target 不是 Element 時應忽略 click', async () => {
-      loadEntryScript();
+      await loadEntryScript();
 
       const textNode = document.createTextNode('plain text');
       root.append(textNode);
@@ -503,7 +556,7 @@ describe('onboarding entry script (onboarding.js)', () => {
       nextStep.mockReturnValue(3);
       fetchNotionDatabases.mockResolvedValue([]);
 
-      loadEntryScript();
+      await loadEntryScript();
 
       await clickActionAndFlush('next');
 
@@ -514,7 +567,7 @@ describe('onboarding entry script (onboarding.js)', () => {
     it('進入 Step 2 時檢測 Notion 連接失敗應記錄但不阻斷', async () => {
       isNotionConnected.mockRejectedValue(new Error('detection_failed'));
 
-      loadEntryScript();
+      await loadEntryScript();
 
       // 應該不拋錯
       await expect(
@@ -529,7 +582,7 @@ describe('onboarding entry script (onboarding.js)', () => {
       isNotionConnected.mockResolvedValue(false);
       nextStep.mockReturnValue(3);
 
-      loadEntryScript();
+      await loadEntryScript();
 
       nextStep.mockReturnValue(3);
 
@@ -543,7 +596,7 @@ describe('onboarding entry script (onboarding.js)', () => {
       isNotionConnected.mockRejectedValue(new Error('detection_failed'));
       nextStep.mockReturnValue(3);
 
-      loadEntryScript();
+      await loadEntryScript();
 
       nextStep.mockReturnValue(3);
 
@@ -584,7 +637,7 @@ describe('onboarding entry script (onboarding.js)', () => {
       isAccountLoggedIn.mockRejectedValue(new Error('detection_failed'));
       nextStep.mockReturnValue(4);
 
-      loadEntryScript();
+      await loadEntryScript();
 
       // 應該不拋錯
       await expect(
@@ -596,11 +649,10 @@ describe('onboarding entry script (onboarding.js)', () => {
     });
 
     it('進入 Step 6 (完成) 時 markCompleted 失敗應記錄但不阻斷', async () => {
-      const { markCompleted } = require('../../../pages/onboarding/onboardingController.js');
       markCompleted.mockRejectedValue(new Error('write_failed'));
       skipToEnd.mockReturnValue(6);
 
-      loadEntryScript();
+      await loadEntryScript();
 
       // 應該不拋錯
       await expect(
@@ -685,7 +737,7 @@ describe('onboarding entry script (onboarding.js)', () => {
       globalThis.chrome.runtime.sendMessage.mockImplementation(sendMessageImplementation);
       mockFetchThroughRuntimeSendMessage();
 
-      loadEntryScript();
+      await loadEntryScript();
       await clickActionAndFlush('retry-databases');
 
       const errorEl = getErrorElement('fetch-databases');

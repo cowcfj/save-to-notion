@@ -1,17 +1,35 @@
 const ESM_TRANSFORM_IGNORE_PATTERNS = [
-  String.raw`node_modules/(?!(jsdom|@exodus|html-encoding-sniffer|@notionhq|parse5|@babel|@jest|jest-environment-jsdom|whatwg-url|tr46|webidl-conversions|data-urls|decimal.js|punycode|entities|nwsapi|saxes|cssstyle|rrweb-cssom|symbol-tree|@asamuzakjp\/css-color)/)`
+  String.raw`node_modules/(?!(jsdom|@exodus|html-encoding-sniffer|@notionhq|parse5|@jest|jest-environment-jsdom|whatwg-url|tr46|webidl-conversions|data-urls|decimal.js|punycode|entities|nwsapi|saxes|cssstyle|rrweb-cssom|symbol-tree|@asamuzakjp\/css-color)/)`
 ];
 
-module.exports = {
+const SWC_JEST_TRANSFORM = [
+  '@swc/jest',
+  {
+    sourceMaps: 'inline',
+    jsc: {
+      target: 'es2023',
+    },
+    module: {
+      type: 'commonjs',
+    },
+  },
+];
+
+const JEST_MODULE_NAME_MAPPER = {
+  '^chrome$': '<rootDir>/tests/mocks/chrome.cjs',
+  '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.cjs'
+};
+
+const config = {
   cacheDirectory: '<rootDir>/.jest-cache',
   // 測試環境 - 使用 jsdom 環境來支持 DOM 測試
   testEnvironment: 'jsdom',
 
   // 預設置文件（在模組載入前執行，用於全局 mock）
-  setupFiles: ['<rootDir>/tests/presetup.js'],
+  setupFiles: ['<rootDir>/tests/presetup.cjs'],
 
   // 測試設置文件（在模組載入後執行）
-  setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.cjs'],
 
   projects: [
     {
@@ -19,17 +37,19 @@ module.exports = {
       cacheDirectory: '<rootDir>/.jest-cache',
       testEnvironment: 'jsdom',
       testMatch: [
+        '<rootDir>/tests/unit/background.test.cjs',
+        '<rootDir>/tests/unit/background/extension-lifecycle.test.cjs',
         '<rootDir>/tests/unit/**/*.test.js',
-        '<rootDir>/tests/unit/**/*.spec.js'
+        '<rootDir>/tests/unit/**/*.spec.js',
+        '<rootDir>/tests/unit/incumbent/**/*.test.mjs',
+        '<rootDir>/tests/contract/**/*.test.js',
+        '<rootDir>/tests/contract/incumbent/**/*.test.mjs'
       ],
-      setupFiles: ['<rootDir>/tests/presetup.js'],
-      setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
-      moduleNameMapper: {
-        '^chrome$': '<rootDir>/tests/mocks/chrome.js',
-        '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.js'
-      },
+      setupFiles: ['<rootDir>/tests/presetup.cjs'],
+      setupFilesAfterEnv: ['<rootDir>/tests/setup.cjs'],
+      moduleNameMapper: JEST_MODULE_NAME_MAPPER,
       transform: {
-        '^.+\\.[tj]sx?$': 'babel-jest',
+        '^.+\\.(m?[tj]sx?)$': SWC_JEST_TRANSFORM,
       },
       transformIgnorePatterns: ESM_TRANSFORM_IGNORE_PATTERNS
     },
@@ -39,16 +59,14 @@ module.exports = {
       testEnvironment: 'jsdom',
       testMatch: [
         '<rootDir>/tests/integration/**/*.test.js',
-        '<rootDir>/tests/integration/**/*.spec.js'
+        '<rootDir>/tests/integration/**/*.spec.js',
+        '<rootDir>/tests/integration/incumbent/**/*.test.mjs'
       ],
-      setupFiles: ['<rootDir>/tests/presetup.js'],
-      setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
-      moduleNameMapper: {
-        '^chrome$': '<rootDir>/tests/mocks/chrome.js',
-        '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.js'
-      },
+      setupFiles: ['<rootDir>/tests/presetup.cjs'],
+      setupFilesAfterEnv: ['<rootDir>/tests/setup.cjs'],
+      moduleNameMapper: JEST_MODULE_NAME_MAPPER,
       transform: {
-        '^.+\\.[tj]sx?$': 'babel-jest',
+        '^.+\\.(m?[tj]sx?)$': SWC_JEST_TRANSFORM,
       },
       transformIgnorePatterns: ESM_TRANSFORM_IGNORE_PATTERNS
     }
@@ -60,6 +78,10 @@ module.exports = {
     '<rootDir>/pages/**/*.js',
     '!<rootDir>/scripts/config/index.js',              // 純 re-export barrel file
     '!<rootDir>/scripts/config/extension/**/*.js',     // extension-only 純常量配置與 re-export
+    '!<rootDir>/scripts/config/env/build.example.js',  // build-time template; not browser runtime source coverage
+    // Node lifecycle tooling is owned by native-default / contract tests,
+    // not browser V8 source coverage.
+    '!<rootDir>/scripts/postinstall.js',
     // Toolbar 鏈：DCE guard 位於 scripts/highlighter/windowAPI.js
     // (TOOLBAR_TEST_FIXTURE_ENABLED 與 ensureToolbar(state))，而非 Toolbar files 本身。
     // rollup/content.config.mjs 將 globalThis.__UNIT_TESTING__ 替換為 false，
@@ -79,13 +101,14 @@ module.exports = {
     '!**/node_modules/**'
   ],
 
-  // 覆蓋率門檼 (已根據目前測試結果大幅提升)
+  // Incumbent Jest/SWC coverage is retained as fallback and contract evidence.
+  // Official local threshold ownership lives in jest.native-esm.config.cjs.
   coverageThreshold: {
     global: {
-      branches: 70,
-      functions: 80,
-      lines: 80,
-      statements: 80
+      branches: 0,
+      functions: 0,
+      lines: 0,
+      statements: 0
     }
   },
 
@@ -108,21 +131,18 @@ module.exports = {
 
   // 轉換配置（如果需要）
   transform: {
-    '^.+\\.[tj]sx?$': 'babel-jest',
+    '^.+\\.(m?[tj]sx?)$': SWC_JEST_TRANSFORM,
   },
 
   // 轉換 node_modules 中的 ES 模組
   transformIgnorePatterns: ESM_TRANSFORM_IGNORE_PATTERNS,
 
   // 模組名稱映射（用於模擬 Chrome API）
-  moduleNameMapper: {
-    '^chrome$': '<rootDir>/tests/mocks/chrome.js',
-    '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.js'
-  },
+  moduleNameMapper: JEST_MODULE_NAME_MAPPER,
 
   // 防止測試掛起
   // forceExit: false 讓掛起問題暴露出來,而非被掩蓋
-  // detectOpenHandles: false 為速度優化;遇到掛起時用 npm run test:ci:diagnostic 診斷
+  // detectOpenHandles: false 為速度優化;遇到掛起時用 npm test -- --detectOpenHandles 診斷
   forceExit: false,
   detectOpenHandles: false,
 
@@ -143,3 +163,5 @@ module.exports = {
   bail: false, // 不在第一個失敗時停止，繼續執行所有測試
   verbose: false // 關閉詳細輸出以提升速度
 };
+
+export default config;
