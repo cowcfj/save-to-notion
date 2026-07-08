@@ -97,43 +97,33 @@ describe('accountAuthHandler', () => {
     });
   });
 
-  test('ext_id 與目前 extension 不一致時不應攔截', async () => {
+  test.each([
+    {
+      name: 'ext_id 與目前 extension 不一致時不應攔截',
+      changeInfo: {
+        url: 'https://worker.test/v1/account/callback-bridge?account_ticket=ticket_123&ext_id=other_ext_id',
+      },
+    },
+    {
+      name: 'origin 不一致時不應攔截',
+      changeInfo: {
+        url: 'https://evil.test/v1/account/callback-bridge?account_ticket=ticket_123&ext_id=ext_id_123',
+      },
+    },
+    {
+      name: 'pathname 不一致時不應攔截',
+      changeInfo: {
+        url: 'https://worker.test/v1/account/google/callback?account_ticket=ticket_123&ext_id=ext_id_123',
+      },
+    },
+    {
+      name: 'tab update 缺少 url 時不應攔截',
+      changeInfo: {},
+    },
+  ])('$name', async ({ changeInfo }) => {
     handler.setupListeners();
 
-    await onUpdatedListener(12, {
-      url: 'https://worker.test/v1/account/callback-bridge?account_ticket=ticket_123&ext_id=other_ext_id',
-    });
-
-    expect(runtime.getURL).not.toHaveBeenCalled();
-    expect(tabs.update).not.toHaveBeenCalled();
-  });
-
-  test('origin 不一致時不應攔截', async () => {
-    handler.setupListeners();
-
-    await onUpdatedListener(12, {
-      url: 'https://evil.test/v1/account/callback-bridge?account_ticket=ticket_123&ext_id=ext_id_123',
-    });
-
-    expect(runtime.getURL).not.toHaveBeenCalled();
-    expect(tabs.update).not.toHaveBeenCalled();
-  });
-
-  test('pathname 不一致時不應攔截', async () => {
-    handler.setupListeners();
-
-    await onUpdatedListener(12, {
-      url: 'https://worker.test/v1/account/google/callback?account_ticket=ticket_123&ext_id=ext_id_123',
-    });
-
-    expect(runtime.getURL).not.toHaveBeenCalled();
-    expect(tabs.update).not.toHaveBeenCalled();
-  });
-
-  test('tab update 缺少 url 時不應攔截', async () => {
-    handler.setupListeners();
-
-    await onUpdatedListener(12, {});
+    await onUpdatedListener(12, changeInfo);
 
     expect(runtime.getURL).not.toHaveBeenCalled();
     expect(tabs.update).not.toHaveBeenCalled();
