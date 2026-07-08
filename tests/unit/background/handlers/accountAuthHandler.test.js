@@ -130,6 +130,15 @@ describe('accountAuthHandler', () => {
     expect(tabs.update).not.toHaveBeenCalled();
   });
 
+  test('tab update 缺少 url 時不應攔截', async () => {
+    handler.setupListeners();
+
+    await onUpdatedListener(12, {});
+
+    expect(runtime.getURL).not.toHaveBeenCalled();
+    expect(tabs.update).not.toHaveBeenCalled();
+  });
+
   test('缺少 account_ticket 時不應攔截', async () => {
     handler.setupListeners();
 
@@ -151,6 +160,23 @@ describe('accountAuthHandler', () => {
     await onUpdatedListener(12, { url: bridgeUrl });
 
     expect(tabs.update).toHaveBeenCalledTimes(1);
+  });
+
+  test('同一 tab 收到不同 bridge URL 時應清除舊去重狀態並重新處理', async () => {
+    handler.setupListeners();
+
+    const firstBridgeUrl =
+      'https://worker.test/v1/account/callback-bridge?account_ticket=ticket_123&ext_id=ext_id_123';
+    const secondBridgeUrl =
+      'https://worker.test/v1/account/callback-bridge?account_ticket=ticket_456&ext_id=ext_id_123';
+
+    await onUpdatedListener(12, { url: firstBridgeUrl });
+    await onUpdatedListener(12, { url: secondBridgeUrl });
+
+    expect(tabs.update).toHaveBeenCalledTimes(2);
+    expect(tabs.update).toHaveBeenNthCalledWith(2, 12, {
+      url: 'chrome-extension://ext_id_123/pages/auth/auth.html?account_ticket=ticket_456',
+    });
   });
 
   test('tab 關閉後應清除去重狀態，允許下一個 tab 重新處理', async () => {
