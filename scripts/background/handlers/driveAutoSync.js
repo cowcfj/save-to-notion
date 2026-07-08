@@ -82,6 +82,10 @@ const AUTO_SYNC_SKIP_CHECKS = [
  * @returns {{ shouldRun: boolean; reason: string }}
  */
 export function shouldRunAutoSync(metadata, context = {}) {
+  if (metadata == null) {
+    return { shouldRun: false, reason: 'missing_metadata' };
+  }
+
   for (const check of AUTO_SYNC_SKIP_CHECKS) {
     if (check.shouldSkip(metadata, context)) {
       return { shouldRun: false, reason: check.reason };

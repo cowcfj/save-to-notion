@@ -16,14 +16,23 @@ import { ErrorHandler, AppError, ErrorTypes } from '../../utils/ErrorHandler.js'
 function createSafeSendResponse({ action, logger, sendResponse }) {
   let responseSent = false;
 
-  return payload => {
+  return (payload, options = {}) => {
     if (responseSent) {
       logger.debug?.(`偵測到 '${action}' 的重複 sendResponse，已忽略`);
       return;
     }
 
     responseSent = true;
-    sendResponse(payload);
+    try {
+      sendResponse(payload);
+    } catch (sendError) {
+      logFallbackSendResponseFailure({
+        action,
+        logger,
+        phase: options.phase ?? 'sendResponse',
+        sendError,
+      });
+    }
   };
 }
 
@@ -42,7 +51,7 @@ function sendHandlerErrorResponse({ action, error, logger, phase, safeSendRespon
   const errorResponse = MessageHandler._formatError(error, action);
 
   try {
-    safeSendResponse(errorResponse);
+    safeSendResponse(errorResponse, { phase });
   } catch (sendError) {
     logFallbackSendResponseFailure({ action, logger, phase, sendError });
   }
