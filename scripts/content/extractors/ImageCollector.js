@@ -281,16 +281,16 @@ const ImageCollector = {
   },
 
   _appendUniqueGalleryImages(elements, featuredImage, processedUrls, images) {
-    elements.forEach((element, index) => {
+    for (const [index, element] of elements.entries()) {
       const imageObject = this.processImageForCollection(element, index, featuredImage);
       const url = this._extractImageBlockUrl(imageObject);
       if (!url || processedUrls.has(url)) {
-        return;
+        continue;
       }
 
       processedUrls.add(url);
       images.push(imageObject);
-    });
+    }
   },
 
   _extractPlaceholderImageBlockUrl(block) {
@@ -338,16 +338,17 @@ const ImageCollector = {
    *
    * @param {Element} img - 圖片元素
    * @param {string} src - 原始 src
-   * @returns {string} 標準化且清理後的 URL
+   * @returns {string|null} 標準化且清理後的 URL
    * @private
    */
   _normalizeCandidateImageUrl(img, src) {
-    let absoluteUrl = src;
+    let absoluteUrl;
     try {
       absoluteUrl = new URL(src, document.baseURI).href;
     } catch {
       // WHY: If src is completely malformed and document.baseURI cannot resolve it,
-      // new URL will throw. We gracefully fallback to the original src.
+      // new URL will throw. Treat it as an invalid candidate instead of preserving it.
+      return null;
     }
     return cleanImageUrl?.(absoluteUrl) ?? absoluteUrl;
   },
@@ -458,7 +459,7 @@ const ImageCollector = {
       return { status: 'duplicate_featured' };
     }
 
-    if (!isValidCleanedImageUrl?.(cleanedImageUrl)) {
+    if (!cleanedImageUrl || !isValidCleanedImageUrl?.(cleanedImageUrl)) {
       Logger.log('無效或不相容的圖片 URL', {
         action: 'processImageForCollection',
         url: sanitizeUrlForLogging(cleanedImageUrl),

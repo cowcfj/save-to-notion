@@ -197,16 +197,18 @@ describe('ImageCollector', () => {
   });
 
   describe('processImageForCollection', () => {
-    test('should handle malformed URLs gracefully without throwing', () => {
+    test('should handle malformed URLs as invalid candidates without throwing', () => {
       const mockImg = document.createElement('img');
       const malformedSource = 'http://[malformed]';
 
       extractImageSource.mockReturnValue(malformedSource);
-      // document.baseURI might be a valid URL string or about:blank in JSDOM, but new URL with this malformed src will throw
 
+      let result;
       expect(() => {
-        ImageCollector.processImageForCollection(mockImg, 0, null);
+        result = ImageCollector.processImageForCollection(mockImg, 0, null, { detailed: true });
       }).not.toThrow();
+      expect(result).toEqual({ status: 'invalid_url' });
+      expect(Logger.log).toHaveBeenCalledWith('無效或不相容的圖片 URL', expect.any(Object));
     });
 
     test('should return null when extractImageSrc returns null', () => {
@@ -223,8 +225,8 @@ describe('ImageCollector', () => {
       const mockImg = document.createElement('img');
       mockImg.src = 'https://example.com/img.jpg';
       Object.defineProperties(mockImg, {
-	naturalWidth: { value: 800 },
-	naturalHeight: { value: 600 },
+        naturalWidth: { value: 800 },
+        naturalHeight: { value: 600 },
       });
 
       extractImageSource.mockReturnValue('https://example.com/img.jpg');
@@ -259,8 +261,8 @@ describe('ImageCollector', () => {
       const mockImg = document.createElement('img');
       mockImg.src = 'https://example.com/small.jpg';
       Object.defineProperties(mockImg, {
-	naturalWidth: { value: 500 },
-	naturalHeight: { value: 300 },
+        naturalWidth: { value: 500 },
+        naturalHeight: { value: 300 },
       });
 
       extractImageSource.mockReturnValue('https://example.com/small.jpg');
