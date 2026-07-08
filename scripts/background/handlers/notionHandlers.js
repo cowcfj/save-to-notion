@@ -16,6 +16,70 @@ import {
 } from '../../utils/notionAuth.js';
 import { ERROR_MESSAGES } from '../../config/messages/errorMessages.js';
 
+const SEARCH_PARAM_FIELDS = ['query', 'filter', 'sort', 'page_size', 'start_cursor'];
+
+function buildNotionSearchParams(request) {
+  if (request.searchParams) {
+    return request.searchParams;
+  }
+
+  const fallback = {};
+  for (const field of SEARCH_PARAM_FIELDS) {
+    if (request[field] !== undefined) {
+      fallback[field] = request[field];
+    }
+  }
+  return fallback;
+}
+
+async function resolveSearchApiKey(apiKey) {
+  if (apiKey) {
+    return apiKey;
+  }
+
+  const active = await getActiveNotionToken();
+  return active?.token ?? null;
+}
+
+function sendMissingApiKeyResponse(sendResponse) {
+  sendResponse({
+    success: false,
+    error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED),
+  });
+}
+
+async function searchNotionWithResolvedToken({ request, notionService, sendResponse }) {
+  const params = buildNotionSearchParams(request);
+  const resolvedApiKey = await resolveSearchApiKey(request.apiKey);
+
+  if (!resolvedApiKey) {
+    sendMissingApiKeyResponse(sendResponse);
+    return;
+  }
+
+  const result = await notionService.search(params, { apiKey: resolvedApiKey });
+  sendResponse({ success: true, data: result });
+}
+
+async function handleSearchNotion({ request, sender, sendResponse, notionService }) {
+  // 安全驗證：確保請求來自擴充功能內部 (Options/Popup)
+  const validationError = validateInternalRequest(sender);
+  if (validationError) {
+    sendResponse(validationError);
+    return;
+  }
+
+  try {
+    await searchNotionWithResolvedToken({ request, notionService, sendResponse });
+  } catch (error) {
+    const safeMessage = sanitizeApiError(error, 'search_notion');
+    sendResponse({
+      success: false,
+      error: ErrorHandler.formatUserMessage(safeMessage),
+    });
+  }
+}
+
 export function createNotionHandlers({ notionService }) {
   return {
     /**
@@ -26,57 +90,7 @@ export function createNotionHandlers({ notionService }) {
      * @param {Function} sendResponse
      */
     [RUNTIME_ACTIONS.SEARCH_NOTION]: async (request, sender, sendResponse) => {
-      // 1. 安全驗證：確保請求來自擴充功能內部 (Options/Popup)
-      const validationError = validateInternalRequest(sender);
-      if (validationError) {
-        sendResponse(validationError);
-        return;
-      }
-
-      try {
-        const { apiKey, searchParams } = request;
-
-        // 優先使用封裝的 searchParams，防止命名空間衝突；否則回退到扁平結構以保持相容
-        const params =
-          searchParams ||
-          (() => {
-            const fallback = {};
-            const fields = ['query', 'filter', 'sort', 'page_size', 'start_cursor'];
-
-            for (const field of fields) {
-              if (request[field] !== undefined) {
-                fallback[field] = request[field];
-              }
-            }
-            return fallback;
-          })();
-
-        // caller（如 onboarding）未帶 apiKey 時，從 storage 取目前有效的 token；
-        // OAuth 完成後 token 已落地 chrome.storage.local，但 NotionService 的全域 client
-        // 並未自動 hydrate，故在此邊界補上以避免出現 API_KEY_NOT_CONFIGURED。
-        let resolvedApiKey = apiKey;
-        if (!resolvedApiKey) {
-          const active = await getActiveNotionToken();
-          resolvedApiKey = active?.token ?? null;
-        }
-        if (!resolvedApiKey) {
-          sendResponse({
-            success: false,
-            error: ErrorHandler.formatUserMessage(ERROR_MESSAGES.TECHNICAL.API_KEY_NOT_CONFIGURED),
-          });
-          return;
-        }
-
-        // 以無狀態方式執行搜索，apiKey 由 caller 或 storage hydration 提供
-        const result = await notionService.search(params, { apiKey: resolvedApiKey });
-        sendResponse({ success: true, data: result });
-      } catch (error) {
-        const safeMessage = sanitizeApiError(error, 'search_notion');
-        sendResponse({
-          success: false,
-          error: ErrorHandler.formatUserMessage(safeMessage),
-        });
-      }
+      await handleSearchNotion({ request, sender, sendResponse, notionService });
     },
 
     /**
