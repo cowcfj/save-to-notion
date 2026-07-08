@@ -358,7 +358,6 @@ export function computeStableUrl(rawUrl) {
         continue;
       }
 
-      // eslint-disable-next-line unicorn/no-unsafe-string-replacement -- Stable path replacement comes from the fixed URL_NORMALIZATION rule table.
       urlObj.pathname = pathname.replace(rule.pathPattern, rule.stablePath);
       return normalizeUrl(urlObj.toString());
     }

@@ -2,21 +2,14 @@
  * @jest-environment jsdom
  */
 
+import { CONTENT_BRIDGE_ACTIONS } from '../../../scripts/config/runtimeActions/contentBridgeActions.js';
+import { HIGHLIGHTER_ACTIONS } from '../../../scripts/config/runtimeActions/highlighterActions.js';
+import {
+  activateFloatingRailHighlighting,
+  createContentRuntimeMessageHandler,
+} from '../../../scripts/content/runtimeMessageHandlers.js';
+
 const { createLoggerMock } = require('../../helpers/loggerMock.cjs');
-
-let CONTENT_BRIDGE_ACTIONS;
-let HIGHLIGHTER_ACTIONS;
-let activateFloatingRailHighlighting;
-let createContentRuntimeMessageHandler;
-
-beforeAll(async () => {
-  ({ CONTENT_BRIDGE_ACTIONS } =
-    await import('../../../scripts/config/runtimeActions/contentBridgeActions.js'));
-  ({ HIGHLIGHTER_ACTIONS } =
-    await import('../../../scripts/config/runtimeActions/highlighterActions.js'));
-  ({ activateFloatingRailHighlighting, createContentRuntimeMessageHandler } =
-    await import('../../../scripts/content/runtimeMessageHandlers.js'));
-});
 
 function createRouter(overrides = {}) {
   const dependencies = {

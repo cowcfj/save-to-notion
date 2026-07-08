@@ -95,9 +95,10 @@ describe('SidepanelHandlers', () => {
       const response = await handlers.OPEN_SIDE_PANEL({}, { tab: { windowId: 999 } });
 
       expect(response).toEqual({ success: false, error: 'Extension context invalidated.' });
-      expect(Logger.error).toHaveBeenCalledWith('[SidepanelHandler] Failed to open Side Panel', {
-        error: expect.any(Error),
-      });
+      expect(Logger.error).toHaveBeenCalledWith(
+        '[SidepanelHandler] Failed to open Side Panel',
+        expect.any(Error)
+      );
     });
   });
 });

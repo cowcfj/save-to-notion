@@ -3,38 +3,29 @@ let injectIcons;
 let Logger;
 let validateSafeSvg;
 
-const securityUtilsMock = {
+jest.mock('../../../scripts/utils/securityUtils.js', () => ({
   validateSafeSvg: jest.fn().mockReturnValue(true),
   isSafeSvgAttribute: jest.fn().mockReturnValue(true),
-};
-const loggerMock = {
-  success: jest.fn(),
-  start: jest.fn(),
-  ready: jest.fn(),
-  info: jest.fn(),
-  debug: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  log: jest.fn(),
-};
-const loggerMockModule = {
+}));
+
+jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
-  default: loggerMock,
-  ...loggerMock,
-};
+  default: {
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    log: jest.fn(),
+  },
+}));
 
-function registerUiUtilsMocks() {
-  jest.unstable_mockModule('../../../scripts/utils/securityUtils.js', () => securityUtilsMock);
-  jest.unstable_mockModule('../../../scripts/utils/Logger.js', () => loggerMockModule);
-  jest.doMock('../../../scripts/utils/securityUtils.js', () => securityUtilsMock);
-  jest.doMock('../../../scripts/utils/Logger.js', () => loggerMockModule);
-}
-
-const loadUiUtilsModules = async () => {
-  registerUiUtilsMocks();
-  ({ default: Logger } = await import('../../../scripts/utils/Logger.js'));
-  ({ validateSafeSvg } = await import('../../../scripts/utils/securityUtils.js'));
-  ({ createSpriteIcon, injectIcons } = await import('../../../scripts/utils/uiUtils.js'));
+const loadUiUtilsModules = () => {
+  ({ default: Logger } = require('../../../scripts/utils/Logger.js'));
+  ({ validateSafeSvg } = require('../../../scripts/utils/securityUtils.js'));
+  ({ createSpriteIcon, injectIcons } = require('../../../scripts/utils/uiUtils.js'));
 };
 
 describe('uiUtils', () => {
@@ -50,12 +41,10 @@ describe('uiUtils', () => {
   });
 
   describe('createSpriteIcon', () => {
-    beforeEach(async () => {
+    beforeEach(() => {
       jest.resetModules();
-      await loadUiUtilsModules();
+      loadUiUtilsModules();
       jest.clearAllMocks();
-      securityUtilsMock.validateSafeSvg.mockReturnValue(true);
-      securityUtilsMock.isSafeSvgAttribute.mockReturnValue(true);
     });
 
     it('應為傳入名稱產生帶有 icon- 前綴的小寫 href', () => {
@@ -101,13 +90,11 @@ describe('uiUtils', () => {
   });
 
   describe('injectIcons', () => {
-    beforeEach(async () => {
+    beforeEach(() => {
       jest.resetModules();
-      await loadUiUtilsModules();
+      loadUiUtilsModules();
       document.body.innerHTML = '';
       jest.clearAllMocks();
-      securityUtilsMock.validateSafeSvg.mockReturnValue(true);
-      securityUtilsMock.isSafeSvgAttribute.mockReturnValue(true);
       Object.defineProperty(document, 'readyState', { value: 'complete', configurable: true });
     });
 
@@ -159,7 +146,6 @@ describe('uiUtils', () => {
       expect(symbol.querySelector('path').getAttribute('d')).toBe('M1 1');
 
       injectIcons(icons);
-      // eslint-disable-next-line unicorn/no-incorrect-query-selector -- This assertion intentionally counts duplicate IDs after reinjection.
       const symbols = defs.querySelectorAll('#icon-test');
       expect(symbols).toHaveLength(1);
     });

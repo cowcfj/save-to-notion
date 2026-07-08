@@ -342,7 +342,7 @@ describe('MetadataExtractor', () => {
 
       const result = MetadataExtractor.extractSiteIcon(document);
 
-      expect(result).toBe(`${globalThis.location.origin}/assets/icon.svg`);
+      expect(result).toBe('http://localhost/assets/icon.svg');
     });
   });
 

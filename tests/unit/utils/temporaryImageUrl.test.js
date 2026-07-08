@@ -1,8 +1,4 @@
-let isTemporaryImageUrl;
-
-beforeAll(async () => {
-  ({ isTemporaryImageUrl } = await import('../../../scripts/utils/temporaryImageUrl.js'));
-});
+import { isTemporaryImageUrl } from '../../../scripts/utils/temporaryImageUrl.js';
 
 describe('isTemporaryImageUrl', () => {
   describe('Patreon signed CDN URL', () => {

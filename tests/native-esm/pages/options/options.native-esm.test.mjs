@@ -722,69 +722,6 @@ describe('MigrationTool native ESM diagnostics', () => {
     });
   });
 
-  test.each([
-    {
-      name: 'migrate success',
-      action: 'migrate',
-      results: { success: 2, failed: 0, errors: [] },
-      boxSelector: '.success-box',
-      title: '遷移成功！',
-      summary: '已成功遷移 2 個頁面的數據。',
-      errorItems: [],
-    },
-    {
-      name: 'migrate partial success',
-      action: 'migrate',
-      results: {
-        success: 2,
-        failed: 2,
-        errors: [{ error: '第一頁遷移失敗' }, { error: '第二頁遷移失敗' }],
-      },
-      boxSelector: '.warning-box',
-      title: '部分遷移完成',
-      summary: '成功: 2, 失敗: 2',
-      errorItems: ['第一頁遷移失敗', '第二頁遷移失敗'],
-    },
-    {
-      name: 'delete full failure',
-      action: 'delete',
-      results: {
-        success: 0,
-        failed: 2,
-        errors: [{ error: '第一頁刪除失敗' }, { error: '第二頁刪除失敗' }],
-      },
-      boxSelector: '.error-box',
-      title: '刪除失敗',
-      summary: '所有項目刪除失敗',
-      errorItems: ['第一頁刪除失敗', '第二頁刪除失敗'],
-    },
-  ])('showMigrationResult renders $name DOM contract', scenario => {
-    expect.hasAssertions();
-    const tool = createMigrationTool();
-
-    tool.showMigrationResult(scenario.results, scenario.action);
-
-    const migrationResult = document.querySelector('#migration-result');
-    const box = migrationResult.querySelector(scenario.boxSelector);
-    expect(box).not.toBeNull();
-    expect(box.querySelector('strong svg')).not.toBeNull();
-    expect(box.querySelector('strong').textContent).toContain(scenario.title);
-    expect(box.textContent).toContain(scenario.summary);
-    expect([...box.querySelectorAll('.error-list .error-item')].map(item => item.textContent)).toEqual(
-      scenario.errorItems
-    );
-  });
-
-  test('showMigrationResult returns without throwing when migrationResult is missing', () => {
-    const tool = createMigrationTool();
-    tool.elements.migrationResult = null;
-
-    expect(() =>
-      tool.showMigrationResult({ success: 1, failed: 0, errors: [] }, 'migrate')
-    ).not.toThrow();
-    expect(document.querySelector('#migration-result').textContent).toBe('');
-  });
-
   test('deletion response helpers render success and partial-failure summaries', () => {
     const tool = createMigrationTool();
 

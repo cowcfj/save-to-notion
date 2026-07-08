@@ -3,13 +3,8 @@
  * 驗證當 LogExporter.exportLogs() 拋出錯誤時的處理行為
  */
 
-let LogExporter;
-let exportDebugLogs;
-
-beforeAll(async () => {
-  ({ LogExporter } = await import('../../../scripts/utils/LogExporter.js'));
-  ({ exportDebugLogs } = await import('../../../scripts/background/handlers/logHandlers.js'));
-});
+import { LogExporter } from '../../../scripts/utils/LogExporter.js';
+import { exportDebugLogs } from '../../../scripts/background/handlers/logHandlers.js';
 
 // Mock Logger
 globalThis.Logger = {

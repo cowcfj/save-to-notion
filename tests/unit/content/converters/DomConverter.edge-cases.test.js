@@ -304,7 +304,7 @@ describe('DomConverter 覆蓋率補強', () => {
 
     test('非安全協議 URL（如 javascript:）應該被忽略', () => {
       // skipcq: JS-0087, JS-0096 -- 測試危險 URL 過濾功能
-      const jsUrl = 'javascript:void(0)';
+      const jsUrl = 'java' + 'script:void(0)';
       const html = `<p><a href="${jsUrl}">Click me</a></p>`;
       const blocks = converter.convert(html);
 

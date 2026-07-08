@@ -6,13 +6,10 @@
 
 /* global jest */
 
-let setupDriveAlarm;
-let DRIVE_AUTO_SYNC_ALARM;
-
-beforeAll(async () => {
-  ({ setupDriveAlarm, DRIVE_AUTO_SYNC_ALARM } =
-    await import('../../scripts/background/handlers/driveAlarmScheduler.js'));
-});
+import {
+  setupDriveAlarm,
+  DRIVE_AUTO_SYNC_ALARM,
+} from '../../scripts/background/handlers/driveAlarmScheduler.js';
 
 describe('DRIVE_AUTO_SYNC_ALARM', () => {
   it('常量值為固定字串', () => {

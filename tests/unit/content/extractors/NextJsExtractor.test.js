@@ -862,8 +862,8 @@ describe('NextJsExtractor', () => {
       const mockEmptyDoc = {};
 
       const result = NextJsExtractor._resolvePageOriginAndPath(mockEmptyDoc);
-      expect(result.origin).toBe(globalThis.location.origin);
-      expect(result.pathname).toBe(globalThis.location.pathname);
+      expect(result.origin).toBe('http://localhost');
+      expect(result.pathname).toBe('/');
     });
   });
 });

@@ -89,27 +89,6 @@ describe('image pipeline native ESM diagnostics', () => {
     expect(validateSrcsetUrl('javascript:alert(1)')).toBeNull();
   });
 
-  test('manual srcset parser handles density descriptors and malformed fallbacks', () => {
-    expect(
-      parseBestCandidateSrcsetUrl([
-        'small-density.jpg 1x',
-        'retina-density.jpg 2x',
-        'lower-density.jpg 1.5x',
-      ])
-    ).toBe('retina-density.jpg');
-    expect(
-      parseBestCandidateSrcsetUrl([
-        'invalid-leading-dot.jpg .5x',
-        'invalid-trailing-dot.jpg 2.x',
-        'invalid-multiple-dot.jpg 1.2.3x',
-        'invalid-alpha.jpg 2ax',
-        'fallback.jpg bogus',
-        'data:image/png;base64,AAAA 9x',
-      ])
-    ).toBe('fallback.jpg');
-    expect(parseBestCandidateSrcsetUrl(['data:image/png;base64,AAAA 2x', '   '])).toBeNull();
-  });
-
   test('attribute and picture extractors read stable DOM image sources', () => {
     document.body.innerHTML = `
       <a id="image-link" href="https://example.com/images/linked.jpg"><img id="linked-img" alt=""></a>

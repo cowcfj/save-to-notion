@@ -4,23 +4,14 @@
  */
 
 // Mock Chrome APIs
-const mockChrome = require('../../mocks/chrome.cjs');
-
-let buildNotionPageResponse;
-let buildOpenPageRequest;
-let createJsonResponse;
-let mockNotionApiToken;
-let mockTabCreationResult;
-
-beforeAll(async () => {
-  ({
-    buildNotionPageResponse,
-    buildOpenPageRequest,
-    createJsonResponse,
-    mockNotionApiToken,
-    mockTabCreationResult,
-  } = await import('../../helpers/notionPageOperationsTestHarness.js'));
-});
+import mockChrome from '../../mocks/chrome';
+import {
+  buildNotionPageResponse,
+  buildOpenPageRequest,
+  createJsonResponse,
+  mockNotionApiToken,
+  mockTabCreationResult,
+} from '../../helpers/notionPageOperationsTestHarness.js';
 
 const NOTION_API_BASE_URL = 'https://api.notion.com/v1';
 const NOTION_VERSION = '2025-09-03';
@@ -223,11 +214,11 @@ describe('Background Notion Page Operations', () => {
       {
         name: '應該正確處理不存在的頁面',
         pageId: 'non-existent-page',
-        responseInit: {
+        response: createJsonResponse({
           ok: false,
           status: 404,
           body: { message: 'Page not found' },
-        },
+        }),
         expected: {
           exists: false,
           error: 'Page not found',
@@ -236,21 +227,21 @@ describe('Background Notion Page Operations', () => {
       {
         name: '應該處理沒有錯誤消息的 API 錯誤',
         pageId: 'test-page-id',
-        responseInit: {
+        response: createJsonResponse({
           ok: false,
           status: 500,
           body: {},
-        },
+        }),
         expected: {
           exists: false,
           error: 'Unknown error',
         },
       },
-    ])('$name', async ({ pageId, responseInit, expected }) => {
+    ])('$name', async ({ pageId, response, expected }) => {
       // Arrange
       const apiKey = 'test-api-key';
 
-      globalThis.fetch.mockResolvedValue(createJsonResponse(responseInit));
+      globalThis.fetch.mockResolvedValue(response);
 
       // Act
       const result = await checkNotionPageExists(pageId, apiKey);

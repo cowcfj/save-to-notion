@@ -269,7 +269,7 @@ export function isDocumentation(options = {}) {
 function countElements(container, selector) {
   try {
     const elements = container.querySelectorAll(selector);
-    return Math.max(elements.length, 0);
+    return elements ? elements.length : 0;
   } catch (error) {
     Logger.warn(`無法統計元素 ${selector}`, { action: 'countElements', error: error.message });
     return 0;

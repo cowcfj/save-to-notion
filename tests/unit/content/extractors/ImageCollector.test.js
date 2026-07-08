@@ -204,9 +204,8 @@ describe('ImageCollector', () => {
       extractImageSource.mockReturnValue(malformedSource);
       // document.baseURI might be a valid URL string or about:blank in JSDOM, but new URL with this malformed src will throw
 
-      expect(() => {
-        ImageCollector.processImageForCollection(mockImg, 0, null);
-      }).not.toThrow();
+      const result = ImageCollector.processImageForCollection(mockImg, 0, null, { detailed: true });
+      expect(result).toEqual({ status: 'invalid_url' });
     });
 
     test('should return null when extractImageSrc returns null', () => {
@@ -223,8 +222,8 @@ describe('ImageCollector', () => {
       const mockImg = document.createElement('img');
       mockImg.src = 'https://example.com/img.jpg';
       Object.defineProperties(mockImg, {
-	naturalWidth: { value: 800 },
-	naturalHeight: { value: 600 },
+        naturalWidth: { value: 800 },
+        naturalHeight: { value: 600 },
       });
 
       extractImageSource.mockReturnValue('https://example.com/img.jpg');
@@ -259,8 +258,8 @@ describe('ImageCollector', () => {
       const mockImg = document.createElement('img');
       mockImg.src = 'https://example.com/small.jpg';
       Object.defineProperties(mockImg, {
-	naturalWidth: { value: 500 },
-	naturalHeight: { value: 300 },
+        naturalWidth: { value: 500 },
+        naturalHeight: { value: 300 },
       });
 
       extractImageSource.mockReturnValue('https://example.com/small.jpg');

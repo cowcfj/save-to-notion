@@ -116,7 +116,7 @@ describe('Sync native ESM diagnostics', () => {
       '0707070707070707070707070707070707070707070707070707070707070707'
     );
 
-    expect(snapshot.payload.saved_states).toHaveLength(1);
+    expect(snapshot.payload.saved_states.length).toBe(1);
     expect(snapshot.payload.saved_states[0]).toEqual({
       page_key: 'https://example.com',
       notion_page_id: 'page-1',
@@ -126,7 +126,7 @@ describe('Sync native ESM diagnostics', () => {
       last_verified_at: null,
     });
 
-    expect(snapshot.payload.highlights).toHaveLength(1);
+    expect(snapshot.payload.highlights.length).toBe(1);
     expect(snapshot.payload.highlights[0]).toEqual({
       page_key: 'https://example.com',
       highlight_id: 'hl-1',

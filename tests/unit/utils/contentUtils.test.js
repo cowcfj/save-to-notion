@@ -2,11 +2,7 @@
  * @jest-environment node
  */
 
-let isTitleConsistent;
-
-beforeAll(async () => {
-  ({ isTitleConsistent } = await import('../../../scripts/utils/contentUtils.js'));
-});
+import { isTitleConsistent } from '../../../scripts/utils/contentUtils.js';
 
 /**
  * Tests for content verification utilities.

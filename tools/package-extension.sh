@@ -93,6 +93,7 @@ node tools/inject-manifest-key.mjs \
     --source="$PWD/manifest.json" \
     --target="$PWD/$RM_DIR/manifest.json" \
     --key-file="${MANIFEST_KEY_FILE:-$PWD/.non-existent-manifest-key}"
+cp -a auth.html "$RM_DIR/"          # 帳號登入 callback bridge
 
 
 # Copy directories
@@ -101,8 +102,6 @@ cp -a pages "$RM_DIR/"             # extension page bundle（popup / options / s
 cp -a styles "$RM_DIR/"            # callback bridge 共用 CSS
 cp -a dist "$RM_DIR/"
 
-# root auth.html legacy redirect 已移除；避免舊 build 目錄殘留 entry 被帶入 release package。
-find "$RM_DIR/dist/pages" -name 'auth-redirect.js' -delete
 # Native Jest ESM package markers are source/test metadata; Chrome extension
 # runtime does not need nested package.json files under extension pages.
 find "$RM_DIR/pages" -name 'package.json' -delete
@@ -172,6 +171,20 @@ for (const dir of htmlDirs) {
       const srcMatch = attrs.match(/src=['\"]([^'\"]+)['\"]/);
       if (srcMatch) resolveImports(path.join(dirPath, srcMatch[1]));
     }
+  }
+}
+
+for (const file of ['auth.html']) {
+  const htmlPath = path.join(pkgDir, file);
+  if (!fs.existsSync(htmlPath)) continue;
+  const html = fs.readFileSync(htmlPath, 'utf8');
+  const scriptTagRegex = /<script\b([^>]*)>/g;
+  let tag;
+  while ((tag = scriptTagRegex.exec(html)) !== null) {
+    const attrs = tag[1];
+    if (!/type=['\"]module['\"]/.test(attrs)) continue;
+    const srcMatch = attrs.match(/src=['\"]([^'\"]+)['\"]/);
+    if (srcMatch) resolveImports(path.join(pkgDir, srcMatch[1]));
   }
 }
 

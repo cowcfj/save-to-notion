@@ -3,34 +3,22 @@
  * 測試性能優化器的核心功能
  */
 
-let Logger = null;
-let PerformanceOptimizer = null;
+import Logger from '../../../scripts/utils/Logger.js';
+import { PerformanceOptimizer } from '../../../scripts/performance/PerformanceOptimizer.js';
 
-const loggerMock = {
-  success: jest.fn(),
-  start: jest.fn(),
-  ready: jest.fn(),
-  info: jest.fn(),
-  debug: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  log: jest.fn(),
-};
-
-jest.unstable_mockModule('../../../scripts/utils/Logger.js', () => ({
+jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
-  default: loggerMock,
+  default: {
+    success: jest.fn(),
+    start: jest.fn(),
+    ready: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    log: jest.fn(),
+  },
 }));
-
-jest.doMock('../../../scripts/utils/Logger.js', () => ({
-  __esModule: true,
-  default: loggerMock,
-}));
-
-beforeAll(async () => {
-  ({ default: Logger } = await import('../../../scripts/utils/Logger.js'));
-  ({ PerformanceOptimizer } = await import('../../../scripts/performance/PerformanceOptimizer.js'));
-});
 
 describe('PerformanceOptimizer', () => {
   let optimizer = null;
@@ -344,11 +332,11 @@ describe('PerformanceOptimizer', () => {
       expect(optimizer.prewarmedSelectors.has('.fake-node')).toBe(true);
     });
 
-    test('遇到例外狀況時，應捕捉錯誤並回傳 cached: false 物件', async () => {
+    test('遇到例外狀況時，應捕捉錯誤並回傳 cached: false 物件', () => {
       jest.spyOn(optimizer, 'cachedQuery').mockImplementationOnce(() => {
         throw new Error('sync query error');
       });
-      const { ErrorHandler } = await import('../../../scripts/utils/ErrorHandler.js');
+      const { ErrorHandler } = require('../../../scripts/utils/ErrorHandler.js');
       const spyError = jest.spyOn(ErrorHandler, 'logError').mockImplementation(() => {});
 
       const result = optimizer._preloadSingleSelector('.error-node', document);

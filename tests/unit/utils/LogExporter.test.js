@@ -2,25 +2,17 @@
  * @jest-environment node
  */
 
-const loggerMock = {
-  getBuffer: jest.fn(),
-};
-const loggerMockModule = {
+import { jest } from '@jest/globals';
+
+jest.mock('../../../scripts/utils/Logger.js', () => ({
   __esModule: true,
-  default: loggerMock,
-  ...loggerMock,
-};
+  default: {
+    getBuffer: jest.fn(),
+  },
+}));
 
-jest.unstable_mockModule('../../../scripts/utils/Logger.js', () => loggerMockModule);
-jest.doMock('../../../scripts/utils/Logger.js', () => loggerMockModule);
-
-let LogExporter;
-let Logger;
-
-beforeAll(async () => {
-  ({ LogExporter } = await import('../../../scripts/utils/LogExporter.js'));
-  ({ default: Logger } = await import('../../../scripts/utils/Logger.js'));
-});
+const { LogExporter } = require('../../../scripts/utils/LogExporter.js');
+const Logger = require('../../../scripts/utils/Logger.js').default;
 
 describe('LogExporter', () => {
   let mockBuffer = null;

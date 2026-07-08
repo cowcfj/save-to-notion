@@ -71,24 +71,6 @@ export function createProfileId() {
   throw new Error('crypto.randomUUID is required to create destination profile ids');
 }
 
-function resolveProfileId(profile, index) {
-  return pickNonEmptyString(profile.id) || (index === 0 ? DEFAULT_PROFILE_ID : createProfileId());
-}
-
-function resolveProfileName(profile, index) {
-  return pickNonEmptyString(profile.name) || (index === 0 ? DEFAULT_PROFILE_NAME : '保存目標');
-}
-
-function resolveProfileColor(profile, index) {
-  return (
-    pickNonEmptyString(profile.color) || CREATE_PROFILE_COLORS[index % CREATE_PROFILE_COLORS.length]
-  );
-}
-
-function resolveProfileTimestamp(profile) {
-  return Number.isFinite(profile.createdAt) ? profile.createdAt : nowTimestamp();
-}
-
 export function normalizeProfile(profile, index = 0) {
   if (!profile || typeof profile !== 'object') {
     return null;
@@ -102,12 +84,14 @@ export function normalizeProfile(profile, index = 0) {
     return null;
   }
 
-  const timestamp = resolveProfileTimestamp(profile);
+  const timestamp = Number.isFinite(profile.createdAt) ? profile.createdAt : nowTimestamp();
   return {
-    id: resolveProfileId(profile, index),
-    name: resolveProfileName(profile, index),
+    id: pickNonEmptyString(profile.id) || (index === 0 ? DEFAULT_PROFILE_ID : createProfileId()),
+    name: pickNonEmptyString(profile.name) || (index === 0 ? DEFAULT_PROFILE_NAME : '保存目標'),
     icon: pickNonEmptyString(profile.icon) || DEFAULT_PROFILE_ICON,
-    color: resolveProfileColor(profile, index),
+    color:
+      pickNonEmptyString(profile.color) ||
+      CREATE_PROFILE_COLORS[index % CREATE_PROFILE_COLORS.length],
     notionDataSourceId,
     notionDataSourceType: normalizeDataSourceType(profile.notionDataSourceType),
     createdAt: timestamp,
@@ -252,14 +236,14 @@ export async function resolveActiveProfile(repository) {
   }
 
   const activeId = await repository.getActiveProfileId();
-  const active = profiles.find(profile => profile.id === activeId);
+  const active = profiles.find(p => p.id === activeId);
   if (active) {
     return active;
   }
 
   // 一次性遷移：activeProfileId 缺失或失效 → 用 lastUsedProfileId，否則第一個 profile
   const lastUsedId = await repository.getLastUsedProfileId();
-  const seed = profiles.find(profile => profile.id === lastUsedId) || profiles[0];
+  const seed = profiles.find(p => p.id === lastUsedId) || profiles[0];
   await repository.setActiveProfileId(seed.id, seed);
   return seed;
 }

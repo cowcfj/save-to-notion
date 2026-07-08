@@ -13,23 +13,14 @@
 
 /* global jest */
 
-let computeNextEligibleAt;
-let setDriveFrequency;
-let markDriveDirty;
-let clearDriveDirty;
-let DRIVE_SYNC_FREQUENCIES;
-let DRIVE_SYNC_STORAGE_KEYS;
-
-beforeAll(async () => {
-  ({
-    computeNextEligibleAt,
-    setDriveFrequency,
-    markDriveDirty,
-    clearDriveDirty,
-    DRIVE_SYNC_FREQUENCIES,
-    DRIVE_SYNC_STORAGE_KEYS,
-  } = await import('../../scripts/auth/driveClient.js'));
-});
+import {
+  computeNextEligibleAt,
+  setDriveFrequency,
+  markDriveDirty,
+  clearDriveDirty,
+  DRIVE_SYNC_FREQUENCIES,
+  DRIVE_SYNC_STORAGE_KEYS,
+} from '../../scripts/auth/driveClient.js';
 
 describe('Phase B — driveClient helpers', () => {
   let mockStorageLocal;

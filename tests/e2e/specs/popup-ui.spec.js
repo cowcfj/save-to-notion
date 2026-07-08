@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures.js';
+const { test, expect } = require('../fixtures');
 
 /**
  * Popup UI E2E 測試

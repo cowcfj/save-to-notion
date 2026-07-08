@@ -273,13 +273,12 @@ function heuristicSearch(root, depth = 0, maxDepth = 6) {
 }
 
 function searchChildren(root, depth, maxDepth) {
-  for (const value of getSearchableChildValues(root)) {
-    const matchedCandidate = heuristicSearch(value, depth + 1, maxDepth);
-    if (matchedCandidate) {
-      return matchedCandidate;
-    }
-  }
-  return null;
+  let matchedCandidate = null;
+  getSearchableChildValues(root).some(value => {
+    matchedCandidate = heuristicSearch(value, depth + 1, maxDepth);
+    return Boolean(matchedCandidate);
+  });
+  return matchedCandidate;
 }
 
 function getSearchableChildValues(root) {

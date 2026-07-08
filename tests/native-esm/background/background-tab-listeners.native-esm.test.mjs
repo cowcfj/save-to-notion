@@ -118,9 +118,15 @@ await jest.unstable_mockModule(
 );
 
 await jest.unstable_mockModule(
-  '../../../scripts/background/utils/updateNotificationVersion.js',
+  '../../../scripts/background/utils/updateNotificationVersion.cjs',
   () => ({
     shouldShowUpdateNotification: jest.fn(() => false),
+    default: {
+      shouldShowUpdateNotification: jest.fn(() => false),
+    },
+    updateNotificationVersion: {
+      shouldShowUpdateNotification: jest.fn(() => false),
+    },
     __esModule: true,
   })
 );

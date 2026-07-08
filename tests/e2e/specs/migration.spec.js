@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures.js';
+import { test, expect } from '../fixtures';
 
 test.describe('Migration Handlers E2E Tests', () => {
   test.beforeEach(async ({ context, extensionId }) => {

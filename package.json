@@ -1,6 +1,6 @@
 {
   "name": "notion-smart-clipper",
-  "version": "2.82.0",
+  "version": "2.81.1",
   "description": "智能網頁擷取工具，支持網站 Icon、封面圖提取、增強的圖片提取、模板自定義、多顏色標註功能，一鍵保存到 Notion。",
   "main": "index.js",
   "directories": {
@@ -10,12 +10,13 @@
     "test": "jest --config jest.config.js",
     "test:watch": "jest --config jest.config.js --watch",
     "test:coverage": "npm run test:coverage:native-esm:assert",
-    "test:coverage:native-esm": "NODE_OPTIONS=--experimental-vm-modules jest --config jest.native-esm.config.js --ci --coverage",
+    "test:coverage:native-esm": "NODE_OPTIONS=--experimental-vm-modules jest --config jest.native-esm.config.cjs --ci --coverage",
     "test:coverage:native-esm:assert": "npm run test:coverage:native-esm && node tools/assert-native-esm-line-hits.mjs --summary-json coverage/native-esm/line-hit-summary.json --summary-md coverage/native-esm/line-hit-summary.md",
     "test:coverage:native-esm:scope-parity": "node tools/report-native-esm-scope-parity.mjs --summary-json coverage/native-esm/scope-parity-summary.json --summary-md coverage/native-esm/scope-parity-summary.md",
     "test:quick": "jest --config jest.config.js --onlyChanged",
-    "test:native": "NODE_OPTIONS=--experimental-vm-modules jest --config jest.native-default.config.js",
-    "test:quick:native": "NODE_OPTIONS=--experimental-vm-modules jest --config jest.native-default.config.js --onlyChanged",
+    "test:native": "NODE_OPTIONS=--experimental-vm-modules jest --config jest.native-default.config.cjs",
+    "test:quick:native": "NODE_OPTIONS=--experimental-vm-modules jest --config jest.native-default.config.cjs --onlyChanged",
+    "test:native:blockers": "node tools/report-native-default-runner-blockers.mjs --summary-json coverage/native-default/blocker-classification-summary.json --summary-md coverage/native-default/blocker-classification-summary.md",
     "test:ci": "npm run test:coverage:native-esm:assert",
     "test:e2e": "npm run build:prod && playwright test --project=chromium",
     "test:e2e:ui": "playwright test --ui --project=chromium",
@@ -54,7 +55,7 @@
   ],
   "author": "Cow Chan",
   "license": "GPL-3.0",
-  "type": "module",
+  "type": "commonjs",
   "private": true,
   "engines": {
     "node": ">=20"
@@ -90,7 +91,7 @@
     "knip": "^6.14.2",
     "lint-staged": "^16.3.0",
     "prettier": "^3.9.4",
-    "rollup": "^4.62.2",
+    "rollup": "^4.61.0",
     "rollup-plugin-visualizer": "^7.0.1"
   },
   "dependencies": {
@@ -117,7 +118,6 @@
     "glob@10": {
       "minimatch": "^9.0.6"
     },
-    "minipass": "7.1.2",
     "@typescript-eslint/typescript-estree": {
       "minimatch": "^9.0.6"
     },

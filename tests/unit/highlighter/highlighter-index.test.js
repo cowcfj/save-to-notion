@@ -12,8 +12,6 @@
  * - Chrome runtime message 監聽
  */
 
-const { registerHighlighterMocks } = require('./helpers/highlighterIndexMocks.cjs');
-
 // Mock Logger
 const mockLogger = {
   log: jest.fn(),
@@ -64,20 +62,21 @@ const mockStorage = {
   restore: jest.fn(),
 };
 
-const registerWindowAPIMock = mountWindowAPI => {
-  const windowAPIModuleMock = {
-    mountWindowAPI,
-  };
+// Mock modules
+jest.mock('../../../scripts/highlighter/core/HighlightManager.js', () => ({
+  HighlightManager: jest.fn(() => mockManager),
+}));
 
-  jest.unstable_mockModule('../../../scripts/highlighter/windowAPI.js', () => windowAPIModuleMock);
-  jest.doMock('../../../scripts/highlighter/windowAPI.js', () => windowAPIModuleMock);
-};
+jest.mock('../../../scripts/highlighter/core/HighlightStorage.js', () => ({
+  HighlightStorage: jest.fn(() => mockStorage),
+  RestoreManager: jest.fn(() => mockStorage),
+}));
 
 describe('Highlighter Index', () => {
   let initHighlighter = null;
   let highlighterModule = null;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     jest.clearAllMocks();
 
     // 清除全局 HighlighterV2
@@ -93,10 +92,9 @@ describe('Highlighter Index', () => {
     // 重新設置 mock
     globalThis.Logger = mockLogger;
     globalThis.chrome = mockChrome;
-    registerHighlighterMocks({ jest, mockManager, mockStorage });
 
     // 載入模組
-    highlighterModule = await import('../../../scripts/highlighter/index.js');
+    highlighterModule = require('../../../scripts/highlighter/index.js');
     initHighlighter = highlighterModule.initHighlighter;
   });
 
@@ -190,23 +188,24 @@ describe('Highlighter Index', () => {
   });
 
   describe('setupHighlighter Edge Cases', () => {
-    test('能正常初始化並傳遞正確參數，包含掛載別名函數', async () => {
-      await jest.isolateModulesAsync(async () => {
-        const mountWindowAPI = jest.fn();
-        registerHighlighterMocks({ jest, mockManager, mockStorage });
-        registerWindowAPIMock(mountWindowAPI);
-        const indexMock = await import('../../../scripts/highlighter/index.js');
+    test('能正常初始化並傳遞正確參數，包含掛載別名函數', () => {
+      jest.isolateModules(() => {
+        jest.mock('../../../scripts/highlighter/windowAPI.js', () => ({
+          mountWindowAPI: jest.fn(),
+        }));
+        const indexMock = require('../../../scripts/highlighter/index.js');
+        const windowAPIMock = require('../../../scripts/highlighter/windowAPI.js');
 
         const { setupHighlighter } = indexMock;
         setupHighlighter({ skipRestore: true });
 
-        expect(mountWindowAPI).toHaveBeenCalled();
+        expect(windowAPIMock.mountWindowAPI).toHaveBeenCalled();
 
-        const mountOptions = mountWindowAPI.mock.calls[0][0];
+        const mountOptions = windowAPIMock.mountWindowAPI.mock.calls[0][0];
         const funcs = mountOptions.fns;
 
         funcs.init();
-        expect(mountWindowAPI).toHaveBeenCalledTimes(2);
+        expect(windowAPIMock.mountWindowAPI).toHaveBeenCalledTimes(2);
       });
     });
   });

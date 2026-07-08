@@ -307,9 +307,7 @@ function bindRadioGroupAutosave({
   successMessage,
   onApply,
 }) {
-  const inputs = Array.from(
-    document.querySelectorAll(`input[type="radio"][name="${CSS.escape(name)}"]`)
-  );
+  const inputs = Array.from(document.querySelectorAll(`input[type="radio"][name="${name}"]`));
   if (inputs.length === 0) {
     return;
   }
@@ -869,9 +867,7 @@ async function initDestinationProfilesUI(ui) {
     editingProfileId = profile.id;
     draftProfileName = profile.name || UI_MESSAGES.OPTIONS.DESTINATION.DEFAULT_PROFILE_NAME;
     await renderDestinationProfiles();
-    list
-      .querySelector(`input[data-role="${CSS.escape(DESTINATION_PROFILE_NAME_EDIT_ROLE)}"]`)
-      ?.focus?.();
+    list.querySelector(`input[data-role="${DESTINATION_PROFILE_NAME_EDIT_ROLE}"]`)?.focus?.();
   };
 
   const cancelDestinationProfileNameEdit = async () => {
@@ -881,9 +877,7 @@ async function initDestinationProfilesUI(ui) {
   };
 
   const saveDestinationProfileName = async profileId => {
-    const input = list.querySelector(
-      `input[data-role="${CSS.escape(DESTINATION_PROFILE_NAME_EDIT_ROLE)}"]`
-    );
+    const input = list.querySelector(`input[data-role="${DESTINATION_PROFILE_NAME_EDIT_ROLE}"]`);
     const nextName = normalizeDestinationProfileName(input?.value || '');
     if (!nextName) {
       showNameError();

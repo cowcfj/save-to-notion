@@ -2,25 +2,18 @@
  * Drive Snapshot Canonicalization and Mirror Tests
  */
 
-let buildUnifiedPageStateFromLocalStorage;
-let buildDriveSnapshot;
-let applyDriveSnapshotToLocalStorage;
-let getDriveSnapshotSummary;
-let PAGE_PREFIX;
-let HIGHLIGHTS_PREFIX;
-let SAVED_PREFIX;
-let URL_ALIAS_PREFIX;
-
-beforeAll(async () => {
-  ({
-    buildUnifiedPageStateFromLocalStorage,
-    buildDriveSnapshot,
-    applyDriveSnapshotToLocalStorage,
-    getDriveSnapshotSummary,
-  } = await import('../../scripts/sync/driveSnapshot.js'));
-  ({ PAGE_PREFIX, HIGHLIGHTS_PREFIX, SAVED_PREFIX, URL_ALIAS_PREFIX } =
-    await import('../../scripts/config/shared/storage.js'));
-});
+import {
+  buildUnifiedPageStateFromLocalStorage,
+  buildDriveSnapshot,
+  applyDriveSnapshotToLocalStorage,
+  getDriveSnapshotSummary,
+} from '../../scripts/sync/driveSnapshot.js';
+import {
+  PAGE_PREFIX,
+  HIGHLIGHTS_PREFIX,
+  SAVED_PREFIX,
+  URL_ALIAS_PREFIX,
+} from '../../scripts/config/shared/storage.js';
 
 describe('Drive Snapshot Canonicalization & Serialization', () => {
   let mockStorageLocal;

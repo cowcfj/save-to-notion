@@ -2,41 +2,11 @@
  * @jest-environment node
  */
 
-let pMap;
-
-beforeAll(async () => {
-  ({ pMap } = await import('../../../scripts/utils/concurrencyUtils.js'));
-});
+import { pMap } from '../../../scripts/utils/concurrencyUtils.js';
 
 describe('concurrencyUtils', () => {
   describe('pMap', () => {
     const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-    const workerErrorScenarios = [
-      {
-        name: '非同步',
-        items: [1, 2, 3, 4],
-        expectedError: '故意拋出的錯誤',
-        worker: async item => {
-          if (item === 3) {
-            await delay(5);
-            throw new Error('故意拋出的錯誤');
-          }
-          await delay(10);
-          return item;
-        },
-      },
-      {
-        name: '同步',
-        items: [1, 2],
-        expectedError: '同步錯誤',
-        worker: async item => {
-          if (item === 1) {
-            throw new Error('同步錯誤');
-          }
-          return item;
-        },
-      },
-    ];
 
     test('順序保證：隨機延遲的 worker 其輸出結果的 index 必須與 input 順序對齊', async () => {
       const items = ['A', 'B', 'C', 'D', 'E'];
@@ -111,12 +81,31 @@ describe('concurrencyUtils', () => {
       ]);
     });
 
-    test.each(workerErrorScenarios)(
-      'Worker 異常（$name）：pMap 應 reject 並傳播該錯誤',
-      async ({ items, worker, expectedError }) => {
-        await expect(pMap(items, worker, { concurrency: 2 })).rejects.toThrow(expectedError);
-      }
-    );
+    test('Worker 異常（非同步）：若其中一個 item 執行拋錯，pMap 應 reject 並傳播該錯誤', async () => {
+      const items = [1, 2, 3, 4];
+      const worker = async item => {
+        if (item === 3) {
+          await delay(5);
+          throw new Error('故意拋出的錯誤');
+        }
+        await delay(10);
+        return item;
+      };
+
+      await expect(pMap(items, worker, { concurrency: 2 })).rejects.toThrow('故意拋出的錯誤');
+    });
+
+    test('Worker 異常（同步）：若 worker 內部同步拋出錯誤，pMap 應 reject 並傳播該錯誤', async () => {
+      const items = [1, 2];
+      const worker = async item => {
+        if (item === 1) {
+          throw new Error('同步錯誤');
+        }
+        return item;
+      };
+
+      await expect(pMap(items, worker, { concurrency: 2 })).rejects.toThrow('同步錯誤');
+    });
 
     test('Fail-fast 不再派發：worker reject 後,尚未派發的 item 不應再被啟動', async () => {
       const items = Array.from({ length: 10 }, (_, i) => i);

@@ -347,7 +347,8 @@ const ImageCollector = {
       absoluteUrl = new URL(src, document.baseURI).href;
     } catch {
       // WHY: If src is completely malformed and document.baseURI cannot resolve it,
-      // new URL will throw. We gracefully fallback to the original src.
+      // new URL will throw. We gracefully fallback to null to reject invalid urls early.
+      return null;
     }
     return cleanImageUrl?.(absoluteUrl) ?? absoluteUrl;
   },
@@ -449,6 +450,10 @@ const ImageCollector = {
 
   _evaluateImageUrlForCollection(img, source, featuredImage) {
     const cleanedImageUrl = this._normalizeCandidateImageUrl(img, source);
+
+    if (!cleanedImageUrl) {
+      return { status: 'invalid_url' };
+    }
 
     if (featuredImage && cleanedImageUrl === featuredImage) {
       Logger.log('跳過重複的特色圖片', {

@@ -1,8 +1,4 @@
-let mergeUniqueImages;
-
-beforeAll(async () => {
-  ({ mergeUniqueImages } = await import('../../../scripts/utils/imageUtils.js'));
-});
+import { mergeUniqueImages } from '../../../scripts/utils/imageUtils.js';
 
 describe('mergeUniqueImages', () => {
   test('應該正確處理空輸入', () => {

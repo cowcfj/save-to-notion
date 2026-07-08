@@ -1,8 +1,4 @@
-let LogBuffer;
-
-beforeAll(async () => {
-  ({ LogBuffer } = await import('../../../scripts/utils/LogBuffer.js'));
-});
+import { LogBuffer } from '../../../scripts/utils/LogBuffer.js';
 
 function pushSame(buffer, message, action, times) {
   for (let i = 0; i < times; i++) {

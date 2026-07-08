@@ -1,29 +1,29 @@
 /* eslint-disable no-console */
 
-import fs from 'node:fs';
-import path from 'node:path';
+const fs = require('node:fs');
+const path = require('node:path');
 
 const projectRoot = process.cwd();
 const targetPath = path.join(projectRoot, 'scripts', 'config', 'env', 'build.js');
 const templatePath = path.join(projectRoot, 'scripts', 'config', 'env', 'build.example.js');
-const requiredBuildEnvironmentExport = 'export const BUILD_ENV';
+const requiredBuildEnvExport = 'export const BUILD_ENV';
 
 function failPostinstall(message, error) {
   const finalMessage = error ? `${message}\n${error.stack || error}` : message;
   throw new Error(finalMessage);
 }
 
-function assertBuildEnvironmentExport(filePath) {
+function assertBuildEnvExport(filePath) {
   // eslint-disable-next-line security/detect-non-literal-fs-filename
   const source = fs.readFileSync(filePath, 'utf8');
-  if (!source.includes(requiredBuildEnvironmentExport)) {
+  if (!source.includes(requiredBuildEnvExport)) {
     failPostinstall(
       'scripts/config/env/build.js 缺少必要的 BUILD_ENV 匯出（export const BUILD_ENV），安裝已中止。'
     );
   }
 }
 
-function getBuildEnvironmentPropertyValue(source, propertyName) {
+function getBuildEnvPropertyValue(source, propertyName) {
   for (const rawLine of source.split('\n')) {
     const line = rawLine.trim();
     if (!line.startsWith(propertyName)) {
@@ -50,20 +50,20 @@ function getBuildEnvironmentPropertyValue(source, propertyName) {
 }
 
 if (fs.existsSync(targetPath)) {
-  assertBuildEnvironmentExport(targetPath);
+  assertBuildEnvExport(targetPath);
   // 提醒開發者 OAuth 設定為空
   const content = fs.readFileSync(targetPath, 'utf8');
-  const oauthClientIdValue = getBuildEnvironmentPropertyValue(content, 'OAUTH_CLIENT_ID');
-  if ([null, "''", '""'].includes(oauthClientIdValue)) {
+  const oauthClientIdValue = getBuildEnvPropertyValue(content, 'OAUTH_CLIENT_ID');
+  if (oauthClientIdValue === null || oauthClientIdValue === "''" || oauthClientIdValue === '""') {
     console.warn(
-      '\u{1B}[33m⚠️  scripts/config/env/build.js 中 OAUTH_CLIENT_ID 尚未設定。' +
-        '若需測試 OAuth，請參考 README.md 填入你的 Notion Client ID。\u{1B}[0m'
+      '\u001B[33m⚠️  scripts/config/env/build.js 中 OAUTH_CLIENT_ID 尚未設定。' +
+        '若需測試 OAuth，請參考 README.md 填入你的 Notion Client ID。\u001B[0m'
     );
   }
 } else if (fs.existsSync(templatePath)) {
   try {
     fs.copyFileSync(templatePath, targetPath);
-    assertBuildEnvironmentExport(targetPath);
+    assertBuildEnvExport(targetPath);
     console.info('已從 scripts/config/env/build.example.js 建立 scripts/config/env/build.js');
   } catch (error) {
     failPostinstall('建立 scripts/config/env/build.js 失敗，無法確認 BUILD_ENV 設定：', error);

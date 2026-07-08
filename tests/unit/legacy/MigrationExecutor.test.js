@@ -4,17 +4,18 @@
  * Tests for migration executor static methods and pure logic
  */
 
-let MigrationExecutor = null;
-let MigrationPhase = null;
+import { MigrationExecutor, MigrationPhase } from '../../../scripts/legacy/MigrationExecutor';
 
-const loggerMock = {
+// Mock Logger
+jest.mock('../../../scripts/utils/Logger', () => ({
   log: jest.fn(),
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
-};
+}));
 
-const colorMock = {
+// Mock color utils
+jest.mock('../../../scripts/highlighter/utils/color', () => ({
   convertBgColorToName: jest.fn(bgColor => {
     const colorMap = {
       'rgb(255, 243, 205)': 'yellow',
@@ -24,28 +25,12 @@ const colorMock = {
     };
     return colorMap[bgColor] || 'yellow';
   }),
-};
-
-const urlUtilsMock = {
-  normalizeUrl: jest.fn(url => url),
-};
-
-jest.unstable_mockModule('../../../scripts/utils/Logger.js', () => ({
-  __esModule: true,
-  default: loggerMock,
-  ...loggerMock,
 }));
 
-jest.unstable_mockModule('../../../scripts/highlighter/utils/color.js', () => colorMock);
-
-jest.unstable_mockModule('../../../scripts/utils/urlUtils.js', () => urlUtilsMock);
-
-beforeAll(async () => {
-  ({ MigrationExecutor, MigrationPhase } =
-    await import('../../../scripts/legacy/MigrationExecutor.js'));
-});
-
-const buildMigrationStateKey = () => `seamless_migration_state_${globalThis.location.href}`;
+// Mock urlUtils
+jest.mock('../../../scripts/utils/urlUtils', () => ({
+  normalizeUrl: jest.fn(url => url),
+}));
 
 describe('MigrationExecutor', () => {
   describe('MigrationPhase', () => {
@@ -215,8 +200,9 @@ describe('MigrationExecutor Extended', () => {
         timestamp: Date.now(),
       };
 
+      // jsdom 的預設 URL 是 http://localhost/
       mockChrome.storage.local.get.mockResolvedValue({
-        [buildMigrationStateKey()]: savedState,
+        'seamless_migration_state_http://localhost/': savedState,
       });
 
       const state = await executor.getMigrationState();
@@ -267,8 +253,9 @@ describe('MigrationExecutor Extended', () => {
     });
 
     test('已完成遷移時應返回 false', async () => {
+      // jsdom 的預設 URL 是 http://localhost/
       mockChrome.storage.local.get.mockResolvedValue({
-        [buildMigrationStateKey()]: {
+        'seamless_migration_state_http://localhost/': {
           phase: MigrationPhase.COMPLETED,
         },
       });
@@ -292,8 +279,9 @@ describe('MigrationExecutor Extended', () => {
     });
 
     test('已完成時應返回 completed', async () => {
+      // jsdom 的預設 URL 是 http://localhost/
       mockChrome.storage.local.get.mockResolvedValue({
-        [buildMigrationStateKey()]: {
+        'seamless_migration_state_http://localhost/': {
           phase: MigrationPhase.COMPLETED,
         },
       });
@@ -304,8 +292,9 @@ describe('MigrationExecutor Extended', () => {
     });
 
     test('超過最大重試次數應停止', async () => {
+      // jsdom 的預設 URL 是 http://localhost/
       mockChrome.storage.local.get.mockResolvedValue({
-        [buildMigrationStateKey()]: {
+        'seamless_migration_state_http://localhost/': {
           phase: MigrationPhase.FAILED,
           metadata: { retryCount: 3 },
         },

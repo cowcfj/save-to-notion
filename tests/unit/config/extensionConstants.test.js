@@ -1,16 +1,8 @@
-let AuthMode;
-let ACCOUNT_API;
-let NOTION_API;
-let notionApiModule;
-let NOTION_OAUTH;
-
-beforeAll(async () => {
-  ({ AuthMode } = await import('../../../scripts/config/extension/authMode.js'));
-  ({ ACCOUNT_API } = await import('../../../scripts/config/extension/accountApi.js'));
-  notionApiModule = await import('../../../scripts/config/extension/notionApi.js');
-  ({ NOTION_API } = notionApiModule);
-  ({ NOTION_OAUTH } = await import('../../../scripts/config/extension/notionAuth.js'));
-});
+import { AuthMode } from '../../../scripts/config/extension/authMode.js';
+import { ACCOUNT_API } from '../../../scripts/config/extension/accountApi.js';
+import { NOTION_API } from '../../../scripts/config/extension/notionApi.js';
+import * as notionApiModule from '../../../scripts/config/extension/notionApi.js';
+import { NOTION_OAUTH } from '../../../scripts/config/extension/notionAuth.js';
 
 describe('extension config constants', () => {
   it('exports immutable constant objects', () => {

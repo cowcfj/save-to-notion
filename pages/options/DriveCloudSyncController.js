@@ -113,7 +113,7 @@ function formatTimestamp(isoString) {
 }
 
 function getLocalTimezoneLabel() {
-  const timezone = new Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   if (timezone) {
     return timezone;
   }
@@ -173,10 +173,9 @@ async function syncRemoteDriveConnection(options = {}) {
     try {
       await ensureDriveSyncIdentity();
     } catch (error) {
-      const identityError = new Error('Drive Sync identity initialization failed', {
-        cause: error,
-      });
+      const identityError = new Error('Drive Sync identity initialization failed');
       identityError.code = DRIVE_SYNC_IDENTITY_INIT_FAILED;
+      identityError.cause = error;
       throw identityError;
     }
     const previousMetadata = await getDriveSyncMetadata();

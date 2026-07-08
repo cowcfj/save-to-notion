@@ -149,8 +149,8 @@ function isContentGood(article) {
  * @param {Array} expanded - 用於記錄已展開元素的陣列
  */
 function openDetailsElements(expanded) {
-  const details = document.querySelectorAll('details:not([open])');
-  for (const detail of details) {
+  const details = Array.from(document.querySelectorAll('details:not([open])'));
+  details.forEach(detail => {
     try {
       detail.setAttribute('open', '');
       expanded.push(detail);
@@ -160,7 +160,7 @@ function openDetailsElements(expanded) {
         error: error.message,
       });
     }
-  }
+  });
 }
 
 /**
@@ -169,8 +169,8 @@ function openDetailsElements(expanded) {
  * @param {Array} expanded - 用於記錄已展開元素的陣列
  */
 function expandAriaControlledElements(expanded) {
-  const triggers = document.querySelectorAll('[aria-expanded="false"]');
-  for (const trigger of triggers) {
+  const triggers = Array.from(document.querySelectorAll('[aria-expanded="false"]'));
+  triggers.forEach(trigger => {
     try {
       trigger.setAttribute('aria-expanded', 'true');
       try {
@@ -201,7 +201,7 @@ function expandAriaControlledElements(expanded) {
         error: error.message,
       });
     }
-  }
+  });
 }
 
 /**
@@ -210,8 +210,8 @@ function expandAriaControlledElements(expanded) {
  * @param {Array} expanded - 用於記錄已展開元素的陣列
  */
 function expandCollapsedClassElements(expanded) {
-  const collapsedEls = document.querySelectorAll('.collapsed, .collapse:not(.show)');
-  for (const el of collapsedEls) {
+  const collapsedEls = Array.from(document.querySelectorAll('.collapsed, .collapse:not(.show)'));
+  collapsedEls.forEach(el => {
     try {
       el.classList.remove('collapsed', 'collapse');
       el.classList.add('expanded-by-clipper');
@@ -223,7 +223,7 @@ function expandCollapsedClassElements(expanded) {
         error: error.message,
       });
     }
-  }
+  });
 }
 
 /**
@@ -510,41 +510,6 @@ function findContentCmsFallback() {
 }
 
 /**
- * 單次掃描文本行數與項目符號行數，避免 split/map/filter 配置中介陣列。
- *
- * @param {string} text - 要分析的文本
- * @returns {{validLines: number, matchingLines: number}} 有效行與項目符號行統計
- */
-function analyzeListTextLines(text) {
-  let validLines = 0;
-  let matchingLines = 0;
-  const bulletPattern = LIST_PREFIX_PATTERNS.bulletPrefix;
-
-  let lineStart = 0;
-  const textLength = text.length;
-
-  for (let i = 0; i <= textLength; i++) {
-    if (i !== textLength && text.codePointAt(i) !== 10) {
-      continue;
-    }
-
-    const line = text.slice(lineStart, i).trim();
-    lineStart = i + 1;
-
-    if (line.length === 0) {
-      continue;
-    }
-
-    validLines++;
-    if (bulletPattern.test(line)) {
-      matchingLines++;
-    }
-  }
-
-  return { validLines, matchingLines };
-}
-
-/**
  * 判斷一個容器元素是否呈現出類似列表的結構 (包含多個項目符號或數字)
  *
  * @param {Element} container - 要檢查的 DOM 容器
@@ -552,17 +517,17 @@ function analyzeListTextLines(text) {
  */
 function isListLikeContainer(container) {
   const text = container.textContent || '';
-  if (!text) {
+  const lines = text
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean);
+  if (lines.length < 4) {
     return false;
   }
 
-  const { validLines, matchingLines } = analyzeListTextLines(text);
-
-  if (validLines < 4) {
-    return false;
-  }
-
-  return matchingLines >= Math.max(3, Math.floor(validLines * 0.4));
+  const bulletPattern = LIST_PREFIX_PATTERNS.bulletPrefix;
+  const matchingLines = lines.filter(line => bulletPattern.test(line)).length;
+  return matchingLines >= Math.max(3, Math.floor(lines.length * 0.4));
 }
 
 /**
@@ -571,30 +536,19 @@ function isListLikeContainer(container) {
  * @returns {Array} 所有候選元素的陣列
  */
 function collectListFallbackCandidates() {
-  const candidates = [];
-  let listCount = 0;
-  let possibleListContainerCount = 0;
+  const lists = Array.from(document.querySelectorAll('ul, ol'));
+  Logger.log('找到實際的列表元素', { action: 'extractLargestListFallback', count: lists.length });
 
-  for (const list of document.querySelectorAll('ul, ol')) {
-    candidates.push(list);
-    listCount++;
-  }
-
-  Logger.log('找到實際的列表元素', { action: 'extractLargestListFallback', count: listCount });
-
-  for (const container of document.querySelectorAll('div, section, article')) {
-    if (isListLikeContainer(container)) {
-      candidates.push(container);
-      possibleListContainerCount++;
-    }
-  }
+  const possibleListContainers = Array.from(
+    document.querySelectorAll('div, section, article')
+  ).filter(container => isListLikeContainer(container));
 
   Logger.log('找到可能的列表容器', {
     action: 'extractLargestListFallback',
-    count: possibleListContainerCount,
+    count: possibleListContainers.length,
   });
 
-  return candidates;
+  return [...lists, ...possibleListContainers];
 }
 
 /**
@@ -604,18 +558,18 @@ function collectListFallbackCandidates() {
  * @returns {number} 有效的項目數量
  */
 function getEffectiveListItemCount(candidate) {
-  const liCount = candidate.querySelectorAll('li').length;
+  const liItems = Array.from(candidate.querySelectorAll('li'));
+  const liCount = liItems.length;
   if (liCount > 0) {
     return liCount;
   }
 
-  const text = candidate.textContent || '';
-  if (!text) {
-    return 0;
-  }
-
-  const { matchingLines } = analyzeListTextLines(text);
-  return matchingLines;
+  const lines = (candidate.textContent || '')
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean);
+  const bulletPattern = LIST_PREFIX_PATTERNS.bulletPrefix;
+  return lines.filter(line => bulletPattern.test(line)).length;
 }
 
 /**

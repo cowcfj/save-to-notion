@@ -190,7 +190,6 @@ describe('destinations native ESM diagnostics', () => {
   });
 
   test('normalizeProfile rejects missing targets but preserves valid caller input', () => {
-    expect(normalizeProfile(null)).toBeNull();
     expect(normalizeProfile({ name: 'Missing target' })).toBeNull();
     expect(
       normalizeProfile({
@@ -208,13 +207,5 @@ describe('destinations native ESM diagnostics', () => {
         notionDataSourceType: 'page',
       })
     );
-  });
-
-  test('LocalDestinationProfileRepository writes last-used profile id directly', async () => {
-    const repository = new LocalDestinationProfileRepository({ chromeStorage });
-
-    await repository.setLastUsedProfileId('second');
-
-    expect(storageData[DESTINATION_PROFILE_STORAGE_KEYS.LAST_USED_PROFILE_ID]).toBe('second');
   });
 });

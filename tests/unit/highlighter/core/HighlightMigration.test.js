@@ -155,8 +155,7 @@ describe('core/HighlightMigration', () => {
     test('should skip migration if already completed', async () => {
       // Setup legacy data (which would normally trigger migration)
       const legacyData = [{ text: 'test', color: 'yellow' }];
-      const currentUrl = normalizeUrl(globalThis.location.href);
-      localStorage.setItem(`highlights_${currentUrl}`, JSON.stringify(legacyData));
+      localStorage.setItem('highlights_http://localhost/', JSON.stringify(legacyData));
 
       // Setup window.chrome with migration flag set to true
       globalThis.chrome = {
@@ -164,7 +163,7 @@ describe('core/HighlightMigration', () => {
         storage: {
           local: {
             get: jest.fn().mockResolvedValue({
-              [`migration_completed_${currentUrl}`]: true,
+              'migration_completed_http://localhost/': true,
             }),
             set: jest.fn().mockResolvedValue({}),
           },
@@ -175,7 +174,7 @@ describe('core/HighlightMigration', () => {
 
       // Should verify access but NOT save (skip migration)
       expect(globalThis.chrome.storage.local.get).toHaveBeenCalledWith(
-        `migration_completed_${currentUrl}`
+        'migration_completed_http://localhost/'
       );
       expect(HighlightStorageGateway.saveHighlights).not.toHaveBeenCalled();
     });
@@ -204,10 +203,12 @@ describe('core/HighlightMigration', () => {
 
     test('should ignore a poisoned globalThis.normalizeUrl override and use the module normalizer', async () => {
       globalThis.history.pushState({}, '', '/path?utm_source=fb#frag');
-      const currentUrl = normalizeUrl(globalThis.location.href);
 
       const legacyData = [{ text: 'test', color: 'yellow' }];
-      localStorage.setItem(`highlights_${currentUrl}`, JSON.stringify(legacyData));
+      localStorage.setItem(
+        `highlights_${normalizeUrl(globalThis.location.href)}`,
+        JSON.stringify(legacyData)
+      );
 
       globalThis.normalizeUrl = jest.fn(() => 'javascript:alert(1)');
       globalThis.chrome = {
@@ -226,9 +227,9 @@ describe('core/HighlightMigration', () => {
       await migration.checkAndMigrate();
 
       expect(HighlightStorageGateway.saveHighlights).toHaveBeenCalledWith(
-        currentUrl,
+        'http://localhost/path',
         expect.objectContaining({
-          url: currentUrl,
+          url: 'http://localhost/path',
         })
       );
     });

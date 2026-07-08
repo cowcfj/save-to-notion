@@ -14,7 +14,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const REPO_ROOT = process.cwd();
+const REPO_ROOT = path.resolve(__dirname, '../../..');
 const BASELINE_PATH = path.join(REPO_ROOT, '.tmp', 'perf-baseline.json');
 const SCHEMA_VERSION = 1;
 

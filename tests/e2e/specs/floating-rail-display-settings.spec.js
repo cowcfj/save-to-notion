@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures.js';
+import { test, expect } from '../fixtures';
 
 /**
  * Floating Rail 顯示設定 E2E 測試

@@ -390,14 +390,16 @@ describe('ReadabilityAdapter - isContentGood', () => {
     });
 
     test('不應執行內容中的 inline event handlers', () => {
-      const xssPayload = `<img src=x onerror="window.__xss_fired=true"><p>${'a'.repeat(500)}</p>`;
+      const xssPayload =
+        '<img src=x onerror="window.__xss_fired=true">' + `<p>${'a'.repeat(500)}</p>`;
 
       isContentGood({ content: xssPayload });
       expect(globalThis.__xss_fired).toBeUndefined();
     });
 
     test('不應執行內容中的 script 標籤', () => {
-      const xssPayload = `<script>window.__xss_script_fired=true</script><p>${'a'.repeat(500)}</p>`;
+      const xssPayload =
+        '<script>window.__xss_script_fired=true</script>' + `<p>${'a'.repeat(500)}</p>`;
 
       isContentGood({ content: xssPayload });
       expect(globalThis.__xss_script_fired).toBeUndefined();

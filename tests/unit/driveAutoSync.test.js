@@ -4,7 +4,7 @@
  * 覆蓋 shouldRunAutoSync() 所有條件分支。
  */
 
-const driveClientMockModule = {
+jest.mock('../../scripts/auth/driveClient.js', () => ({
   __esModule: true,
   getDriveSyncMetadata: jest.fn(),
   ensureDriveSyncIdentity: jest.fn(),
@@ -12,46 +12,29 @@ const driveClientMockModule = {
   clearDriveDirty: jest.fn(),
   uploadDriveSnapshot: jest.fn(),
   writeDriveAutoSyncTelemetry: jest.fn(),
-};
+}));
 
-const accountSessionMockModule = {
+jest.mock('../../scripts/auth/accountSession.js', () => ({
   __esModule: true,
   getAccountAccessToken: jest.fn(),
-};
+}));
 
-const driveSnapshotMockModule = {
+jest.mock('../../scripts/sync/driveSnapshot.js', () => ({
   __esModule: true,
   buildUnifiedPageStateFromLocalStorage: jest.fn(),
   buildDriveSnapshot: jest.fn(),
-};
+}));
 
-jest.unstable_mockModule('../../scripts/auth/driveClient.js', () => driveClientMockModule);
-jest.unstable_mockModule('../../scripts/auth/accountSession.js', () => accountSessionMockModule);
-jest.unstable_mockModule('../../scripts/sync/driveSnapshot.js', () => driveSnapshotMockModule);
-jest.doMock('../../scripts/auth/driveClient.js', () => driveClientMockModule);
-jest.doMock('../../scripts/auth/accountSession.js', () => accountSessionMockModule);
-jest.doMock('../../scripts/sync/driveSnapshot.js', () => driveSnapshotMockModule);
-
-let shouldRunAutoSync;
-let runAutoUpload;
-let driveClient;
-let accountSession;
-let driveSnapshot;
-let RUNTIME_ACTIONS;
-let DRIVE_SYNC_ERROR_CODES;
-let Logger;
-
-beforeAll(async () => {
-  ({ shouldRunAutoSync, runAutoUpload } =
-    await import('../../scripts/background/handlers/driveAutoSync.js'));
-  driveClient = await import('../../scripts/auth/driveClient.js');
-  accountSession = await import('../../scripts/auth/accountSession.js');
-  driveSnapshot = await import('../../scripts/sync/driveSnapshot.js');
-  ({ RUNTIME_ACTIONS } = await import('../../scripts/config/shared/runtimeActions.js'));
-  ({ DRIVE_SYNC_ERROR_CODES } =
-    await import('../../scripts/config/extension/driveSyncErrorCodes.js'));
-  ({ default: Logger } = await import('../../scripts/utils/Logger.js'));
-});
+import {
+  shouldRunAutoSync,
+  runAutoUpload,
+} from '../../scripts/background/handlers/driveAutoSync.js';
+import * as driveClient from '../../scripts/auth/driveClient.js';
+import * as accountSession from '../../scripts/auth/accountSession.js';
+import * as driveSnapshot from '../../scripts/sync/driveSnapshot.js';
+import { RUNTIME_ACTIONS } from '../../scripts/config/shared/runtimeActions.js';
+import { DRIVE_SYNC_ERROR_CODES } from '../../scripts/config/extension/driveSyncErrorCodes.js';
+import Logger from '../../scripts/utils/Logger.js';
 
 /**
  * 基礎合法 metadata（所有條件均滿足）。

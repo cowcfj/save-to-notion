@@ -47,38 +47,6 @@ function resolveCapabilities(statusKind) {
   }
 }
 
-function normalizeStatusInput({ statusKind, success, error }) {
-  const knownStatusKind = SAVE_STATUS_KIND_VALUES.has(statusKind);
-  return {
-    knownStatusKind,
-    statusKind: knownStatusKind ? statusKind : SAVE_STATUS_KINDS.ERROR,
-    success: knownStatusKind ? success : false,
-    error: knownStatusKind ? error : error || 'unknown_status_kind',
-  };
-}
-
-function warnUnknownStatusKind(statusKind) {
-  globalThis.Logger?.warn?.('unknown status kind', {
-    operation: 'createSaveStatusResponse',
-    reason: 'unknown_status_kind',
-    statusKind,
-  });
-}
-
-function sanitizeExtra(extra) {
-  return Object.fromEntries(
-    Object.entries(extra).filter(([key]) => !RESERVED_RESPONSE_FIELDS.has(key))
-  );
-}
-
-function createSavedDataFields(savedData) {
-  return {
-    ...(savedData?.notionPageId ? { notionPageId: savedData.notionPageId } : {}),
-    ...(savedData?.notionUrl ? { notionUrl: savedData.notionUrl } : {}),
-    ...(savedData && 'title' in savedData ? { title: savedData.title } : {}),
-  };
-}
-
 export function isSavedStatusKind(statusKind) {
   return (
     statusKind === SAVE_STATUS_KINDS.SAVED ||
@@ -129,26 +97,38 @@ export function createSaveStatusResponse({
   error,
   extra = {},
 } = {}) {
-  const normalized = normalizeStatusInput({ statusKind, success, error });
+  const knownStatusKind = SAVE_STATUS_KIND_VALUES.has(statusKind);
+  const normalizedStatusKind = knownStatusKind ? statusKind : SAVE_STATUS_KINDS.ERROR;
+  const normalizedSuccess = knownStatusKind ? success : false;
+  const normalizedError = knownStatusKind ? error : error || 'unknown_status_kind';
 
-  if (!normalized.knownStatusKind) {
-    warnUnknownStatusKind(statusKind);
+  if (!knownStatusKind) {
+    globalThis.Logger?.warn?.('unknown status kind', {
+      operation: 'createSaveStatusResponse',
+      reason: 'unknown_status_kind',
+      statusKind,
+    });
   }
 
-  const { canSave, canSyncHighlights } = resolveCapabilities(normalized.statusKind);
-  const isSaved = isSavedStatusKind(normalized.statusKind);
+  const { canSave, canSyncHighlights } = resolveCapabilities(normalizedStatusKind);
+  const isSaved = isSavedStatusKind(normalizedStatusKind);
+  const sanitizedExtra = Object.fromEntries(
+    Object.entries(extra).filter(([key]) => !RESERVED_RESPONSE_FIELDS.has(key))
+  );
 
   return {
-    success: normalized.success,
-    statusKind: normalized.statusKind,
+    success: normalizedSuccess,
+    statusKind: normalizedStatusKind,
     isSaved,
     canSave,
     canSyncHighlights,
     stableUrl,
-    wasDeleted: normalized.statusKind === SAVE_STATUS_KINDS.DELETED_REMOTE,
-    deletionPending: normalized.statusKind === SAVE_STATUS_KINDS.DELETION_PENDING,
-    ...createSavedDataFields(savedData),
-    ...(normalized.error ? { error: normalized.error } : {}),
-    ...sanitizeExtra(extra),
+    wasDeleted: normalizedStatusKind === SAVE_STATUS_KINDS.DELETED_REMOTE,
+    deletionPending: normalizedStatusKind === SAVE_STATUS_KINDS.DELETION_PENDING,
+    ...(savedData?.notionPageId ? { notionPageId: savedData.notionPageId } : {}),
+    ...(savedData?.notionUrl ? { notionUrl: savedData.notionUrl } : {}),
+    ...(savedData && 'title' in savedData ? { title: savedData.title } : {}),
+    ...(normalizedError ? { error: normalizedError } : {}),
+    ...sanitizedExtra,
   };
 }

@@ -704,7 +704,6 @@ export const LogSanitizer = {
 
     // 3. JWT Tokens (eyJ...)
     // 策略：使用簡單線性正則匹配候選者，在 JS 中驗證結構以避免 ReDoS
-    // eslint-disable-next-line unicorn/no-unsafe-string-replacement -- Fixed local callback validates and redacts the matched token candidate.
     safeStr = safeStr.replaceAll(/\beyJ[\w.-]+\b/g, _redactJwtCandidate);
 
     // 4. 常見 API Key 格式 (sk-, gh-, key-)
@@ -714,16 +713,13 @@ export const LogSanitizer = {
     );
 
     // 5. 特殊 Token 模式 (Notion Tokens often start with secret_)
-    // eslint-disable-next-line unicorn/no-unsafe-string-replacement -- Replacement is a fixed sanitizer label constant.
     safeStr = safeStr.replaceAll(/secret_[\dA-Za-z]+/g, SANITIZED_LABEL);
 
     // 6. Email 脫敏 (使用簡單且安全的匹配模式)
-    // eslint-disable-next-line unicorn/no-unsafe-string-replacement -- Fixed local callback masks only the matched email candidate.
     safeStr = safeStr.replaceAll(/\b[\w%+.-]+@[\d.A-Za-z-]+\.[A-Za-z]{2,}\b/g, _maskEmailMatch);
 
     // 7. UUID 截斷
     // 策略：匹配 36 位 Hex/連字號字串，在 JS 中驗證格式
-    // eslint-disable-next-line unicorn/no-unsafe-string-replacement -- Fixed local callback preserves only standard UUID-shaped matches.
     safeStr = safeStr.replaceAll(/\b[\dA-Fa-f-]{36}\b/g, _redactUuidCandidate);
 
     return safeStr;

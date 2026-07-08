@@ -4,7 +4,7 @@
  */
 
 // Mock Chrome APIs
-const mockChrome = require('../../mocks/chrome.cjs');
+import mockChrome from '../../mocks/chrome';
 
 const DEFAULT_TAB_ID = 123;
 const ARTICLE_URL = 'https://example.com/article';

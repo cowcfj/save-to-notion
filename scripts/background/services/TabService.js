@@ -1276,29 +1276,23 @@ function _migrationScript(trackingParams) {
     }
   };
 
-  const highlightKeyPrefix = 'highlights_';
-  const isHighlightStorageKey = key =>
-    typeof key === 'string' && key.startsWith(highlightKeyPrefix);
-  const extractHighlightStorageUrl = key => key.slice(highlightKeyPrefix.length);
-
   const findLegacyHighlightFallbackKey = currentOrigin => {
     let legacyCandidate = null;
-    for (let index = 0; index < localStorage.length; index++) {
-      const key = localStorage.key(index);
-      if (!isHighlightStorageKey(key)) {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k?.startsWith('highlights_')) {
         continue;
       }
 
-      const keyOrigin = parseOrigin(extractHighlightStorageUrl(key));
+      const keyUrl = k.replace('highlights_', '');
+      const keyOrigin = parseOrigin(keyUrl);
       if (currentOrigin && keyOrigin === currentOrigin) {
-        return key;
+        return k;
       }
 
-      if (currentOrigin && keyOrigin) {
-        continue;
+      if (!currentOrigin || !keyOrigin) {
+        legacyCandidate ||= k;
       }
-
-      legacyCandidate ??= key;
     }
     return legacyCandidate;
   };

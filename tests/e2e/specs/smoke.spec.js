@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures.js';
+import { test, expect } from '../fixtures';
 
 test('Popup should load successfully', async ({ page, extensionId }) => {
   // 1. 導航到一個簡單的頁面，確保 Content Script 有機會注入 (雖然此測試主要測 Popup)

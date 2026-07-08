@@ -1,10 +1,7 @@
-let isSavedStatusResponse;
-let createSaveStatusResponse;
-
-beforeAll(async () => {
-  ({ isSavedStatusResponse, createSaveStatusResponse } =
-    await import('../../../scripts/config/shared/saveStatus.js'));
-});
+import {
+  isSavedStatusResponse,
+  createSaveStatusResponse,
+} from '../../../scripts/config/shared/saveStatus.js';
 
 describe('saveStatus 邊界情境', () => {
   test('isSavedStatusResponse 對 null 狀態應回傳 false', () => {

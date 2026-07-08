@@ -5,11 +5,7 @@
  * - 日誌導出安全驗證
  */
 
-let validateLogExportData;
-
-beforeAll(async () => {
-  ({ validateLogExportData } = await import('../../../scripts/utils/LogExportValidator.js'));
-});
+import { validateLogExportData } from '../../../scripts/utils/LogExportValidator.js';
 
 describe('LogExportValidator', () => {
   describe('validateLogExportData', () => {

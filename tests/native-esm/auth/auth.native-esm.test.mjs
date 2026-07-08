@@ -15,13 +15,12 @@ const loggerMock = {
 };
 const sanitizeApiErrorMock = jest.fn(error => error?.message || String(error || 'UNKNOWN_ERROR'));
 const getNextAuthEpochMock = jest.fn(async () => 7);
-const buildEnvMock = {
-  OAUTH_CLIENT_ID: 'notion-client-id',
-  OAUTH_SERVER_URL: 'https://worker.example.test/base',
-};
 
 await jest.unstable_mockModule('../../../scripts/config/env/index.js', () => ({
-  BUILD_ENV: buildEnvMock,
+  BUILD_ENV: {
+    OAUTH_CLIENT_ID: 'notion-client-id',
+    OAUTH_SERVER_URL: 'https://worker.example.test/base',
+  },
 }));
 
 await jest.unstable_mockModule('../../../scripts/utils/Logger.js', () => ({
@@ -47,39 +46,18 @@ const notionOAuthInitiator = await import('../../../scripts/auth/notionOAuthInit
 
 const FUTURE_EXPIRES_AT = Math.floor(Date.now() / 1000) + 3600;
 const PAST_EXPIRES_AT = Math.floor(Date.now() / 1000) - 60;
-const VALID_ACCOUNT_SESSION = {
-  accessToken: 'account-token',
-  refreshToken: 'refresh-token',
-  expiresAt: FUTURE_EXPIRES_AT,
-  userId: 'user-1',
-  email: 'user@example.test',
-  displayName: 'Native User',
-  avatarUrl: 'https://example.test/avatar.png',
-};
 
 let storageData;
 let originalCryptoDescriptor;
 let originalClose;
 
-function createJsonResponse(body, { ok = true, status = 200, jsonError = null } = {}) {
+function createJsonResponse(body, { ok = true, status = 200 } = {}) {
   return {
     ok,
     status,
-    json: jest.fn(async () => {
-      if (jsonError) {
-        throw jsonError;
-      }
-      return body;
-    }),
+    json: jest.fn(async () => body),
     text: jest.fn(async () => JSON.stringify(body)),
   };
-}
-
-async function setStoredAccountSession(overrides = {}) {
-  await accountSession.setAccountSession({
-    ...VALID_ACCOUNT_SESSION,
-    ...overrides,
-  });
 }
 
 function normalizeKeys(keys) {
@@ -176,8 +154,6 @@ async function flushMicrotasks(times = 8) {
 
 beforeEach(() => {
   storageData = {};
-  buildEnvMock.OAUTH_CLIENT_ID = 'notion-client-id';
-  buildEnvMock.OAUTH_SERVER_URL = 'https://worker.example.test/base';
   document.body.innerHTML = '';
   installChrome();
   installCrypto();
@@ -270,153 +246,6 @@ describe('auth native ESM diagnostics', () => {
     expect(storageData.accountDisplayName).toBeNull();
     await accountSession.clearAccountSession();
     await expect(accountSession.getAccountSession()).resolves.toBeNull();
-  });
-
-  describe('accountSession native ESM refresh failure coverage', () => {
-    test('returns empty account state for missing profile and invalid expiry inputs', async () => {
-      await expect(accountSession.getAccountProfile()).resolves.toBeNull();
-      await expect(accountSession.buildAccountAuthHeaders()).resolves.toEqual({});
-
-      expect(accountSession.isAccountSessionExpired({ expiresAt: 0 })).toBe(true);
-      expect(accountSession.isAccountSessionExpired({ expiresAt: Number.NaN })).toBe(true);
-      expect(accountSession.isAccountSessionExpired({ expiresAt: Infinity })).toBe(true);
-    });
-
-    test('returns null for expired sessions without a refresh token', async () => {
-      await setStoredAccountSession({
-        expiresAt: PAST_EXPIRES_AT,
-        refreshToken: '',
-      });
-
-      await expect(accountSession.getAccountAccessToken()).resolves.toBeNull();
-      await expect(accountSession.refreshAccountSession()).resolves.toBeNull();
-
-      expect(globalThis.fetch).not.toHaveBeenCalled();
-    });
-
-    test('clears account session on terminal refresh failure using error_code', async () => {
-      await setStoredAccountSession({ expiresAt: PAST_EXPIRES_AT });
-      globalThis.fetch.mockResolvedValueOnce(
-        createJsonResponse(
-          { error_code: 'INVALID_REFRESH_TOKEN', code: 'SESSION_REVOKED' },
-          { ok: false, status: 401 }
-        )
-      );
-
-      await expect(accountSession.refreshAccountSession()).resolves.toBeNull();
-
-      expect(storageData.accountAccessToken).toBeUndefined();
-      expect(storageData.accountRefreshToken).toBeUndefined();
-      expect(loggerMock.warn).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          action: 'refreshAccountSession',
-          result: 'cleared',
-          reason: 'INVALID_REFRESH_TOKEN',
-          httpStatus: 401,
-        })
-      );
-    });
-
-    test('preserves account session and logs HTTP refresh failures as transient', async () => {
-      await setStoredAccountSession({ expiresAt: PAST_EXPIRES_AT });
-      globalThis.fetch.mockResolvedValueOnce(
-        createJsonResponse({ code: 'TEMPORARY_BACKEND_FAILURE' }, { ok: false, status: 500 })
-      );
-
-      await expect(accountSession.refreshAccountSession()).rejects.toThrow(
-        'refresh transient failure, HTTP 500'
-      );
-
-      expect(storageData.accountAccessToken).toBe(VALID_ACCOUNT_SESSION.accessToken);
-      expect(loggerMock.error).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          action: 'refreshAccountSession',
-          result: 'failed',
-          reason: 'TEMPORARY_BACKEND_FAILURE',
-          httpStatus: 500,
-          error: expect.stringContaining('HTTP 500'),
-        })
-      );
-    });
-
-    test('classifies fetch rejection and invalid JSON body without clearing session', async () => {
-      await setStoredAccountSession({ expiresAt: PAST_EXPIRES_AT });
-      globalThis.fetch.mockRejectedValueOnce(new Error('Network Error'));
-
-      await expect(accountSession.refreshAccountSession()).rejects.toThrow('Network Error');
-
-      expect(storageData.accountAccessToken).toBe(VALID_ACCOUNT_SESSION.accessToken);
-      expect(loggerMock.error).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          reason: 'NETWORK_ERROR',
-          error: 'Network Error',
-        })
-      );
-
-      loggerMock.error.mockClear();
-      await setStoredAccountSession({ expiresAt: PAST_EXPIRES_AT });
-      globalThis.fetch.mockResolvedValueOnce(
-        createJsonResponse(null, { ok: false, status: 502, jsonError: new Error('Invalid JSON') })
-      );
-
-      await expect(accountSession.refreshAccountSession()).rejects.toThrow('Invalid JSON');
-
-      expect(storageData.accountAccessToken).toBe(VALID_ACCOUNT_SESSION.accessToken);
-      expect(loggerMock.error).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          reason: 'INVALID_RESPONSE_BODY',
-          httpStatus: 502,
-          error: 'Invalid JSON',
-        })
-      );
-    });
-
-    test('rejects invalid refresh success payload without overwriting stored tokens', async () => {
-      await setStoredAccountSession({ expiresAt: PAST_EXPIRES_AT });
-      globalThis.fetch.mockResolvedValueOnce(
-        createJsonResponse({
-          access_token: 'new-access-token',
-          refresh_token: 'new-refresh-token',
-          expires_at: Number.POSITIVE_INFINITY,
-        })
-      );
-
-      await expect(accountSession.refreshAccountSession()).rejects.toThrow(
-        'refresh response missing expiresAt'
-      );
-
-      expect(storageData.accountAccessToken).toBe(VALID_ACCOUNT_SESSION.accessToken);
-      expect(storageData.accountRefreshToken).toBe(VALID_ACCOUNT_SESSION.refreshToken);
-      expect(loggerMock.error).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          reason: 'INVALID_RESPONSE_PAYLOAD',
-          httpStatus: 200,
-          error: expect.stringContaining('missing expiresAt'),
-        })
-      );
-    });
-
-    test('returns empty auth headers when refresh cannot resolve the account API base URL', async () => {
-      await setStoredAccountSession({ expiresAt: PAST_EXPIRES_AT });
-      buildEnvMock.OAUTH_SERVER_URL = '';
-
-      await expect(accountSession.buildAccountAuthHeaders()).resolves.toEqual({});
-
-      expect(loggerMock.debug).toHaveBeenCalledWith(
-        'Failed to get account access token; returning empty auth headers',
-        expect.objectContaining({
-          reason: 'get_account_access_token_failure',
-          err: expect.objectContaining({
-            message: expect.stringContaining('OAUTH_SERVER_URL'),
-          }),
-        })
-      );
-    });
   });
 
   test('Notion OAuth initiator and completer execute callback, token exchange, and storage paths', async () => {

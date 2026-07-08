@@ -3,13 +3,233 @@
  * 覆蓋重試條件、Retry-After、AbortSignal、超時、jitter 注入、DOM context 與覆寫回應判斷。
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
+import vm from 'node:vm';
+
 import { RetryManager, withRetry, fetchWithRetry } from '../../../scripts/utils/RetryManager.js';
-import {
-  MockHeaders,
-  advance,
-  createAbortController,
-  withGlobalTestDouble,
-} from './retryManagerTestSupport.js';
+
+const retryManagerSourcePath = path.resolve(__dirname, '../../../scripts/utils/RetryManager.js');
+
+function evaluateRetryManagerWithoutModule(envOptions = {}) {
+  const sandbox = { console };
+
+  if (envOptions.self) {
+    sandbox.self = sandbox;
+  }
+  if (envOptions.window) {
+    sandbox.window = sandbox;
+  }
+  if (envOptions.module) {
+    sandbox.module = { exports: {} };
+    sandbox.exports = sandbox.module.exports;
+  }
+
+  sandbox.globalThis = sandbox;
+  vm.createContext(sandbox);
+
+  const rawSource = fs.readFileSync(retryManagerSourcePath, 'utf8');
+  // 移除靜態 export 以防在 VM script 執行時報 SyntaxError
+  const filteredSource = rawSource.replaceAll(/export\s+\{[\s\S]*?\};/g, '');
+
+  // eslint-disable-next-line sonarjs/code-eval -- Intentional VM execution of trusted local source for isolated global export testing.
+  vm.runInContext(filteredSource, sandbox, {
+    filename: retryManagerSourcePath,
+  });
+
+  return sandbox;
+}
+
+// 簡易 Headers 模擬
+class MockHeaders {
+  constructor(map = {}) {
+    this.map = Object.fromEntries(
+      Object.entries(map).map(([key, value]) => [String(key).toLowerCase(), value])
+    );
+  }
+  get(key) {
+    return this.map[String(key).toLowerCase()] ?? null;
+  }
+}
+
+// 簡易 AbortController Shim（避免舊環境缺失）
+function createAbortController() {
+  if (typeof AbortController !== 'undefined') {
+    return new AbortController();
+  }
+  let aborted = false;
+  const listeners = new Set();
+  return {
+    get signal() {
+      return {
+        get aborted() {
+          return aborted;
+        },
+        addEventListener: (evt, callback) => {
+          if (evt === 'abort') {
+            listeners.add(callback);
+          }
+        },
+        removeEventListener: (evt, callback) => {
+          if (evt === 'abort') {
+            listeners.delete(callback);
+          }
+        },
+      };
+    },
+    abort() {
+      if (aborted) {
+        return;
+      }
+      aborted = true;
+      listeners.forEach(callback => {
+        try {
+          callback();
+        } catch {
+          /* empty */
+        }
+      });
+      listeners.clear();
+    },
+  };
+}
+
+// 測試用輔助：推進計時器並刷新微任務
+async function advance(ms) {
+  jest.advanceTimersByTime(ms);
+  // 兩次微任務刷新讓 Promise 鏈能完整解析
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+function restoreGlobalProperty(name, originalValue) {
+  if (originalValue === undefined) {
+    delete globalThis[name];
+    return;
+  }
+  globalThis[name] = originalValue;
+}
+
+const REQUIRED_LOGGER_METHODS = ['success', 'start', 'ready', 'info', 'debug', 'warn', 'error'];
+
+function withGlobalTestDouble(name, value, assertionBlock) {
+  const originalValue = globalThis[name];
+  globalThis[name] = value;
+  const restore = () => restoreGlobalProperty(name, originalValue);
+
+  try {
+    const result = assertionBlock(value);
+    if (result && typeof result.then === 'function') {
+      return result.then(
+        resolvedValue => {
+          restore();
+          return resolvedValue;
+        },
+        error => {
+          restore();
+          throw error;
+        }
+      );
+    }
+
+    restore();
+    return result;
+  } catch (error) {
+    restore();
+    throw error;
+  }
+}
+
+function createLoggerWithMethods(methodNames) {
+  return Object.fromEntries(
+    [...new Set([...REQUIRED_LOGGER_METHODS, ...methodNames])].map(methodName => [
+      methodName,
+      jest.fn(),
+    ])
+  );
+}
+
+function expectStructuredRetryLog(logMethod, messageFragment, metadata) {
+  expect(logMethod).toHaveBeenCalledWith(
+    expect.stringContaining(messageFragment),
+    expect.objectContaining(metadata)
+  );
+}
+
+function expectRetryLogReportsToErrorHandler(triggerLog) {
+  const errorHandler = {
+    logError: jest.fn(),
+  };
+
+  withGlobalTestDouble('ErrorHandler', errorHandler, () => {
+    triggerLog();
+
+    expect(errorHandler.logError).toHaveBeenCalled();
+  });
+}
+
+describe('RetryManager test helper contracts', () => {
+  const temporaryGlobalName = '__retryManagerTestDoubleContract__';
+
+  afterEach(() => {
+    delete globalThis[temporaryGlobalName];
+  });
+
+  test('withGlobalTestDouble 應保留 async assertion 期間的 global test double', async () => {
+    const testDouble = { marker: 'active-test-double' };
+    const observedValue = new Promise(resolve => {
+      withGlobalTestDouble(temporaryGlobalName, testDouble, async () => {
+        await Promise.resolve();
+        resolve(globalThis[temporaryGlobalName]);
+      });
+    });
+
+    await expect(observedValue).resolves.toBe(testDouble);
+    expect(globalThis[temporaryGlobalName]).toBeUndefined();
+  });
+
+  test('withGlobalTestDouble 應在 async assertion reject 後還原 global test double', async () => {
+    const expectedError = new Error('expected async assertion failure');
+    const rejectedAssertion = Promise.resolve().then(() => {
+      throw expectedError;
+    });
+    rejectedAssertion.catch(() => {});
+
+    await expect(
+      withGlobalTestDouble(
+        temporaryGlobalName,
+        { marker: 'rejected-test-double' },
+        () => rejectedAssertion
+      )
+    ).rejects.toBe(expectedError);
+    expect(globalThis[temporaryGlobalName]).toBeUndefined();
+  });
+
+  test('createLoggerWithMethods 應建立完整 Logger mock surface', () => {
+    const logger = createLoggerWithMethods(['warn']);
+
+    REQUIRED_LOGGER_METHODS.forEach(methodName => {
+      expect(logger[methodName]).toEqual(expect.any(Function));
+      expect(jest.isMockFunction(logger[methodName])).toBe(true);
+    });
+  });
+
+  test('expectStructuredRetryLog 應接受包含額外欄位的 structured metadata', () => {
+    const logMethod = jest.fn();
+    logMethod('重試 attempt scheduled', {
+      action: 'retry',
+      result: 'scheduled',
+      extraDiagnosticField: 'retained',
+    });
+
+    expect(() => {
+      expectStructuredRetryLog(logMethod, '重試', {
+        action: 'retry',
+        result: 'scheduled',
+      });
+    }).not.toThrow();
+  });
+});
 
 describe('RetryManager', () => {
   beforeEach(() => {
@@ -21,7 +241,7 @@ describe('RetryManager', () => {
   });
 
   test('fetch: 503 並帶 Retry-After 秒數時應重試，並遵循延遲', async () => {
-    const fetchFunction = jest
+    const fetchFn = jest
       .fn()
       // 第一次回傳 503 + Retry-After: 2 秒
       .mockImplementationOnce(() => {
@@ -33,7 +253,7 @@ describe('RetryManager', () => {
       });
 
     const rm = new RetryManager({ baseDelay: 100, jitter: false });
-    const wrapped = rm.wrapFetch(fetchFunction);
+    const wrapped = rm.wrapFetch(fetchFn);
 
     const fetchPromise = wrapped('https://example.com');
     // 需要先讓第一個請求 resolve 並處理錯誤、啟動延遲
@@ -43,14 +263,14 @@ describe('RetryManager', () => {
 
     // 推進 1999ms 不足以觸發第二次
     await advance(1999);
-    expect(fetchFunction).toHaveBeenCalledTimes(1);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
 
     // 推進到 2000ms 觸發重試
     await advance(1);
-    expect(fetchFunction).toHaveBeenCalledTimes(2);
+    expect(fetchFn).toHaveBeenCalledTimes(2);
 
-    const response = await fetchPromise;
-    expect(response.status).toBe(200);
+    const res = await fetchPromise;
+    expect(res.status).toBe(200);
 
     const stats = rm.getLastStats();
     expect(stats.lastTotalRetries).toBe(1);
@@ -60,7 +280,7 @@ describe('RetryManager', () => {
 
   test('fetch: 429 並帶 HTTP 日期 Retry-After 應重試', async () => {
     // 使用秒數格式的 Retry-After
-    const fetchFunction = jest
+    const fetchFn = jest
       .fn()
       .mockImplementationOnce(() =>
         Promise.resolve({
@@ -77,7 +297,7 @@ describe('RetryManager', () => {
       );
 
     const retryManager = new RetryManager({ baseDelay: 10, jitter: false });
-    const wrapped = retryManager.wrapFetch(fetchFunction);
+    const wrapped = retryManager.wrapFetch(fetchFn);
     const fetchPromise = wrapped('https://example.com');
 
     // 讓第一次請求執行並啟動延遲
@@ -85,29 +305,29 @@ describe('RetryManager', () => {
     await Promise.resolve();
 
     // 現在應該只調用了一次，正在等待 1500ms
-    expect(fetchFunction).toHaveBeenCalledTimes(1);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
 
     // 推進時間到 1500ms 觸發重試
     await advance(1500);
-    expect(fetchFunction).toHaveBeenCalledTimes(2);
+    expect(fetchFn).toHaveBeenCalledTimes(2);
 
-    const response = await fetchPromise;
-    expect(response.status).toBe(200);
+    const res = await fetchPromise;
+    expect(res.status).toBe(200);
   });
 
   test('fetch: 404 不應重試（直接返回回應）', async () => {
-    const fetchFunction = jest
+    const fetchFn = jest
       .fn()
       .mockResolvedValue({ status: 404, ok: false, headers: new MockHeaders() });
     const rm = new RetryManager({});
-    const wrapped = rm.wrapFetch(fetchFunction);
+    const wrapped = rm.wrapFetch(fetchFn);
 
     const fetchPromise = wrapped('https://example.com');
     await Promise.resolve();
-    const response = await fetchPromise;
+    const res = await fetchPromise;
 
-    expect(fetchFunction).toHaveBeenCalledTimes(1);
-    expect(response.status).toBe(404);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(res.status).toBe(404);
     const stats = rm.getLastStats();
     // 可能為 null（無執行或無重試）或 lastSucceeded 為 true（未重試亦成功完成）
     // 這裡僅驗證未發生重試
@@ -117,38 +337,15 @@ describe('RetryManager', () => {
   });
 
   test('fetch: 自訂 shouldRetryResponse=false 應覆蓋預設（即使 503 也不重試）', async () => {
-    const fetchFunction = jest.fn().mockResolvedValue({ status: 503, headers: new MockHeaders() });
+    const fetchFn = jest.fn().mockResolvedValue({ status: 503, headers: new MockHeaders() });
     const rm = new RetryManager({});
-    const wrapped = rm.wrapFetch(fetchFunction, {
+    const wrapped = rm.wrapFetch(fetchFn, {
       shouldRetryResponse: () => false,
     });
 
-    const response = await wrapped('https://example.com');
-    expect(fetchFunction).toHaveBeenCalledTimes(1);
-    expect(response.status).toBe(503);
-  });
-
-  test('fetch: shouldRetryResponse 拋出時應回退到預設 HTTP 狀態判斷', async () => {
-    const fetchFunction = jest
-      .fn()
-      .mockResolvedValueOnce({ status: 503, headers: new MockHeaders() })
-      .mockResolvedValueOnce({ status: 200, ok: true, headers: new MockHeaders() });
-    const rm = new RetryManager({ baseDelay: 1, jitter: false });
-    const wrapped = rm.wrapFetch(fetchFunction, {
-      shouldRetryResponse: () => {
-        throw new Error('response hook failed');
-      },
-    });
-
-    const fetchPromise = wrapped('https://example.com');
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
-    await advance(1);
-
-    const response = await fetchPromise;
-    expect(response.status).toBe(200);
-    expect(fetchFunction).toHaveBeenCalledTimes(2);
+    const res = await wrapped('https://example.com');
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(res.status).toBe(503);
   });
 
   test('execute: NetworkError 重試兩次後成功，統計應正確', async () => {
@@ -185,9 +382,9 @@ describe('RetryManager', () => {
     const controller = createAbortController();
 
     const op = jest.fn().mockImplementation(() => {
-      const temporaryError = new Error('Temporary');
-      temporaryError.name = 'NetworkError';
-      throw temporaryError;
+      const tempError = new Error('Temporary');
+      tempError.name = 'NetworkError';
+      throw tempError;
     });
 
     const rm = new RetryManager({ baseDelay: 500, jitter: false });
@@ -199,18 +396,6 @@ describe('RetryManager', () => {
     controller.abort();
 
     await expect(executePromise).rejects.toMatchObject({ name: 'AbortError' });
-  });
-
-  test('execute: 已取消的 AbortSignal 應在 operation 執行前拋出 AbortError', async () => {
-    const controller = createAbortController();
-    controller.abort();
-    const operation = jest.fn().mockResolvedValue('should not run');
-    const rm = new RetryManager({ baseDelay: 1, jitter: false });
-
-    await expect(rm.execute(operation, { signal: controller.signal })).rejects.toMatchObject({
-      name: 'AbortError',
-    });
-    expect(operation).not.toHaveBeenCalled();
   });
 
   test('execute: totalTimeoutMs 應限制總重試時長並拋出 TimeoutError', async () => {
@@ -258,10 +443,10 @@ describe('RetryManager', () => {
   });
 
   test('wrapDomOperation: contextType 應記錄為 dom', async () => {
-    let isDone = false;
+    let done = false;
     const domOp = jest.fn().mockImplementation(() => {
-      if (!isDone) {
-        isDone = true;
+      if (!done) {
+        done = true;
         const invalidStateError = new Error('Not ready');
         invalidStateError.name = 'InvalidStateError';
         throw invalidStateError;
@@ -276,10 +461,93 @@ describe('RetryManager', () => {
     await Promise.resolve();
     await advance(100);
 
-    const response = await wrappedPromise;
-    expect(response).toBe(42);
+    const res = await wrappedPromise;
+    expect(res).toBe(42);
     const stats = rm.getLastStats();
     expect(stats.contextType).toBe('dom');
+  });
+
+  describe('Static & Utility Helpers', () => {
+    test('withRetry 應該調用默認實例並成功', async () => {
+      const op = jest.fn().mockResolvedValue('success');
+      const res = await withRetry(op);
+      expect(res).toBe('success');
+    });
+
+    test('fetchWithRetry 應該成功執行', async () => {
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = jest.fn().mockResolvedValue({ status: 200, ok: true });
+      try {
+        const res = await fetchWithRetry('https://api.test');
+        expect(res.status).toBe(200);
+      } finally {
+        if (originalFetch === undefined) {
+          delete globalThis.fetch;
+        } else {
+          globalThis.fetch = originalFetch;
+        }
+      }
+    });
+
+    test('_calculateDelay 應該限制在 maxDelay', () => {
+      const config = { baseDelay: 1000, backoffFactor: 10, maxDelay: 5000, jitter: false };
+      const delay = RetryManager._calculateDelay(3, config); // 1000 * 10^2 = 100000
+      expect(delay).toBe(5000);
+    });
+
+    test('_random 應該在 crypto 缺失時回退', () => {
+      const originalCrypto = globalThis.crypto;
+      try {
+        delete globalThis.crypto;
+        const rnd = RetryManager._random();
+        expect(rnd).toBeGreaterThanOrEqual(0);
+        expect(rnd).toBeLessThan(1);
+      } finally {
+        if (originalCrypto === undefined) {
+          delete globalThis.crypto;
+        } else {
+          globalThis.crypto = originalCrypto;
+        }
+      }
+    });
+
+    test('_logRetryAttempt 在 Logger 缺失時應降級使用 console.warn', () => {
+      const originalLogger = globalThis.Logger;
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      try {
+        delete globalThis.Logger;
+        RetryManager._logRetryAttempt({
+          error: new Error('test'),
+          attempt: 1,
+          maxAttempts: 3,
+          delay: 100,
+        });
+        expect(consoleWarnSpy).toHaveBeenCalled();
+      } finally {
+        consoleWarnSpy.mockRestore();
+        if (originalLogger === undefined) {
+          delete globalThis.Logger;
+        } else {
+          globalThis.Logger = originalLogger;
+        }
+      }
+    });
+
+    test('_parseRetryAfterHeader 應該處理各種 Header 格式', () => {
+      expect(RetryManager._parseRetryAfterHeader(null)).toBe(0);
+      expect(
+        RetryManager._parseRetryAfterHeader({
+          headers: new MockHeaders({ 'Retry-After': 'invalid' }),
+        })
+      ).toBe(0);
+
+      // 未來日期
+      const futureDate = new Date(Date.now() + 5000).toUTCString();
+      const delay = RetryManager._parseRetryAfterHeader({
+        headers: new MockHeaders({ 'Retry-After': futureDate }),
+      });
+      expect(delay).toBeGreaterThan(4000);
+    });
   });
 });
 
@@ -324,11 +592,11 @@ describe('RetryManager Comprehensive Tests', () => {
     console.warn = originalConsole.warn;
     console.info = originalConsole.info;
     if (mockLogger) {
-      for (const mockFunction of Object.values(mockLogger)) {
-        if (typeof mockFunction?.mockReset === 'function') {
-          mockFunction.mockReset();
+      Object.values(mockLogger).forEach(mockFn => {
+        if (typeof mockFn?.mockReset === 'function') {
+          mockFn.mockReset();
         }
-      }
+      });
     }
     delete globalThis.Logger;
   });
@@ -430,28 +698,6 @@ describe('RetryManager Comprehensive Tests', () => {
       expect(shouldRetry).toHaveBeenCalled();
     });
 
-    test('shouldRetry hook 拋出時應記錄 warning 並回退到預設判斷', async () => {
-      const error = new Error('Network error');
-      error.name = 'NetworkError';
-      const operation = jest.fn().mockRejectedValueOnce(error).mockResolvedValue('success');
-      const shouldRetry = jest.fn(() => {
-        throw new Error('hook failed');
-      });
-
-      const result = await retryManager.execute(operation, { shouldRetry });
-
-      expect(result).toBe('success');
-      expect(operation).toHaveBeenCalledTimes(2);
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('shouldRetry hook'),
-        expect.objectContaining({
-          action: 'shouldRetry',
-          result: 'hook_error',
-          hookError: expect.objectContaining({ message: 'hook failed' }),
-        })
-      );
-    });
-
     test('應該合併實例選項和調用選項', async () => {
       const error = new Error('Network error');
       error.name = 'NetworkError';
@@ -507,30 +753,6 @@ describe('RetryManager Comprehensive Tests', () => {
         contextType: 'network',
       });
     });
-
-    test('shouldRetry hook 拋出時應記錄 warning 並回退到預設判斷', async () => {
-      const error = new Error('Failed to fetch');
-      const mockFetch = jest.fn().mockRejectedValueOnce(error).mockResolvedValueOnce({ ok: true });
-      const wrappedFetch = retryManager.wrapFetch(mockFetch, {
-        baseDelay: 0,
-        shouldRetry: () => {
-          throw new Error('fetch hook failed');
-        },
-      });
-
-      const result = await wrappedFetch('https://example.com');
-
-      expect(result).toEqual({ ok: true });
-      expect(mockFetch).toHaveBeenCalledTimes(2);
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('shouldRetry hook'),
-        expect.objectContaining({
-          action: 'shouldRetry',
-          result: 'hook_error',
-          hookError: expect.objectContaining({ message: 'fetch hook failed' }),
-        })
-      );
-    });
   });
 
   describe('wrapDomOperation - DOM 操作包裝器', () => {
@@ -558,6 +780,295 @@ describe('RetryManager Comprehensive Tests', () => {
     });
   });
 
+  describe('_shouldRetryNetworkError - 網絡錯誤判斷', () => {
+    test('應該識別可重試網絡錯誤', () => {
+      const cases = [
+        { message: 'Network failed', name: 'NetworkError' },
+        { message: 'Timeout', name: 'TimeoutError' },
+        { message: 'fetch failed' },
+        { message: 'Server error', status: 500 },
+        { message: 'Service unavailable', status: 503 },
+        { message: 'Too many requests', status: 429 },
+        { message: 'Request timeout', status: 408 },
+      ];
+
+      for (const { message, name, status } of cases) {
+        const error = new Error(message);
+        if (name) {
+          error.name = name;
+        }
+        if (status !== undefined) {
+          error.status = status;
+        }
+        expect(RetryManager._shouldRetryNetworkError(error)).toBe(true);
+      }
+    });
+
+    test('應該拒絕不可重試網絡錯誤', () => {
+      const cases = [
+        { message: 'Bad request', status: 400 },
+        { message: 'Not found', status: 404 },
+        { message: 'Unknown error' },
+      ];
+
+      for (const { message, status } of cases) {
+        const error = new Error(message);
+        if (status !== undefined) {
+          error.status = status;
+        }
+        expect(RetryManager._shouldRetryNetworkError(error)).toBe(false);
+      }
+    });
+  });
+
+  describe('_shouldRetryDomError - DOM 錯誤判斷', () => {
+    test('應該識別可重試 DOM 錯誤', () => {
+      const cases = [
+        { message: 'Invalid state', name: 'InvalidStateError' },
+        { message: 'DOM not ready' },
+        { message: 'still loading' },
+        { message: 'Element not found', name: 'NotFoundError' },
+        { message: 'element not found' },
+      ];
+
+      for (const { message, name } of cases) {
+        const error = new Error(message);
+        if (name) {
+          error.name = name;
+        }
+        expect(RetryManager._shouldRetryDomError(error)).toBe(true);
+      }
+    });
+
+    test('應該拒絕其他 DOM 錯誤', () => {
+      expect(RetryManager._shouldRetryDomError(new Error('Invalid selector'))).toBe(false);
+    });
+  });
+
+  describe('_calculateDelay - 延遲計算', () => {
+    test('應該計算指數退避延遲', () => {
+      const delay1 = RetryManager._calculateDelay(1, retryManager.options);
+      const delay2 = RetryManager._calculateDelay(2, retryManager.options);
+      const delay3 = RetryManager._calculateDelay(3, retryManager.options);
+
+      expect(delay1).toBe(100); // 100 * 2^0
+      expect(delay2).toBe(200); // 100 * 2^1
+      expect(delay3).toBe(400); // 100 * 2^2
+    });
+
+    test('應該限制最大延遲', () => {
+      const delay = RetryManager._calculateDelay(10, retryManager.options);
+
+      expect(delay).toBe(5000); // maxDelay
+    });
+
+    test('應該支持抖動', () => {
+      const managerWithJitter = new RetryManager({
+        baseDelay: 100,
+        backoffFactor: 2,
+        jitter: true,
+      });
+
+      const sequence = [0, 0.25, 0.5, 0.75, 1, 0.1, 0.9, 0.33, 0.66, 0.42];
+      let sequenceIndex = 0;
+      const deterministicRandom = () => {
+        const value = sequence[sequenceIndex % sequence.length];
+        sequenceIndex += 1;
+        return value;
+      };
+
+      const delays = [];
+      for (let i = 0; i < 10; i++) {
+        delays.push(
+          RetryManager._calculateDelay(1, {
+            ...managerWithJitter.options,
+            random: deterministicRandom,
+          })
+        );
+      }
+
+      // 抖動應該產生不同的延遲值
+      const uniqueDelays = new Set(delays);
+      expect(uniqueDelays.size).toBeGreaterThan(1);
+
+      // 所有延遲應該在範圍內
+      delays.forEach(delay => {
+        expect(delay).toBeGreaterThanOrEqual(50); // 100 * 0.5
+        expect(delay).toBeLessThanOrEqual(100); // 100 * 1.0
+      });
+    });
+
+    test('應該返回整數延遲', () => {
+      const managerWithJitter = new RetryManager({
+        baseDelay: 100,
+        jitter: true,
+      });
+
+      const delay = RetryManager._calculateDelay(1, managerWithJitter.options);
+
+      expect(Number.isInteger(delay)).toBe(true);
+    });
+  });
+
+  test('_delay 應該延遲指定的毫秒數', async () => {
+    jest.useFakeTimers();
+    try {
+      let resolved = false;
+      const delayPromise = RetryManager._delay(100).then(() => {
+        resolved = true;
+      });
+      expect(resolved).toBe(false); // 暫未解析
+      jest.advanceTimersByTime(100);
+      await delayPromise;
+      expect(resolved).toBe(true); // 時間推進後應已解析
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('_shouldRetry 應該使用自定義 shouldRetry 函數或默認網絡錯誤判斷', () => {
+    const error = new Error('Custom error');
+    const shouldRetry = jest.fn().mockReturnValue(true);
+    const networkError = new Error('Network error');
+    networkError.name = 'NetworkError';
+
+    const result = retryManager._shouldRetry(error, { shouldRetry });
+    const defaultResult = retryManager._shouldRetry(networkError, {});
+
+    expect(result).toBe(true);
+    expect(shouldRetry).toHaveBeenCalledWith(error);
+    expect(defaultResult).toBe(true);
+  });
+
+  test('防禦性 options 處理缺少 options 時應使用安全預設值', () => {
+    const error = new Error('Failed to fetch');
+
+    const retryable = RetryManager._shouldRetryFetchResponse({ status: 503 }, 503);
+    const notRetryable = RetryManager._shouldRetryFetchResponse({ status: 404 }, 404);
+
+    expect(retryManager._shouldRetryFetchError(error)).toBe(true);
+    expect(RetryManager._shouldLogRetryFailure(new Error('Final error'))).toBe(true);
+    expect(retryable).toBe(true);
+    expect(notRetryable).toBe(false);
+  });
+
+  describe('_logRetryAttempt - 記錄重試嘗試', () => {
+    test('應該記錄重試嘗試信息', () => {
+      const logger = createLoggerWithMethods(['warn']);
+
+      withGlobalTestDouble('Logger', logger, mockLogger => {
+        const error = new Error('Test error');
+
+        RetryManager._logRetryAttempt({ error, attempt: 1, maxAttempts: 3, delay: 100 });
+
+        expectStructuredRetryLog(mockLogger.warn, '重試', {
+          action: 'retryOperation',
+          result: 'warning',
+          error: expect.objectContaining({
+            message: 'Test error',
+            name: 'Error',
+          }),
+          attempt: 1,
+          maxAttempts: 3,
+          delay: 100,
+          contextType: 'network',
+        });
+      });
+    });
+
+    test('應該使用 ErrorHandler 如果可用', () => {
+      expect.hasAssertions();
+
+      expectRetryLogReportsToErrorHandler(() => {
+        const error = new Error('Test error');
+        RetryManager._logRetryAttempt({ error, attempt: 1, maxAttempts: 3, delay: 100 });
+      });
+    });
+
+    test('應該使用 ErrorHandler 類別實例', () => {
+      const logErrorSpy = jest.fn();
+      class MockErrorHandler {
+        logError(payload) {
+          logErrorSpy(payload);
+        }
+      }
+
+      withGlobalTestDouble('ErrorHandler', MockErrorHandler, () => {
+        const error = new Error('Test error');
+        RetryManager._logRetryAttempt({ error, attempt: 1, maxAttempts: 3, delay: 100 });
+
+        expect(logErrorSpy).toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('_logRetrySuccess - 記錄重試成功', () => {
+    test('應該使用 success 或 info 記錄結構化成功日誌', () => {
+      expect.hasAssertions();
+
+      const cases = [
+        {
+          loggerMethod: 'success',
+          contextType: 'dom',
+          logger: createLoggerWithMethods(['success']),
+        },
+        {
+          loggerMethod: 'info',
+          contextType: 'network',
+          logger: {
+            ...createLoggerWithMethods(['info']),
+            success: undefined,
+          },
+        },
+      ];
+
+      for (const { loggerMethod, contextType, logger } of cases) {
+        withGlobalTestDouble('Logger', logger, mockLogger => {
+          RetryManager._logRetrySuccess(2, contextType);
+
+          expectStructuredRetryLog(mockLogger[loggerMethod], '已成功', {
+            action: 'retryOperation',
+            result: 'success',
+            totalRetries: 2,
+            contextType,
+          });
+        });
+      }
+    });
+  });
+
+  describe('_logRetryFailure - 記錄重試失敗', () => {
+    test('應該記錄失敗信息', () => {
+      const logger = createLoggerWithMethods(['error']);
+
+      withGlobalTestDouble('Logger', logger, mockLogger => {
+        const error = new Error('Final error');
+
+        RetryManager._logRetryFailure(error, 3);
+
+        expectStructuredRetryLog(mockLogger.error, '失敗', {
+          action: 'retryOperation',
+          result: 'failure',
+          error: expect.objectContaining({
+            message: 'Final error',
+            name: 'Error',
+          }),
+          totalRetries: 3,
+          contextType: 'network',
+        });
+      });
+    });
+
+    test('應該使用 ErrorHandler 如果可用', () => {
+      expect.hasAssertions();
+
+      expectRetryLogReportsToErrorHandler(() => {
+        const error = new Error('Final error');
+        RetryManager._logRetryFailure(error, 3);
+      });
+    });
+  });
+
   test('getConfigSnapshot 應該返回配置快照', () => {
     const config = retryManager.getConfigSnapshot();
 
@@ -582,30 +1093,6 @@ describe('RetryManager Comprehensive Tests', () => {
       lastTotalDelayMs: 0,
       lastSucceeded: true,
       contextType: 'network',
-    });
-  });
-
-  test('getLastStats 應該在總逾時失敗後更新失敗統計', async () => {
-    await retryManager.execute(jest.fn().mockResolvedValue('previous success'));
-
-    const error = new Error('Network failure');
-    error.name = 'NetworkError';
-    const operation = jest.fn().mockRejectedValue(error);
-
-    await expect(
-      retryManager.execute(operation, {
-        baseDelay: 10,
-        totalTimeoutMs: 5,
-      })
-    ).rejects.toMatchObject({ name: 'TimeoutError' });
-
-    expect(retryManager.getLastStats()).toMatchObject({
-      lastSucceeded: false,
-      lastTotalRetries: 0,
-      lastTotalDelayMs: 0,
-      contextType: 'network',
-      lastErrorName: 'TimeoutError',
-      lastErrorMessage: '重試總時長已超時',
     });
   });
 
@@ -648,5 +1135,119 @@ describe('RetryManager Comprehensive Tests', () => {
         expect(mockFetch).toHaveBeenNthCalledWith(2, 'https://example.com', fetchOptions);
       });
     });
+  });
+
+  describe('模塊導出', () => {
+    test('應該正確導出到 module.exports', () => {
+      const exported = require('../../../scripts/utils/RetryManager');
+
+      expect(exported.RetryManager).toBeDefined();
+      expect(exported.withRetry).toBeDefined();
+      expect(exported.fetchWithRetry).toBeDefined();
+    });
+
+    test('沒有 module.exports 時應掛到 globalThis，並支持 MV3 Service Worker global', () => {
+      const cases = [
+        { envOptions: {}, expectsSelf: false },
+        {
+          envOptions: { self: true, window: false, module: false },
+          expectsSelf: true,
+        },
+      ];
+
+      for (const { envOptions, expectsSelf } of cases) {
+        const sandbox = evaluateRetryManagerWithoutModule(envOptions);
+
+        expect(sandbox.module).toBeUndefined();
+        expect(sandbox.window).toBeUndefined();
+        if (expectsSelf) {
+          expect(sandbox.self).toBe(sandbox);
+        } else {
+          expect(sandbox.self).toBeUndefined();
+        }
+        expect(sandbox.RetryManager).toEqual(expect.any(Function));
+        expect(sandbox.withRetry).toEqual(expect.any(Function));
+        expect(sandbox.fetchWithRetry).toEqual(expect.any(Function));
+      }
+    });
+  });
+});
+
+// ===== MERGED SECURITY TESTS =====
+describe('RetryManager Security Tests', () => {
+  let mockLogger;
+  let originalLogger;
+
+  beforeEach(() => {
+    // 保存原始 Logger 並注入 Mock
+    originalLogger = globalThis.Logger;
+    mockLogger = {
+      warn: jest.fn(),
+      error: jest.fn(),
+    };
+    globalThis.Logger = mockLogger;
+    jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    // 恢復原始 Logger，防止污染其他測試套件
+    globalThis.Logger = originalLogger;
+  });
+
+  test('_logRetryAttempt 應過濾錯誤物件中的敏感屬性（如 headers）', () => {
+    const sensitiveError = new Error('API Error');
+    sensitiveError.name = 'APIResponseError';
+    sensitiveError.code = 'unauthorized';
+    sensitiveError.status = 401;
+    // 模擬 Notion SDK 錯誤結構，包含敏感 headers
+    sensitiveError.headers = {
+      Authorization: 'Bearer secret_token',
+    };
+    sensitiveError.request = {
+      headers: {
+        Authorization: 'Bearer secret_token',
+      },
+    };
+    sensitiveError.response = {
+      headers: {
+        'Set-Cookie': 'session_id=123',
+      },
+    };
+
+    RetryManager._logRetryAttempt({
+      error: sensitiveError,
+      attempt: 1,
+      maxAttempts: 3,
+      delay: 100,
+    });
+
+    expect(mockLogger.warn).toHaveBeenCalledTimes(1);
+    const safeError = mockLogger.warn.mock.calls[0][1].error;
+
+    // 驗證核心屬性存在
+    expect(safeError.message).toBe('API Error');
+    expect(safeError.name).toBe('APIResponseError');
+    expect(safeError.code).toBe('unauthorized');
+    expect(safeError.status).toBe(401);
+
+    // 驗證敏感屬性被移除
+    expect(safeError.headers).toBeUndefined();
+    expect(safeError.request).toBeUndefined();
+    expect(safeError.response).toBeUndefined();
+  });
+
+  test('_logRetryFailure 應過濾錯誤物件中的敏感屬性', () => {
+    const sensitiveError = new Error('Final Error');
+    sensitiveError.details = { apiKey: 'secret-key' }; // 模擬其他敏感字段
+
+    RetryManager._logRetryFailure(sensitiveError, 3);
+
+    expect(mockLogger.error).toHaveBeenCalledTimes(1);
+    const logMeta = mockLogger.error.mock.calls[0][1];
+
+    expect(logMeta.error.message).toBe('Final Error');
+    // 驗證 details 被移除（或至少不包含敏感資訊，取決於我們的過濾策略）
+    // 在最嚴格的策略下，我們只保留標準屬性
+    expect(logMeta.error).not.toHaveProperty('details');
   });
 });

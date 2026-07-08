@@ -15,21 +15,16 @@ const SWC_JEST_TRANSFORM = [
   },
 ];
 
-const JEST_MODULE_NAME_MAPPER = {
-  '^chrome$': '<rootDir>/tests/mocks/chrome.cjs',
-  '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.cjs'
-};
-
-const config = {
+module.exports = {
   cacheDirectory: '<rootDir>/.jest-cache',
   // 測試環境 - 使用 jsdom 環境來支持 DOM 測試
   testEnvironment: 'jsdom',
 
   // 預設置文件（在模組載入前執行，用於全局 mock）
-  setupFiles: ['<rootDir>/tests/presetup.cjs'],
+  setupFiles: ['<rootDir>/tests/presetup.js'],
 
   // 測試設置文件（在模組載入後執行）
-  setupFilesAfterEnv: ['<rootDir>/tests/setup.cjs'],
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
 
   projects: [
     {
@@ -37,19 +32,18 @@ const config = {
       cacheDirectory: '<rootDir>/.jest-cache',
       testEnvironment: 'jsdom',
       testMatch: [
-        '<rootDir>/tests/unit/background.test.cjs',
-        '<rootDir>/tests/unit/background/extension-lifecycle.test.cjs',
         '<rootDir>/tests/unit/**/*.test.js',
         '<rootDir>/tests/unit/**/*.spec.js',
-        '<rootDir>/tests/unit/incumbent/**/*.test.mjs',
-        '<rootDir>/tests/contract/**/*.test.js',
-        '<rootDir>/tests/contract/incumbent/**/*.test.mjs'
+        '<rootDir>/tests/contract/**/*.test.js'
       ],
-      setupFiles: ['<rootDir>/tests/presetup.cjs'],
-      setupFilesAfterEnv: ['<rootDir>/tests/setup.cjs'],
-      moduleNameMapper: JEST_MODULE_NAME_MAPPER,
+      setupFiles: ['<rootDir>/tests/presetup.js'],
+      setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+      moduleNameMapper: {
+        '^chrome$': '<rootDir>/tests/mocks/chrome.js',
+        '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.js'
+      },
       transform: {
-        '^.+\\.(m?[tj]sx?)$': SWC_JEST_TRANSFORM,
+        '^.+\\.[tj]sx?$': SWC_JEST_TRANSFORM,
       },
       transformIgnorePatterns: ESM_TRANSFORM_IGNORE_PATTERNS
     },
@@ -59,14 +53,16 @@ const config = {
       testEnvironment: 'jsdom',
       testMatch: [
         '<rootDir>/tests/integration/**/*.test.js',
-        '<rootDir>/tests/integration/**/*.spec.js',
-        '<rootDir>/tests/integration/incumbent/**/*.test.mjs'
+        '<rootDir>/tests/integration/**/*.spec.js'
       ],
-      setupFiles: ['<rootDir>/tests/presetup.cjs'],
-      setupFilesAfterEnv: ['<rootDir>/tests/setup.cjs'],
-      moduleNameMapper: JEST_MODULE_NAME_MAPPER,
+      setupFiles: ['<rootDir>/tests/presetup.js'],
+      setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+      moduleNameMapper: {
+        '^chrome$': '<rootDir>/tests/mocks/chrome.js',
+        '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.js'
+      },
       transform: {
-        '^.+\\.(m?[tj]sx?)$': SWC_JEST_TRANSFORM,
+        '^.+\\.[tj]sx?$': SWC_JEST_TRANSFORM,
       },
       transformIgnorePatterns: ESM_TRANSFORM_IGNORE_PATTERNS
     }
@@ -78,10 +74,6 @@ const config = {
     '<rootDir>/pages/**/*.js',
     '!<rootDir>/scripts/config/index.js',              // 純 re-export barrel file
     '!<rootDir>/scripts/config/extension/**/*.js',     // extension-only 純常量配置與 re-export
-    '!<rootDir>/scripts/config/env/build.example.js',  // build-time template; not browser runtime source coverage
-    // Node lifecycle tooling is owned by native-default / contract tests,
-    // not browser V8 source coverage.
-    '!<rootDir>/scripts/postinstall.js',
     // Toolbar 鏈：DCE guard 位於 scripts/highlighter/windowAPI.js
     // (TOOLBAR_TEST_FIXTURE_ENABLED 與 ensureToolbar(state))，而非 Toolbar files 本身。
     // rollup/content.config.mjs 將 globalThis.__UNIT_TESTING__ 替換為 false，
@@ -131,14 +123,17 @@ const config = {
 
   // 轉換配置（如果需要）
   transform: {
-    '^.+\\.(m?[tj]sx?)$': SWC_JEST_TRANSFORM,
+    '^.+\\.[tj]sx?$': SWC_JEST_TRANSFORM,
   },
 
   // 轉換 node_modules 中的 ES 模組
   transformIgnorePatterns: ESM_TRANSFORM_IGNORE_PATTERNS,
 
   // 模組名稱映射（用於模擬 Chrome API）
-  moduleNameMapper: JEST_MODULE_NAME_MAPPER,
+  moduleNameMapper: {
+    '^chrome$': '<rootDir>/tests/mocks/chrome.js',
+    '^@asamuzakjp/css-color$': '<rootDir>/tests/mocks/css-color.js'
+  },
 
   // 防止測試掛起
   // forceExit: false 讓掛起問題暴露出來,而非被掩蓋
@@ -163,5 +158,3 @@ const config = {
   bail: false, // 不在第一個失敗時停止，繼續執行所有測試
   verbose: false // 關閉詳細輸出以提升速度
 };
-
-export default config;

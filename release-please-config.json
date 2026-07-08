@@ -25,7 +25,7 @@
         "codecov.yml",
         "CODE_OF_CONDUCT.md",
         "jest.config.js",
-        "jest.native-esm.config.js",
+        "jest.native-esm.config.cjs",
         "playwright.config.js",
         "eslint.config.mjs",
         "knip.json",

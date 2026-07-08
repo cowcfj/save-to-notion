@@ -5,28 +5,6 @@
     "runtime_behavior": "scripts/background/handlers/*.js, scripts/content/index.js, scripts/highlighter/entryAutoInit.js, scripts/performance/preloader.js"
   },
   "maintenance_rule": "新增、刪除或改名任何 runtime/tabs message action 時，必須更新對應的 scripts/config/runtimeActions/*.js leaf module 與 scripts/config/shared/runtimeActions.js 聚合 facade，再同步更新本檔的 payload/response contract。",
-  "authoring_conventions": {
-    "type_strings": "payload/response 欄位值只描述型別；語義、限制、相容性與測試提示放在 description、notes 或 $comment_* 欄位。",
-    "allowed_scalar_forms": [
-      "string",
-      "string (optional)",
-      "boolean",
-      "boolean (optional)",
-      "number",
-      "number (optional)",
-      "object",
-      "object (optional)",
-      "array",
-      "array<T>",
-      "string | null",
-      "string | null (optional)",
-      "\"value\" | \"other\"",
-      "\"value\" | \"other\" (optional)"
-    ],
-    "nested_objects": "複雜 response 欄位應使用 object block：type、fields、example、notes；nested success 欄位必須說明不得與 top-level boolean envelope 混淆。",
-    "aliases": "legacy 或 compatibility action 必須在 description 或 notes 標明 canonical path。",
-    "high_risk_contracts": "涉及 save status、remote deletion confirmation、OAuth refresh、Notion search、Drive sync conflict 或 storage write 的 action，response 必須明列 discriminator / errorCode / conflictType 等 canonical values，並補 focused contract tests。"
-  },
   "actions": {
     "save": {
       "savePage": {
@@ -48,10 +26,8 @@
           "title": "string (optional)",
           "destinationProfileId": "string (optional)",
           "destinationProfileName": "string (optional)",
-          "errorCode": "string (optional)",
-          "$comment_errorCode": "programmatic key aligned with ERROR_MESSAGES.PATTERNS; see docs/adr/0007-error-code-envelope.md",
-          "error": "string (optional)",
-          "$comment_error": "user-facing message"
+          "errorCode": "string (optional, programmatic key aligned with ERROR_MESSAGES.PATTERNS — see docs/adr/0007-error-code-envelope.md)",
+          "error": "string (optional, user-facing message)"
         }
       },
       "SAVE_PAGE_FROM_TOOLBAR": {
@@ -71,10 +47,8 @@
           "title": "string (optional)",
           "destinationProfileId": "string (optional)",
           "destinationProfileName": "string (optional)",
-          "errorCode": "string (optional)",
-          "$comment_errorCode": "programmatic key aligned with ERROR_MESSAGES.PATTERNS; see docs/adr/0007-error-code-envelope.md",
-          "error": "string (optional)",
-          "$comment_error": "user-facing message"
+          "errorCode": "string (optional, programmatic key aligned with ERROR_MESSAGES.PATTERNS — see docs/adr/0007-error-code-envelope.md)",
+          "error": "string (optional, user-facing message)"
         }
       },
       "SAVE_PAGE_FROM_RAIL": {
@@ -94,10 +68,8 @@
           "title": "string (optional)",
           "destinationProfileId": "string (optional)",
           "destinationProfileName": "string (optional)",
-          "errorCode": "string (optional)",
-          "$comment_errorCode": "programmatic key aligned with ERROR_MESSAGES.PATTERNS; see docs/adr/0007-error-code-envelope.md",
-          "error": "string (optional)",
-          "$comment_error": "user-facing message"
+          "errorCode": "string (optional, programmatic key aligned with ERROR_MESSAGES.PATTERNS — see docs/adr/0007-error-code-envelope.md)",
+          "error": "string (optional, user-facing message)"
         }
       },
       "openNotionPage": {
@@ -140,10 +112,8 @@
           "stableUrl": "string (optional)",
           "wasDeleted": "boolean (optional)",
           "deletionPending": "boolean (optional)",
-          "errorCode": "string (optional)",
-          "$comment_errorCode": "programmatic key aligned with ERROR_MESSAGES.PATTERNS; see docs/adr/0007-error-code-envelope.md",
-          "error": "string (optional)",
-          "$comment_error": "user-facing message"
+          "errorCode": "string (optional, programmatic key aligned with ERROR_MESSAGES.PATTERNS — see docs/adr/0007-error-code-envelope.md)",
+          "error": "string (optional, user-facing message)"
         }
       },
       "PAGE_SAVE_HINT": {
@@ -209,8 +179,7 @@
       "ACTIVATE_FLOATING_RAIL_HIGHLIGHT": {
         "description": "建立或顯示 Floating Rail 並進入標註模式",
         "payload": {
-          "sessionOverride": "boolean (optional)",
-          "$comment_sessionOverride": "true 表示 popup user action 喚出的 tab-session rail"
+          "sessionOverride": "boolean (optional, true 表示 popup user action 喚出的 tab-session rail)"
         },
         "response": {
           "success": "boolean",
@@ -557,10 +526,8 @@
         "description": "手動 upload/download 完成或 status 查詢後廣播；接收方重新讀取 driveSyncLast* metadata",
         "direction": "background → options",
         "payload": {
-          "lastKnownRemoteUpdatedAt": "string | null",
-          "$comment_lastKnownRemoteUpdatedAt": "後端 snapshot updatedAt（ISO 8601）",
-          "lastSuccessfulUploadAt": "string | null",
-          "$comment_lastSuccessfulUploadAt": "本地記錄的上次上傳時間（ISO 8601）"
+          "lastKnownRemoteUpdatedAt": "string | null — 後端 snapshot updatedAt（ISO 8601）",
+          "lastSuccessfulUploadAt": "string | null — 本地記錄的上次上傳時間（ISO 8601）"
         },
         "response": {
           "success": "boolean (optional)"
@@ -570,17 +537,14 @@
         "description": "Options UI 要求 Background 執行手動上傳；force=true 用於使用者二次確認後強制覆蓋",
         "direction": "options → background",
         "payload": {
-          "force": "boolean (optional)",
-          "$comment_force": "強制覆蓋遠端，需使用者二次確認"
+          "force": "boolean (optional) — 強制覆蓋遠端，需使用者二次確認"
         },
         "response": {
           "success": "boolean",
           "error": "string (optional)",
           "errorCode": "\"REMOTE_SNAPSHOT_NEWER\" | string (optional)",
-          "remoteUpdatedAt": "string | null (optional)",
-          "$comment_remoteUpdatedAt": "發生衝突時的遠端 snapshot updatedAt",
-          "updatedAt": "string | null (optional)",
-          "$comment_updatedAt": "成功時的遠端 snapshot updatedAt"
+          "remoteUpdatedAt": "string | null (optional) — 發生衝突時的遠端 snapshot updatedAt",
+          "updatedAt": "string | null (optional) — 成功時的遠端 snapshot updatedAt"
         }
       },
       "DRIVE_SYNC_MANUAL_DOWNLOAD": {
@@ -590,8 +554,7 @@
         "response": {
           "success": "boolean",
           "error": "string (optional)",
-          "writtenKeys": "number (optional)",
-          "$comment_writtenKeys": "已套用的 storage key 數量"
+          "writtenKeys": "number (optional) — 已套用的 storage key 數量"
         }
       },
       "DRIVE_SYNC_CONFLICT": {
@@ -599,8 +562,7 @@
         "direction": "background → options",
         "payload": {
           "conflictType": "\"REMOTE_SNAPSHOT_NEWER\"",
-          "remoteUpdatedAt": "string",
-          "$comment_remoteUpdatedAt": "遠端 snapshot updatedAt（ISO 8601）"
+          "remoteUpdatedAt": "string — 遠端 snapshot updatedAt（ISO 8601）"
         },
         "response": {
           "success": "boolean (optional)"
@@ -610,13 +572,11 @@
         "description": "Options UI 要求 Background 更新自動同步頻率設定",
         "direction": "options → background",
         "payload": {
-          "frequency": "\"off\" | \"daily\" | \"weekly\" | \"monthly\"",
-          "$comment_frequency": "自動同步頻率"
+          "frequency": "\"off\" | \"daily\" | \"weekly\" | \"monthly\" — 自動同步頻率"
         },
         "response": {
           "success": "boolean",
-          "error": "string (optional)",
-          "$comment_error": "失敗時的錯誤訊息（invalid frequency / alarm setup failure）"
+          "error": "string (optional) — 失敗時的錯誤訊息（invalid frequency / alarm setup failure）"
         }
       }
     }

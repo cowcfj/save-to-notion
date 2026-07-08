@@ -43,16 +43,10 @@ globalThis.ImageUtils = { cleanImageUrl: jest.fn(), isValidImageUrl: jest.fn() }
 globalThis.ErrorHandler = {};
 globalThis.PerformanceOptimizer = {};
 
-let TabService;
-let InjectionService;
-let buildHighlight;
-let buildPageRecord;
-
-beforeAll(async () => {
-  ({ TabService } = await import('../../../scripts/background/services/TabService.js'));
-  ({ InjectionService } = await import('../../../scripts/background/services/InjectionService.js'));
-  ({ buildHighlight, buildPageRecord } = await import('../../helpers/status-fixtures.js'));
-});
+// Import services directly
+import { TabService } from '../../../scripts/background/services/TabService.js';
+import { InjectionService } from '../../../scripts/background/services/InjectionService.js';
+import { buildHighlight, buildPageRecord } from '../../helpers/status-fixtures.js';
 
 describe('Background State Updates', () => {
   let tabService = null;

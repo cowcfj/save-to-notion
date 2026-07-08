@@ -1,8 +1,4 @@
-let computeDriveSnapshotHash;
-
-beforeAll(async () => {
-  ({ computeDriveSnapshotHash } = await import('../../scripts/sync/driveSnapshotHash.js'));
-});
+import { computeDriveSnapshotHash } from '../../scripts/sync/driveSnapshotHash.js';
 
 describe('computeDriveSnapshotHash()', () => {
   it('應以 snapshot JSON 長度與 updatedAt 組成 lightweight hash', () => {

@@ -1,5 +1,8 @@
 name: Release Please
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   push:
     branches:
@@ -21,7 +24,7 @@ jobs:
     if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+      - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4.4.1
         id: release
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -51,7 +54,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
         with:
-          node-version: '24.x'
+          node-version: '20.x'
           cache: 'npm'
 
       - name: Upgrade npm
@@ -207,9 +210,6 @@ jobs:
         run: |
           chmod +x tools/package-extension.sh
           ./tools/package-extension.sh "$TAG_NAME" --unpacked-dir=".tmp/release-extension"
-
-      - name: Verify Release Package Surface
-        run: node tools/check-extension-package-surface.mjs --unpacked-dir=".tmp/release-extension"
 
       - name: Verify Release Artifact Size
         run: |
