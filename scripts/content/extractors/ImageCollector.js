@@ -448,34 +448,54 @@ const ImageCollector = {
     };
   },
 
+  _isDuplicateFeaturedImageUrl(cleanedImageUrl, featuredImage) {
+    return Boolean(featuredImage) && cleanedImageUrl === featuredImage;
+  },
+
+  _logImageUrlCollectionOutcome(message, cleanedImageUrl) {
+    Logger.log(message, {
+      action: 'processImageForCollection',
+      url: sanitizeUrlForLogging(cleanedImageUrl),
+    });
+  },
+
+  _isInvalidCleanedImageUrl(cleanedImageUrl) {
+    if (!cleanedImageUrl) {
+      return true;
+    }
+    return !isValidCleanedImageUrl?.(cleanedImageUrl);
+  },
+
+  _isTemporaryImageCollectionUrl(cleanedImageUrl) {
+    return Boolean(isTemporaryImageUrl?.(cleanedImageUrl));
+  },
+
+  _buildTemporaryImageCollectionOutcome(img, cleanedImageUrl) {
+    this._logImageUrlCollectionOutcome(
+      '偵測到 temporary 圖片 URL，改以提示區塊取代',
+      cleanedImageUrl
+    );
+    return {
+      status: 'temporary_replaced',
+      image: buildTemporaryImagePlaceholderBlock(cleanedImageUrl, { alt: img.alt || '' }),
+    };
+  },
+
   _evaluateImageUrlForCollection(img, source, featuredImage) {
     const cleanedImageUrl = this._normalizeCandidateImageUrl(img, source);
 
-    if (featuredImage && cleanedImageUrl === featuredImage) {
-      Logger.log('跳過重複的特色圖片', {
-        action: 'processImageForCollection',
-        url: sanitizeUrlForLogging(cleanedImageUrl),
-      });
+    if (this._isDuplicateFeaturedImageUrl(cleanedImageUrl, featuredImage)) {
+      this._logImageUrlCollectionOutcome('跳過重複的特色圖片', cleanedImageUrl);
       return { status: 'duplicate_featured' };
     }
 
-    if (!cleanedImageUrl || !isValidCleanedImageUrl?.(cleanedImageUrl)) {
-      Logger.log('無效或不相容的圖片 URL', {
-        action: 'processImageForCollection',
-        url: sanitizeUrlForLogging(cleanedImageUrl),
-      });
+    if (this._isInvalidCleanedImageUrl(cleanedImageUrl)) {
+      this._logImageUrlCollectionOutcome('無效或不相容的圖片 URL', cleanedImageUrl);
       return { status: 'invalid_url' };
     }
 
-    if (isTemporaryImageUrl?.(cleanedImageUrl)) {
-      Logger.log('偵測到 temporary 圖片 URL，改以提示區塊取代', {
-        action: 'processImageForCollection',
-        url: sanitizeUrlForLogging(cleanedImageUrl),
-      });
-      return {
-        status: 'temporary_replaced',
-        image: buildTemporaryImagePlaceholderBlock(cleanedImageUrl, { alt: img.alt || '' }),
-      };
+    if (this._isTemporaryImageCollectionUrl(cleanedImageUrl)) {
+      return this._buildTemporaryImageCollectionOutcome(img, cleanedImageUrl);
     }
 
     return { status: 'accepted', cleanedImageUrl };
@@ -920,27 +940,45 @@ const ImageCollector = {
     return images;
   },
 
+  _collectImagesFromArticleSelector(selector) {
+    const articleElement = cachedQuery(selector, document, { single: true });
+    if (!articleElement) {
+      return null;
+    }
+
+    const imgElements = cachedQuery('img', articleElement, { all: true });
+    const articleImages = Array.from(imgElements);
+    Logger.log('在指定區域找到圖片', {
+      action: 'collectAdditionalImages',
+      selector,
+      count: articleImages.length,
+    });
+    return articleImages;
+  },
+
+  _appendUniqueArticleImages(allImages, articleImages) {
+    for (const img of articleImages) {
+      if (!allImages.includes(img)) {
+        allImages.push(img);
+      }
+    }
+  },
+
+  _hasReachedArticleImageLimit(allImages) {
+    return allImages.length >= IMAGE_LIMITS.MAX_IMAGES_FROM_ARTICLE_SEARCH;
+  },
+
   _collectFromArticle(allImages) {
     Logger.log('圖片收集策略：指定區域', { action: 'collectAdditionalImages' });
     for (const selector of IMAGE_SELECTORS) {
-      const articleElement = cachedQuery(selector, document, { single: true });
-      if (articleElement) {
-        const imgElements = cachedQuery('img', articleElement, { all: true });
-        const articleImages = Array.from(imgElements);
-        Logger.log('在指定區域找到圖片', {
-          action: 'collectAdditionalImages',
-          selector,
-          count: articleImages.length,
-        });
+      const articleImages = this._collectImagesFromArticleSelector(selector);
+      if (!articleImages) {
+        continue;
+      }
 
-        for (const img of articleImages) {
-          if (!allImages.includes(img)) {
-            allImages.push(img);
-          }
-        }
-        if (allImages.length >= IMAGE_LIMITS.MAX_IMAGES_FROM_ARTICLE_SEARCH) {
-          break;
-        }
+      this._appendUniqueArticleImages(allImages, articleImages);
+      if (this._hasReachedArticleImageLimit(allImages)) {
+        break;
       }
     }
   },
