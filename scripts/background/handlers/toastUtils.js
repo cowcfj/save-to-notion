@@ -19,15 +19,18 @@ export function classifyErrorForToast(errorCode) {
   return ERROR_TO_TOAST[errorCode] ?? null;
 }
 
-export function sendToastToTab(tabId, messageKey, level) {
+export async function sendToastToTab(tabId, messageKey, level) {
   if (!Number.isInteger(tabId) || tabId < 0) {
-    return Promise.resolve();
+    return;
   }
-  return Promise.resolve(
-    chrome.tabs.sendMessage(tabId, {
+
+  try {
+    await chrome.tabs.sendMessage(tabId, {
       action: CONTENT_BRIDGE_ACTIONS.SHOW_TOAST,
       messageKey,
       level,
-    })
-  ).catch(() => {});
+    });
+  } catch {
+    // Toast delivery is best-effort; callers should not fail when a tab closes.
+  }
 }

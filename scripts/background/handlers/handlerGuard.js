@@ -48,10 +48,10 @@ export function buildMigrationGuardMeta({ action, sender, validationError, url }
   return meta;
 }
 
-export function buildContentScriptGuardMeta({ action, sender, validationError }) {
+function buildTabScopedGuardMeta({ action, sender, validationError, reason }) {
   return {
     action,
-    reason: 'invalid_content_script_request',
+    reason,
     error: validationError.error,
     senderId: sender?.id,
     tabId: sender?.tab?.id,
@@ -59,15 +59,22 @@ export function buildContentScriptGuardMeta({ action, sender, validationError })
   };
 }
 
+export function buildContentScriptGuardMeta({ action, sender, validationError }) {
+  return buildTabScopedGuardMeta({
+    action,
+    reason: 'invalid_content_script_request',
+    sender,
+    validationError,
+  });
+}
+
 export function buildInternalGuardMeta({ action, sender, validationError }) {
-  return {
+  return buildTabScopedGuardMeta({
     action,
     reason: 'invalid_internal_request',
-    error: validationError.error,
-    senderId: sender?.id,
-    tabId: sender?.tab?.id,
-    result: 'blocked',
-  };
+    sender,
+    validationError,
+  });
 }
 
 export function buildSimpleGuardMeta({ action, reason, validationError }) {
@@ -92,12 +99,15 @@ export function sendStandardHandlerError({
 }
 
 export function validateBatchUrls(urls) {
-  if (!urls || !Array.isArray(urls) || urls.length === 0) {
+  if (!Array.isArray(urls)) {
     return { success: false, error: ERROR_MESSAGES.USER_MESSAGES.MISSING_URL };
   }
 
-  const invalidUrls = urls.filter(urlItem => !isValidUrl(urlItem));
-  if (invalidUrls.length > 0) {
+  if (urls.length === 0) {
+    return { success: false, error: ERROR_MESSAGES.USER_MESSAGES.MISSING_URL };
+  }
+
+  if (urls.some(urlItem => !isValidUrl(urlItem))) {
     return { success: false, error: ERROR_MESSAGES.USER_MESSAGES.INVALID_URLS_IN_BATCH };
   }
 

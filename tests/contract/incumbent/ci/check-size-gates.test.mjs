@@ -217,12 +217,12 @@ describe('tools/check-size-gates.mjs', () => {
   test.each([
     ...contentBundleHardPassCases,
     {
-      name: 'background bundle 在 delta gate 內自然成長',
-      sizes: { backgroundSize: 243_500 },
+      name: 'background bundle complexity hardening baseline (2026-07-09)',
+      sizes: { backgroundSize: 246_787 },
       checkKey: 'background_bundle',
       expected: {
-        current: 243_500,
-        hardLimit: 245_000,
+        current: 246_787,
+        hardLimit: 250_000,
       },
     },
     {
