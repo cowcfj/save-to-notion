@@ -211,7 +211,7 @@ describe('ImageCollector', () => {
       expect(Logger.log).toHaveBeenCalledWith('無效或不相容的圖片 URL', expect.any(Object));
     });
 
-    test('should return null when extractImageSrc returns null', () => {
+    test('should return null when extractImageSource returns null', () => {
       const mockImg = document.createElement('img');
       mockImg.src = 'https://example.com/test.jpg';
 

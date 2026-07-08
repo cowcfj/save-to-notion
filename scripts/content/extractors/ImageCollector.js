@@ -958,6 +958,9 @@ const ImageCollector = {
 
   _appendUniqueArticleImages(allImages, articleImages) {
     for (const img of articleImages) {
+      if (this._hasReachedArticleImageLimit(allImages)) {
+        break;
+      }
       if (!allImages.includes(img)) {
         allImages.push(img);
       }

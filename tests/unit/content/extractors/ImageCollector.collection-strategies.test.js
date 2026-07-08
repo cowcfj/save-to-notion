@@ -583,6 +583,16 @@ describe('ImageCollector collection strategies', () => {
       expect(allImages).toHaveLength(1);
     });
 
+    test('_appendUniqueArticleImages should stop at the article image limit', () => {
+      const articleImages = Array.from({ length: 6 }, () => document.createElement('img'));
+      const allImages = [articleImages[0]];
+
+      ImageCollector._appendUniqueArticleImages(allImages, articleImages);
+
+      expect(allImages).toHaveLength(5);
+      expect(allImages).toEqual(articleImages.slice(0, 5));
+    });
+
     test('_collectFromExpansion should expand search excluding ads', () => {
       const mockImg1 = document.createElement('img');
       const mockImg2 = document.createElement('img');
