@@ -197,14 +197,16 @@ describe('ImageCollector', () => {
   });
 
   describe('processImageForCollection', () => {
-    test('should handle malformed URLs gracefully without throwing', () => {
+    test('should handle malformed URLs as invalid candidates without throwing', () => {
       const mockImg = document.createElement('img');
-      const malformedSource = 'http://[malformed]';
+      const malformedSource = 'https://[malformed]';
 
       extractImageSource.mockReturnValue(malformedSource);
-      // document.baseURI might be a valid URL string or about:blank in JSDOM, but new URL with this malformed src will throw
 
-      const result = ImageCollector.processImageForCollection(mockImg, 0, null, { detailed: true });
+      let result;
+      expect(() => {
+        result = ImageCollector.processImageForCollection(mockImg, 0, null, { detailed: true });
+      }).not.toThrow();
       expect(result).toEqual({ status: 'invalid_url' });
     });
 
