@@ -22,26 +22,20 @@ describe('ApiErrorSanitizer', () => {
 
   describe('sanitizeApiError', () => {
     describe('API Key 格式無效', () => {
-      test('"api key is invalid" 應返回 API Key（因為包含 api key）', () => {
-        const result = sanitizeApiError('api key is invalid');
-        expect(result).toBe('API_KEY_NOT_CONFIGURED');
-      });
+      test.each([['api key is invalid'], ['malformed: api_key']])('"%s" 應返回 API Key', input => {
+        const result = sanitizeApiError(input);
 
-      test('"malformed: api_key" 應返回 API Key', () => {
-        const result = sanitizeApiError('malformed: api_key');
         expect(result).toBe('API_KEY_NOT_CONFIGURED');
       });
     });
 
     describe('Integration 連接斷開', () => {
-      test('"unauthorized: API token is invalid" 應返回 API Key', () => {
-        const result = sanitizeApiError('unauthorized: API token is invalid');
-        expect(result).toBe('API_KEY_NOT_CONFIGURED');
-      });
-
-      test('"unauthorized: integration not found" 應返回 Page ID is missing', () => {
-        const result = sanitizeApiError('unauthorized: integration not found');
-        expect(result).toBe('MISSING_PAGE_ID');
+      test.each([
+        ['unauthorized: API token is invalid', 'API_KEY_NOT_CONFIGURED'],
+        ['unauthorized: integration not found', 'MISSING_PAGE_ID'],
+      ])('"%s" 應返回 %s', (input, expected) => {
+        const result = sanitizeApiError(input);
+        expect(result).toBe(expected);
       });
     });
 
@@ -92,29 +86,15 @@ describe('ApiErrorSanitizer', () => {
     });
 
     describe('優先順序邊緣情況', () => {
-      test('"unauthorized: invalid token" 應返回 API Key（Auth 優先於 Validation）', () => {
-        const result = sanitizeApiError('unauthorized: invalid token');
-        expect(result).toBe('API_KEY_NOT_CONFIGURED');
-      });
-
-      test('"database permission denied" 應返回 INTEGRATION_FORBIDDEN（AUTH_FORBIDDEN 優先於 DATA_SOURCE）', () => {
-        const result = sanitizeApiError('database permission denied');
-        expect(result).toBe('INTEGRATION_FORBIDDEN');
-      });
-
-      test('"unauthorized" 純粹無其他關鍵字應返回 API Key', () => {
-        const result = sanitizeApiError('unauthorized');
-        expect(result).toBe('API_KEY_NOT_CONFIGURED');
-      });
-
-      test('"invalid token" (通用 token) 應返回 validation_error (不再是 Auth 若無其他 Auth 關鍵字)', () => {
-        const result = sanitizeApiError('invalid token provided');
-        expect(result).toBe('VALIDATION_ERROR');
-      });
-
-      test('"invalid api token" 應返回 API Key', () => {
-        const result = sanitizeApiError('invalid api token provided');
-        expect(result).toBe('API_KEY_NOT_CONFIGURED');
+      test.each([
+        ['unauthorized: invalid token', 'API_KEY_NOT_CONFIGURED'],
+        ['database permission denied', 'INTEGRATION_FORBIDDEN'],
+        ['unauthorized', 'API_KEY_NOT_CONFIGURED'],
+        ['invalid token provided', 'VALIDATION_ERROR'],
+        ['invalid api token provided', 'API_KEY_NOT_CONFIGURED'],
+      ])('"%s" 應返回 %s', (input, expected) => {
+        const result = sanitizeApiError(input);
+        expect(result).toBe(expected);
       });
     });
 
@@ -233,14 +213,13 @@ describe('ApiErrorSanitizer', () => {
     });
 
     describe('通用錯誤', () => {
-      test('未知錯誤應返回通用訊息', () => {
-        const result = sanitizeApiError('some unknown error xyz');
-        expect(result).toBe('UNKNOWN_ERROR');
-      });
-
-      test('錯誤對象應被正確處理', () => {
-        const result = sanitizeApiError({ message: 'unauthorized' });
-        expect(result).toBe('API_KEY_NOT_CONFIGURED');
+      test.each([
+        ['未知錯誤應返回通用訊息', 'some unknown error xyz', 'UNKNOWN_ERROR'],
+        ['錯誤對象應被正確處理', { message: 'unauthorized' }, 'API_KEY_NOT_CONFIGURED'],
+        ['空錯誤應返回通用訊息', {}, 'UNKNOWN_ERROR'],
+      ])('%s', (_name, input, expected) => {
+        const result = sanitizeApiError(input);
+        expect(result).toBe(expected);
       });
 
       test.each([{ message: 123 }, { message: {} }])(
@@ -251,46 +230,44 @@ describe('ApiErrorSanitizer', () => {
         }
       );
 
-      test('空錯誤應返回通用訊息', () => {
-        const result = sanitizeApiError({});
-        expect(result).toBe('UNKNOWN_ERROR');
-      });
-
       test('內部 PATTERNS key 應 fast-path 原樣回傳（避免 keyword 比對誤判為 UNKNOWN_ERROR）', () => {
         // 模擬 handlerUtils.getActiveTab 拋出 new Error(TECHNICAL.NO_ACTIVE_TAB) 的情境：
         // Phase 2 後 TECHNICAL value 從英文 short phrase 升級為 SCREAMING_SNAKE token，
         // sanitizer 必須認得這是內部 vocabulary 而非外部訊息，直接回傳同一個 token。
-        expect(sanitizeApiError('NO_ACTIVE_TAB')).toBe('NO_ACTIVE_TAB');
-        expect(sanitizeApiError('API_KEY_NOT_CONFIGURED')).toBe('API_KEY_NOT_CONFIGURED');
-        expect(sanitizeApiError(new Error('NO_ACTIVE_TAB'))).toBe('NO_ACTIVE_TAB');
+        for (const [input, expected] of [
+          ['NO_ACTIVE_TAB', 'NO_ACTIVE_TAB'],
+          ['API_KEY_NOT_CONFIGURED', 'API_KEY_NOT_CONFIGURED'],
+          [new Error('NO_ACTIVE_TAB'), 'NO_ACTIVE_TAB'],
+        ]) {
+          expect(sanitizeApiError(input)).toBe(expected);
+        }
       });
     });
 
     describe('XSS 防護', () => {
-      test('包含中文的惡意字串應被轉義', () => {
-        const malicious = '發生錯誤<script>alert("XSS")</script>';
-        const result = sanitizeApiError(malicious);
-        expect(result).toBe(malicious); // 根據新的設計，sanitizeApiError 不再轉義，而是依賴 UI 層的 textContent
-        expect(result).toContain('<script>');
-      });
-
-      test('包含中文的 img onerror 攻擊應被轉義', () => {
-        const malicious = '請稍後再試<img src=x onerror=alert(1)>';
-        const result = sanitizeApiError(malicious);
-        expect(result).toContain('<img');
-        expect(result).not.toContain('&lt;img');
-      });
-
-      test('純中文字串應保持不變', () => {
-        const chinese = '這是一段中文錯誤訊息';
-        const result = sanitizeApiError(chinese);
-        expect(result).toBe(chinese);
-      });
-
-      test('含特殊字符的中文訊息應被轉義', () => {
-        const withSpecialChars = '錯誤: "a" & "b"';
-        const result = sanitizeApiError(withSpecialChars);
-        expect(result).toBe(withSpecialChars);
+      test.each([
+        {
+          name: '包含中文的惡意字串應保持原樣並交由 UI 層 textContent 處理',
+          input: '發生錯誤<script>alert("XSS")</script>',
+          contains: '<script>',
+        },
+        {
+          name: '包含中文的 img onerror 攻擊應保持原樣並交由 UI 層 textContent 處理',
+          input: '請稍後再試<img src=x onerror=alert(1)>',
+          contains: '<img',
+          notContains: '&lt;img',
+        },
+        { name: '純中文字串應保持不變', input: '這是一段中文錯誤訊息' },
+        { name: '含特殊字符的中文訊息應保持不變', input: '錯誤: "a" & "b"' },
+      ])('$name', ({ input, contains, notContains }) => {
+        const result = sanitizeApiError(input);
+        expect(result).toBe(input);
+        if (contains) {
+          expect(result).toContain(contains);
+        }
+        if (notContains) {
+          expect(result).not.toContain(notContains);
+        }
       });
     });
   });

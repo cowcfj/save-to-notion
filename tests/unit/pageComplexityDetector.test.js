@@ -526,25 +526,28 @@ describe('頁面複雜度檢測器', () => {
   });
 
   describe('Technical term boundary regression (c++)', () => {
-    test('standalone "c++" token should be detected as technical term', () => {
-      document.documentElement.innerHTML =
-        '<body><article><p>Learn c++ programming with modern c++ features and c++ templates</p></article></body>';
+    test.each([
+      [
+        'standalone "c++" token should be detected as technical term',
+        '<body><article><p>Learn c++ programming with modern c++ features and c++ templates</p></article></body>',
+        3,
+      ],
+      [
+        '"c++" at end of text should be detected',
+        '<body><article><p>This guide covers c++</p></article></body>',
+        1,
+      ],
+      [
+        '"c++" followed by space should be detected',
+        '<body><article><p>c++ is a powerful language</p></article></body>',
+        1,
+      ],
+    ])('%s', (_name, html, expectedMinimumCount) => {
+      document.documentElement.innerHTML = html;
       const result = detectPageComplexity(document);
-      expect(result.technicalFeatures.technicalTermCount).toBeGreaterThanOrEqual(3);
-    });
-
-    test('"c++" at end of text should be detected', () => {
-      document.documentElement.innerHTML =
-        '<body><article><p>This guide covers c++</p></article></body>';
-      const result = detectPageComplexity(document);
-      expect(result.technicalFeatures.technicalTermCount).toBeGreaterThanOrEqual(1);
-    });
-
-    test('"c++" followed by space should be detected', () => {
-      document.documentElement.innerHTML =
-        '<body><article><p>c++ is a powerful language</p></article></body>';
-      const result = detectPageComplexity(document);
-      expect(result.technicalFeatures.technicalTermCount).toBeGreaterThanOrEqual(1);
+      expect(result.technicalFeatures.technicalTermCount).toBeGreaterThanOrEqual(
+        expectedMinimumCount
+      );
     });
 
     test('"objective-c++ish" should NOT match as standalone c++', () => {
@@ -564,27 +567,26 @@ describe('頁面複雜度檢測器', () => {
   });
 
   describe('Technical term matching baseline (performance refactor guard)', () => {
-    test('word-only terms should be counted correctly', () => {
-      document.documentElement.innerHTML =
-        '<body><p>function class method function async await syntax parameter function</p></body>';
+    test.each([
+      [
+        'word-only terms should be counted correctly',
+        '<body><p>function class method function async await syntax parameter function</p></body>',
+        9,
+      ],
+      [
+        'special-char term (c++) should be counted correctly',
+        '<body><p>learn c++ programming with c++ templates and c++ features</p></body>',
+        3,
+      ],
+      [
+        'mixed word and special-char terms should sum correctly',
+        '<body><p>c++ function class c++ method async c++</p></body>',
+        7,
+      ],
+    ])('%s', (_name, html, expectedCount) => {
+      document.documentElement.innerHTML = html;
       const result = detectPageComplexity(document);
-      // function x3, class x1, method x1, async x1, await x1, syntax x1, parameter x1 = 9
-      expect(result.technicalFeatures.technicalTermCount).toBe(9);
-    });
-
-    test('special-char term (c++) should be counted correctly', () => {
-      document.documentElement.innerHTML =
-        '<body><p>learn c++ programming with c++ templates and c++ features</p></body>';
-      const result = detectPageComplexity(document);
-      expect(result.technicalFeatures.technicalTermCount).toBe(3);
-    });
-
-    test('mixed word and special-char terms should sum correctly', () => {
-      document.documentElement.innerHTML =
-        '<body><p>c++ function class c++ method async c++</p></body>';
-      const result = detectPageComplexity(document);
-      // c++ x3, function x1, class x1, method x1, async x1 = 7
-      expect(result.technicalFeatures.technicalTermCount).toBe(7);
+      expect(result.technicalFeatures.technicalTermCount).toBe(expectedCount);
     });
 
     test('technicalRatio should reflect term density', () => {
@@ -624,22 +626,26 @@ describe('頁面複雜度檢測器', () => {
       expect(selection.extractor).toBe('markdown');
     });
 
-    test('Unicode whitespace characters should split words correctly', () => {
-      // \u3000 = fullwidth space (CJK), \u2003 = em space, \u2009 = thin space
-      document.documentElement.innerHTML =
-        '<body><p>function\u{3000}class\u{2003}method\u{2009}variable</p></body>';
+    test.each([
+      [
+        'Unicode whitespace characters should split words correctly',
+        '<body><p>function\u{3000}class\u{2003}method\u{2009}variable</p></body>',
+        4,
+        null,
+      ],
+      [
+        'mixed ASCII and Unicode whitespace should count words consistently',
+        '<body><p>one\u{202F}two\u{205F}three\u{FEFF}four five</p></body>',
+        0,
+        0,
+      ],
+    ])('%s', (_name, html, expectedCount, expectedRatio) => {
+      document.documentElement.innerHTML = html;
       const result = detectPageComplexity(document);
-      expect(result.technicalFeatures.technicalTermCount).toBe(4);
-    });
-
-    test('mixed ASCII and Unicode whitespace should count words consistently', () => {
-      // \u202F = narrow no-break space, \u205F = medium mathematical space, \uFEFF = BOM
-      document.documentElement.innerHTML =
-        '<body><p>one\u{202F}two\u{205F}three\u{FEFF}four five</p></body>';
-      const result = detectPageComplexity(document);
-      // 5 words total, 0 technical terms
-      expect(result.technicalFeatures.technicalTermCount).toBe(0);
-      expect(result.technicalFeatures.technicalRatio).toBe(0);
+      expect(result.technicalFeatures.technicalTermCount).toBe(expectedCount);
+      if (expectedRatio !== null) {
+        expect(result.technicalFeatures.technicalRatio).toBe(expectedRatio);
+      }
     });
 
     test('Unicode surrogate pairs should be processed once per code point', () => {

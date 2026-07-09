@@ -56,82 +56,35 @@ describe('securityUtils', () => {
   });
 
   describe('isValidUrl', () => {
-    test('有效的 HTTP URL 應返回 true', () => {
-      expect(isValidUrl('http://example.com')).toBe(true);
-    });
-
-    test('有效的 HTTPS URL 應返回 true', () => {
-      expect(isValidUrl('https://example.com')).toBe(true);
-    });
-
-    test('帶路徑的 URL 應返回 true', () => {
-      expect(isValidUrl('https://example.com/path/to/resource')).toBe(true);
-    });
-
-    test('帶查詢參數的 URL 應返回 true', () => {
-      expect(isValidUrl('https://example.com?foo=bar&baz=qux')).toBe(true);
-    });
-
-    test('無效的 URL 應返回 false', () => {
-      expect(isValidUrl('not-a-valid-url')).toBe(false);
-    });
-
-    test('FTP 協議應返回 false', () => {
-      expect(isValidUrl('ftp://example.com')).toBe(false);
-    });
-
-    test('file 協議應返回 false', () => {
-      expect(isValidUrl('file:///path/to/file')).toBe(false);
-    });
-
-    test('空字串應返回 false', () => {
-      expect(isValidUrl('')).toBe(false);
+    test.each([
+      ['有效的 HTTP URL', 'http://example.com', true],
+      ['有效的 HTTPS URL', 'https://example.com', true],
+      ['帶路徑的 URL', 'https://example.com/path/to/resource', true],
+      ['帶查詢參數的 URL', 'https://example.com?foo=bar&baz=qux', true],
+      ['無效的 URL', 'not-a-valid-url', false],
+      ['FTP 協議', 'ftp://example.com', false],
+      ['file 協議', 'file:///path/to/file', false],
+      ['空字串', '', false],
+    ])('%s 應返回 %s', (_name, url, expected) => {
+      expect(isValidUrl(url)).toBe(expected);
     });
   });
 
   describe('isValidNotionUrl', () => {
-    test('notion.so 主域名應返回 true', () => {
-      expect(isValidNotionUrl('https://notion.so')).toBe(true);
-    });
-
-    test('www.notion.so 應返回 true', () => {
-      expect(isValidNotionUrl('https://www.notion.so')).toBe(true);
-    });
-
-    test('notion.so 子域名應返回 true', () => {
-      expect(isValidNotionUrl('https://myworkspace.notion.so')).toBe(true);
-    });
-
-    test('帶路徑的 Notion URL 應返回 true', () => {
-      expect(isValidNotionUrl('https://notion.so/page-id-123')).toBe(true);
-    });
-
-    test('HTTP 協議應返回 false（僅允許 HTTPS）', () => {
-      expect(isValidNotionUrl('http://notion.so')).toBe(false);
-    });
-
-    test('非 Notion 域名應返回 false', () => {
-      expect(isValidNotionUrl('https://example.com')).toBe(false);
-    });
-
-    test('notion.com 主域名應返回 true', () => {
-      expect(isValidNotionUrl('https://notion.com')).toBe(true);
-    });
-
-    test('app.notion.com 子域名應返回 true', () => {
-      expect(isValidNotionUrl('https://app.notion.com')).toBe(true);
-    });
-
-    test('notion.com.evil.com 偽造子域名應返回 false', () => {
-      expect(isValidNotionUrl('https://notion.com.evil.com')).toBe(false);
-    });
-
-    test('偽造子域名應返回 false', () => {
-      expect(isValidNotionUrl('https://notion.so.evil.com')).toBe(false);
-    });
-
-    test('無效 URL 應返回 false', () => {
-      expect(isValidNotionUrl('not-a-url')).toBe(false);
+    test.each([
+      ['notion.so 主域名', 'https://notion.so', true],
+      ['www.notion.so', 'https://www.notion.so', true],
+      ['notion.so 子域名', 'https://myworkspace.notion.so', true],
+      ['帶路徑的 Notion URL', 'https://notion.so/page-id-123', true],
+      ['HTTP 協議（僅允許 HTTPS）', 'http://notion.so', false],
+      ['非 Notion 域名', 'https://example.com', false],
+      ['notion.com 主域名', 'https://notion.com', true],
+      ['app.notion.com 子域名', 'https://app.notion.com', true],
+      ['notion.com.evil.com 偽造子域名', 'https://notion.com.evil.com', false],
+      ['notion.so.evil.com 偽造子域名', 'https://notion.so.evil.com', false],
+      ['無效 URL', 'not-a-url', false],
+    ])('%s 應返回 %s', (_name, url, expected) => {
+      expect(isValidNotionUrl(url)).toBe(expected);
     });
   });
 
@@ -230,155 +183,89 @@ describe('securityUtils', () => {
   });
 
   describe('maskSensitiveString', () => {
-    test('應正確遮蔽中間部分', () => {
-      const result = maskSensitiveString('secret-token-example-1234567890');
-      expect(result).toBe('secr***7890');
-    });
-
-    test('應使用自定義顯示長度', () => {
-      const result = maskSensitiveString('abcdefghij', 2, 2);
-      expect(result).toBe('ab***ij');
-    });
-
-    test('太短的字串應全部遮蔽', () => {
-      const result = maskSensitiveString('short');
-      expect(result).toBe('***');
-    });
-
-    test('空字串應返回 [empty]', () => {
-      expect(maskSensitiveString('')).toBe('[empty]');
-    });
-
-    test('null 應返回 [empty]', () => {
-      expect(maskSensitiveString(null)).toBe('[empty]');
-    });
-
-    test('undefined 應返回 [empty]', () => {
-      expect(maskSensitiveString()).toBe('[empty]');
-    });
-
-    test('剛好等於可見長度的字串應全部遮蔽', () => {
-      const result = maskSensitiveString('12345678', 4, 4);
-      expect(result).toBe('***');
+    test.each([
+      ['應正確遮蔽中間部分', ['secret-token-example-1234567890'], 'secr***7890'],
+      ['應使用自定義顯示長度', ['abcdefghij', 2, 2], 'ab***ij'],
+      ['太短的字串應全部遮蔽', ['short'], '***'],
+      ['空字串應返回 [empty]', [''], '[empty]'],
+      ['null 應返回 [empty]', [null], '[empty]'],
+      ['undefined 應返回 [empty]', [], '[empty]'],
+      ['剛好等於可見長度的字串應全部遮蔽', ['12345678', 4, 4], '***'],
+    ])('%s', (_name, args, expected) => {
+      expect(maskSensitiveString(...args)).toBe(expected);
     });
   });
 
   describe('validateSafeSvg', () => {
     describe('安全的 SVG', () => {
-      test('基本的安全 SVG 應通過驗證', () => {
-        const safeSvg = '<svg width="16" height="16"><circle cx="8" cy="8" r="8"/></svg>';
-        expect(validateSafeSvg(safeSvg)).toBe(true);
-      });
-
-      test('包含多個元素的 SVG 應通過驗證', () => {
-        const safeSvg =
-          '<svg viewBox="0 0 24 24"><path d="M12 2L2 7"/><circle cx="12" cy="12" r="10"/></svg>';
-        expect(validateSafeSvg(safeSvg)).toBe(true);
-      });
-
-      test('包含安全屬性的 SVG 應通過驗證', () => {
-        const safeSvg =
-          '<svg width="16" height="16" fill="none" stroke="currentColor"><rect x="0" y="0" width="16" height="16"/></svg>';
-        expect(validateSafeSvg(safeSvg)).toBe(true);
-      });
-
-      test('包含漸變的 SVG 應通過驗證', () => {
-        const safeSvg =
-          '<svg><defs><linearGradient id="grad"><stop offset="0%"/><stop offset="100%"/></linearGradient></defs><circle fill="url(#grad)"/></svg>';
+      test.each([
+        ['基本的安全 SVG', '<svg width="16" height="16"><circle cx="8" cy="8" r="8"/></svg>'],
+        [
+          '包含多個元素的 SVG',
+          '<svg viewBox="0 0 24 24"><path d="M12 2L2 7"/><circle cx="12" cy="12" r="10"/></svg>',
+        ],
+        [
+          '包含安全屬性的 SVG',
+          '<svg width="16" height="16" fill="none" stroke="currentColor"><rect x="0" y="0" width="16" height="16"/></svg>',
+        ],
+        [
+          '包含漸變的 SVG',
+          '<svg><defs><linearGradient id="grad"><stop offset="0%"/><stop offset="100%"/></linearGradient></defs><circle fill="url(#grad)"/></svg>',
+        ],
+      ])('%s 應通過驗證', (_name, safeSvg) => {
         expect(validateSafeSvg(safeSvg)).toBe(true);
       });
     });
 
     describe('格式完整性驗證', () => {
-      test('缺少結束標籤的 SVG 應被拒絕', () => {
-        const incompleteSvg = '<svg width="16" height="16"><circle cx="8" cy="8" r="8"/>';
-        expect(validateSafeSvg(incompleteSvg)).toBe(false);
-      });
-
-      test('只有開始標籤的 SVG 應被拒絕', () => {
-        const incompleteSvg = '<svg width="16" height="16">';
-        expect(validateSafeSvg(incompleteSvg)).toBe(false);
-      });
-
-      test('結束標籤寫錯的 SVG 應被拒絕', () => {
-        const invalidSvg = '<svg width="16" height="16"></svgg>';
-        expect(validateSafeSvg(invalidSvg)).toBe(false);
+      test.each([
+        ['缺少結束標籤的 SVG', '<svg width="16" height="16"><circle cx="8" cy="8" r="8"/>'],
+        ['只有開始標籤的 SVG', '<svg width="16" height="16">'],
+        ['結束標籤寫錯的 SVG', '<svg width="16" height="16"></svgg>'],
+      ])('%s 應被拒絕', (_name, svg) => {
+        expect(validateSafeSvg(svg)).toBe(false);
       });
     });
 
     describe('危險模式偵測', () => {
-      test('包含 <script> 標籤的 SVG 應被拒絕', () => {
-        const dangerousSvg = '<svg><script>alert("XSS")</script></svg>';
-        expect(validateSafeSvg(dangerousSvg)).toBe(false);
-      });
-
-      test('包含 javascript: 協議的 SVG 應被拒絕', () => {
-        const dangerousSvg =
-          '<svg><a href="javascript:alert(\'XSS\')"><text>Click</text></a></svg>';
-        expect(validateSafeSvg(dangerousSvg)).toBe(false);
-      });
-
-      test('包含 onerror 事件的 SVG 應被拒絕', () => {
-        const dangerousSvg = '<svg><image href="invalid.jpg" onerror="alert(\'XSS\')"/></svg>';
-        expect(validateSafeSvg(dangerousSvg)).toBe(false);
-      });
-
-      test('包含 onload 事件的 SVG 應被拒絕', () => {
-        const dangerousSvg = '<svg onload="alert(\'XSS\')"><circle/></svg>';
-        expect(validateSafeSvg(dangerousSvg)).toBe(false);
-      });
-
-      test('包含 onclick 事件的 SVG 應被拒絕', () => {
-        const dangerousSvg = '<svg><rect onclick="alert(\'XSS\')" /></svg>';
-        expect(validateSafeSvg(dangerousSvg)).toBe(false);
-      });
-
-      test('包含 onanimationstart 事件的 SVG 應被拒絕', () => {
-        const dangerousSvg = '<svg><circle onanimationstart="alert(\'XSS\')"/></svg>';
-        expect(validateSafeSvg(dangerousSvg)).toBe(false);
-      });
-
-      test('包含 <embed> 標籤的 SVG 應被拒絕', () => {
-        const dangerousSvg = '<svg><embed src="malicious.swf"/></svg>';
-        expect(validateSafeSvg(dangerousSvg)).toBe(false);
-      });
-
-      test('包含 <object> 標籤的 SVG 應被拒絕', () => {
-        const dangerousSvg = '<svg><object data="malicious.html"/></svg>';
-        expect(validateSafeSvg(dangerousSvg)).toBe(false);
-      });
-
-      test('包含 <iframe> 標籤的 SVG 應被拒絕', () => {
-        const dangerousSvg = '<svg><iframe src="http://evil.com"/></svg>';
-        expect(validateSafeSvg(dangerousSvg)).toBe(false);
-      });
-
-      test('包含 <foreignObject> 標籤的 SVG 應被拒絕', () => {
-        const dangerousSvg =
-          '<svg><foreignObject><body onload="alert(\'XSS\')"/></foreignObject></svg>';
-        expect(validateSafeSvg(dangerousSvg)).toBe(false);
-      });
-
-      test('包含 data:text/html 協議的 SVG 應被拒絕', () => {
-        const dangerousSvg =
-          '<svg><image href="data:text/html,<script>alert(\'XSS\')</script>"/></svg>';
+      test.each([
+        ['包含 <script> 標籤的 SVG', '<svg><script>alert("XSS")</script></svg>'],
+        [
+          '包含 javascript: 協議的 SVG',
+          '<svg><a href="javascript:alert(\'XSS\')"><text>Click</text></a></svg>',
+        ],
+        [
+          '包含 onerror 事件的 SVG',
+          '<svg><image href="invalid.jpg" onerror="alert(\'XSS\')"/></svg>',
+        ],
+        ['包含 onload 事件的 SVG', '<svg onload="alert(\'XSS\')"><circle/></svg>'],
+        ['包含 onclick 事件的 SVG', '<svg><rect onclick="alert(\'XSS\')" /></svg>'],
+        [
+          '包含 onanimationstart 事件的 SVG',
+          '<svg><circle onanimationstart="alert(\'XSS\')"/></svg>',
+        ],
+        ['包含 <embed> 標籤的 SVG', '<svg><embed src="malicious.swf"/></svg>'],
+        ['包含 <object> 標籤的 SVG', '<svg><object data="malicious.html"/></svg>'],
+        ['包含 <iframe> 標籤的 SVG', '<svg><iframe src="http://evil.com"/></svg>'],
+        [
+          '包含 <foreignObject> 標籤的 SVG',
+          '<svg><foreignObject><body onload="alert(\'XSS\')"/></foreignObject></svg>',
+        ],
+        [
+          '包含 data:text/html 協議的 SVG',
+          '<svg><image href="data:text/html,<script>alert(\'XSS\')</script>"/></svg>',
+        ],
+      ])('%s 應被拒絕', (_name, dangerousSvg) => {
         expect(validateSafeSvg(dangerousSvg)).toBe(false);
       });
     });
 
     describe('白名單機制', () => {
-      test('包含未在白名單中的標籤應被拒絕', () => {
-        const invalidSvg = '<svg><video src="malicious.mp4"/></svg>';
-        expect(validateSafeSvg(invalidSvg)).toBe(false);
-      });
-
-      test('包含 <div> 標籤的 SVG 應被拒絕', () => {
-        const invalidSvg = '<svg><div>Content</div></svg>';
-        expect(validateSafeSvg(invalidSvg)).toBe(false);
-      });
-
-      test('包含 <style> 標籤的 SVG 應被拒絕（不在白名單）', () => {
-        const invalidSvg = '<svg><style>circle { fill: red; }</style><circle/></svg>';
+      test.each([
+        ['包含未在白名單中的標籤', '<svg><video src="malicious.mp4"/></svg>'],
+        ['包含 <div> 標籤的 SVG', '<svg><div>Content</div></svg>'],
+        ['包含 <style> 標籤的 SVG', '<svg><style>circle { fill: red; }</style><circle/></svg>'],
+      ])('%s 應被拒絕', (_name, invalidSvg) => {
         expect(validateSafeSvg(invalidSvg)).toBe(false);
       });
 
@@ -407,170 +294,88 @@ describe('securityUtils', () => {
     });
 
     describe('邊界情況', () => {
-      test('空字串應返回 true（視為安全）', () => {
-        expect(validateSafeSvg('')).toBe(true);
-      });
-
-      test('null 應返回 true', () => {
-        expect(validateSafeSvg(null)).toBe(true);
-      });
-
-      test('undefined 應返回 true', () => {
-        expect(validateSafeSvg()).toBe(true);
-      });
-
-      test('非 SVG 內容應返回 true（不在驗證範圍）', () => {
-        expect(validateSafeSvg('普通文本')).toBe(true);
-        expect(validateSafeSvg('✅ 成功')).toBe(true);
-      });
-
-      test('帶有空白前後綴的 SVG 應正確驗證', () => {
-        const svgWithWhitespace = '  <svg><circle/></svg>  ';
-        expect(validateSafeSvg(svgWithWhitespace)).toBe(true);
-      });
-
-      test('大小寫混合的危險標籤應被檢測', () => {
-        const dangerousSvg = '<svg><SCRIPT>alert("XSS")</SCRIPT></svg>';
-        expect(validateSafeSvg(dangerousSvg)).toBe(false);
-      });
-
-      test('複雜嵌套的安全 SVG 應通過驗證', () => {
-        const complexSvg = '<svg><g><g><circle/></g><rect/></g></svg>';
-        expect(validateSafeSvg(complexSvg)).toBe(true);
+      test.each([
+        ['空字串應返回 true（視為安全）', '', true],
+        ['null 應返回 true', null, true],
+        ['undefined 應返回 true', undefined, true],
+        ['非 SVG 普通文本應返回 true（不在驗證範圍）', '普通文本', true],
+        ['非 SVG emoji 文本應返回 true（不在驗證範圍）', '✅ 成功', true],
+        ['帶有空白前後綴的 SVG 應正確驗證', '  <svg><circle/></svg>  ', true],
+        ['大小寫混合的危險標籤應被檢測', '<svg><SCRIPT>alert("XSS")</SCRIPT></svg>', false],
+        ['複雜嵌套的安全 SVG 應通過驗證', '<svg><g><g><circle/></g><rect/></g></svg>', true],
+      ])('%s', (_name, svg, expected) => {
+        expect(validateSafeSvg(svg)).toBe(expected);
       });
     });
   });
 
   describe('separateIconAndText', () => {
     describe('SVG 圖標分離', () => {
-      test('應正確分離 SVG 圖標和文本', () => {
-        const message = '<svg width="16" height="16"></svg> 操作成功';
+      test.each([
+        [
+          '應正確分離 SVG 圖標和文本',
+          '<svg width="16" height="16"></svg> 操作成功',
+          '<svg width="16" height="16"></svg>',
+          ' 操作成功',
+        ],
+        [
+          '應處理複雜的 SVG 標籤',
+          '<svg viewBox="0 0 24 24"><path d="M12 2L2 7"/></svg>載入中...',
+          '<svg viewBox="0 0 24 24"><path d="M12 2L2 7"/></svg>',
+          '載入中...',
+        ],
+        [
+          '應處理包含屬性的 SVG',
+          '<svg width="16" height="16" fill="none" stroke="currentColor"></svg>完成',
+          '<svg width="16" height="16" fill="none" stroke="currentColor"></svg>',
+          '完成',
+        ],
+      ])('%s', (_name, message, expectedIcon, expectedText) => {
         const result = separateIconAndText(message);
-        expect(result.icon).toBe('<svg width="16" height="16"></svg>');
-        expect(result.text).toBe(' 操作成功');
-      });
-
-      test('應處理複雜的 SVG 標籤', () => {
-        const svgIcon = '<svg viewBox="0 0 24 24"><path d="M12 2L2 7"/></svg>';
-        const message = `${svgIcon}載入中...`;
-        const result = separateIconAndText(message);
-        expect(result.icon).toBe(svgIcon);
-        expect(result.text).toBe('載入中...');
-      });
-
-      test('應處理包含屬性的 SVG', () => {
-        const message = '<svg width="16" height="16" fill="none" stroke="currentColor"></svg>完成';
-        const result = separateIconAndText(message);
-        expect(result.icon).toBe(
-          '<svg width="16" height="16" fill="none" stroke="currentColor"></svg>'
-        );
-        expect(result.text).toBe('完成');
+        expect(result.icon).toBe(expectedIcon);
+        expect(result.text).toBe(expectedText);
       });
     });
 
     describe('Emoji 圖標分離', () => {
-      test('應正確分離 Emoji 圖標和文本', () => {
-        const message = '✅ 操作成功';
+      test.each([
+        ['應正確分離 Emoji 圖標和文本', '✅ 操作成功', '✅', ' 操作成功'],
+        ['應處理其他 Emoji', '❌ 操作失敗', '❌', ' 操作失敗'],
+        ['應處理表情符號', '🎉 慶祝成功', '🎉', ' 慶祝成功'],
+        ['應處理 ZWJ family emoji 序列', '👨‍👩‍👧‍👦 家庭設定已更新', '👨‍👩‍👧‍👦', ' 家庭設定已更新'],
+        ['應處理膚色修飾符與 ZWJ emoji 序列', '👩🏽‍⚕️ 健康資料已同步', '👩🏽‍⚕️', ' 健康資料已同步'],
+        ['應處理 regional indicator pair 旗幟 emoji', '🇺🇸 英文內容已保存', '🇺🇸', ' 英文內容已保存'],
+      ])('%s', (_name, message, expectedIcon, expectedText) => {
         const result = separateIconAndText(message);
-        expect(result.icon).toBe('✅');
-        expect(result.text).toBe(' 操作成功');
-      });
-
-      test('應處理其他 Emoji', () => {
-        const message = '❌ 操作失敗';
-        const result = separateIconAndText(message);
-        expect(result.icon).toBe('❌');
-        expect(result.text).toBe(' 操作失敗');
-      });
-
-      test('應處理表情符號', () => {
-        const message = '🎉 慶祝成功';
-        const result = separateIconAndText(message);
-        expect(result.icon).toBe('🎉');
-        expect(result.text).toBe(' 慶祝成功');
-      });
-
-      test('應處理 ZWJ family emoji 序列', () => {
-        const message = '👨‍👩‍👧‍👦 家庭設定已更新';
-        const result = separateIconAndText(message);
-        expect(result.icon).toBe('👨‍👩‍👧‍👦');
-        expect(result.text).toBe(' 家庭設定已更新');
-      });
-
-      test('應處理膚色修飾符與 ZWJ emoji 序列', () => {
-        const message = '👩🏽‍⚕️ 健康資料已同步';
-        const result = separateIconAndText(message);
-        expect(result.icon).toBe('👩🏽‍⚕️');
-        expect(result.text).toBe(' 健康資料已同步');
-      });
-
-      test('應處理 regional indicator pair 旗幟 emoji', () => {
-        const message = '🇺🇸 英文內容已保存';
-        const result = separateIconAndText(message);
-        expect(result.icon).toBe('🇺🇸');
-        expect(result.text).toBe(' 英文內容已保存');
+        expect(result.icon).toBe(expectedIcon);
+        expect(result.text).toBe(expectedText);
       });
     });
 
     describe('純文本消息', () => {
-      test('應正確處理不含圖標的純文本', () => {
-        const message = '這是純文本消息';
+      test.each([
+        ['應正確處理不含圖標的純文本', '這是純文本消息'],
+        ['應處理中間包含 SVG 文本的消息（不應分離）', '文本 <svg> 標籤'],
+        ['應處理中間包含現代 Emoji 序列的消息（不應分離）', '狀態 👩🏽‍⚕️ 已同步'],
+        ['應處理文字後接旗幟 Emoji 的消息（不應分離）', '地區 🇺🇸 已設定'],
+      ])('%s', (_name, message) => {
         const result = separateIconAndText(message);
         expect(result.icon).toBe('');
-        expect(result.text).toBe('這是純文本消息');
-      });
-
-      test('應處理中間包含 SVG 文本的消息（不應分離）', () => {
-        const message = '文本 <svg> 標籤';
-        const result = separateIconAndText(message);
-        expect(result.icon).toBe('');
-        expect(result.text).toBe('文本 <svg> 標籤');
-      });
-
-      test('應處理中間包含現代 Emoji 序列的消息（不應分離）', () => {
-        const message = '狀態 👩🏽‍⚕️ 已同步';
-        const result = separateIconAndText(message);
-        expect(result.icon).toBe('');
-        expect(result.text).toBe('狀態 👩🏽‍⚕️ 已同步');
-      });
-
-      test('應處理文字後接旗幟 Emoji 的消息（不應分離）', () => {
-        const message = '地區 🇺🇸 已設定';
-        const result = separateIconAndText(message);
-        expect(result.icon).toBe('');
-        expect(result.text).toBe('地區 🇺🇸 已設定');
+        expect(result.text).toBe(message);
       });
     });
 
     describe('邊界情況', () => {
-      test('空字串應返回空結果', () => {
-        const result = separateIconAndText('');
-        expect(result.icon).toBe('');
-        expect(result.text).toBe('');
-      });
-
-      test('null 應返回空結果', () => {
-        const result = separateIconAndText(null);
-        expect(result.icon).toBe('');
-        expect(result.text).toBe('');
-      });
-
-      test('undefined 應返回空結果', () => {
-        const result = separateIconAndText();
-        expect(result.icon).toBe('');
-        expect(result.text).toBe('');
-      });
-
-      test('只有圖標無文本應正確處理', () => {
-        const result = separateIconAndText('✅');
-        expect(result.icon).toBe('✅');
-        expect(result.text).toBe('');
-      });
-
-      test('只有 SVG 無文本應正確處理', () => {
-        const result = separateIconAndText('<svg></svg>');
-        expect(result.icon).toBe('<svg></svg>');
-        expect(result.text).toBe('');
+      test.each([
+        ['空字串應返回空結果', '', '', ''],
+        ['null 應返回空結果', null, '', ''],
+        ['undefined 應返回空結果', undefined, '', ''],
+        ['只有圖標無文本應正確處理', '✅', '✅', ''],
+        ['只有 SVG 無文本應正確處理', '<svg></svg>', '<svg></svg>', ''],
+      ])('%s', (_name, message, expectedIcon, expectedText) => {
+        const result = separateIconAndText(message);
+        expect(result.icon).toBe(expectedIcon);
+        expect(result.text).toBe(expectedText);
       });
 
       test('SVG 前綴後接 Emoji 序列時應維持 SVG 分離邏輯', () => {
@@ -593,30 +398,50 @@ describe('securityUtils', () => {
     });
 
     test('on* 開頭的屬性應被拒絕', () => {
-      expect(isSafeSvgAttribute('onclick', 'alert(1)')).toBe(false);
-      expect(isSafeSvgAttribute('onmouseover', 'true')).toBe(false);
+      for (const [name, value] of [
+        ['onclick', 'alert(1)'],
+        ['onmouseover', 'true'],
+      ]) {
+        expect(isSafeSvgAttribute(name, value)).toBe(false);
+      }
     });
 
     test('不在白名單內的屬性應被拒絕', () => {
-      expect(isSafeSvgAttribute('data-malicious', 'true')).toBe(false);
-      expect(isSafeSvgAttribute('unknown-attr', '123')).toBe(false);
+      for (const [name, value] of [
+        ['data-malicious', 'true'],
+        ['unknown-attr', '123'],
+      ]) {
+        expect(isSafeSvgAttribute(name, value)).toBe(false);
+      }
     });
 
     test('白名單內的非 URL 屬性應被允許', () => {
-      expect(isSafeSvgAttribute('cx', '10')).toBe(true);
-      expect(isSafeSvgAttribute('fill', '#fff')).toBe(true);
+      for (const [name, value] of [
+        ['cx', '10'],
+        ['fill', '#fff'],
+      ]) {
+        expect(isSafeSvgAttribute(name, value)).toBe(true);
+      }
     });
 
     test('href / src 包含 javascript: 協議應被拒絕', () => {
-      expect(isSafeSvgAttribute('href', 'javascript:alert(1)')).toBe(false);
-      expect(isSafeSvgAttribute('href', '  javascript: void 0;')).toBe(false);
-      expect(isSafeSvgAttribute('src', 'DATA:text/html,<html>')).toBe(false);
+      for (const [name, value] of [
+        ['href', 'javascript:alert(1)'],
+        ['href', '  javascript: void 0;'],
+        ['src', 'DATA:text/html,<html>'],
+      ]) {
+        expect(isSafeSvgAttribute(name, value)).toBe(false);
+      }
     });
 
     test('不安全的 URL 協議應被拒絕', () => {
-      expect(isSafeSvgAttribute('href', 'ftp://example.com/a.svg')).toBe(false);
-      expect(isSafeSvgAttribute('src', 'unknownproto:test')).toBe(false);
-      expect(isSafeSvgAttribute('href', 'data:image/svg+xml;base64,123')).toBe(false);
+      for (const [name, value] of [
+        ['href', 'ftp://example.com/a.svg'],
+        ['src', 'unknownproto:test'],
+        ['href', 'data:image/svg+xml;base64,123'],
+      ]) {
+        expect(isSafeSvgAttribute(name, value)).toBe(false);
+      }
     });
 
     test('非法的 URL 字串應觸發 catch 並且拒絕', () => {
@@ -624,25 +449,24 @@ describe('securityUtils', () => {
     });
 
     test('安全的 URL 協議應被允許 (https, http, relative)', () => {
-      expect(isSafeSvgAttribute('href', 'https://example.com/icon.svg')).toBe(true);
-
-      expect(isSafeSvgAttribute('src', 'http://example.com/icon.svg')).toBe(true);
-      expect(isSafeSvgAttribute('src', '/relative/path.svg')).toBe(true);
+      for (const [name, value] of [
+        ['href', 'https://example.com/icon.svg'],
+        ['src', 'http://example.com/icon.svg'],
+        ['src', '/relative/path.svg'],
+      ]) {
+        expect(isSafeSvgAttribute(name, value)).toBe(true);
+      }
     });
   });
 
   describe('validateBackupData', () => {
-    test('無效備份結構應拋出錯誤', () => {
-      expect(() => validateBackupData(null)).toThrow('must be an object');
-      expect(() => validateBackupData({ timestamp: '123', data: {} })).toThrow(
-        'Invalid backup version'
-      );
-      expect(() => validateBackupData({ version: '1', data: {} })).toThrow(
-        'Invalid backup timestamp'
-      );
-      expect(() => validateBackupData({ version: '1', timestamp: '123' })).toThrow(
-        'Invalid backup data structure'
-      );
+    test.each([
+      ['非 object payload', null, 'must be an object'],
+      ['缺少 version', { timestamp: '123', data: {} }, 'Invalid backup version'],
+      ['缺少 timestamp', { version: '1', data: {} }, 'Invalid backup timestamp'],
+      ['缺少 data', { version: '1', timestamp: '123' }, 'Invalid backup data structure'],
+    ])('%s 應拋出錯誤', (_name, payload, expectedMessage) => {
+      expect(() => validateBackupData(payload)).toThrow(expectedMessage);
     });
 
     test('包含 __proto__ 污染鍵值的備份應拋出安全警告', () => {

@@ -568,34 +568,22 @@ describe('MIGRATION_LEFTOVER_PREFIXES — registry 正確性與邊界', () => {
     expect(MIGRATION_LEFTOVER_PREFIXES).toContain('_backup_');
   });
 
-  test('真實遷移 key（migration_ 前綴）應命中 registry', () => {
-    const migrationKey = 'migration_page_v1_data';
-    const matched = MIGRATION_LEFTOVER_PREFIXES.some(p => migrationKey.startsWith(p));
-    expect(matched).toBe(true);
-  });
-
-  test('一般業務 key 含 backup 字樣但非前綴時，不應命中 registry（防誤刪）', () => {
-    // page_my-backup-notes：業務 key，backup 在中間不是前綴
-    const businessKey = 'page_my-backup-notes';
-    const matched = MIGRATION_LEFTOVER_PREFIXES.some(p => businessKey.startsWith(p));
-    expect(matched).toBe(false);
-  });
-
-  test('一般業務 key 含 migration 字樣但非前綴時，不應命中 registry', () => {
-    // highlights_post-migration-guide：業務 key，migration 在中間
-    const businessKey = 'highlights_post-migration-guide';
-    const matched = MIGRATION_LEFTOVER_PREFIXES.some(p => businessKey.startsWith(p));
-    expect(matched).toBe(false);
-  });
-
-  test('一般業務 key 以正常前綴開頭且尾端含 _v1_ 時，不應命中 registry', () => {
-    const businessKey = 'page_url_v1_';
-    const matched = MIGRATION_LEFTOVER_PREFIXES.some(p => businessKey.startsWith(p));
-    expect(matched).toBe(false);
-  });
-
-  test('空字串不應命中任何前綴', () => {
-    const matched = MIGRATION_LEFTOVER_PREFIXES.some(p => ''.startsWith(p));
-    expect(matched).toBe(false);
+  test.each([
+    ['真實遷移 key（migration_ 前綴）應命中 registry', 'migration_page_v1_data', true],
+    [
+      '一般業務 key 含 backup 字樣但非前綴時，不應命中 registry（防誤刪）',
+      'page_my-backup-notes',
+      false,
+    ],
+    [
+      '一般業務 key 含 migration 字樣但非前綴時，不應命中 registry',
+      'highlights_post-migration-guide',
+      false,
+    ],
+    ['一般業務 key 以正常前綴開頭且尾端含 _v1_ 時，不應命中 registry', 'page_url_v1_', false],
+    ['空字串不應命中任何前綴', '', false],
+  ])('%s', (_name, key, expected) => {
+    const matched = MIGRATION_LEFTOVER_PREFIXES.some(prefix => key.startsWith(prefix));
+    expect(matched).toBe(expected);
   });
 });
