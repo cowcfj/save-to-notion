@@ -60,6 +60,15 @@ beforeAll(async () => {
   } = await import('../../../../scripts/content/extractors/ReadabilityAdapter.js'));
 });
 
+const parseTestDocument = html => new DOMParser().parseFromString(html, 'text/html');
+
+const buildContentQualityHtml = ({ textLength, linkLength = 0, listItemCount = 0 }) => {
+  const text = `<p>${'a'.repeat(textLength)}</p>`;
+  const links = linkLength > 0 ? `<a href="#">${'a'.repeat(linkLength)}</a>` : '';
+  const listItems = listItemCount > 0 ? `<ul>${'<li>item</li>'.repeat(listItemCount)}</ul>` : '';
+  return text + links + listItems;
+};
+
 // ... (existing code)
 
 describe('ReadabilityAdapter - expandCollapsibleElements', () => {
@@ -202,128 +211,86 @@ describe('ReadabilityAdapter - isContentGood', () => {
   });
 
   describe('內容長度檢查', () => {
-    test('應該拒絕長度不足 250 字符的內容', () => {
-      const content = 'a'.repeat(249);
-      const result = isContentGood({ content });
-      expect(result).toBe(false);
-      expect(Logger.warn).toHaveBeenCalledWith(
-        '內容長度不足',
-        expect.objectContaining({ action: 'isContentGood' })
-      );
-    });
-
-    test('應該接受長度剛好 250 字符的內容', () => {
-      const content = `<p>${'a'.repeat(250)}</p>`;
-      const result = isContentGood({ content });
-      expect(result).toBe(true);
-    });
-
-    test('應該接受長度超過 250 字符的內容', () => {
-      const content = `<p>${'a'.repeat(500)}</p>`;
-      const result = isContentGood({ content });
-      expect(result).toBe(true);
+    test.each([
+      ['應該拒絕長度不足 250 字符的內容', 'a'.repeat(249), false, '內容長度不足'],
+      ['應該接受長度剛好 250 字符的內容', `<p>${'a'.repeat(250)}</p>`, true, null],
+      ['應該接受長度超過 250 字符的內容', `<p>${'a'.repeat(500)}</p>`, true, null],
+    ])('%s', (_description, content, expectedResult, expectedWarning) => {
+      expect(isContentGood({ content })).toBe(expectedResult);
+      if (expectedWarning) {
+        expect(Logger.warn).toHaveBeenCalledWith(
+          expectedWarning,
+          expect.objectContaining({ action: 'isContentGood' })
+        );
+      }
     });
   });
 
   describe('鏈接密度檢查', () => {
-    test('應該接受低鏈接密度的內容', () => {
-      // 創建真實的 DOM 結構：10% 鏈接密度
-      const content = `<p>${'a'.repeat(900)}</p><a href="#">${'a'.repeat(100)}</a>`;
-
-      const result = isContentGood({ content });
-      // 鏈接密度 = 100 / 1000 = 0.1 < 0.3，應該接受
-      expect(result).toBe(true);
-    });
-
-    test('應該拒絕高鏈接密度的內容（列表項少於 8 個）', () => {
-      // 創建真實的 DOM 結構：35% 鏈接密度，5 個列表項
-      const links = `<a href="#">${'a'.repeat(350)}</a>`;
-      const listItems = `<ul>${'<li>item</li>'.repeat(5)}</ul>`;
-      const text = `<p>${'a'.repeat(650)}</p>`;
-      const content = text + links + listItems;
-
-      const result = isContentGood({ content });
-      // 鏈接密度 = 350 / 1000+ = 0.35 > 0.3，且 liCount = 5 < 8
-      expect(result).toBe(false);
-      expect(Logger.log).toHaveBeenCalledWith(
+    test.each([
+      [
+        '應該接受低鏈接密度的內容',
+        buildContentQualityHtml({ textLength: 900, linkLength: 100 }),
+        true,
+        null,
+      ],
+      [
+        '應該拒絕高鏈接密度的內容（列表項少於 8 個）',
+        buildContentQualityHtml({ textLength: 650, linkLength: 350, listItemCount: 5 }),
+        false,
         '內容因鏈接密度過高被拒絕',
-        expect.objectContaining({ action: 'isContentGood' })
-      );
-    });
-
-    test('應該正確處理沒有 textContent 的鏈接', () => {
-      // 創建真實的 DOM 結構：空鏈接
-      const content = `<p>${'a'.repeat(1000)}</p><a href="#"></a><a href="#"></a>`;
-
-      const result = isContentGood({ content });
-      // 鏈接密度 = 0，應該接受
-      expect(result).toBe(true);
+      ],
+      [
+        '應該正確處理沒有 textContent 的鏈接',
+        `<p>${'a'.repeat(1000)}</p><a href="#"></a><a href="#"></a>`,
+        true,
+        null,
+      ],
+    ])('%s', (_description, content, expectedResult, expectedLog) => {
+      expect(isContentGood({ content })).toBe(expectedResult);
+      if (expectedLog) {
+        expect(Logger.log).toHaveBeenCalledWith(
+          expectedLog,
+          expect.objectContaining({ action: 'isContentGood' })
+        );
+      }
     });
   });
 
   describe('列表項例外處理', () => {
-    test('應該接受低鏈接密度的內容（即使列表項少於 8 個）', () => {
-      // 創建真實的 DOM 結構：10% 鏈接密度，5 個列表項
-      const links = `<a href="#">${'a'.repeat(100)}</a>`;
-      const listItems = `<ul>${'<li>item</li>'.repeat(5)}</ul>`;
-      const text = `<p>${'a'.repeat(900)}</p>`;
-      const content = text + links + listItems;
-
-      const result = isContentGood({ content });
-      // 鏈接密度 = 100 / 1000+ = 0.1 < 0.3，應該接受
-      expect(result).toBe(true);
-    });
-
-    test('應該接受 8 個或更多列表項的內容（即使高鏈接密度）', () => {
-      // 創建真實的 DOM 結構：40% 鏈接密度，8 個列表項
-      const links = `<a href="#">${'a'.repeat(400)}</a>`;
-      const listItems = `<ul>${'<li>item</li>'.repeat(8)}</ul>`;
-      const text = `<p>${'a'.repeat(600)}</p>`;
-      const content = text + links + listItems;
-
-      const result = isContentGood({ content });
-      // 鏈接密度 = 400 / 1000+ = 0.4 > 0.3，但有 8 個 li >= 8（例外）
-      expect(result).toBe(true);
-      expect(Logger.log).toHaveBeenCalledWith(
-        '內容被判定為有效清單',
-        expect.objectContaining({ action: 'isContentGood' })
-      );
-    });
-
-    test('應該接受 10 個列表項的內容', () => {
-      // 創建真實的 DOM 結構：60% 鏈接密度，10 個列表項
-      const links = `<a href="#">${'a'.repeat(600)}</a>`;
-      const listItems = `<ul>${'<li>item</li>'.repeat(10)}</ul>`;
-      const text = `<p>${'a'.repeat(400)}</p>`;
-      const content = text + links + listItems;
-
-      const result = isContentGood({ content });
-      // 即使鏈接密度 = 600 / 1000+ = 0.6 > 0.3，但有 10 個 li >= 8
-      expect(result).toBe(true);
-      expect(Logger.log).toHaveBeenCalledWith(
-        '內容被判定為有效清單',
-        expect.objectContaining({ action: 'isContentGood' })
-      );
+    test.each([
+      [
+        '應該接受低鏈接密度的內容（即使列表項少於 8 個）',
+        buildContentQualityHtml({ textLength: 900, linkLength: 100, listItemCount: 5 }),
+        false,
+      ],
+      [
+        '應該接受 8 個或更多列表項的內容（即使高鏈接密度）',
+        buildContentQualityHtml({ textLength: 600, linkLength: 400, listItemCount: 8 }),
+        true,
+      ],
+      [
+        '應該接受 10 個列表項的內容',
+        buildContentQualityHtml({ textLength: 400, linkLength: 600, listItemCount: 10 }),
+        true,
+      ],
+    ])('%s', (_description, content, expectsValidListLog) => {
+      expect(isContentGood({ content })).toBe(true);
+      if (expectsValidListLog) {
+        expect(Logger.log).toHaveBeenCalledWith(
+          '內容被判定為有效清單',
+          expect.objectContaining({ action: 'isContentGood' })
+        );
+      }
     });
   });
 
   describe('正常內容場景', () => {
-    test('應該接受質量良好的正常文章', () => {
-      // 創建真實的 DOM 結構：5% 鏈接密度
-      const content = `<p>${'a'.repeat(950)}</p><a href="#">${'a'.repeat(50)}</a>`;
-
-      const result = isContentGood({ content });
-      // 長度 = 1000 >= 250，鏈接密度 = 0.05 < 0.3
-      expect(result).toBe(true);
-    });
-
-    test('應該接受包含少量鏈接的文章', () => {
-      // 創建真實的 DOM 結構：20% 鏈接密度
-      const content = `<p>${'a'.repeat(800)}</p><a href="#">${'a'.repeat(200)}</a>`;
-
-      const result = isContentGood({ content });
-      // 長度 = 1000，鏈接密度 = 0.2 < 0.3
-      expect(result).toBe(true);
+    test.each([
+      ['應該接受質量良好的正常文章', buildContentQualityHtml({ textLength: 950, linkLength: 50 })],
+      ['應該接受包含少量鏈接的文章', buildContentQualityHtml({ textLength: 800, linkLength: 200 })],
+    ])('%s', (_description, content) => {
+      expect(isContentGood({ content })).toBe(true);
     });
   });
 
@@ -679,44 +646,33 @@ describe('ReadabilityAdapter - parseArticleWithReadability', () => {
 });
 
 describe('ReadabilityAdapter - prepareLazyImages', () => {
-  test('應該將 data-src 寫入空 src 的圖片', () => {
-    const doc = new DOMParser().parseFromString(
+  test.each([
+    [
+      '應該將 data-src 寫入空 src 的圖片',
       '<html><body><img data-src="https://example.com/photo.jpg" src=""></body></html>',
-      'text/html'
-    );
-    const count = prepareLazyImages(doc);
-    expect(count).toBe(1);
-    expect(doc.querySelector('img').getAttribute('src')).toBe('https://example.com/photo.jpg');
-  });
-
-  test('應該處理 data: 佔位符 src', () => {
-    const doc = new DOMParser().parseFromString(
+      'https://example.com/photo.jpg',
+    ],
+    [
+      '應該處理 data: 佔位符 src',
       '<html><body><img data-src="https://example.com/real.jpg" src="data:image/gif;base64,R0lGODlhAQABAIA"></body></html>',
-      'text/html'
-    );
-    const count = prepareLazyImages(doc);
-    expect(count).toBe(1);
-    expect(doc.querySelector('img').getAttribute('src')).toBe('https://example.com/real.jpg');
-  });
-
-  test('應該處理包含 loading 佔位符的 src', () => {
-    const doc = new DOMParser().parseFromString(
+      'https://example.com/real.jpg',
+    ],
+    [
+      '應該處理包含 loading 佔位符的 src',
       '<html><body><img data-src="https://example.com/real.jpg" src="/images/loading.gif"></body></html>',
-      'text/html'
-    );
-    const count = prepareLazyImages(doc);
-    expect(count).toBe(1);
-    expect(doc.querySelector('img').getAttribute('src')).toBe('https://example.com/real.jpg');
-  });
-
-  test('應該覆蓋已有有效 src 的圖片如果 data-src 存在且不同', () => {
-    const doc = new DOMParser().parseFromString(
+      'https://example.com/real.jpg',
+    ],
+    [
+      '應該覆蓋已有有效 src 的圖片如果 data-src 存在且不同',
       '<html><body><img src="https://example.com/valid.jpg" data-src="https://example.com/other.jpg"></body></html>',
-      'text/html'
-    );
+      'https://example.com/other.jpg',
+    ],
+  ])('%s', (_description, html, expectedSrc) => {
+    const doc = parseTestDocument(html);
     const count = prepareLazyImages(doc);
+
     expect(count).toBe(1);
-    expect(doc.querySelector('img').getAttribute('src')).toBe('https://example.com/other.jpg');
+    expect(doc.querySelector('img').getAttribute('src')).toBe(expectedSrc);
   });
 
   // ... (保留 data-lazy-src 測試) ...
@@ -735,31 +691,26 @@ describe('ReadabilityAdapter - prepareLazyImages', () => {
     expect(count).toBe(2);
   });
 
-  test('應該處理 source 元素的 data-srcset', () => {
-    const doc = new DOMParser().parseFromString(
+  test.each([
+    [
+      '應該處理 source 元素的 data-srcset',
       '<html><body><picture><source data-srcset="img.webp"></picture></body></html>',
-      'text/html'
-    );
-    prepareLazyImages(doc);
-    expect(doc.querySelector('source').getAttribute('srcset')).toBe('img.webp');
-  });
-
-  test('應該覆蓋已有 srcset 的 source 元素如果 data-srcset 存在且不同', () => {
-    const doc = new DOMParser().parseFromString(
+      'img.webp',
+    ],
+    [
+      '應該覆蓋已有 srcset 的 source 元素如果 data-srcset 存在且不同',
       '<html><body><picture><source srcset="existing.webp" data-srcset="other.webp"></picture></body></html>',
-      'text/html'
-    );
-    prepareLazyImages(doc);
-    expect(doc.querySelector('source').getAttribute('srcset')).toBe('other.webp');
-  });
-
-  test('應該處理 source 元素的 data-lazy-srcset', () => {
-    const doc = new DOMParser().parseFromString(
+      'other.webp',
+    ],
+    [
+      '應該處理 source 元素的 data-lazy-srcset',
       '<html><body><picture><source data-lazy-srcset="lazy.webp"></picture></body></html>',
-      'text/html'
-    );
+      'lazy.webp',
+    ],
+  ])('%s', (_description, html, expectedSrcset) => {
+    const doc = parseTestDocument(html);
     prepareLazyImages(doc);
-    expect(doc.querySelector('source').getAttribute('srcset')).toBe('lazy.webp');
+    expect(doc.querySelector('source').getAttribute('srcset')).toBe(expectedSrcset);
   });
 
   test('應該正確處理 data-srcset 屬性並提取第一個 URL 作為 src', () => {
@@ -800,75 +751,65 @@ describe('ReadabilityAdapter - prepareLazyImages', () => {
   });
 
   // [HK01 懶加載修復] CSS opacity-0 容器測試
-  test('應該移除含有 img 的 opacity-0 容器的 opacity-0 class', () => {
-    const doc = new DOMParser().parseFromString(
+  test.each([
+    [
+      '應該移除含有 img 的 opacity-0 容器的 opacity-0 class',
       `<html><body>
         <div class="opacity-0 wrapper">
           <img src="https://example.com/photo.jpg">
         </div>
       </body></html>`,
-      'text/html'
-    );
-    const container = doc.querySelector('.wrapper');
-    expect(container.classList.contains('opacity-0')).toBe(true);
-
-    prepareLazyImages(doc);
-
-    expect(container.classList.contains('opacity-0')).toBe(false);
-  });
-
-  test('應該移除含有 img 的 lazyload-* class 容器', () => {
-    const doc = new DOMParser().parseFromString(
+      '.wrapper',
+      container => expect(container.classList.contains('opacity-0')).toBe(false),
+      null,
+    ],
+    [
+      '應該移除含有 img 的 lazyload-* class 容器',
       `<html><body>
         <div class="lazyload-wrapper">
           <img src="https://example.com/photo.jpg">
         </div>
       </body></html>`,
-      'text/html'
-    );
-    const container = doc.querySelector('.lazyload-wrapper');
-
-    const count = prepareLazyImages(doc);
-
-    expect(container.classList.contains('lazyload-wrapper')).toBe(false);
-    expect(count).toBe(1);
-  });
-
-  test('應該只在實際修改 DOM 時移除 lazyload 與可見性樣式並計數', () => {
-    const doc = new DOMParser().parseFromString(
+      '.lazyload-wrapper',
+      container => expect(container.classList.contains('lazyload-wrapper')).toBe(false),
+      1,
+    ],
+    [
+      '應該只在實際修改 DOM 時移除 lazyload 與可見性樣式並計數',
       `<html><body>
         <div class="lazyload hero" style="opacity: 0; visibility: hidden;">
           <img src="https://example.com/photo.jpg">
         </div>
       </body></html>`,
-      'text/html'
-    );
-    const container = doc.querySelector('.hero');
-
-    const count = prepareLazyImages(doc);
-
-    expect(container.classList.contains('lazyload')).toBe(false);
-    expect(container.style.opacity).toBe('');
-    expect(container.style.visibility).toBe('');
-    expect(count).toBe(1);
-  });
-
-  test('不含 img 的 opacity-0 元素不應被修改（保護非圖片動畫）', () => {
-    const doc = new DOMParser().parseFromString(
+      '.hero',
+      container => {
+        expect(container.classList.contains('lazyload')).toBe(false);
+        expect(container.style.opacity).toBe('');
+        expect(container.style.visibility).toBe('');
+      },
+      1,
+    ],
+    [
+      '不含 img 的 opacity-0 元素不應被修改（保護非圖片動畫）',
       `<html><body>
         <div class="opacity-0 fade-in-element">
           <span>動畫文字</span>
         </div>
       </body></html>`,
-      'text/html'
-    );
-    const element = doc.querySelector('.fade-in-element');
-    expect(element.classList.contains('opacity-0')).toBe(true);
+      '.fade-in-element',
+      element => expect(element.classList.contains('opacity-0')).toBe(true),
+      null,
+    ],
+  ])('%s', (_description, html, selector, expectContainerState, expectedCount) => {
+    expect.hasAssertions();
+    const doc = parseTestDocument(html);
+    const container = doc.querySelector(selector);
+    const count = prepareLazyImages(doc);
 
-    prepareLazyImages(doc);
-
-    // 不含 img，不應修改
-    expect(element.classList.contains('opacity-0')).toBe(true);
+    expectContainerState(container);
+    if (expectedCount !== null) {
+      expect(count).toBe(expectedCount);
+    }
   });
 });
 
@@ -879,25 +820,29 @@ describe('ReadabilityAdapter - detectCMS Coverage', () => {
     document.body.className = '';
   });
 
-  test('should detect CMS by meta signal', () => {
-    document.head.innerHTML = '<meta name="generator" content="WordPress 6.0">';
+  test.each([
+    [
+      'should detect CMS by meta signal',
+      () => {
+        document.head.innerHTML = '<meta name="generator" content="WordPress 6.0">';
+      },
+      'meta',
+    ],
+    [
+      'should detect CMS by class signal',
+      () => {
+        document.body.className = 'wordpress-theme';
+      },
+      'class',
+    ],
+  ])('%s', (_description, arrangeSignal, expectedSignal) => {
+    arrangeSignal();
 
     expect(detectCMS()).toBe('wordpress');
     expect(Logger.log).toHaveBeenCalledWith('檢測到 CMS', {
       action: 'detectCMS',
       type: 'wordpress',
-      signal: 'meta',
-    });
-  });
-
-  test('should detect CMS by class signal', () => {
-    document.body.className = 'wordpress-theme';
-
-    expect(detectCMS()).toBe('wordpress');
-    expect(Logger.log).toHaveBeenCalledWith('檢測到 CMS', {
-      action: 'detectCMS',
-      type: 'wordpress',
-      signal: 'class',
+      signal: expectedSignal,
     });
   });
 

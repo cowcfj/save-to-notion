@@ -30,6 +30,21 @@ test.describe('Preloader E2E Tests', () => {
     );
   };
 
+  const waitForPreloaderPing = async worker => {
+    let pingResult;
+    await expect
+      .poll(
+        async () => {
+          pingResult = await sendPreloaderMessage(worker, 'PING');
+          return pingResult.ok ? pingResult.response.status : pingResult.error;
+        },
+        { message: 'wait for preloader PING response' }
+      )
+      .toBe('preloader_only');
+
+    return pingResult;
+  };
+
   test('should initialize and respond to PING', async ({ page, context }) => {
     // 1. 導航到測試頁面
     await page.goto('https://example.com');
@@ -41,7 +56,7 @@ test.describe('Preloader E2E Tests', () => {
     }
 
     // 3. 通過 Service Worker 發送 PING 消息給 Content Script (Preloader)
-    const result = await sendPreloaderMessage(worker, 'PING');
+    const result = await waitForPreloaderPing(worker);
 
     // 驗證 Preloader 有回應且成功
     expect(result.ok).toBe(true);
@@ -58,11 +73,8 @@ test.describe('Preloader E2E Tests', () => {
       worker = await context.waitForEvent('serviceworker');
     }
 
-    // 2. 等待 Preloader 準備就緒
-    await page.waitForTimeout(500); // 給 preloader 時間初始化
-
-    // 3. 驗證 Preloader 已載入並響應
-    const pingResult = await sendPreloaderMessage(worker, 'PING');
+    // 2. 驗證 Preloader 已載入並響應
+    const pingResult = await waitForPreloaderPing(worker);
 
     if (!pingResult.ok || !pingResult.response.status) {
       test.skip(
@@ -71,19 +83,16 @@ test.describe('Preloader E2E Tests', () => {
       );
     }
 
-    // 4. 模擬按下 Ctrl+S（現在可以確保會被緩衝）
+    // 3. 模擬按下 Ctrl+S（現在可以確保會被緩衝）
     await page.keyboard.press('Control+s');
 
-    // 5. 給事件緩衝時間
-    await page.waitForTimeout(200);
-
-    // 6. 測試 INIT_BUNDLE 是否顯示有緩衝事件
+    // 4. 測試 INIT_BUNDLE 是否顯示有緩衝事件
     const initResult = await sendPreloaderMessage(worker, 'INIT_BUNDLE');
 
     expect(initResult.ok).toBe(true);
     expect(initResult.response.ready).toBe(true);
 
-    // 7. 測試 REPLAY_BUFFERED_EVENTS
+    // 5. 測試 REPLAY_BUFFERED_EVENTS
     const replayResult = await sendPreloaderMessage(worker, 'REPLAY_BUFFERED_EVENTS');
 
     expect(replayResult.ok).toBe(true);
