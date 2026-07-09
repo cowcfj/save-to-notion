@@ -86,6 +86,12 @@ const { TabService } = await import('../../../../scripts/background/services/Tab
 afterEach(() => {
   jest.restoreAllMocks();
   jest.clearAllMocks();
+  jest.useRealTimers();
+  delete globalThis.HighlighterV2;
+  delete globalThis.__NOTION_RAIL_READY__;
+  if (globalThis.chrome?.runtime) {
+    globalThis.chrome.runtime.lastError = null;
+  }
 });
 
 describe('background services native ESM diagnostics', () => {
@@ -100,6 +106,32 @@ describe('background services native ESM diagnostics', () => {
     const service = new InjectionService({ logger: loggerMock });
     await expect(service._resolveHighlighterPath()).resolves.toBe('dist/content.bundle.js');
     await expect(service._resolveHighlighterPath()).resolves.toBe('dist/content.bundle.js');
+  });
+
+  test('InjectionService returns not-ready result when rail readiness times out', async () => {
+    jest.useFakeTimers();
+    globalThis.chrome = {
+      runtime: { lastError: null },
+      scripting: {
+        executeScript: jest.fn(async (options, callback) => {
+          if (options.files) {
+            callback([]);
+            return;
+          }
+
+          const resultPromise = options.func();
+          await jest.advanceTimersByTimeAsync(2100);
+          callback([{ result: await resultPromise }]);
+        }),
+      },
+    };
+
+    const service = new InjectionService({ logger: loggerMock });
+
+    await expect(service.injectHighlighter(1)).resolves.toEqual({
+      initialized: false,
+      highlightCount: 0,
+    });
   });
 
   test('StorageService builds page-state keys, legacy state, highlights, and retry windows', () => {
