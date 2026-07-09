@@ -57,6 +57,14 @@ const UPGRADE_RETRY_MAX_DELAY_MS = 60_000;
 const UPGRADE_RETRY_TTL_MS = 30 * 60 * 1000;
 const NOTION_STATE_CLEAR_RETRY_DELAY_MS = 100;
 
+const PUBLIC_NOTION_FIELD_MAPPINGS = [
+  ['notionPageId', 'pageId'],
+  ['notionUrl', 'url'],
+  ['savedAt', 'savedAt'],
+  ['lastVerifiedAt', 'lastVerifiedAt'],
+  ['destinationProfileId', 'destinationProfileId'],
+];
+
 /**
  * 取第一個有效的非空字串候選值
  *
@@ -87,6 +95,15 @@ function pickFirstNonEmptyString(...candidates) {
 function pickFirstNonNullish(...candidates) {
   for (const candidate of candidates) {
     if (candidate !== null && candidate !== undefined) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function pickFirstTruthy(...candidates) {
+  for (const candidate of candidates) {
+    if (candidate) {
       return candidate;
     }
   }
@@ -241,13 +258,20 @@ class StorageService {
   }
 
   _resolvePageStateTargetUrl(state, fallbackUrl) {
-    if (typeof state?.key === 'string' && state.key.startsWith(PAGE_PREFIX)) {
-      return state.key.slice(PAGE_PREFIX.length);
+    const targetUrl = this._resolvePageStateKeyUrl(state) ?? this._resolveLegacyStateUrl(state);
+    return targetUrl ?? fallbackUrl;
+  }
+
+  _resolvePageStateKeyUrl(state) {
+    const key = state?.key;
+    if (typeof key !== 'string') {
+      return null;
     }
-    if (typeof state?.resolvedUrl === 'string' && state.resolvedUrl) {
-      return state.resolvedUrl;
-    }
-    return fallbackUrl;
+    return key.startsWith(PAGE_PREFIX) ? key.slice(PAGE_PREFIX.length) : null;
+  }
+
+  _resolveLegacyStateUrl(state) {
+    return typeof state?.resolvedUrl === 'string' ? state.resolvedUrl || null : null;
   }
 
   /**
@@ -265,10 +289,14 @@ class StorageService {
     return {
       pageId: pickFirstNonEmptyString(savedData.notionPageId, savedData.pageId),
       url: pickFirstNonEmptyString(savedData.notionUrl, savedData.url),
-      title: savedData.title || null,
-      savedAt: savedData.savedAt ?? savedData.lastUpdated ?? now,
-      lastVerifiedAt: savedData.lastVerifiedAt ?? null,
+      title: this._nullishEmptyValue(savedData.title),
+      savedAt: pickFirstNonNullish(savedData.savedAt, savedData.lastUpdated, now),
+      lastVerifiedAt: pickFirstNonNullish(savedData.lastVerifiedAt, null),
     };
+  }
+
+  _nullishEmptyValue(value) {
+    return value || null;
   }
 
   /**
@@ -281,12 +309,17 @@ class StorageService {
    * @private
    */
   _buildPageMetadata(savedData, now, migratedFrom) {
-    const createdAt = savedData?.savedAt ?? savedData?.lastUpdated ?? now;
+    const source = savedData ?? {};
+    const createdAt = pickFirstNonNullish(source.savedAt, source.lastUpdated, now);
     return {
       createdAt,
       lastUpdated: now,
-      ...(migratedFrom ? { migratedFrom } : {}),
+      ...this._buildMigratedFromMetadata(migratedFrom),
     };
+  }
+
+  _buildMigratedFromMetadata(migratedFrom) {
+    return migratedFrom ? { migratedFrom } : {};
   }
 
   /**
@@ -406,17 +439,21 @@ class StorageService {
    */
   _buildNotionField(data, now, currentNotion = null) {
     const fallback = currentNotion ?? {};
-    const destinationProfileId = Object.hasOwn(data, 'destinationProfileId')
-      ? (data.destinationProfileId ?? null)
-      : (fallback.destinationProfileId ?? null);
     return {
       pageId: pickFirstNonEmptyString(data.notionPageId, data.pageId, fallback.pageId),
       url: pickFirstNonEmptyString(data.notionUrl, data.url, fallback.url),
-      title: data.title || fallback.title || null,
+      title: pickFirstTruthy(data.title, fallback.title),
       savedAt: pickFirstNonNullish(data.savedAt, fallback.savedAt, now),
       lastVerifiedAt: pickFirstNonNullish(data.lastVerifiedAt, fallback.lastVerifiedAt, null),
-      destinationProfileId,
+      destinationProfileId: this._resolveDestinationProfileId(data, fallback),
     };
+  }
+
+  _resolveDestinationProfileId(data, fallback) {
+    if (!data || !Object.hasOwn(data, 'destinationProfileId')) {
+      return fallback.destinationProfileId ?? null;
+    }
+    return data.destinationProfileId ?? null;
   }
 
   /**
@@ -485,9 +522,20 @@ class StorageService {
    * @private
    */
   _isMismatchedPageId(state, expectedPageId) {
-    return Boolean(
-      expectedPageId && state?.data?.notion?.pageId && state.data.notion.pageId !== expectedPageId
-    );
+    if (!expectedPageId) {
+      return false;
+    }
+
+    const actualPageId = this._resolveStateNotionPageId(state);
+    return this._hasDifferentPageId(actualPageId, expectedPageId);
+  }
+
+  _resolveStateNotionPageId(state) {
+    return state?.data?.notion?.pageId ?? null;
+  }
+
+  _hasDifferentPageId(actualPageId, expectedPageId) {
+    return Boolean(actualPageId && actualPageId !== expectedPageId);
   }
 
   /**
@@ -540,10 +588,14 @@ class StorageService {
    * @private
    */
   _isExistingPageNewer(existingPage, builtObj) {
-    return Boolean(
-      existingPage &&
-      (existingPage.metadata?.lastUpdated ?? 0) > (builtObj.metadata?.lastUpdated ?? 0)
-    );
+    if (!existingPage) {
+      return false;
+    }
+    return this._getLastUpdated(existingPage) > this._getLastUpdated(builtObj);
+  }
+
+  _getLastUpdated(pageData) {
+    return pageData.metadata?.lastUpdated ?? 0;
   }
 
   /**
@@ -597,23 +649,19 @@ class StorageService {
       return preloadResult;
     }
 
-    const extraKeys = [];
-    const stablePageKey = `${PAGE_PREFIX}${aliasCandidate}`;
-    const stableHlKey = `${HIGHLIGHTS_PREFIX}${aliasCandidate}`;
-
-    if (!(stablePageKey in preloadResult)) {
-      extraKeys.push(stablePageKey);
-    }
-    if (!(stableHlKey in preloadResult)) {
-      extraKeys.push(stableHlKey);
-    }
-
+    const extraKeys = this._collectMissingStableKeys(aliasCandidate, preloadResult);
     if (extraKeys.length > 0) {
       const extra = (await this.storage.local.get(extraKeys)) || {};
       return { ...preloadResult, ...extra };
     }
 
     return preloadResult;
+  }
+
+  _collectMissingStableKeys(aliasCandidate, preloadResult) {
+    return [`${PAGE_PREFIX}${aliasCandidate}`, `${HIGHLIGHTS_PREFIX}${aliasCandidate}`].filter(
+      key => !(key in preloadResult)
+    );
   }
 
   /**
@@ -628,13 +676,15 @@ class StorageService {
       return null;
     }
     return {
-      notionPageId: notion.pageId ?? null,
-      notionUrl: notion.url ?? null,
-      title: notion.title || null,
-      savedAt: notion.savedAt ?? null,
-      lastVerifiedAt: notion.lastVerifiedAt ?? null,
-      destinationProfileId: notion.destinationProfileId ?? null,
+      ...this._mapNullableFields(notion, PUBLIC_NOTION_FIELD_MAPPINGS),
+      title: this._nullishEmptyValue(notion.title),
     };
+  }
+
+  _mapNullableFields(source, mappings) {
+    return Object.fromEntries(
+      mappings.map(([publicKey, sourceKey]) => [publicKey, source[sourceKey] ?? null])
+    );
   }
 
   /**
@@ -674,7 +724,7 @@ class StorageService {
       return this._buildExistingHighlightsPage(canonicalCurrent, highlights, now);
     }
 
-    if (migrationSource?.key?.startsWith(PAGE_PREFIX)) {
+    if (this._isPageMigrationSource(migrationSource)) {
       return this._buildExistingHighlightsPage(
         migrationSource.value,
         highlights,
@@ -687,8 +737,16 @@ class StorageService {
       null,
       highlights,
       normalizedUrl,
-      migrationSource?.key || undefined
+      this._resolveMigrationSourceKey(migrationSource)
     );
+  }
+
+  _isPageMigrationSource(migrationSource) {
+    return Boolean(migrationSource?.key?.startsWith(PAGE_PREFIX));
+  }
+
+  _resolveMigrationSourceKey(migrationSource) {
+    return migrationSource?.key || undefined;
   }
 
   _buildExistingHighlightsPage(pageData, highlights, now, migratedFrom = null) {
@@ -945,31 +1003,25 @@ class StorageService {
     const rawUrl = typeof pageUrl === 'string' ? pageUrl : null;
 
     try {
-      // 步驟 1：批量讀取所有需要的 keys（包含 alias + 所有可能的 page_* 和 highlights_*）
-      const aliasKeys = getAliasLookupKeys(normalizedUrl, rawUrl);
-      const preloadKeys = this._buildHighlightsPreloadKeys(normalizedUrl, rawUrl, aliasKeys);
-      const preloadResult = (await this.storage.local.get(preloadKeys)) || {};
-
-      // 步驟 2：從讀取結果選出 alias candidate
-      const aliasCandidate = pickAliasCandidate(preloadResult, normalizedUrl, rawUrl);
-
-      // 步驟 3：產生 lookup contract
-      const contract = resolveHighlightLookupKeys(normalizedUrl, aliasCandidate);
-
-      // 步驟 4：若 alias 已用，補取 stableUrl 的 page_* 和 highlights_*
-      const storageData = await this._resolveStableExtraKeys(
-        aliasCandidate,
-        normalizedUrl,
-        preloadResult
-      );
-
-      // 步驟 5：依 contract 順序取出第一個有效 highlights
-      const { highlights } = pickHighlightsFromStorage(contract, storageData);
-      return highlights; // null 表示找不到
+      return await this._getHighlightsForNormalizedUrl(normalizedUrl, rawUrl);
     } catch (error) {
       this.logger.error?.('[StorageService] getHighlights failed', { error });
       throw error;
     }
+  }
+
+  async _getHighlightsForNormalizedUrl(normalizedUrl, rawUrl) {
+    const aliasKeys = getAliasLookupKeys(normalizedUrl, rawUrl);
+    const preloadKeys = this._buildHighlightsPreloadKeys(normalizedUrl, rawUrl, aliasKeys);
+    const preloadResult = (await this.storage.local.get(preloadKeys)) || {};
+    const aliasCandidate = pickAliasCandidate(preloadResult, normalizedUrl, rawUrl);
+    const contract = resolveHighlightLookupKeys(normalizedUrl, aliasCandidate);
+    const storageData = await this._resolveStableExtraKeys(
+      aliasCandidate,
+      normalizedUrl,
+      preloadResult
+    );
+    return pickHighlightsFromStorage(contract, storageData).highlights;
   }
 
   /**
@@ -1357,32 +1409,61 @@ class StorageService {
       : NOTION_STATE_CLEAR_RETRY_DELAY_MS;
     const safeUrl = sanitizeUrlForLogging(normalizeUrl(pageUrl));
     const maxAttempts = 2;
-    let lastError = null;
 
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        return await this._executeClearAttempt({ pageUrl, options, safeUrl, source, attempt });
-      } catch (error) {
-        lastError = error;
-        const isTerminal = attempt >= maxAttempts;
+    const retryResult = await this._runClearNotionRetryLoop({
+      pageUrl,
+      options,
+      safeUrl,
+      source,
+      retryDelayMs,
+      maxAttempts,
+    });
 
-        this._logClearAttemptFailure({ source, attempt, safeUrl, error, isTerminal });
+    return this._buildClearNotionRetryResult(retryResult, maxAttempts);
+  }
 
-        if (isTerminal) {
-          break;
-        }
-
-        if (retryDelayMs > 0) {
-          await new Promise(resolve => setTimeout(resolve, retryDelayMs));
-        }
-      }
+  _buildClearNotionRetryResult(retryResult, maxAttempts) {
+    if (retryResult.completed) {
+      return retryResult.result;
     }
-
     return {
       cleared: false,
       attempts: maxAttempts,
-      error: lastError || new Error('maxAttempts 必須大於 0'),
+      error: retryResult.error || new Error('maxAttempts 必須大於 0'),
     };
+  }
+
+  async _runClearNotionRetryLoop(context) {
+    let lastError = null;
+    for (let attempt = 1; attempt <= context.maxAttempts; attempt++) {
+      try {
+        return {
+          completed: true,
+          result: await this._executeClearAttempt({ ...context, attempt }),
+        };
+      } catch (error) {
+        lastError = error;
+        const shouldStop = this._handleClearAttemptFailure({ ...context, attempt, error });
+        if (shouldStop) {
+          break;
+        }
+        await this._waitBeforeClearRetry(context.retryDelayMs);
+      }
+    }
+    return { completed: false, error: lastError };
+  }
+
+  _handleClearAttemptFailure({ source, attempt, safeUrl, error, maxAttempts }) {
+    const isTerminal = attempt >= maxAttempts;
+    this._logClearAttemptFailure({ source, attempt, safeUrl, error, isTerminal });
+    return isTerminal;
+  }
+
+  async _waitBeforeClearRetry(retryDelayMs) {
+    if (retryDelayMs <= 0) {
+      return;
+    }
+    await new Promise(resolve => setTimeout(resolve, retryDelayMs));
   }
 
   /**
@@ -1598,18 +1679,26 @@ class StorageService {
     const { localConfig, syncConfig } = this._partitionConfig(config);
 
     try {
-      const promises = [];
-      if (Object.keys(syncConfig).length > 0) {
-        promises.push(this.storage.sync.set(syncConfig));
-      }
-      if (Object.keys(localConfig).length > 0) {
-        promises.push(this.storage.local.set(localConfig));
-      }
-      await Promise.all(promises);
+      await this._writeConfigPartitions({ localConfig, syncConfig });
     } catch (error) {
       this.logger.error?.('[StorageService] setConfig failed', { error });
       throw error;
     }
+  }
+
+  async _writeConfigPartitions({ localConfig, syncConfig }) {
+    const operations = [
+      this._writeConfigPartition(this.storage.sync, syncConfig),
+      this._writeConfigPartition(this.storage.local, localConfig),
+    ].filter(Boolean);
+    await Promise.all(operations);
+  }
+
+  _writeConfigPartition(storageArea, config) {
+    if (Object.keys(config).length === 0) {
+      return null;
+    }
+    return storageArea.set(config);
   }
 
   /**

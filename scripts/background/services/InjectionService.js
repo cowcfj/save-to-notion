@@ -111,20 +111,29 @@ async function activateFloatingRailInPage() {
       delay(Math.max(0, Math.min(interval, remainingMs))).then(() => timeoutResult),
     ]);
 
-    if (readyResult?.timedOut) {
+    return resolveRailReadyResult(readyResult, remainingMs);
+  }
+
+  async function resolveRailReadyResult(readyResult, remainingMs) {
+    if (readyResult && readyResult.timedOut) {
       return null;
     }
 
-    if (readyResult?.success) {
-      const rail = readyResult.rail || getRail();
-      if (rail) {
-        return activateRail(rail);
-      }
-      await delay(Math.max(0, Math.min(interval, remainingMs)));
-      return null;
+    if (!(readyResult && readyResult.success)) {
+      return notReady();
     }
 
-    return notReady();
+    return activateReadyRail(readyResult, remainingMs);
+  }
+
+  async function activateReadyRail(readyResult, remainingMs) {
+    const rail = readyResult.rail || getRail();
+    if (rail) {
+      return activateRail(rail);
+    }
+
+    await delay(Math.max(0, Math.min(interval, remainingMs)));
+    return null;
   }
 
   function delay(ms) {
