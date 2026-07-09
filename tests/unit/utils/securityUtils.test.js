@@ -153,7 +153,7 @@ describe('securityUtils', () => {
         url: 'https://example.com',
       };
       const result = validateInternalRequest(sender);
-      expectRejectedResponse(result);
+      expectRejectedResponse(result, '僅限擴充功能內部');
     });
   });
 
@@ -194,7 +194,7 @@ describe('securityUtils', () => {
         tab: {},
       };
       const result = validateContentScriptRequest(sender);
-      expectRejectedResponse(result);
+      expectRejectedResponse(result, '標籤頁上下文');
     });
   });
 
