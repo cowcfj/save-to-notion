@@ -60,7 +60,6 @@ const NOTION_STATE_CLEAR_RETRY_DELAY_MS = 100;
 const PUBLIC_NOTION_FIELD_MAPPINGS = [
   ['notionPageId', 'pageId'],
   ['notionUrl', 'url'],
-  ['title', 'title'],
   ['savedAt', 'savedAt'],
   ['lastVerifiedAt', 'lastVerifiedAt'],
   ['destinationProfileId', 'destinationProfileId'],
@@ -451,7 +450,7 @@ class StorageService {
   }
 
   _resolveDestinationProfileId(data, fallback) {
-    if (!Object.hasOwn(data, 'destinationProfileId')) {
+    if (!data || !Object.hasOwn(data, 'destinationProfileId')) {
       return fallback.destinationProfileId ?? null;
     }
     return data.destinationProfileId ?? null;
@@ -1411,7 +1410,7 @@ class StorageService {
     const safeUrl = sanitizeUrlForLogging(normalizeUrl(pageUrl));
     const maxAttempts = 2;
 
-    const lastError = await this._runClearNotionRetryLoop({
+    const retryResult = await this._runClearNotionRetryLoop({
       pageUrl,
       options,
       safeUrl,
@@ -1420,17 +1419,17 @@ class StorageService {
       maxAttempts,
     });
 
-    return this._buildClearNotionRetryResult(lastError, maxAttempts);
+    return this._buildClearNotionRetryResult(retryResult, maxAttempts);
   }
 
-  _buildClearNotionRetryResult(lastError, maxAttempts) {
-    if (lastError.completed) {
-      return lastError.result;
+  _buildClearNotionRetryResult(retryResult, maxAttempts) {
+    if (retryResult.completed) {
+      return retryResult.result;
     }
     return {
       cleared: false,
       attempts: maxAttempts,
-      error: lastError.error || new Error('maxAttempts 必須大於 0'),
+      error: retryResult.error || new Error('maxAttempts 必須大於 0'),
     };
   }
 

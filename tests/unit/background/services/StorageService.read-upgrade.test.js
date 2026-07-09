@@ -613,6 +613,14 @@ describe('StorageService - Read Write Upgrade', () => {
         }),
       });
     });
+
+    it('nullish data 應保留既有 destinationProfileId', () => {
+      const result = service._resolveDestinationProfileId(null, {
+        destinationProfileId: 'existing-profile',
+      });
+
+      expect(result).toBe('existing-profile');
+    });
   });
 
   describe('setSavedPageData', () => {
