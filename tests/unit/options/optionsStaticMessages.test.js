@@ -184,6 +184,26 @@ describe('optionsStaticMessages', () => {
       expect(labelText.textContent).toBe(UI_MESSAGES.OPTIONS.DIAGNOSTICS.ENABLE_DEBUG_LOGS_LABEL);
     });
 
+    it('data management section title and description should use UI_MESSAGES bindings', () => {
+      const html = readProjectFile('pages/options/options.html');
+      const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+      expect(bodyMatch).not.toBeNull();
+      document.body.innerHTML = bodyMatch[1];
+
+      const sectionTitle = document.querySelector('#section-data > header > h2');
+      const sectionDesc = document.querySelector('#section-data > header > .section-desc');
+
+      expect(sectionTitle).not.toBeNull();
+      expect(sectionDesc).not.toBeNull();
+      expect(sectionTitle.dataset.uiMessage).toBe('OPTIONS.DATA_MANAGEMENT.SECTION_TITLE');
+      expect(sectionDesc.dataset.uiMessage).toBe('OPTIONS.DATA_MANAGEMENT.SECTION_DESC');
+
+      applyStaticOptionMessages();
+
+      expect(sectionTitle.textContent).toBe(UI_MESSAGES.OPTIONS.DATA_MANAGEMENT.SECTION_TITLE);
+      expect(sectionDesc.textContent).toBe(UI_MESSAGES.OPTIONS.DATA_MANAGEMENT.SECTION_DESC);
+    });
+
     it('destination help link 應提供靜態 accessible name 並保留 runtime i18n 綁定', () => {
       const html = readProjectFile('pages/options/options.html');
       const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);

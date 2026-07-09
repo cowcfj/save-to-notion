@@ -126,6 +126,8 @@ const OPTIONS = {
     VALIDATE_AND_SAVE_API_KEY: '驗證並保存',
   },
   DATA_MANAGEMENT: {
+    SECTION_TITLE: '數據管理',
+    SECTION_DESC: '管理本地存儲的標記數據與備份',
     IMPORT_FILE_LABEL: '選擇備份檔案',
   },
   DIAGNOSTICS: {
