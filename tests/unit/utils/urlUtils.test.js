@@ -2,7 +2,9 @@
  * @jest-environment node
  */
 
-const { installGlobalLoggerMock } = require('../../helpers/loggerMock.cjs');
+import loggerMock from '../../helpers/loggerMock.cjs';
+
+const { installGlobalLoggerMock } = loggerMock;
 
 installGlobalLoggerMock();
 

@@ -6,7 +6,9 @@
  * @author Content Extraction Team
  */
 
-const { createLoggerMock } = require('../helpers/loggerMock.cjs');
+import loggerMock from '../helpers/loggerMock.cjs';
+
+const { createLoggerMock } = loggerMock;
 
 const mockLogger = createLoggerMock();
 const mockLoggerModule = {

@@ -20,6 +20,8 @@ let securityUtilsExports;
 let maskSensitiveString;
 let SECURITY_CONSTANTS;
 
+const MOCK_RUNTIME_ID = 'mock-extension-id';
+
 beforeAll(async () => {
   securityUtilsExports = await import('../../../scripts/utils/securityUtils.js');
   ({
@@ -36,6 +38,35 @@ beforeAll(async () => {
   ({ maskSensitiveString } = await import('../../../scripts/utils/LogSanitizer.js'));
   ({ SECURITY_CONSTANTS } = await import('../../../scripts/config/shared/core.js'));
 });
+
+function installRuntimeId(runtimeId = MOCK_RUNTIME_ID) {
+  globalThis.chrome = {
+    runtime: {
+      id: runtimeId,
+    },
+  };
+}
+
+function expectRejectedResponse(result, expectedErrorFragment) {
+  expect(result).not.toBeNull();
+  expect(result.success).toBe(false);
+  if (expectedErrorFragment) {
+    expect(result.error).toContain(expectedErrorFragment);
+  }
+}
+
+function createBackupPayloadWithPollution(pollutionKey, pollutionValue) {
+  const maliciousPayload = {
+    version: '1',
+    timestamp: '123456789',
+    data: {},
+  };
+  Object.defineProperty(maliciousPayload.data, pollutionKey, {
+    value: pollutionValue,
+    enumerable: true,
+  });
+  return maliciousPayload;
+}
 
 describe('securityUtils', () => {
   describe('export surface', () => {
@@ -89,96 +120,81 @@ describe('securityUtils', () => {
   });
 
   describe('validateInternalRequest', () => {
-    const mockRuntimeId = 'mock-extension-id';
-
     beforeEach(() => {
-      globalThis.chrome = {
-        runtime: {
-          id: mockRuntimeId,
-        },
-      };
+      installRuntimeId();
     });
 
     test('來自擴充功能內部（Popup）的請求應通過', () => {
-      const sender = { id: mockRuntimeId };
+      const sender = { id: MOCK_RUNTIME_ID };
       expect(validateInternalRequest(sender)).toBeNull();
     });
 
     test('來自擴充功能選項頁面（Options in Tab）的請求應通過', () => {
       const sender = {
-        id: mockRuntimeId,
+        id: MOCK_RUNTIME_ID,
         tab: { id: 1 },
-        url: `chrome-extension://${mockRuntimeId}/options.html`,
+        url: `chrome-extension://${MOCK_RUNTIME_ID}/options.html`,
       };
       expect(validateInternalRequest(sender)).toBeNull();
     });
 
     test('sender.id 不匹配時應拒絕', () => {
+      expect.hasAssertions();
       const sender = { id: 'different-extension-id' };
       const result = validateInternalRequest(sender);
-      expect(result).not.toBeNull();
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('拒絕訪問');
+      expectRejectedResponse(result, '拒絕訪問');
     });
 
     test('來自外部網頁標籤的請求應拒絕', () => {
+      expect.hasAssertions();
       const sender = {
-        id: mockRuntimeId,
+        id: MOCK_RUNTIME_ID,
         tab: { id: 1 },
         url: 'https://example.com',
       };
       const result = validateInternalRequest(sender);
-      expect(result).not.toBeNull();
-      expect(result.success).toBe(false);
+      expectRejectedResponse(result);
     });
   });
 
   describe('validateContentScriptRequest', () => {
-    const mockRuntimeId = 'mock-extension-id';
-
     beforeEach(() => {
-      globalThis.chrome = {
-        runtime: {
-          id: mockRuntimeId,
-        },
-      };
+      installRuntimeId();
     });
 
     test('有效的 Content Script 請求應通過', () => {
       const sender = {
-        id: mockRuntimeId,
+        id: MOCK_RUNTIME_ID,
         tab: { id: 123 },
       };
       expect(validateContentScriptRequest(sender)).toBeNull();
     });
 
     test('sender.id 不匹配時應拒絕', () => {
+      expect.hasAssertions();
       const sender = {
         id: 'different-extension-id',
         tab: { id: 123 },
       };
       const result = validateContentScriptRequest(sender);
-      expect(result).not.toBeNull();
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('僅限本擴充功能');
+      expectRejectedResponse(result, '僅限本擴充功能');
     });
 
     test('缺少 sender.tab 時應拒絕', () => {
-      const sender = { id: mockRuntimeId };
+      expect.hasAssertions();
+      const sender = { id: MOCK_RUNTIME_ID };
       const result = validateContentScriptRequest(sender);
-      expect(result).not.toBeNull();
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('標籤頁上下文');
+      expectRejectedResponse(result, '標籤頁上下文');
     });
 
     test('sender.tab.id 為空時應拒絕', () => {
+      expect.hasAssertions();
       const sender = {
-        id: mockRuntimeId,
+        id: MOCK_RUNTIME_ID,
         tab: {},
       };
       const result = validateContentScriptRequest(sender);
-      expect(result).not.toBeNull();
-      expect(result.success).toBe(false);
+      expectRejectedResponse(result);
     });
   });
 
@@ -469,29 +485,11 @@ describe('securityUtils', () => {
       expect(() => validateBackupData(payload)).toThrow(expectedMessage);
     });
 
-    test('包含 __proto__ 污染鍵值的備份應拋出安全警告', () => {
-      const maliciousPayload = {
-        version: '1',
-        timestamp: '123456789',
-        data: {},
-      };
-      Object.defineProperty(maliciousPayload.data, '__proto__', {
-        value: { polluted: true },
-        enumerable: true,
-      });
-      expect(() => validateBackupData(maliciousPayload)).toThrow('Security Alert');
-    });
-
-    test('包含 constructor 污染鍵值的備份應拋出安全警告', () => {
-      const maliciousPayload = {
-        version: '1',
-        timestamp: '123456789',
-        data: {},
-      };
-      Object.defineProperty(maliciousPayload.data, 'constructor', {
-        value: { name: 'Function' },
-        enumerable: true,
-      });
+    test.each([
+      ['__proto__ 污染鍵值', '__proto__', { polluted: true }],
+      ['constructor 污染鍵值', 'constructor', { name: 'Function' }],
+    ])('包含 %s 的備份應拋出安全警告', (_name, pollutionKey, pollutionValue) => {
+      const maliciousPayload = createBackupPayloadWithPollution(pollutionKey, pollutionValue);
       expect(() => validateBackupData(maliciousPayload)).toThrow('Security Alert');
     });
 
