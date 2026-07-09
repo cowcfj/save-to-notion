@@ -230,17 +230,15 @@ describe('ApiErrorSanitizer', () => {
         }
       );
 
-      test('內部 PATTERNS key 應 fast-path 原樣回傳（避免 keyword 比對誤判為 UNKNOWN_ERROR）', () => {
-        // 模擬 handlerUtils.getActiveTab 拋出 new Error(TECHNICAL.NO_ACTIVE_TAB) 的情境：
-        // Phase 2 後 TECHNICAL value 從英文 short phrase 升級為 SCREAMING_SNAKE token，
-        // sanitizer 必須認得這是內部 vocabulary 而非外部訊息，直接回傳同一個 token。
-        for (const [input, expected] of [
-          ['NO_ACTIVE_TAB', 'NO_ACTIVE_TAB'],
-          ['API_KEY_NOT_CONFIGURED', 'API_KEY_NOT_CONFIGURED'],
-          [new Error('NO_ACTIVE_TAB'), 'NO_ACTIVE_TAB'],
-        ]) {
-          expect(sanitizeApiError(input)).toBe(expected);
-        }
+      // 模擬 handlerUtils.getActiveTab 拋出 new Error(TECHNICAL.NO_ACTIVE_TAB) 的情境：
+      // Phase 2 後 TECHNICAL value 從英文 short phrase 升級為 SCREAMING_SNAKE token，
+      // sanitizer 必須認得這是內部 vocabulary 而非外部訊息，直接回傳同一個 token。
+      test.each([
+        ['NO_ACTIVE_TAB', 'NO_ACTIVE_TAB'],
+        ['API_KEY_NOT_CONFIGURED', 'API_KEY_NOT_CONFIGURED'],
+        [new Error('NO_ACTIVE_TAB'), 'NO_ACTIVE_TAB'],
+      ])('內部 PATTERNS key %p 應 fast-path 回傳 %s', (input, expected) => {
+        expect(sanitizeApiError(input)).toBe(expected);
       });
     });
 

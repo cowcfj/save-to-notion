@@ -413,65 +413,53 @@ describe('securityUtils', () => {
       SECURITY_CONSTANTS.SVG_ALLOWED_ATTRS = originalAllowed;
     });
 
-    test('on* 開頭的屬性應被拒絕', () => {
-      for (const [name, value] of [
-        ['onclick', 'alert(1)'],
-        ['onmouseover', 'true'],
-      ]) {
-        expect(isSafeSvgAttribute(name, value)).toBe(false);
-      }
+    test.each([
+      ['onclick', 'alert(1)'],
+      ['onmouseover', 'true'],
+    ])('on* 開頭的屬性 %s="%s" 應被拒絕', (name, value) => {
+      expect(isSafeSvgAttribute(name, value)).toBe(false);
     });
 
-    test('不在白名單內的屬性應被拒絕', () => {
-      for (const [name, value] of [
-        ['data-malicious', 'true'],
-        ['unknown-attr', '123'],
-      ]) {
-        expect(isSafeSvgAttribute(name, value)).toBe(false);
-      }
+    test.each([
+      ['data-malicious', 'true'],
+      ['unknown-attr', '123'],
+    ])('不在白名單內的屬性 %s="%s" 應被拒絕', (name, value) => {
+      expect(isSafeSvgAttribute(name, value)).toBe(false);
     });
 
-    test('白名單內的非 URL 屬性應被允許', () => {
-      for (const [name, value] of [
-        ['cx', '10'],
-        ['fill', '#fff'],
-      ]) {
-        expect(isSafeSvgAttribute(name, value)).toBe(true);
-      }
+    test.each([
+      ['cx', '10'],
+      ['fill', '#fff'],
+    ])('白名單內的非 URL 屬性 %s="%s" 應被允許', (name, value) => {
+      expect(isSafeSvgAttribute(name, value)).toBe(true);
     });
 
-    test('href / src 包含 javascript: 協議應被拒絕', () => {
-      for (const [name, value] of [
-        ['href', 'javascript:alert(1)'],
-        ['href', '  javascript: void 0;'],
-        ['src', 'DATA:text/html,<html>'],
-      ]) {
-        expect(isSafeSvgAttribute(name, value)).toBe(false);
-      }
+    test.each([
+      ['href', 'javascript:alert(1)'],
+      ['href', '  javascript: void 0;'],
+      ['src', 'DATA:text/html,<html>'],
+    ])('href / src 包含 javascript: 協議 %s="%s" 應被拒絕', (name, value) => {
+      expect(isSafeSvgAttribute(name, value)).toBe(false);
     });
 
-    test('不安全的 URL 協議應被拒絕', () => {
-      for (const [name, value] of [
-        ['href', 'ftp://example.com/a.svg'],
-        ['src', 'unknownproto:test'],
-        ['href', 'data:image/svg+xml;base64,123'],
-      ]) {
-        expect(isSafeSvgAttribute(name, value)).toBe(false);
-      }
+    test.each([
+      ['href', 'ftp://example.com/a.svg'],
+      ['src', 'unknownproto:test'],
+      ['href', 'data:image/svg+xml;base64,123'],
+    ])('不安全的 URL 協議 %s="%s" 應被拒絕', (name, value) => {
+      expect(isSafeSvgAttribute(name, value)).toBe(false);
     });
 
     test('非法的 URL 字串應觸發 catch 並且拒絕', () => {
       expect(isSafeSvgAttribute('href', 'http://%')).toBe(false);
     });
 
-    test('安全的 URL 協議應被允許 (https, http, relative)', () => {
-      for (const [name, value] of [
-        ['href', 'https://example.com/icon.svg'],
-        ['src', 'http://example.com/icon.svg'],
-        ['src', '/relative/path.svg'],
-      ]) {
-        expect(isSafeSvgAttribute(name, value)).toBe(true);
-      }
+    test.each([
+      ['href', 'https://example.com/icon.svg'],
+      ['src', 'http://example.com/icon.svg'],
+      ['src', '/relative/path.svg'],
+    ])('安全的 URL 協議 %s="%s" 應被允許', (name, value) => {
+      expect(isSafeSvgAttribute(name, value)).toBe(true);
     });
   });
 
