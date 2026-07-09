@@ -21,6 +21,35 @@ const readProjectFile = (...segments) =>
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- test helper reads fixed repo fixtures from call sites.
   fs.readFileSync(path.resolve(process.cwd(), ...segments), 'utf8');
 
+const STATIC_UI_BINDINGS = [
+  { selector: '[data-ui-message]', attr: 'data-ui-message', readFallback: el => el.textContent },
+  {
+    selector: '[data-ui-placeholder]',
+    attr: 'data-ui-placeholder',
+    readFallback: el => el.getAttribute('placeholder') || '',
+  },
+  {
+    selector: '[data-ui-title]',
+    attr: 'data-ui-title',
+    readFallback: el => el.getAttribute('title') || '',
+  },
+  {
+    selector: '[data-ui-aria-label]',
+    attr: 'data-ui-aria-label',
+    readFallback: el => el.getAttribute('aria-label') || '',
+  },
+];
+
+const normalizeFallbackText = text => text.replaceAll(/\s+/g, ' ').trim();
+
+const resolveMessagePath = messagePath => {
+  let value = UI_MESSAGES;
+  for (const key of messagePath.split('.')) {
+    value = value?.[key];
+  }
+  return value;
+};
+
 beforeAll(async () => {
   const optionsModule = await import('../../../pages/options/options.js');
   applyStaticOptionMessages = optionsModule.applyStaticOptionMessages;
@@ -104,46 +133,37 @@ describe('optionsStaticMessages', () => {
       expect(document.querySelector('#aria').getAttribute('aria-label')).toBe('Fallback aria');
     });
 
-    it('options.html 內所有 data-ui-* 綁定 key 皆能解析為非空字串', () => {
+    it('options.html 內所有 data-ui-* 綁定 key 皆存在且 fallback 與字典一致', () => {
       const html = readProjectFile('pages/options/options.html');
       const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
       expect(bodyMatch).not.toBeNull();
       document.body.innerHTML = bodyMatch[1];
 
-      applyStaticOptionMessages();
-
-      const bindings = [
-        { selector: '[data-ui-message]', attr: 'data-ui-message', check: el => el.textContent },
-        {
-          selector: '[data-ui-placeholder]',
-          attr: 'data-ui-placeholder',
-          check: el => el.getAttribute('placeholder'),
-        },
-        {
-          selector: '[data-ui-title]',
-          attr: 'data-ui-title',
-          check: el => el.getAttribute('title'),
-        },
-        {
-          selector: '[data-ui-aria-label]',
-          attr: 'data-ui-aria-label',
-          check: el => el.getAttribute('aria-label'),
-        },
-      ];
-
       let totalBindings = 0;
-      bindings.forEach(({ selector, attr, check }) => {
+      const missingBindings = [];
+      const mismatchedFallbacks = [];
+
+      STATIC_UI_BINDINGS.forEach(({ selector, attr, readFallback }) => {
         document.querySelectorAll(selector).forEach(el => {
           totalBindings += 1;
           const key = el.getAttribute(attr);
-          const resolved = check(el);
-          expect(typeof resolved).toBe('string');
-          expect(resolved.length).toBeGreaterThan(0);
-          expect({ key, resolved }).toEqual({ key, resolved: expect.any(String) });
+          const resolved = resolveMessagePath(key);
+          const fallback = normalizeFallbackText(readFallback(el));
+
+          if (typeof resolved !== 'string' || resolved.length === 0) {
+            missingBindings.push({ attr, key, fallback });
+            return;
+          }
+
+          if (fallback && fallback !== resolved) {
+            mismatchedFallbacks.push({ attr, key, fallback, resolved });
+          }
         });
       });
 
       expect(totalBindings).toBeGreaterThan(20);
+      expect(missingBindings).toEqual([]);
+      expect(mismatchedFallbacks).toEqual([]);
     });
 
     it('debug logs 開關標籤應透過 UI_MESSAGES 綁定', () => {
