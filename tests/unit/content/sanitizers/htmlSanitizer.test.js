@@ -63,29 +63,41 @@ describe('htmlSanitizer', () => {
       expect(output).toBe('<div><p>Hello</p></div>');
     });
 
-    test('應移除 javascript: 與 data:text/html URLs', () => {
-      const input =
-        '<p><a href="javascript:alert(1)">Link 1</a> <a href="data:text/html,<html>">Link 2</a> <a href="https://google.com">Link 3</a></p>';
+    test.each([
+      {
+        scenario: 'javascript: 與 data:text/html URLs',
+        input:
+          '<p><a href="javascript:alert(1)">Link 1</a> <a href="data:text/html,<html>">Link 2</a> <a href="https://google.com">Link 3</a></p>',
+        absentFragments: ['href="javascript:', 'href="data:'],
+        presentFragments: ['href="https://google.com"'],
+      },
+      {
+        scenario: 'img src 中不安全的 data URI',
+        input: '<p><img src="data:text/html,<html>" alt="bad"></p>',
+        absentFragments: ['src="data:'],
+        presentFragments: ['<p><img alt="bad"></p>'],
+      },
+      {
+        scenario: '安全 data URI、http、https 與相對 URL',
+        input:
+          '<p><img src="data:image/png;base64,abc" alt="image"><a href="/docs">Relative</a><a href="https://example.com">HTTPS</a><a href="http://example.com">HTTP</a></p>',
+        absentFragments: [],
+        presentFragments: [
+          'src="data:image/png;base64,abc"',
+          'href="/docs"',
+          'href="https://example.com"',
+          'href="http://example.com"',
+        ],
+      },
+    ])('應正確處理 $scenario', ({ input, absentFragments, presentFragments }) => {
       const output = sanitizeArticleHtml(input);
-      expect(output).not.toContain('href="javascript:');
-      expect(output).not.toContain('href="data:');
-      expect(output).toContain('href="https://google.com"');
-    });
 
-    test('應移除 img src 中不安全的 data URI', () => {
-      const input = '<p><img src="data:text/html,<html>" alt="bad"></p>';
-      const output = sanitizeArticleHtml(input);
-      expect(output).toBe('<p><img alt="bad"></p>');
-    });
-
-    test('應保留安全 data URI、http、https 與相對 URL', () => {
-      const input =
-        '<p><img src="data:image/png;base64,abc" alt="image"><a href="/docs">Relative</a><a href="https://example.com">HTTPS</a><a href="http://example.com">HTTP</a></p>';
-      const output = sanitizeArticleHtml(input);
-      expect(output).toContain('src="data:image/png;base64,abc"');
-      expect(output).toContain('href="/docs"');
-      expect(output).toContain('href="https://example.com"');
-      expect(output).toContain('href="http://example.com"');
+      for (const fragment of absentFragments) {
+        expect(output).not.toContain(fragment);
+      }
+      for (const fragment of presentFragments) {
+        expect(output).toContain(fragment);
+      }
     });
 
     test('non-string attribute values at the hook boundary should not throw', () => {
@@ -194,23 +206,25 @@ describe('htmlSanitizer', () => {
   });
 
   describe('sanitizeHtmlToText', () => {
-    test('應去除所有標籤並轉換為純文字', () => {
-      const input = '<div><h1>Title</h1><p>Hello <strong>World</strong>!</p></div>';
+    test.each([
+      [
+        '去除所有標籤並轉換為純文字',
+        '<div><h1>Title</h1><p>Hello <strong>World</strong>!</p></div>',
+        'TitleHello World!',
+      ],
+      [
+        '徹底過濾 script/style 標籤內部的文字內容',
+        '<div><script>const a = 1;</script><style>body { color: red; }</style><p>Hello</p></div>',
+        'Hello',
+      ],
+      [
+        '正確解碼 HTML Entities',
+        '<p>Hello &amp; Welcome &lt;world&gt; &quot;AI&quot;</p>',
+        'Hello & Welcome <world> "AI"',
+      ],
+    ])('應%s', (_scenario, input, expected) => {
       const output = sanitizeHtmlToText(input);
-      expect(output).toBe('TitleHello World!');
-    });
-
-    test('應徹底過濾 script/style 標籤內部的文字內容，避免殘留', () => {
-      const input =
-        '<div><script>const a = 1;</script><style>body { color: red; }</style><p>Hello</p></div>';
-      const output = sanitizeHtmlToText(input);
-      expect(output).toBe('Hello');
-    });
-
-    test('應正確解碼 HTML Entities', () => {
-      const input = '<p>Hello &amp; Welcome &lt;world&gt; &quot;AI&quot;</p>';
-      const output = sanitizeHtmlToText(input);
-      expect(output).toBe('Hello & Welcome <world> "AI"');
+      expect(output).toBe(expected);
     });
 
     test('空值輸入應 safe 返回空字串', () => {

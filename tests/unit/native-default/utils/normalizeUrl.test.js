@@ -11,18 +11,11 @@ describe('normalizeUrl', () => {
   });
 
   describe('基本功能', () => {
-    test('應該返回不變的簡單 URL', () => {
-      const url = 'https://example.com/page';
-      expect(normalizeUrl(url)).toBe(url);
-    });
-
-    test('應該處理根路徑', () => {
-      const url = 'https://example.com/';
-      expect(normalizeUrl(url)).toBe(url);
-    });
-
-    test('應該保持查詢參數（非追蹤參數）', () => {
-      const url = 'https://example.com/page?id=123&name=test';
+    test.each([
+      ['簡單 URL', 'https://example.com/page'],
+      ['根路徑', 'https://example.com/'],
+      ['非追蹤查詢參數', 'https://example.com/page?id=123&name=test'],
+    ])('應該返回不變的%s', (_scenario, url) => {
       expect(normalizeUrl(url)).toBe(url);
     });
   });
@@ -42,34 +35,29 @@ describe('normalizeUrl', () => {
   });
 
   describe('移除追蹤參數', () => {
-    test('應該移除 utm_source', () => {
-      const url = 'https://example.com/page?utm_source=google&id=123';
-      const expected = 'https://example.com/page?id=123';
-      expect(normalizeUrl(url)).toBe(expected);
-    });
-
-    test('應該移除所有 UTM 參數', () => {
-      const url =
-        'https://example.com/page?utm_source=google&utm_medium=cpc&utm_campaign=test&id=123';
-      const expected = 'https://example.com/page?id=123';
-      expect(normalizeUrl(url)).toBe(expected);
-    });
-
-    test('應該移除 fbclid', () => {
-      const url = 'https://example.com/page?fbclid=abc123&id=456';
-      const expected = 'https://example.com/page?id=456';
-      expect(normalizeUrl(url)).toBe(expected);
-    });
-
-    test('應該移除 gclid', () => {
-      const url = 'https://example.com/page?gclid=xyz789&id=456';
-      const expected = 'https://example.com/page?id=456';
-      expect(normalizeUrl(url)).toBe(expected);
-    });
-
-    test('應該移除多個追蹤參數', () => {
-      const url = 'https://example.com/page?utm_source=fb&fbclid=abc&gclid=xyz&id=123';
-      const expected = 'https://example.com/page?id=123';
+    test.each([
+      [
+        'utm_source',
+        'https://example.com/page?utm_source=google&id=123',
+        'https://example.com/page?id=123',
+      ],
+      [
+        '所有 UTM 參數',
+        'https://example.com/page?utm_source=google&utm_medium=cpc&utm_campaign=test&id=123',
+        'https://example.com/page?id=123',
+      ],
+      [
+        'fbclid',
+        'https://example.com/page?fbclid=abc123&id=456',
+        'https://example.com/page?id=456',
+      ],
+      ['gclid', 'https://example.com/page?gclid=xyz789&id=456', 'https://example.com/page?id=456'],
+      [
+        '多個追蹤參數',
+        'https://example.com/page?utm_source=fb&fbclid=abc&gclid=xyz&id=123',
+        'https://example.com/page?id=123',
+      ],
+    ])('應該移除%s', (_scenario, url, expected) => {
       expect(normalizeUrl(url)).toBe(expected);
     });
   });
