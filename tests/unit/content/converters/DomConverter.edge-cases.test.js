@@ -46,27 +46,12 @@ describe('DomConverter 覆蓋率補強', () => {
   });
 
   describe('initStrategies H4-H6 處理', () => {
-    test('H4 應該創建加粗段落', () => {
-      const html = '<h4>Heading 4</h4>';
-      const blocks = converter.convert(html);
-
-      expect(blocks).toHaveLength(1);
-      expect(blocks[0].type).toBe('paragraph');
-      expect(blocks[0].paragraph.rich_text[0].annotations.bold).toBe(true);
-    });
-
-    test('H5 應該創建加粗段落', () => {
-      const html = '<h5>Heading 5</h5>';
-      const blocks = converter.convert(html);
-
-      expect(blocks).toHaveLength(1);
-      expect(blocks[0].type).toBe('paragraph');
-      expect(blocks[0].paragraph.rich_text[0].annotations.bold).toBe(true);
-    });
-
-    test('H6 應該創建加粗段落', () => {
-      const html = '<h6>Heading 6</h6>';
-      const blocks = converter.convert(html);
+    test.each([
+      ['h4', 'Heading 4'],
+      ['h5', 'Heading 5'],
+      ['h6', 'Heading 6'],
+    ])('%s 應該創建加粗段落', (tagName, headingText) => {
+      const blocks = converter.convert(`<${tagName}>${headingText}</${tagName}>`);
 
       expect(blocks).toHaveLength(1);
       expect(blocks[0].type).toBe('paragraph');
@@ -273,25 +258,19 @@ describe('DomConverter 覆蓋率補強', () => {
   });
 
   describe('processInlineNode 樣式處理', () => {
-    test('U 和 INS 應該設置 underline', () => {
-      const html = '<p><u>Underline</u> <ins>Inserted</ins></p>';
+    test.each([
+      ['underline', '<p><u>Underline</u> <ins>Inserted</ins></p>', rt => rt.annotations.underline],
+      [
+        'strikethrough',
+        '<p><s>Strike</s> <del>Deleted</del></p>',
+        rt => rt.annotations.strikethrough,
+      ],
+      ['code', '<p><code>code</code> <kbd>kbd</kbd></p>', rt => rt.annotations.code],
+    ])('%s inline tags should set annotation', (_label, html, hasAnnotation) => {
       const blocks = converter.convert(html);
 
       expect(blocks).toHaveLength(1);
-    });
-
-    test('S, DEL, STRIKE 應該設置 strikethrough', () => {
-      const html = '<p><s>Strike</s> <del>Deleted</del></p>';
-      const blocks = converter.convert(html);
-
-      expect(blocks).toHaveLength(1);
-    });
-
-    test('CODE, KBD, SAMP, TT 應該設置 code', () => {
-      const html = '<p><code>code</code> <kbd>kbd</kbd></p>';
-      const blocks = converter.convert(html);
-
-      expect(blocks).toHaveLength(1);
+      expect(blocks[0].paragraph.rich_text.some(richText => hasAnnotation(richText))).toBe(true);
     });
 
     test('A 標籤中的子節點應該繼承 link', () => {
@@ -302,19 +281,11 @@ describe('DomConverter 覆蓋率補強', () => {
       expect(blocks[0].paragraph.rich_text.some(rt => rt.text?.link?.url)).toBe(true);
     });
 
-    test('非安全協議 URL（如 javascript:）應該被忽略', () => {
-      // skipcq: JS-0087, JS-0096 -- 測試危險 URL 過濾功能
-      const jsUrl = 'javascript:void(0)';
-      const html = `<p><a href="${jsUrl}">Click me</a></p>`;
-      const blocks = converter.convert(html);
-
-      expect(blocks).toHaveLength(1);
-      expect(blocks[0].paragraph.rich_text[0].text.link).toBeUndefined();
-    });
-
-    test('data: URL 應該被忽略', () => {
-      const html = '<p><a href="data:text/html,<script>alert(1)</script>">Click me</a></p>';
-      const blocks = converter.convert(html);
+    test.each([
+      ['javascript:', 'javascript:void(0)'], // skipcq: JS-0087, JS-0096 -- 測試危險 URL 過濾功能
+      ['data:', 'data:text/html,<script>alert(1)</script>'],
+    ])('%s URL 應該被忽略', (_label, url) => {
+      const blocks = converter.convert(`<p><a href="${url}">Click me</a></p>`);
 
       expect(blocks).toHaveLength(1);
       expect(blocks[0].paragraph.rich_text[0].text.link).toBeUndefined();

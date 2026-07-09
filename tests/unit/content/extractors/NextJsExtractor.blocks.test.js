@@ -295,18 +295,27 @@ describe('NextJsExtractor Block Conversion', () => {
       expect(output[0].heading_1.rich_text[0].text.content).toBe('Title Italic');
     });
 
-    it('should strip script tags from content', () => {
-      const input = [{ blockType: 'paragraph', text: '<script>alert("xss")</script>Hello' }];
+    it.each([
+      {
+        name: 'script tags',
+        text: '<script>alert("xss")</script>Hello',
+        expectedContent: 'Hello',
+      },
+      {
+        name: 'style tags',
+        text: '<style>body { color: red; }</style>Hello',
+        expectedContent: 'Hello',
+      },
+      {
+        name: 'paragraph HTML',
+        text: '<p>Hello <b>World</b></p>',
+        expectedContent: 'Hello World',
+      },
+    ])('should strip $name from paragraph content', ({ text, expectedContent }) => {
+      const input = [{ blockType: 'paragraph', text }];
       const output = NextJsExtractor.convertBlocks(input);
       expect(output[0].type).toBe('paragraph');
-      expect(output[0].paragraph.rich_text[0].text.content).toBe('Hello');
-    });
-
-    it('should strip style tags from content', () => {
-      const input = [{ blockType: 'paragraph', text: '<style>body { color: red; }</style>Hello' }];
-      const output = NextJsExtractor.convertBlocks(input);
-      expect(output[0].type).toBe('paragraph');
-      expect(output[0].paragraph.rich_text[0].text.content).toBe('Hello');
+      expect(output[0].paragraph.rich_text[0].text.content).toBe(expectedContent);
     });
 
     it('should strip HTML from quote blocks', () => {
@@ -314,13 +323,6 @@ describe('NextJsExtractor Block Conversion', () => {
       const output = NextJsExtractor.convertBlocks(input);
       expect(output[0].type).toBe('quote');
       expect(output[0].quote.rich_text[0].text.content).toBe('Quote Bold');
-    });
-
-    it('should strip HTML from paragraph text', () => {
-      const input = [{ blockType: 'paragraph', text: '<p>Hello <b>World</b></p>' }];
-      const output = NextJsExtractor.convertBlocks(input);
-      expect(output[0].type).toBe('paragraph');
-      expect(output[0].paragraph.rich_text[0].text.content).toBe('Hello World');
     });
 
     it('should filter out images without URL', () => {
