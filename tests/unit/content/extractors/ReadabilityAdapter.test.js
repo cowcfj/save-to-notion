@@ -752,62 +752,62 @@ describe('ReadabilityAdapter - prepareLazyImages', () => {
 
   // [HK01 懶加載修復] CSS opacity-0 容器測試
   test.each([
-    [
-      '應該移除含有 img 的 opacity-0 容器的 opacity-0 class',
-      `<html><body>
+    {
+      name: '應該移除含有 img 的 opacity-0 容器的 opacity-0 class',
+      html: `<html><body>
         <div class="opacity-0 wrapper">
           <img src="https://example.com/photo.jpg">
         </div>
       </body></html>`,
-      '.wrapper',
-      container => expect(container.classList.contains('opacity-0')).toBe(false),
-      null,
-    ],
-    [
-      '應該移除含有 img 的 lazyload-* class 容器',
-      `<html><body>
+      selector: '.wrapper',
+      assertContainerState: container =>
+        expect(container.classList.contains('opacity-0')).toBe(false),
+    },
+    {
+      name: '應該移除含有 img 的 lazyload-* class 容器',
+      html: `<html><body>
         <div class="lazyload-wrapper">
           <img src="https://example.com/photo.jpg">
         </div>
       </body></html>`,
-      '.lazyload-wrapper',
-      container => expect(container.classList.contains('lazyload-wrapper')).toBe(false),
-      1,
-    ],
-    [
-      '應該只在實際修改 DOM 時移除 lazyload 與可見性樣式並計數',
-      `<html><body>
+      selector: '.lazyload-wrapper',
+      assertContainerState: container =>
+        expect(container.classList.contains('lazyload-wrapper')).toBe(false),
+      expectedCount: 1,
+    },
+    {
+      name: '應該只在實際修改 DOM 時移除 lazyload 與可見性樣式並計數',
+      html: `<html><body>
         <div class="lazyload hero" style="opacity: 0; visibility: hidden;">
           <img src="https://example.com/photo.jpg">
         </div>
       </body></html>`,
-      '.hero',
-      container => {
+      selector: '.hero',
+      assertContainerState: container => {
         expect(container.classList.contains('lazyload')).toBe(false);
         expect(container.style.opacity).toBe('');
         expect(container.style.visibility).toBe('');
       },
-      1,
-    ],
-    [
-      '不含 img 的 opacity-0 元素不應被修改（保護非圖片動畫）',
-      `<html><body>
+      expectedCount: 1,
+    },
+    {
+      name: '不含 img 的 opacity-0 元素不應被修改（保護非圖片動畫）',
+      html: `<html><body>
         <div class="opacity-0 fade-in-element">
           <span>動畫文字</span>
         </div>
       </body></html>`,
-      '.fade-in-element',
-      element => expect(element.classList.contains('opacity-0')).toBe(true),
-      null,
-    ],
-  ])('%s', (_description, html, selector, expectContainerState, expectedCount) => {
+      selector: '.fade-in-element',
+      assertContainerState: element => expect(element.classList.contains('opacity-0')).toBe(true),
+    },
+  ])('$name', ({ html, selector, assertContainerState, expectedCount }) => {
     expect.hasAssertions();
     const doc = parseTestDocument(html);
     const container = doc.querySelector(selector);
     const count = prepareLazyImages(doc);
 
-    expectContainerState(container);
-    if (expectedCount !== null) {
+    assertContainerState(container);
+    if (expectedCount !== undefined) {
       expect(count).toBe(expectedCount);
     }
   });

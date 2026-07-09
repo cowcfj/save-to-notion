@@ -338,31 +338,31 @@ describe('DomConverter', () => {
 
   describe('Long Text Handling', () => {
     test.each([
-      [
-        'should truncate long LI text',
-        text => `<ul><li>${text}</li></ul>`,
-        'A',
-        5200,
-        'bulleted_list_item',
-        block => block.bulleted_list_item.rich_text[0].text.content,
-      ],
-      [
-        'should truncate long BLOCKQUOTE text',
-        text => `<blockquote>${text}</blockquote>`,
-        'B',
-        4500,
-        'quote',
-        block => block.quote.rich_text[0].text.content,
-      ],
-      [
-        'should truncate long paragraph text',
-        text => `<p>${text}</p>`,
-        'C',
-        4000,
-        'paragraph',
-        block => block.paragraph.rich_text[0].text.content,
-      ],
-    ])('%s', (_description, buildHtml, repeatedChar, length, expectedType, getContent) => {
+      {
+        name: 'should truncate long LI text',
+        buildHtml: text => `<ul><li>${text}</li></ul>`,
+        repeatedChar: 'A',
+        length: 5200,
+        expectedType: 'bulleted_list_item',
+        getContent: block => block.bulleted_list_item.rich_text[0].text.content,
+      },
+      {
+        name: 'should truncate long BLOCKQUOTE text',
+        buildHtml: text => `<blockquote>${text}</blockquote>`,
+        repeatedChar: 'B',
+        length: 4500,
+        expectedType: 'quote',
+        getContent: block => block.quote.rich_text[0].text.content,
+      },
+      {
+        name: 'should truncate long paragraph text',
+        buildHtml: text => `<p>${text}</p>`,
+        repeatedChar: 'C',
+        length: 4000,
+        expectedType: 'paragraph',
+        getContent: block => block.paragraph.rich_text[0].text.content,
+      },
+    ])('$name', ({ buildHtml, repeatedChar, length, expectedType, getContent }) => {
       const blocks = domConverter.convert(buildHtml(repeatedChar.repeat(length)));
 
       // DomConverter truncates instead of splitting
