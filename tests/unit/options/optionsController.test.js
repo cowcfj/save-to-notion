@@ -60,49 +60,55 @@ describe('optionsController', () => {
   });
 
   describe('cleanDatabaseId', () => {
-    it('應移除連字符', () => {
-      expect(cleanDatabaseId('a1b2c3d4-e5f6-7890-abcd-ef1234567890')).toBe(
-        'a1b2c3d4e5f67890abcdef1234567890'
-      );
-    });
+    const cleanDatabaseIdCases = [
+      {
+        name: '應移除連字符',
+        input: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+        expected: 'a1b2c3d4e5f67890abcdef1234567890',
+      },
+      {
+        name: '應從 URL 中提取 ID（帶連字符）',
+        input: 'https://www.notion.so/workspace/a1b2c3d4-e5f6-7890-abcd-ef1234567890?v=123',
+        expected: 'a1b2c3d4e5f67890abcdef1234567890',
+      },
+      {
+        name: '應從 URL 中提取 ID（無連字符）',
+        input: 'https://www.notion.so/workspace/a1b2c3d4e5f67890abcdef1234567890?v=123',
+        expected: 'a1b2c3d4e5f67890abcdef1234567890',
+      },
+      {
+        name: '應從帶 hash fragment 的 URL 中提取 ID',
+        input: 'https://www.notion.so/workspace/a1b2c3d4e5f67890abcdef1234567890#block',
+        expected: 'a1b2c3d4e5f67890abcdef1234567890',
+      },
+      {
+        name: '應處理已清理的 ID',
+        input: 'a1b2c3d4e5f67890abcdef1234567890',
+        expected: 'a1b2c3d4e5f67890abcdef1234567890',
+      },
+      {
+        name: '應處理帶空格的輸入',
+        input: '  a1b2c3d4-e5f6-7890-abcd-ef1234567890  ',
+        expected: 'a1b2c3d4e5f67890abcdef1234567890',
+      },
+      { name: '應拒絕無效格式', input: 'invalid-id', expected: '' },
+      { name: '應拒絕過短格式', input: '12345', expected: '' },
+      { name: '應拒絕空字串', input: '', expected: '' },
+      { name: '應拒絕 null', input: null, expected: '' },
+      {
+        name: '應拒絕非十六進制字符',
+        input: 'g1b2c3d4e5f67890abcdef1234567890',
+        expected: '',
+      },
+      {
+        name: '應拒絕帶連字符的非十六進制字符',
+        input: 'a1b2c3d4-e5f6-7890-abcd-zzzzzzzzzzzz',
+        expected: '',
+      },
+    ];
 
-    it('應從 URL 中提取 ID（帶連字符）', () => {
-      const url = 'https://www.notion.so/workspace/a1b2c3d4-e5f6-7890-abcd-ef1234567890?v=123';
-      expect(cleanDatabaseId(url)).toBe('a1b2c3d4e5f67890abcdef1234567890');
-    });
-
-    it('應從 URL 中提取 ID（無連字符）', () => {
-      const url = 'https://www.notion.so/workspace/a1b2c3d4e5f67890abcdef1234567890?v=123';
-      expect(cleanDatabaseId(url)).toBe('a1b2c3d4e5f67890abcdef1234567890');
-    });
-
-    it('應從帶 hash fragment 的 URL 中提取 ID', () => {
-      const url = 'https://www.notion.so/workspace/a1b2c3d4e5f67890abcdef1234567890#block';
-      expect(cleanDatabaseId(url)).toBe('a1b2c3d4e5f67890abcdef1234567890');
-    });
-
-    it('應處理已清理的 ID', () => {
-      expect(cleanDatabaseId('a1b2c3d4e5f67890abcdef1234567890')).toBe(
-        'a1b2c3d4e5f67890abcdef1234567890'
-      );
-    });
-
-    it('應處理帶空格的輸入', () => {
-      expect(cleanDatabaseId('  a1b2c3d4-e5f6-7890-abcd-ef1234567890  ')).toBe(
-        'a1b2c3d4e5f67890abcdef1234567890'
-      );
-    });
-
-    it('應拒絕無效格式', () => {
-      expect(cleanDatabaseId('invalid-id')).toBe('');
-      expect(cleanDatabaseId('12345')).toBe('');
-      expect(cleanDatabaseId('')).toBe('');
-      expect(cleanDatabaseId(null)).toBe('');
-    });
-
-    it('應拒絕非十六進制字符', () => {
-      expect(cleanDatabaseId('g1b2c3d4e5f67890abcdef1234567890')).toBe('');
-      expect(cleanDatabaseId('a1b2c3d4-e5f6-7890-abcd-zzzzzzzzzzzz')).toBe('');
+    it.each(cleanDatabaseIdCases)('$name', ({ input, expected }) => {
+      expect(cleanDatabaseId(input)).toBe(expected);
     });
   });
 });

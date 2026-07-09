@@ -52,11 +52,16 @@ afterEach(() => {
 });
 
 describe('LogBufferPersistence', () => {
+  const initLogBuffer = async (capacity = 10) => {
+    const buffer = new LogBuffer(capacity);
+    await LogBufferPersistence.init(buffer);
+    return buffer;
+  };
+
   test('init registers alarm and restores from session storage', async () => {
     mockStorage._logBuffer = [{ level: 'info', source: 'bg', message: 'restored', context: {} }];
 
-    const buffer = new LogBuffer(10);
-    await LogBufferPersistence.init(buffer);
+    const buffer = await initLogBuffer();
 
     expect(chrome.alarms.create).toHaveBeenCalledWith('log-buffer-flush', { periodInMinutes: 1 });
     expect(chrome.alarms.onAlarm.addListener).toHaveBeenCalled();
@@ -65,8 +70,7 @@ describe('LogBufferPersistence', () => {
   });
 
   test('flush writes buffer to session storage when dirty', async () => {
-    const buffer = new LogBuffer(10);
-    await LogBufferPersistence.init(buffer);
+    const buffer = await initLogBuffer();
 
     buffer.push({ level: 'info', source: 'bg', message: 'new-entry', context: {} });
     expect(buffer.isDirty()).toBe(true);
@@ -81,8 +85,7 @@ describe('LogBufferPersistence', () => {
   });
 
   test('flush skips write when buffer is not dirty', async () => {
-    const buffer = new LogBuffer(10);
-    await LogBufferPersistence.init(buffer);
+    await initLogBuffer();
 
     chrome.storage.session.set.mockClear();
     await LogBufferPersistence.flush();
@@ -91,8 +94,7 @@ describe('LogBufferPersistence', () => {
   });
 
   test('flush keeps buffer dirty when storage write fails', async () => {
-    const buffer = new LogBuffer(10);
-    await LogBufferPersistence.init(buffer);
+    const buffer = await initLogBuffer();
 
     buffer.push({ level: 'error', source: 'bg', message: 'quota-test', context: {} });
     chrome.storage.session.set.mockRejectedValueOnce(new Error('QUOTA_BYTES quota exceeded'));
@@ -103,8 +105,7 @@ describe('LogBufferPersistence', () => {
   });
 
   test('alarm triggers flush', async () => {
-    const buffer = new LogBuffer(10);
-    await LogBufferPersistence.init(buffer);
+    const buffer = await initLogBuffer();
 
     buffer.push({ level: 'warn', source: 'bg', message: 'alarm-test', context: {} });
 
@@ -116,8 +117,7 @@ describe('LogBufferPersistence', () => {
   });
 
   test('unrelated alarm does not trigger flush', async () => {
-    const buffer = new LogBuffer(10);
-    await LogBufferPersistence.init(buffer);
+    const buffer = await initLogBuffer();
 
     buffer.push({ level: 'info', source: 'bg', message: 'x', context: {} });
     chrome.storage.session.set.mockClear();
@@ -130,8 +130,7 @@ describe('LogBufferPersistence', () => {
   });
 
   test('restore handles empty storage gracefully', async () => {
-    const buffer = new LogBuffer(10);
-    await LogBufferPersistence.init(buffer);
+    const buffer = await initLogBuffer();
 
     expect(buffer.getAll()).toHaveLength(0);
   });
