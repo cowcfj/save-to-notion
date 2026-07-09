@@ -166,6 +166,17 @@ describe('optionsStaticMessages', () => {
       expect(mismatchedFallbacks).toEqual([]);
     });
 
+    it('guide 問答與功能說明應使用全形標點', () => {
+      expect(UI_MESSAGES.OPTIONS.GUIDE).toEqual(
+        expect.objectContaining({
+          FEATURES_MULTI_COLOR_DESC: '支持 4 種顏色與 3 種樣式（背景/文字/底線）',
+          FAQ_TOKEN_QUESTION: 'API Key 無法連接？',
+          FAQ_DATABASE_QUESTION: '數據庫列表為空？',
+          FAQ_HIGHLIGHT_QUESTION: '標註沒有顯示？',
+        })
+      );
+    });
+
     it('debug logs 開關標籤應透過 UI_MESSAGES 綁定', () => {
       const html = readProjectFile('pages/options/options.html');
       const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
