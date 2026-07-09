@@ -85,44 +85,31 @@ describe('imageUtils - 邊界條件測試', () => {
   });
 
   describe('extractBestUrlFromSrcset - 畸形輸入', () => {
-    test('應處理空字符串', () => {
-      expect(extractBestUrlFromSrcset('')).toBeNull();
-    });
-
-    test('應處理只有逗號的字符串', () => {
-      // 所有條目都是空的，應返回 null
-      const result = extractBestUrlFromSrcset(',,,,');
-      expect(result).toBeNull();
-    });
-
-    test('應處理只有空格的字符串', () => {
-      // 只有空格，沒有有效 URL，應返回 null
-      const result = extractBestUrlFromSrcset('   ');
-      expect(result).toBeNull();
-    });
-
-    test('應處理無效的 srcset 格式', () => {
-      expect(extractBestUrlFromSrcset('invalid url')).toBe('invalid');
-    });
-
-    test('應處理混合有效和無效條目', () => {
-      const srcset = 'invalid, https://example.com/image.jpg 800w, , another-invalid';
+    // 全部條目皆無描述符（metric === 0）時，主迴圈不選任何贏家，掉入 fallback；
+    // fallback 反向迴圈取最後一個有效條目，與 _manualParseSrcset 上方註解一致。
+    test.each([
+      ['空字符串', '', null],
+      ['只有逗號的字符串', ',,,,', null],
+      ['只有空格的字符串', '   ', null],
+      ['無效的 srcset 格式', 'invalid url', 'invalid'],
+      [
+        '混合有效和無效條目',
+        'invalid, https://example.com/image.jpg 800w, , another-invalid',
+        'https://example.com/image.jpg',
+      ],
+      [
+        'data: URL',
+        'data:image/png;base64,abc 1x, https://example.com/image.jpg 2x',
+        'https://example.com/image.jpg',
+      ],
+      [
+        '沒有描述符的 srcset',
+        'https://example.com/img1.jpg, https://example.com/img2.jpg',
+        'https://example.com/img2.jpg',
+      ],
+    ])('應處理%s', (_scenario, srcset, expected) => {
       const result = extractBestUrlFromSrcset(srcset);
-      expect(result).toBe('https://example.com/image.jpg');
-    });
-
-    test('應過濾 data: URL', () => {
-      const srcset = 'data:image/png;base64,abc 1x, https://example.com/image.jpg 2x';
-      const result = extractBestUrlFromSrcset(srcset);
-      expect(result).toBe('https://example.com/image.jpg');
-    });
-
-    test('應處理沒有描述符的 srcset', () => {
-      const srcset = 'https://example.com/img1.jpg, https://example.com/img2.jpg';
-      const result = extractBestUrlFromSrcset(srcset);
-      // 全部條目皆無描述符（metric === 0）時，主迴圈不選任何贏家，掉入 fallback；
-      // fallback 反向迴圈取最後一個有效條目，與 _manualParseSrcset 上方註解一致。
-      expect(result).toBe('https://example.com/img2.jpg');
+      expect(result).toBe(expected);
     });
 
     test('應正確比較 w 和 x 描述符', () => {
@@ -466,54 +453,17 @@ describe('imageUtils - 邊界條件測試', () => {
       expect(extractFromNoscript(img)).toBeNull();
     });
 
-    test('應處理 noscript 為空的情況', () => {
+    test.each([
+      ['為空', ''],
+      ['沒有 img 標籤', '<div>No image here</div>'],
+      ['img 沒有 src', '<img alt="test">'],
+      ['data: URL', '<img src="data:image/png;base64,abc">'],
+      ['blob: URL', '<img src="blob:https://example.com/123-456">'],
+      ['javascript: URL 與協議大小寫變體', '<img src=" JavaScript:alert(1)">'],
+    ])('應處理 noscript 中%s的情況', (_scenario, noscriptHtml) => {
       const img = document.createElement('img');
       const noscript = document.createElement('noscript');
-      img.append(noscript);
-      document.body.append(img);
-      expect(extractFromNoscript(img)).toBeNull();
-    });
-
-    test('應處理 noscript 中沒有 img 標籤的情況', () => {
-      const img = document.createElement('img');
-      const noscript = document.createElement('noscript');
-      noscript.textContent = '<div>No image here</div>';
-      img.append(noscript);
-      document.body.append(img);
-      expect(extractFromNoscript(img)).toBeNull();
-    });
-
-    test('應處理 noscript 中 img 沒有 src 的情況', () => {
-      const img = document.createElement('img');
-      const noscript = document.createElement('noscript');
-      noscript.textContent = '<img alt="test">';
-      img.append(noscript);
-      document.body.append(img);
-      expect(extractFromNoscript(img)).toBeNull();
-    });
-
-    test('應跳過 noscript 中的 data: URL', () => {
-      const img = document.createElement('img');
-      const noscript = document.createElement('noscript');
-      noscript.textContent = '<img src="data:image/png;base64,abc">';
-      img.append(noscript);
-      document.body.append(img);
-      expect(extractFromNoscript(img)).toBeNull();
-    });
-
-    test('應跳過 noscript 中的 blob: URL', () => {
-      const img = document.createElement('img');
-      const noscript = document.createElement('noscript');
-      noscript.textContent = '<img src="blob:https://example.com/123-456">';
-      img.append(noscript);
-      document.body.append(img);
-      expect(extractFromNoscript(img)).toBeNull();
-    });
-
-    test('應跳過 noscript 中的 javascript: URL 與協議大小寫變體', () => {
-      const img = document.createElement('img');
-      const noscript = document.createElement('noscript');
-      noscript.textContent = '<img src=" JavaScript:alert(1)">';
+      noscript.textContent = noscriptHtml;
       img.append(noscript);
       document.body.append(img);
       expect(extractFromNoscript(img)).toBeNull();
