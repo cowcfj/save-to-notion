@@ -83,6 +83,30 @@ describe('TabService status updates', () => {
       expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 1 });
     });
 
+    it('_verifyAndUpdateStatus clears badge when no saved data exists', async () => {
+      service.getSavedPageData = jest.fn().mockResolvedValue(null);
+
+      await service._verifyAndUpdateStatus(1, 'https://example.com/missing');
+
+      expect(service.getSavedPageData).toHaveBeenCalledWith('https://example.com/missing');
+      expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 1 });
+      expect(service.getApiKey).not.toHaveBeenCalled();
+    });
+
+    it('_verifyAndUpdateStatus uses fresh cache without requesting an API key', async () => {
+      const savedData = {
+        notionPageId: 'page-123',
+        lastVerifiedAt: Date.now(),
+      };
+      service.getSavedPageData = jest.fn().mockResolvedValue(savedData);
+
+      await service._verifyAndUpdateStatus(1, 'https://example.com/cached');
+
+      expect(service.getApiKey).not.toHaveBeenCalled();
+      expect(service.checkPageExists).not.toHaveBeenCalled();
+      expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '✓', tabId: 1 });
+    });
+
     it('should inject bundle for auto-restore when highlights exist', async () => {
       // Mock highlights 存在
       service.getSavedPageData = jest.fn().mockResolvedValue(null);
@@ -188,6 +212,83 @@ describe('TabService status updates', () => {
       expect(chrome.storage.local.set).toHaveBeenCalledWith({
         [`${URL_ALIAS_PREFIX}https://example.com/long-path`]: 'https://example.com/?p=2928',
       });
+    });
+
+    it('stable page evidence with notion object creates url_alias when highlights are empty', async () => {
+      service.resolveTabUrl = jest.fn().mockResolvedValue({
+        stableUrl: 'https://example.com/?p=2928',
+        originalUrl: 'https://example.com/long-path',
+        hasStableUrl: true,
+      });
+      service._verifyAndUpdateStatus = jest.fn().mockResolvedValue();
+      service._getHighlightsFromStorage = jest.fn().mockResolvedValue(null);
+      jest.spyOn(service, 'migrateLegacyHighlights').mockResolvedValue();
+
+      chrome.storage.local.get.mockResolvedValue({
+        'page_https://example.com/?p=2928': {
+          notion: { pageId: 'notion-page' },
+          highlights: [],
+          metadata: { lastUpdated: 1 },
+        },
+      });
+
+      await service._updateTabStatusInternal(1, 'https://example.com/long-path');
+
+      expect(chrome.storage.local.set).toHaveBeenCalledWith({
+        [`${URL_ALIAS_PREFIX}https://example.com/long-path`]: 'https://example.com/?p=2928',
+      });
+    });
+
+    it('legacy highlights evidence creates url_alias for stable URL', async () => {
+      service.resolveTabUrl = jest.fn().mockResolvedValue({
+        stableUrl: 'https://example.com/?p=2928',
+        originalUrl: 'https://example.com/long-path',
+        hasStableUrl: true,
+      });
+      service._verifyAndUpdateStatus = jest.fn().mockResolvedValue();
+      service._getHighlightsFromStorage = jest.fn().mockResolvedValue(null);
+      jest.spyOn(service, 'migrateLegacyHighlights').mockResolvedValue();
+
+      chrome.storage.local.get.mockResolvedValue({
+        'highlights_https://example.com/?p=2928': [{ id: 'legacy-highlight' }],
+      });
+
+      await service._updateTabStatusInternal(1, 'https://example.com/long-path');
+
+      expect(chrome.storage.local.set).toHaveBeenCalledWith({
+        [`${URL_ALIAS_PREFIX}https://example.com/long-path`]: 'https://example.com/?p=2928',
+      });
+    });
+
+    it('stable evidence lookup failure logs warning and continues status verification', async () => {
+      const storageError = new Error('storage get failed');
+      service.resolveTabUrl = jest.fn().mockResolvedValue({
+        stableUrl: 'https://example.com/?p=2928',
+        originalUrl: 'https://example.com/long-path',
+        hasStableUrl: true,
+      });
+      service._verifyAndUpdateStatus = jest.fn().mockResolvedValue();
+      service._getHighlightsFromStorage = jest.fn().mockResolvedValue(null);
+      jest.spyOn(service, 'migrateLegacyHighlights').mockResolvedValue();
+      chrome.storage.local.get.mockRejectedValue(storageError);
+
+      await service._updateTabStatusInternal(1, 'https://example.com/long-path');
+
+      expect(chrome.storage.local.set).not.toHaveBeenCalled();
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        '[TabService] url_alias 寫入或檢查失敗，將繼續後續狀態更新',
+        expect.objectContaining({
+          action: 'updateTabStatus',
+          originalUrl: expect.any(String),
+          stableUrl: expect.any(String),
+          error: storageError,
+        })
+      );
+      expect(service._verifyAndUpdateStatus).toHaveBeenCalledWith(
+        1,
+        'https://example.com/?p=2928',
+        'https://example.com/long-path'
+      );
     });
 
     it('應等待 url_alias 寫入完成後才繼續更新狀態', async () => {

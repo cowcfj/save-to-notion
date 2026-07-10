@@ -17,8 +17,10 @@ let computeNextEligibleAt;
 let setDriveFrequency;
 let markDriveDirty;
 let clearDriveDirty;
+let writeDriveAutoSyncTelemetry;
 let DRIVE_SYNC_FREQUENCIES;
 let DRIVE_SYNC_STORAGE_KEYS;
+let Logger;
 
 beforeAll(async () => {
   ({
@@ -26,9 +28,11 @@ beforeAll(async () => {
     setDriveFrequency,
     markDriveDirty,
     clearDriveDirty,
+    writeDriveAutoSyncTelemetry,
     DRIVE_SYNC_FREQUENCIES,
     DRIVE_SYNC_STORAGE_KEYS,
   } = await import('../../scripts/auth/driveClient.js'));
+  ({ default: Logger } = await import('../../scripts/utils/Logger.js'));
 });
 
 describe('Phase B — driveClient helpers', () => {
@@ -61,26 +65,21 @@ describe('Phase B — driveClient helpers', () => {
   });
 
   describe('computeNextEligibleAt()', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-04-20T10:00:00.000Z'));
+    });
+
     it('daily 加 1 天', () => {
-      const before = Date.now();
-      const result = computeNextEligibleAt('daily');
-      const ts = Date.parse(result);
-      expect(ts - before).toBeGreaterThanOrEqual(23 * 60 * 60 * 1000);
-      expect(ts - before).toBeLessThanOrEqual(25 * 60 * 60 * 1000);
+      expect(computeNextEligibleAt('daily')).toBe('2026-04-21T10:00:00.000Z');
     });
 
     it('weekly 加 7 天', () => {
-      const before = Date.now();
-      const result = computeNextEligibleAt('weekly');
-      const ts = Date.parse(result);
-      expect(ts - before).toBeGreaterThanOrEqual(7 * 24 * 60 * 60 * 1000 - 1000);
+      expect(computeNextEligibleAt('weekly')).toBe('2026-04-27T10:00:00.000Z');
     });
 
     it('monthly 加 30 天', () => {
-      const before = Date.now();
-      const result = computeNextEligibleAt('monthly');
-      const ts = Date.parse(result);
-      expect(ts - before).toBeGreaterThanOrEqual(30 * 24 * 60 * 60 * 1000 - 1000);
+      expect(computeNextEligibleAt('monthly')).toBe('2026-05-20T10:00:00.000Z');
     });
 
     it('回傳值為合法 ISO 8601 字串', () => {
@@ -91,6 +90,11 @@ describe('Phase B — driveClient helpers', () => {
   });
 
   describe('setDriveFrequency()', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-04-20T10:00:00.000Z'));
+    });
+
     it('frequency = off 時 nextEligibleAt 寫 null', async () => {
       await setDriveFrequency('off');
       expect(mockStorageLocal.set).toHaveBeenCalledWith(
@@ -104,14 +108,28 @@ describe('Phase B — driveClient helpers', () => {
     it('frequency = weekly 時 nextEligibleAt 為未來時間', async () => {
       await setDriveFrequency('weekly');
       const call = mockStorageLocal.set.mock.calls[0][0];
-      const ts = Date.parse(call[DRIVE_SYNC_STORAGE_KEYS.NEXT_ELIGIBLE_AT]);
-      expect(ts).toBeGreaterThan(Date.now());
+      expect(call[DRIVE_SYNC_STORAGE_KEYS.NEXT_ELIGIBLE_AT]).toBe('2026-04-27T10:00:00.000Z');
     });
 
     it('frequency = daily 時 FREQUENCY key 正確寫入', async () => {
       await setDriveFrequency('daily');
       expect(mockStorageLocal.set).toHaveBeenCalledWith(
         expect.objectContaining({ [DRIVE_SYNC_STORAGE_KEYS.FREQUENCY]: 'daily' })
+      );
+    });
+
+    it('invalid frequency writes off, clears nextEligibleAt, and warns', async () => {
+      const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => {});
+
+      await setDriveFrequency('hourly');
+
+      expect(mockStorageLocal.set).toHaveBeenCalledWith({
+        [DRIVE_SYNC_STORAGE_KEYS.FREQUENCY]: 'off',
+        [DRIVE_SYNC_STORAGE_KEYS.NEXT_ELIGIBLE_AT]: null,
+      });
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[driveClient] setDriveFrequency received invalid frequency, fallback to off',
+        { frequency: 'hourly' }
       );
     });
   });
@@ -155,13 +173,16 @@ describe('Phase B — driveClient helpers', () => {
   });
 
   describe('clearDriveDirty()', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-04-20T10:00:00.000Z'));
+    });
+
     it('更新 snapshotHash 與 nextEligibleAt', async () => {
       await clearDriveDirty({ snapshotHash: 'abc123', frequency: 'weekly' });
       const call = mockStorageLocal.set.mock.calls[0][0];
       expect(call[DRIVE_SYNC_STORAGE_KEYS.LAST_SNAPSHOT_HASH]).toBe('abc123');
-      expect(Date.parse(call[DRIVE_SYNC_STORAGE_KEYS.NEXT_ELIGIBLE_AT])).toBeGreaterThan(
-        Date.now()
-      );
+      expect(call[DRIVE_SYNC_STORAGE_KEYS.NEXT_ELIGIBLE_AT]).toBe('2026-04-27T10:00:00.000Z');
     });
 
     it('frequency = off 時 nextEligibleAt 寫 null', async () => {
@@ -220,6 +241,39 @@ describe('Phase B — driveClient helpers', () => {
 
       expect(clearCall).toHaveProperty(DRIVE_SYNC_STORAGE_KEYS.LAST_UPLOADED_REVISION);
       expect(clearCall).not.toHaveProperty(DRIVE_SYNC_STORAGE_KEYS.DIRTY_REVISION);
+    });
+  });
+
+  describe('writeDriveAutoSyncTelemetry()', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-04-20T10:00:00.000Z'));
+    });
+
+    it('decision=run clears stale skip reason', async () => {
+      await writeDriveAutoSyncTelemetry({ decision: 'run' });
+
+      expect(mockStorageLocal.set).toHaveBeenCalledWith({
+        [DRIVE_SYNC_STORAGE_KEYS.LAST_AUTO_SYNC_DECISION]: 'run',
+        [DRIVE_SYNC_STORAGE_KEYS.LAST_AUTO_SYNC_DECISION_AT]: '2026-04-20T10:00:00.000Z',
+        [DRIVE_SYNC_STORAGE_KEYS.LAST_AUTO_SYNC_SKIP_REASON]: null,
+      });
+    });
+
+    it('decision=skip records skip reason and optional alarm timestamp', async () => {
+      await writeDriveAutoSyncTelemetry({
+        decision: 'skip',
+        skipReason: 'not_dirty',
+        decisionAt: '2026-04-20T10:01:00.000Z',
+        alarmFiredAt: '2026-04-20T10:00:30.000Z',
+      });
+
+      expect(mockStorageLocal.set).toHaveBeenCalledWith({
+        [DRIVE_SYNC_STORAGE_KEYS.LAST_AUTO_SYNC_DECISION]: 'skip',
+        [DRIVE_SYNC_STORAGE_KEYS.LAST_AUTO_SYNC_DECISION_AT]: '2026-04-20T10:01:00.000Z',
+        [DRIVE_SYNC_STORAGE_KEYS.LAST_AUTO_SYNC_SKIP_REASON]: 'not_dirty',
+        [DRIVE_SYNC_STORAGE_KEYS.LAST_ALARM_FIRED_AT]: '2026-04-20T10:00:30.000Z',
+      });
     });
   });
 });

@@ -112,6 +112,52 @@ describe('TabService tab runtime', () => {
         jest.useRealTimers();
       }
     });
+
+    it('_createTabCompletionWaiter cleans listeners and pending state after update completion', async () => {
+      jest.useFakeTimers();
+      try {
+        let updateListener = null;
+        let removedListener = null;
+        chrome.tabs.onUpdated.addListener.mockImplementation(listener => {
+          updateListener = listener;
+        });
+        chrome.tabs.onRemoved.addListener.mockImplementation(listener => {
+          removedListener = listener;
+        });
+
+        const promise = service._createTabCompletionWaiter(7);
+
+        expect(service.pendingListeners.has(7)).toBe(true);
+
+        updateListener(7, { status: 'complete' });
+        await expect(promise).resolves.toEqual({ status: 'complete' });
+
+        expect(chrome.tabs.onUpdated.removeListener).toHaveBeenCalledWith(updateListener);
+        expect(chrome.tabs.onRemoved.removeListener).toHaveBeenCalledWith(removedListener);
+        expect(service.pendingListeners.has(7)).toBe(false);
+
+        jest.advanceTimersByTime(1100);
+        expect(mockLogger.warn).not.toHaveBeenCalledWith(expect.stringContaining('timeout'));
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('_createTabCompletionWaiter resolves null and cleans listeners after tab removal', async () => {
+      let removedListener = null;
+      chrome.tabs.onRemoved.addListener.mockImplementation(listener => {
+        removedListener = listener;
+      });
+
+      const promise = service._createTabCompletionWaiter(8);
+
+      removedListener(8);
+
+      await expect(promise).resolves.toBeNull();
+      expect(chrome.tabs.onUpdated.removeListener).toHaveBeenCalled();
+      expect(chrome.tabs.onRemoved.removeListener).toHaveBeenCalledWith(removedListener);
+      expect(service.pendingListeners.has(8)).toBe(false);
+    });
   });
 
   describe('Wrappers (waitForTabComplete, queryTabs, createTab, removeTab)', () => {
