@@ -103,6 +103,17 @@ describe('NextJsExtractor', () => {
     expect(result).not.toBeNull();
     expect(result.metadata.title).toBe(title);
   };
+  const forceExtractorError = (methodName, message) => {
+    jest.spyOn(NextJsExtractor, methodName).mockImplementation(() => {
+      throw new Error(message);
+    });
+  };
+  const expectExtractionErrorLog = error => {
+    expect(Logger.error).toHaveBeenCalledWith('Next.js 提取過程發生錯誤', {
+      action: 'NextJsExtractor.extract',
+      error,
+    });
+  };
   const setHk01ArticleLocation = href => {
     setLocation({
       origin: HK01_ORIGIN,
@@ -168,28 +179,18 @@ describe('NextJsExtractor', () => {
     });
 
     it('should catch resolver errors and return null', () => {
-      jest.spyOn(NextJsExtractor, '_resolveInitialData').mockImplementation(() => {
-        throw new Error('resolver failed');
-      });
+      forceExtractorError('_resolveInitialData', 'resolver failed');
 
       expect(NextJsExtractor.extract(mockDoc)).toBeNull();
-      expect(Logger.error).toHaveBeenCalledWith('Next.js 提取過程發生錯誤', {
-        action: 'NextJsExtractor.extract',
-        error: 'resolver failed',
-      });
+      expectExtractionErrorLog('resolver failed');
     });
 
     it('should catch extraction errors and return null', () => {
-      jest.spyOn(NextJsExtractor, '_extractFromRawData').mockImplementation(() => {
-        throw new Error('extract failed');
-      });
+      forceExtractorError('_extractFromRawData', 'extract failed');
       setNextDataScript(buildPagesRouterData(buildThreeParagraphArticle('Broken')));
 
       expect(NextJsExtractor.extract(mockDoc)).toBeNull();
-      expect(Logger.error).toHaveBeenCalledWith('Next.js 提取過程發生錯誤', {
-        action: 'NextJsExtractor.extract',
-        error: 'extract failed',
-      });
+      expectExtractionErrorLog('extract failed');
     });
 
     it('should return null when asPath does not match current URL (SPA navigation)', () => {
@@ -800,30 +801,19 @@ describe('NextJsExtractor', () => {
       });
     });
 
-    it('should return null for non-OK response', async () => {
+    it.each([
+      ['non-OK response', () => Promise.resolve({ ok: false, status: 503 }), { status: 503 }],
+      ['fetch throws', () => Promise.reject(new Error('network down')), { error: 'network down' }],
+    ])('should return null when %s', async (_name, fetchResult, expectedLogContext) => {
       setHk01ArticleLocation();
-      globalThis.fetch = jest.fn().mockResolvedValue({ ok: false, status: 503 });
+      globalThis.fetch = jest.fn().mockImplementation(fetchResult);
 
       const result = await NextJsExtractor._fetchNextData(mockDoc, DEFAULT_NEXT_DATA_BUILD_ID);
 
       expect(result).toBeNull();
       expect(Logger.debug).toHaveBeenCalledWith('Next.js data 取得失敗', {
         action: '_fetchNextData',
-        status: 503,
-        url: HK01_NEXT_DATA_URL,
-      });
-    });
-
-    it('should return null when fetch throws', async () => {
-      setHk01ArticleLocation();
-      globalThis.fetch = jest.fn().mockRejectedValue(new Error('network down'));
-
-      const result = await NextJsExtractor._fetchNextData(mockDoc, DEFAULT_NEXT_DATA_BUILD_ID);
-
-      expect(result).toBeNull();
-      expect(Logger.debug).toHaveBeenCalledWith('Next.js data 取得失敗', {
-        action: '_fetchNextData',
-        error: 'network down',
+        ...expectedLogContext,
         url: HK01_NEXT_DATA_URL,
       });
     });
