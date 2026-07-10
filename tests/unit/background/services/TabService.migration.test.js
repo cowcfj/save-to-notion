@@ -13,6 +13,12 @@
  */
 
 import { _migrationScript } from '../../../../scripts/background/services/TabService.js';
+import {
+  createTabService,
+  mockInjectionService,
+  mockLogger,
+  resetTabServiceTestState,
+} from './tabServiceTestHarness.js';
 
 const BASE_URL = 'https://example.com/page';
 
@@ -232,5 +238,129 @@ describe('TabService Migration Script', () => {
     expect(result.migrated).toBe(false);
     expect(result.error).toBeDefined();
     getItemSpy.mockRestore();
+  });
+});
+
+describe('TabService legacy migration wrapper', () => {
+  let service = null;
+
+  beforeEach(() => {
+    resetTabServiceTestState();
+    service = createTabService();
+  });
+
+  it('skips migration when normalized URL or storage key is missing', async () => {
+    await service.migrateLegacyHighlights(1, '', 'highlights_https://example.com');
+    await service.migrateLegacyHighlights(1, 'https://example.com', '');
+
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      'Skipping legacy migration: missing normalized URL or storage key'
+    );
+    expect(chrome.tabs.get).not.toHaveBeenCalled();
+    expect(mockInjectionService.injectWithResponse).not.toHaveBeenCalled();
+  });
+
+  it('skips non-http URL migration with sanitized context', async () => {
+    await service.migrateLegacyHighlights(1, 'file:///Users/me/private.html?token=secret', 'key');
+
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      'Skipping legacy migration for non-http URL:',
+      expect.objectContaining({
+        normUrl: 'file://[local-file]',
+      })
+    );
+    expect(chrome.tabs.get).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['missing tab', null],
+    ['chrome error tab', { id: 1, url: 'chrome-error://chromewebdata/' }],
+  ])('skips injection for invalid migration target: %s', async (_name, tab) => {
+    chrome.tabs.get.mockResolvedValue(tab);
+
+    await service.migrateLegacyHighlights(
+      1,
+      'https://example.com',
+      'highlights_https://example.com'
+    );
+
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      '[TabService] Skipping migration: tab is invalid or showing error page'
+    );
+    expect(mockInjectionService.injectWithResponse).not.toHaveBeenCalled();
+  });
+
+  it('persists migrated response and injects highlight restore', async () => {
+    const migratedData = [{ id: 'migrated-highlight', text: 'hello' }];
+    chrome.tabs.get.mockResolvedValue({ id: 1, url: 'https://example.com' });
+    mockInjectionService.injectWithResponse.mockResolvedValue({
+      migrated: true,
+      data: migratedData,
+    });
+
+    await service.migrateLegacyHighlights(
+      1,
+      'https://example.com',
+      'highlights_https://example.com'
+    );
+
+    expect(chrome.storage.local.set).toHaveBeenCalledWith({
+      'highlights_https://example.com': migratedData,
+    });
+    expect(mockInjectionService.injectHighlightRestore).toHaveBeenCalledWith(1);
+    expect(mockLogger.success).toHaveBeenCalledWith(
+      '[TabService] Legacy highlights migrated successfully',
+      expect.objectContaining({ action: 'injectRestoreScript' })
+    );
+  });
+
+  it('logs warning when migration script reports an error response', async () => {
+    chrome.tabs.get.mockResolvedValue({ id: 1, url: 'https://example.com' });
+    mockInjectionService.injectWithResponse.mockResolvedValue({
+      migrated: false,
+      error: 'parse failed',
+    });
+
+    await service.migrateLegacyHighlights(
+      1,
+      'https://example.com',
+      'highlights_https://example.com'
+    );
+
+    expect(mockLogger.warn).toHaveBeenCalledWith('[TabService] Migration script reported error:', {
+      error: 'parse failed',
+    });
+  });
+
+  it('logs recoverable injection errors as warnings', async () => {
+    chrome.tabs.get.mockResolvedValue({ id: 1, url: 'https://example.com' });
+    mockInjectionService.injectWithResponse.mockRejectedValue(new Error('Cannot access contents'));
+
+    await service.migrateLegacyHighlights(
+      1,
+      'https://example.com',
+      'highlights_https://example.com'
+    );
+
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      '[TabService] Migration skipped due to recoverable error:',
+      expect.objectContaining({ error: 'Cannot access contents' })
+    );
+  });
+
+  it('logs fatal injection errors as errors', async () => {
+    const fatalError = new Error('Unexpected injection failure');
+    chrome.tabs.get.mockResolvedValue({ id: 1, url: 'https://example.com' });
+    mockInjectionService.injectWithResponse.mockRejectedValue(fatalError);
+
+    await service.migrateLegacyHighlights(
+      1,
+      'https://example.com',
+      'highlights_https://example.com'
+    );
+
+    expect(mockLogger.error).toHaveBeenCalledWith('[TabService] Fatal migration error', {
+      error: fatalError,
+    });
   });
 });

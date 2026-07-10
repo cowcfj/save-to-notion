@@ -103,6 +103,17 @@ describe('NextJsExtractor', () => {
     expect(result).not.toBeNull();
     expect(result.metadata.title).toBe(title);
   };
+  const forceExtractorError = (methodName, message) => {
+    jest.spyOn(NextJsExtractor, methodName).mockImplementation(() => {
+      throw new Error(message);
+    });
+  };
+  const expectExtractionErrorLog = error => {
+    expect(Logger.error).toHaveBeenCalledWith('Next.js 提取過程發生錯誤', {
+      action: 'NextJsExtractor.extract',
+      error,
+    });
+  };
   const setHk01ArticleLocation = href => {
     setLocation({
       origin: HK01_ORIGIN,
@@ -162,6 +173,24 @@ describe('NextJsExtractor', () => {
     it('should return null if script tag is missing', () => {
       mockDoc.querySelector.mockReturnValue(null);
       expect(NextJsExtractor.extract(mockDoc)).toBeNull();
+      expect(Logger.warn).toHaveBeenCalledWith('未能提取任何 Next.js 數據', {
+        action: 'NextJsExtractor.extract',
+      });
+    });
+
+    it('should catch resolver errors and return null', () => {
+      forceExtractorError('_resolveInitialData', 'resolver failed');
+
+      expect(NextJsExtractor.extract(mockDoc)).toBeNull();
+      expectExtractionErrorLog('resolver failed');
+    });
+
+    it('should catch extraction errors and return null', () => {
+      forceExtractorError('_extractFromRawData', 'extract failed');
+      setNextDataScript(buildPagesRouterData(buildThreeParagraphArticle('Broken')));
+
+      expect(NextJsExtractor.extract(mockDoc)).toBeNull();
+      expectExtractionErrorLog('extract failed');
     });
 
     it('should return null when asPath does not match current URL (SPA navigation)', () => {
@@ -557,6 +586,83 @@ describe('NextJsExtractor', () => {
       globalThis.fetch = originalFetch;
     });
 
+    it('App Router data should extract without Pages Router validation', async () => {
+      mockDoc.querySelector.mockReturnValue(null);
+      mockDoc.querySelectorAll.mockReturnValue([
+        {
+          textContent: `self.__next_f.push(${JSON.stringify([
+            1,
+            buildThreeParagraphArticle('App Router Async', ['A1', 'A2', 'A3']),
+          ])})`,
+        },
+      ]);
+      const validateSpy = jest.spyOn(NextJsExtractor, '_validatePagesRouterDataDetailed');
+
+      const result = await NextJsExtractor.extractAsync(mockDoc);
+
+      expect(validateSpy).not.toHaveBeenCalled();
+      expectExtractedTitle(result, 'App Router Async');
+      expect(result.blocks).toHaveLength(3);
+    });
+
+    it('non-stale invalid Pages Router data should return null without stale fallback', async () => {
+      setNextDataScript(buildPagesRouterData(buildThreeParagraphArticle('Invalid Pages')));
+      const handleStaleSpy = jest.spyOn(NextJsExtractor, '_handleStalePagesRouterData');
+      jest
+        .spyOn(NextJsExtractor, '_validatePagesRouterDataDetailed')
+        .mockReturnValue({ isValid: false, reason: 'unknown' });
+
+      const result = await NextJsExtractor.extractAsync(mockDoc);
+
+      expect(result).toBeNull();
+      expect(handleStaleSpy).not.toHaveBeenCalled();
+    });
+
+    it('stale homepage Pages Router data should call stale fallback on non-root path', async () => {
+      setHk01ArticleLocation();
+      const staleJson = setStaleNextDataScript();
+      const fallbackResult = { type: 'nextjs', metadata: { title: 'Fallback' }, blocks: [] };
+      const handleStaleSpy = jest
+        .spyOn(NextJsExtractor, '_handleStalePagesRouterData')
+        .mockResolvedValue(fallbackResult);
+
+      const result = await NextJsExtractor.extractAsync(mockDoc);
+
+      expect(result).toBe(fallbackResult);
+      expect(handleStaleSpy).toHaveBeenCalledWith(
+        mockDoc,
+        staleJson,
+        'NextJsExtractor.extractAsync'
+      );
+    });
+
+    it('stale asPath Pages Router data should call stale fallback', async () => {
+      setLocation({
+        origin: HK01_ORIGIN,
+        pathname: '/news/new-article',
+        href: `${HK01_ORIGIN}/news/new-article`,
+      });
+      const staleJson = buildPagesRouterData(buildThreeParagraphArticle('Old Article'), {
+        asPath: '/news/old-article',
+        buildId: DEFAULT_NEXT_DATA_BUILD_ID,
+        page: '/news/[slug]',
+      });
+      setNextDataScript(staleJson);
+      const fallbackResult = { type: 'nextjs', metadata: { title: 'Fresh' }, blocks: [] };
+      const handleStaleSpy = jest
+        .spyOn(NextJsExtractor, '_handleStalePagesRouterData')
+        .mockResolvedValue(fallbackResult);
+
+      const result = await NextJsExtractor.extractAsync(mockDoc);
+
+      expect(result).toBe(fallbackResult);
+      expect(handleStaleSpy).toHaveBeenCalledWith(
+        mockDoc,
+        staleJson,
+        'NextJsExtractor.extractAsync'
+      );
+    });
+
     it('stale 時優先從 router 組件提取，不呼叫 fetch', async () => {
       // 模擬：__NEXT_DATA__ 為首頁資料 (stale)，router.components 有最新文章數據
       setHk01ArticleLocation();
@@ -666,6 +772,92 @@ describe('NextJsExtractor', () => {
         url: HK01_NEXT_DATA_URL,
       });
       expect(Logger.warn).not.toHaveBeenCalledWith('Next.js data 取得失敗', expect.any(Object));
+    });
+  });
+
+  describe('_isAsPathMatch', () => {
+    it('malformed URI should return true to avoid false stale detection', () => {
+      expect(NextJsExtractor._isAsPathMatch('/news/%E0%A4%A', '/news/current')).toBe(true);
+    });
+  });
+
+  describe('_fetchNextData', () => {
+    const originalFetch = globalThis.fetch;
+
+    afterEach(() => {
+      globalThis.fetch = originalFetch;
+    });
+
+    it('should return null when data URL cannot be built', async () => {
+      globalThis.fetch = jest.fn();
+
+      const result = await NextJsExtractor._fetchNextData(mockDoc, '');
+
+      expect(result).toBeNull();
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+      expect(Logger.warn).toHaveBeenCalledWith('無法構建 Next.js data URL', {
+        action: '_fetchNextData',
+        buildId: false,
+      });
+    });
+
+    it.each([
+      ['non-OK response', () => Promise.resolve({ ok: false, status: 503 }), { status: 503 }],
+      ['fetch throws', () => Promise.reject(new Error('network down')), { error: 'network down' }],
+    ])('should return null when %s', async (_name, fetchResult, expectedLogContext) => {
+      setHk01ArticleLocation();
+      globalThis.fetch = jest.fn().mockImplementation(fetchResult);
+
+      const result = await NextJsExtractor._fetchNextData(mockDoc, DEFAULT_NEXT_DATA_BUILD_ID);
+
+      expect(result).toBeNull();
+      expect(Logger.debug).toHaveBeenCalledWith('Next.js data 取得失敗', {
+        action: '_fetchNextData',
+        ...expectedLogContext,
+        url: HK01_NEXT_DATA_URL,
+      });
+    });
+  });
+
+  describe('_normalizeNextDataPayload', () => {
+    it('should return null for non-object payload', () => {
+      expect(NextJsExtractor._normalizeNextDataPayload(null, {})).toBeNull();
+      expect(NextJsExtractor._normalizeNextDataPayload('bad', {})).toBeNull();
+    });
+
+    it.each([
+      ['top-level pageProps', { pageProps: { article: { title: 'Top' } } }],
+      ['nested props.pageProps', { props: { pageProps: { article: { title: 'Nested Props' } } } }],
+      [
+        'nested props.initialProps.pageProps',
+        { props: { initialProps: { pageProps: { article: { title: 'Initial Props' } } } } },
+      ],
+      [
+        'nested initialProps.pageProps',
+        { initialProps: { pageProps: { article: { title: 'Initial' } } } },
+      ],
+    ])('should build normalized props from %s', (_name, payload) => {
+      const normalized = NextJsExtractor._normalizeNextDataPayload(payload, {
+        page: '/fallback-page',
+        query: { slug: 'fallback' },
+        buildId: DEFAULT_NEXT_DATA_BUILD_ID,
+      });
+
+      expect(normalized).toEqual({
+        page: '/fallback-page',
+        query: { slug: 'fallback' },
+        buildId: DEFAULT_NEXT_DATA_BUILD_ID,
+        props: {
+          pageProps: expect.objectContaining({
+            article: expect.objectContaining({ title: expect.any(String) }),
+          }),
+          initialProps: {
+            pageProps: expect.objectContaining({
+              article: expect.objectContaining({ title: expect.any(String) }),
+            }),
+          },
+        },
+      });
     });
   });
 

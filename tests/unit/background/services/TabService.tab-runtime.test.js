@@ -54,6 +54,21 @@ describe('TabService tab runtime', () => {
       return { listener, promise };
     };
 
+    const startTabCompletionWaiter = tabId => {
+      let updateListener = null;
+      let removedListener = null;
+      chrome.tabs.onUpdated.addListener.mockImplementation(listener => {
+        updateListener = listener;
+      });
+      chrome.tabs.onRemoved.addListener.mockImplementation(listener => {
+        removedListener = listener;
+      });
+
+      const promise = service._createTabCompletionWaiter(tabId);
+
+      return { promise, updateListener, removedListener };
+    };
+
     it('應該在標籤頁已完成載入時直接返回', async () => {
       chrome.tabs.get.mockResolvedValue({ id: 1, status: 'complete' });
       const res = await service._waitForTabCompilation(1);
@@ -111,6 +126,65 @@ describe('TabService tab runtime', () => {
       } finally {
         jest.useRealTimers();
       }
+    });
+
+    it('_createTabCompletionWaiter cleans listeners and pending state after update completion', async () => {
+      jest.useFakeTimers();
+      try {
+        const { promise, updateListener, removedListener } = startTabCompletionWaiter(7);
+
+        expect(service.pendingListeners.has(7)).toBe(true);
+
+        updateListener(7, { status: 'complete' });
+        await expect(promise).resolves.toEqual({ status: 'complete' });
+
+        expect(chrome.tabs.onUpdated.removeListener).toHaveBeenCalledWith(updateListener);
+        expect(chrome.tabs.onRemoved.removeListener).toHaveBeenCalledWith(removedListener);
+        expect(service.pendingListeners.has(7)).toBe(false);
+
+        jest.advanceTimersByTime(1100);
+        expect(mockLogger.warn).not.toHaveBeenCalledWith(expect.stringContaining('timeout'));
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('_createTabCompletionWaiter resolves null via timeout and cleans listeners', async () => {
+      jest.useFakeTimers();
+      try {
+        const { promise, updateListener, removedListener } = startTabCompletionWaiter(9);
+
+        expect(service.pendingListeners.has(9)).toBe(true);
+
+        jest.advanceTimersByTime(1000);
+
+        await expect(promise).resolves.toBeNull();
+        expect(chrome.tabs.onUpdated.removeListener).toHaveBeenCalledWith(updateListener);
+        expect(chrome.tabs.onRemoved.removeListener).toHaveBeenCalledWith(removedListener);
+        expect(service.pendingListeners.has(9)).toBe(false);
+        expect(mockLogger.warn).toHaveBeenCalledTimes(1);
+        expect(mockLogger.warn).toHaveBeenCalledWith(
+          expect.stringContaining('Tab 9 loading timeout')
+        );
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('_createTabCompletionWaiter resolves null and cleans listeners after tab removal', async () => {
+      let removedListener = null;
+      chrome.tabs.onRemoved.addListener.mockImplementation(listener => {
+        removedListener = listener;
+      });
+
+      const promise = service._createTabCompletionWaiter(8);
+
+      removedListener(8);
+
+      await expect(promise).resolves.toBeNull();
+      expect(chrome.tabs.onUpdated.removeListener).toHaveBeenCalled();
+      expect(chrome.tabs.onRemoved.removeListener).toHaveBeenCalledWith(removedListener);
+      expect(service.pendingListeners.has(8)).toBe(false);
     });
   });
 
