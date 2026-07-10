@@ -64,8 +64,28 @@ function buildChromeMock({
 }
 
 function expectCircularReferencePreserved(cloned, original) {
+  expect(cloned).toEqual(expect.any(Object));
   expect(cloned).not.toBe(original);
   expect(cloned.myself).toBe(cloned);
+}
+
+function readFirstRuntimeMessage() {
+  expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
+  return globalThis.chrome.runtime.sendMessage.mock.calls[0][0];
+}
+
+function readFirstRuntimeMessageArg() {
+  const message = readFirstRuntimeMessage();
+  expect(message.args).toEqual(expect.any(Array));
+  return message.args[0];
+}
+
+function readFirstRuntimeBatchLogArg() {
+  const message = readFirstRuntimeMessage();
+  expect(message.logs).toEqual(expect.any(Array));
+  const firstLogArgs = message.logs[0]?.args;
+  expect(firstLogArgs).toEqual(expect.any(Array));
+  return firstLogArgs[0];
 }
 
 function buildSelfReferencingObject() {
@@ -486,7 +506,7 @@ describe('Logger', () => {
       expect.hasAssertions();
       expectCircularReferencePreservedAfter(
         circular => Logger.warn('Circular test', circular),
-        () => globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args[0]
+        readFirstRuntimeMessageArg
       );
     });
 
@@ -728,13 +748,10 @@ describe('Logger', () => {
 
     test('_queueForBackground 應該正確處理包含 Circular Reference 的對象', () => {
       expect.hasAssertions();
-      expectCircularReferencePreservedAfter(
-        circular => {
-          Logger.info('Circular test', circular);
-          jest.advanceTimersByTime(500);
-        },
-        () => globalThis.chrome.runtime.sendMessage.mock.calls[0][0].logs[0].args[0]
-      );
+      expectCircularReferencePreservedAfter(circular => {
+        Logger.info('Circular test', circular);
+        jest.advanceTimersByTime(500);
+      }, readFirstRuntimeBatchLogArg);
     });
 
     test('_queueForBackground 對物件內無法透過 IPC 傳遞的值會遞迴 fallback 該欄位', () => {
