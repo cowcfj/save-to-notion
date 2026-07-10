@@ -54,6 +54,21 @@ describe('TabService tab runtime', () => {
       return { listener, promise };
     };
 
+    const startTabCompletionWaiter = tabId => {
+      let updateListener = null;
+      let removedListener = null;
+      chrome.tabs.onUpdated.addListener.mockImplementation(listener => {
+        updateListener = listener;
+      });
+      chrome.tabs.onRemoved.addListener.mockImplementation(listener => {
+        removedListener = listener;
+      });
+
+      const promise = service._createTabCompletionWaiter(tabId);
+
+      return { promise, updateListener, removedListener };
+    };
+
     it('應該在標籤頁已完成載入時直接返回', async () => {
       chrome.tabs.get.mockResolvedValue({ id: 1, status: 'complete' });
       const res = await service._waitForTabCompilation(1);
@@ -116,16 +131,7 @@ describe('TabService tab runtime', () => {
     it('_createTabCompletionWaiter cleans listeners and pending state after update completion', async () => {
       jest.useFakeTimers();
       try {
-        let updateListener = null;
-        let removedListener = null;
-        chrome.tabs.onUpdated.addListener.mockImplementation(listener => {
-          updateListener = listener;
-        });
-        chrome.tabs.onRemoved.addListener.mockImplementation(listener => {
-          removedListener = listener;
-        });
-
-        const promise = service._createTabCompletionWaiter(7);
+        const { promise, updateListener, removedListener } = startTabCompletionWaiter(7);
 
         expect(service.pendingListeners.has(7)).toBe(true);
 
@@ -146,16 +152,7 @@ describe('TabService tab runtime', () => {
     it('_createTabCompletionWaiter resolves null via timeout and cleans listeners', async () => {
       jest.useFakeTimers();
       try {
-        let updateListener = null;
-        let removedListener = null;
-        chrome.tabs.onUpdated.addListener.mockImplementation(listener => {
-          updateListener = listener;
-        });
-        chrome.tabs.onRemoved.addListener.mockImplementation(listener => {
-          removedListener = listener;
-        });
-
-        const promise = service._createTabCompletionWaiter(9);
+        const { promise, updateListener, removedListener } = startTabCompletionWaiter(9);
 
         expect(service.pendingListeners.has(9)).toBe(true);
 
