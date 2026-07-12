@@ -309,50 +309,7 @@ describe('Content Script Entry (index.js)', () => {
       expect(sendResponse).not.toHaveBeenCalled();
     });
 
-    test('showHighlighter 應優先調用 rail.show', () => {
-      const showMock = jest.fn();
-      globalThis.HighlighterV2 = { rail: { show: showMock } };
-
-      const { sendResponse } = dispatchAction('showHighlighter');
-
-      expect(showMock).toHaveBeenCalled();
-      expect(sendResponse).toHaveBeenCalledWith({ success: true });
-      delete globalThis.HighlighterV2;
-    });
-
-    test('showHighlighter 在 rail.show 拋錯時應返回安全 fallback 訊息', () => {
-      globalThis.HighlighterV2 = {
-        rail: {
-          show: jest.fn(() => {
-            throw new Error('showHighlighter failed');
-          }),
-        },
-      };
-
-      const { sendResponse } = dispatchAction('showHighlighter');
-
-      expect(sendResponse).toHaveBeenCalledWith(railOperationFailure);
-    });
-
-    test('[REGRESSION] showHighlighter 不應在無 rail 時 fallback 到 notionHighlighter toolbar', async () => {
-      delete globalThis.HighlighterV2;
-      const showMock = jest.fn();
-      globalThis.notionHighlighter = { show: showMock };
-
-      const { sendResponse } = dispatchAction('showHighlighter');
-      await Promise.resolve();
-      await Promise.resolve();
-
-      expect(showMock).not.toHaveBeenCalled();
-      expect(sendResponse).toHaveBeenCalledWith(railNotInitializedFailure);
-      delete globalThis.notionHighlighter;
-    });
-
     test.each([
-      {
-        title: '[REGRESSION] showHighlighter 應等待 rail-ready 完成後才回應',
-        action: 'showHighlighter',
-      },
       {
         title: '[REGRESSION] content bridge SHOW_FLOATING_RAIL 應等待 rail-ready 完成後才回應',
         action: showFloatingRailAction,

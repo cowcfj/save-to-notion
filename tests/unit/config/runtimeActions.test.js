@@ -99,11 +99,6 @@ const ACTION_TYPE_CONTRACTS = [
     responseType: 'ShowToolbarResponse',
   },
   {
-    actionKey: 'SHOW_HIGHLIGHTER',
-    requestType: 'ShowHighlighterRequest',
-    responseType: 'ShowHighlighterResponse',
-  },
-  {
     actionKey: 'REMOVE_HIGHLIGHT_DOM',
     requestType: 'RemoveHighlightDomRequest',
     responseType: 'RemoveHighlightDomResponse',
@@ -330,7 +325,6 @@ describe('runtimeActions', () => {
         SHOW_TOOLBAR: 'showToolbar',
         GET_STABLE_URL: 'GET_STABLE_URL',
         PAGE_SAVE_HINT: 'PAGE_SAVE_HINT',
-        SHOW_HIGHLIGHTER: 'showHighlighter',
         REMOVE_HIGHLIGHT_DOM: 'REMOVE_HIGHLIGHT_DOM',
         PING: 'PING',
         INIT_BUNDLE: 'INIT_BUNDLE',

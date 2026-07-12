@@ -182,14 +182,6 @@
           "error": "string (optional)"
         }
       },
-      "showHighlighter": {
-        "description": "（Legacy compatibility shim）要求 content script 顯示/啟用標註工具。此 API 僅會顯示 Floating Rail，不得建立或顯示 full toolbar",
-        "payload": {},
-        "response": {
-          "success": "boolean",
-          "error": "string (optional)"
-        }
-      },
       "showToolbar": {
         "description": "（Legacy compatibility shim alias）要求 content script 顯示標註 UI。此 API 僅會顯示 Floating Rail，不得建立或顯示 full toolbar",
         "payload": {},
