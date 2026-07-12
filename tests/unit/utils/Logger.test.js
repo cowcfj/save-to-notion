@@ -22,6 +22,84 @@ async function loadInDevelopmentMode(loader) {
   }
 }
 
+function invokeRuntimeCallback(_message, callback) {
+  if (callback) {
+    callback();
+  }
+}
+
+function buildChromeRuntimeMock({
+  version = '1.0.0',
+  versionName = '1.0.0-dev',
+  getManifest = jest.fn().mockReturnValue({
+    version,
+    version_name: versionName,
+  }),
+  sendMessage = jest.fn(invokeRuntimeCallback),
+  lastError = null,
+} = {}) {
+  return {
+    id: 'test-extension-id',
+    getManifest,
+    sendMessage,
+    lastError,
+  };
+}
+
+function buildChromeMock({
+  runtimeOptions,
+  runtime = buildChromeRuntimeMock(runtimeOptions),
+  storageGet = jest.fn((_keys, callback) => callback({})),
+  storageOnChanged = { addListener: jest.fn() },
+} = {}) {
+  return {
+    runtime,
+    storage: {
+      sync: {
+        get: storageGet,
+      },
+      onChanged: storageOnChanged,
+    },
+  };
+}
+
+function expectCircularReferencePreserved(cloned, original) {
+  expect(cloned).toEqual(expect.any(Object));
+  expect(cloned).not.toBe(original);
+  expect(cloned.myself).toBe(cloned);
+}
+
+function readFirstRuntimeMessage() {
+  expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
+  return globalThis.chrome.runtime.sendMessage.mock.calls[0][0];
+}
+
+function readFirstRuntimeMessageArg() {
+  const message = readFirstRuntimeMessage();
+  expect(message.args).toEqual(expect.any(Array));
+  return message.args[0];
+}
+
+function readFirstRuntimeBatchLogArg() {
+  const message = readFirstRuntimeMessage();
+  expect(message.logs).toEqual(expect.any(Array));
+  const firstLogArgs = message.logs[0]?.args;
+  expect(firstLogArgs).toEqual(expect.any(Array));
+  return firstLogArgs[0];
+}
+
+function buildSelfReferencingObject() {
+  const circular = {};
+  circular.myself = circular;
+  return circular;
+}
+
+function expectCircularReferencePreservedAfter(serialize, readSerialized) {
+  const circular = buildSelfReferencingObject();
+  serialize(circular);
+  expectCircularReferencePreserved(readSerialized(), circular);
+}
+
 describe('Logger', () => {
   let Logger = null;
   let originalChrome = null;
@@ -120,18 +198,12 @@ describe('Logger', () => {
       expect(consoleSpy.error.mock.calls[0][0]).toContain('[ERROR]');
     });
 
-    test('error 應該忽略 "Frame with ID 0 was removed" 錯誤', () => {
-      Logger.error('Frame with ID 0 was removed');
-      expect(consoleSpy.error).not.toHaveBeenCalled();
-    });
-
-    test('error 應該忽略包裝過的 Frame 移除錯誤', () => {
-      Logger.error('Function execution failed: Frame with ID 0 was removed.');
-      expect(consoleSpy.error).not.toHaveBeenCalled();
-    });
-
-    test('error 應該忽略任何 Frame ID 的移除錯誤', () => {
-      Logger.error('Frame with ID 123 was removed');
+    test.each([
+      ['exact frame removal', 'Frame with ID 0 was removed'],
+      ['wrapped frame removal', 'Function execution failed: Frame with ID 0 was removed.'],
+      ['dynamic frame id removal', 'Frame with ID 123 was removed'],
+    ])('error 應該忽略 %s 錯誤', (_caseName, message) => {
+      Logger.error(message);
       expect(consoleSpy.error).not.toHaveBeenCalled();
     });
 
@@ -161,29 +233,7 @@ describe('Logger', () => {
   describe('在模擬擴展環境中（開發版本）', () => {
     beforeEach(async () => {
       // 模擬 Chrome 擴展環境（開發版本）
-      globalThis.chrome = {
-        runtime: {
-          id: 'test-extension-id',
-          getManifest: jest.fn().mockReturnValue({
-            version: '1.0.0',
-            version_name: '1.0.0-dev',
-          }),
-          sendMessage: jest.fn((msg, callback) => {
-            if (callback) {
-              callback();
-            }
-          }),
-          lastError: null,
-        },
-        storage: {
-          sync: {
-            get: jest.fn((_keys, callback) => callback({})),
-          },
-          onChanged: {
-            addListener: jest.fn(),
-          },
-        },
-      };
+      globalThis.chrome = buildChromeMock();
 
       // 載入 Logger 模組
       await loadInDevelopmentMode(() => import('../../../scripts/utils/Logger.js'));
@@ -230,25 +280,13 @@ describe('Logger', () => {
   describe('在模擬擴展環境中（生產版本）', () => {
     beforeEach(async () => {
       // 模擬 Chrome 擴展環境（生產版本）
-      globalThis.chrome = {
-        runtime: {
-          id: 'test-extension-id',
-          getManifest: jest.fn().mockReturnValue({
-            version: '2.0.0',
-            version_name: '2.0.0',
-          }),
+      globalThis.chrome = buildChromeMock({
+        runtimeOptions: {
+          version: '2.0.0',
+          versionName: '2.0.0',
           sendMessage: jest.fn(),
-          lastError: null,
         },
-        storage: {
-          sync: {
-            get: jest.fn((_keys, callback) => callback({})),
-          },
-          onChanged: {
-            addListener: jest.fn(),
-          },
-        },
-      };
+      });
 
       await loadInDevelopmentMode(() => import('../../../scripts/utils/Logger.js'));
       Logger = globalThis.window.Logger;
@@ -262,27 +300,16 @@ describe('Logger', () => {
   describe('Storage 配置覆蓋', () => {
     beforeEach(async () => {
       // 模擬 Chrome 擴展環境，storage 配置啟用調試
-      globalThis.chrome = {
-        runtime: {
-          id: 'test-extension-id',
-          getManifest: jest.fn().mockReturnValue({
-            version: '2.0.0',
-            version_name: '2.0.0',
-          }),
+      globalThis.chrome = buildChromeMock({
+        runtimeOptions: {
+          version: '2.0.0',
+          versionName: '2.0.0',
           sendMessage: jest.fn(),
-          lastError: null,
         },
-        storage: {
-          sync: {
-            get: jest.fn((_keys, callback) => {
-              callback({ enableDebugLogs: true });
-            }),
-          },
-          onChanged: {
-            addListener: jest.fn(),
-          },
-        },
-      };
+        storageGet: jest.fn((_keys, callback) => {
+          callback({ enableDebugLogs: true });
+        }),
+      });
 
       await loadInDevelopmentMode(() => import('../../../scripts/utils/Logger.js'));
       Logger = globalThis.window.Logger;
@@ -346,14 +373,13 @@ describe('Logger', () => {
   describe('Storage 初始化錯誤防禦', () => {
     test('storage.sync.get callback 遇到 runtime.lastError 時應讀取並忽略結果', async () => {
       let lastErrorWasRead = false;
-      const runtime = {
-        id: 'test-extension-id',
+      const runtime = buildChromeRuntimeMock({
         getManifest: jest.fn().mockReturnValue({
           version: '2.0.0',
           version_name: '2.0.0',
         }),
         sendMessage: jest.fn(),
-      };
+      });
       Object.defineProperty(runtime, 'lastError', {
         get() {
           lastErrorWasRead = true;
@@ -361,19 +387,12 @@ describe('Logger', () => {
         },
       });
 
-      globalThis.chrome = {
+      globalThis.chrome = buildChromeMock({
         runtime,
-        storage: {
-          sync: {
-            get: jest.fn((_keys, callback) => {
-              callback({ enableDebugLogs: true });
-            }),
-          },
-          onChanged: {
-            addListener: jest.fn(),
-          },
-        },
-      };
+        storageGet: jest.fn((_keys, callback) => {
+          callback({ enableDebugLogs: true });
+        }),
+      });
 
       await loadInDevelopmentMode(() => import('../../../scripts/utils/Logger.js'));
       Logger = globalThis.window.Logger;
@@ -404,29 +423,7 @@ describe('Logger', () => {
   describe('sendToBackground 功能', () => {
     beforeEach(async () => {
       // Setup default mock specifically for this suite
-      globalThis.chrome = {
-        runtime: {
-          id: 'test-extension-id',
-          getManifest: jest.fn().mockReturnValue({
-            version: '1.0.0',
-            version_name: '1.0.0-dev',
-          }),
-          sendMessage: jest.fn((msg, callback) => {
-            if (callback) {
-              callback();
-            }
-          }),
-          lastError: null,
-        },
-        storage: {
-          sync: {
-            get: jest.fn((_keys, callback) => callback({})),
-          },
-          onChanged: {
-            addListener: jest.fn(),
-          },
-        },
-      };
+      globalThis.chrome = buildChromeMock();
 
       await loadInDevelopmentMode(() => import('../../../scripts/utils/Logger.js'));
       Logger = globalThis.window.Logger;
@@ -506,16 +503,11 @@ describe('Logger', () => {
     });
 
     test('應該正確處理包含 Circular Reference 的對象', () => {
-      const circular = {};
-      circular.myself = circular;
-
-      Logger.warn('Circular test', circular);
-
-      const sentArgs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].args;
-      const cloned = sentArgs[0];
-
-      expect(cloned).not.toBe(circular);
-      expect(cloned.myself).toBe(cloned);
+      expect.hasAssertions();
+      expectCircularReferencePreservedAfter(
+        circular => Logger.warn('Circular test', circular),
+        readFirstRuntimeMessageArg
+      );
     });
 
     test('當對象包含無法透過 IPC 傳遞的值時應該遞迴 fallback 該欄位', () => {
@@ -709,29 +701,7 @@ describe('Logger', () => {
 
   describe('批量轉發機制 (_queueForBackground & _flushToBackground)', () => {
     beforeEach(async () => {
-      globalThis.chrome = {
-        runtime: {
-          id: 'test-extension-id',
-          getManifest: jest.fn().mockReturnValue({
-            version: '1.0.0',
-            version_name: '1.0.0-dev',
-          }),
-          sendMessage: jest.fn((msg, callback) => {
-            if (callback) {
-              callback();
-            }
-          }),
-          lastError: null,
-        },
-        storage: {
-          sync: {
-            get: jest.fn((_keys, callback) => callback({})),
-          },
-          onChanged: {
-            addListener: jest.fn(),
-          },
-        },
-      };
+      globalThis.chrome = buildChromeMock();
 
       await loadInDevelopmentMode(() => import('../../../scripts/utils/Logger.js'));
       Logger = globalThis.window.Logger;
@@ -777,17 +747,11 @@ describe('Logger', () => {
     });
 
     test('_queueForBackground 應該正確處理包含 Circular Reference 的對象', () => {
-      const circular = {};
-      circular.myself = circular;
-
-      Logger.info('Circular test', circular);
-      jest.advanceTimersByTime(500);
-
-      const sentLogs = globalThis.chrome.runtime.sendMessage.mock.calls[0][0].logs;
-      const cloned = sentLogs[0].args[0];
-
-      expect(cloned).not.toBe(circular);
-      expect(cloned.myself).toBe(cloned);
+      expect.hasAssertions();
+      expectCircularReferencePreservedAfter(circular => {
+        Logger.info('Circular test', circular);
+        jest.advanceTimersByTime(500);
+      }, readFirstRuntimeBatchLogArg);
     });
 
     test('_queueForBackground 對物件內無法透過 IPC 傳遞的值會遞迴 fallback 該欄位', () => {
@@ -882,24 +846,14 @@ describe('Logger', () => {
 
   describe('manifest 錯誤處理', () => {
     test('當 getManifest 拋出錯誤時應該優雅處理', async () => {
-      globalThis.chrome = {
-        runtime: {
-          id: 'test-extension-id',
+      globalThis.chrome = buildChromeMock({
+        runtime: buildChromeRuntimeMock({
           getManifest: jest.fn().mockImplementation(() => {
             throw new Error('Manifest not available');
           }),
           sendMessage: jest.fn(),
-          lastError: null,
-        },
-        storage: {
-          sync: {
-            get: jest.fn((_keys, callback) => callback({})),
-          },
-          onChanged: {
-            addListener: jest.fn(),
-          },
-        },
-      };
+        }),
+      });
 
       // 不應該拋出錯誤
       await expect(
@@ -916,22 +870,12 @@ describe('Logger', () => {
       const docSpy = jest.spyOn(document, 'addEventListener');
       const winSpy = jest.spyOn(globalThis, 'addEventListener');
 
-      globalThis.chrome = {
-        runtime: {
-          id: 'test-extension-id',
+      globalThis.chrome = buildChromeMock({
+        runtimeOptions: {
           getManifest: jest.fn().mockReturnValue({ version_name: '1.0.0-dev' }),
           sendMessage: jest.fn(),
-          lastError: null,
         },
-        storage: {
-          sync: {
-            get: jest.fn((_keys, callback) => callback({})),
-          },
-          onChanged: {
-            addListener: jest.fn(),
-          },
-        },
-      };
+      });
 
       await loadInDevelopmentMode(() => import('../../../scripts/utils/Logger.js'));
 
@@ -948,26 +892,11 @@ describe('Logger', () => {
     test('visibilitychange 回調在頁面隱藏時應觸發批量發送', async () => {
       const docSpy = jest.spyOn(document, 'addEventListener');
 
-      globalThis.chrome = {
-        runtime: {
-          id: 'test-extension-id',
+      globalThis.chrome = buildChromeMock({
+        runtimeOptions: {
           getManifest: jest.fn().mockReturnValue({ version_name: '1.0.0-dev' }),
-          sendMessage: jest.fn((msg, callback) => {
-            if (callback) {
-              callback();
-            }
-          }),
-          lastError: null,
         },
-        storage: {
-          sync: {
-            get: jest.fn((_keys, callback) => callback({})),
-          },
-          onChanged: {
-            addListener: jest.fn(),
-          },
-        },
-      };
+      });
 
       await loadInDevelopmentMode(() => import('../../../scripts/utils/Logger.js'));
       const LoadedLogger = globalThis.window.Logger;
@@ -1000,26 +929,11 @@ describe('Logger', () => {
     test('beforeunload 回調應觸發批量發送', async () => {
       const winSpy = jest.spyOn(globalThis, 'addEventListener');
 
-      globalThis.chrome = {
-        runtime: {
-          id: 'test-extension-id',
+      globalThis.chrome = buildChromeMock({
+        runtimeOptions: {
           getManifest: jest.fn().mockReturnValue({ version_name: '1.0.0-dev' }),
-          sendMessage: jest.fn((msg, callback) => {
-            if (callback) {
-              callback();
-            }
-          }),
-          lastError: null,
         },
-        storage: {
-          sync: {
-            get: jest.fn((_keys, callback) => callback({})),
-          },
-          onChanged: {
-            addListener: jest.fn(),
-          },
-        },
-      };
+      });
 
       await loadInDevelopmentMode(() => import('../../../scripts/utils/Logger.js'));
       const LoadedLogger = globalThis.window.Logger;

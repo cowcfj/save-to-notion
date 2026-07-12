@@ -34,6 +34,34 @@ import {
 import { computeDriveSnapshotHash } from '../../sync/driveSnapshotHash.js';
 import Logger from '../../utils/Logger.js';
 
+const AUTO_SYNC_SKIP_CHECKS = [
+  {
+    reason: 'account_not_logged_in',
+    shouldSkip: (metadata, context) => context.isAccountLoggedIn === false,
+  },
+  {
+    reason: 'drive_not_connected',
+    shouldSkip: metadata => !metadata.connectionEmail,
+  },
+  {
+    reason: 'frequency_off',
+    shouldSkip: metadata => metadata.frequency === 'off',
+  },
+  {
+    reason: 'not_dirty',
+    shouldSkip: metadata => metadata.dirtyRevision <= metadata.lastUploadedRevision,
+  },
+  {
+    reason: 'needs_manual_review',
+    shouldSkip: metadata => metadata.needsManualReview,
+  },
+  {
+    reason: 'not_yet_eligible',
+    shouldSkip: metadata =>
+      metadata.nextEligibleAt && Date.parse(metadata.nextEligibleAt) > Date.now(),
+  },
+];
+
 // =============================================================================
 // 條件判斷
 // =============================================================================
@@ -54,28 +82,14 @@ import Logger from '../../utils/Logger.js';
  * @returns {{ shouldRun: boolean; reason: string }}
  */
 export function shouldRunAutoSync(metadata, context = {}) {
-  if (context.isAccountLoggedIn === false) {
-    return { shouldRun: false, reason: 'account_not_logged_in' };
+  if (metadata == null) {
+    return { shouldRun: false, reason: 'missing_metadata' };
   }
 
-  if (!metadata.connectionEmail) {
-    return { shouldRun: false, reason: 'drive_not_connected' };
-  }
-
-  if (metadata.frequency === 'off') {
-    return { shouldRun: false, reason: 'frequency_off' };
-  }
-
-  if (metadata.dirtyRevision <= metadata.lastUploadedRevision) {
-    return { shouldRun: false, reason: 'not_dirty' };
-  }
-
-  if (metadata.needsManualReview) {
-    return { shouldRun: false, reason: 'needs_manual_review' };
-  }
-
-  if (metadata.nextEligibleAt && Date.parse(metadata.nextEligibleAt) > Date.now()) {
-    return { shouldRun: false, reason: 'not_yet_eligible' };
+  for (const check of AUTO_SYNC_SKIP_CHECKS) {
+    if (check.shouldSkip(metadata, context)) {
+      return { shouldRun: false, reason: check.reason };
+    }
   }
 
   return { shouldRun: true, reason: 'all_conditions_met' };
@@ -96,19 +110,39 @@ export function shouldRunAutoSync(metadata, context = {}) {
  * @returns {Promise<void>}
  */
 async function broadcastAutoSyncUpdate(action, extra = {}) {
-  const payload = { action, ...extra };
-
   if (action === RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED) {
-    try {
-      const metadata = await getDriveSyncMetadata();
-      payload.lastKnownRemoteUpdatedAt = metadata.lastKnownRemoteUpdatedAt ?? null;
-      payload.lastSuccessfulUploadAt = metadata.lastSuccessfulUploadAt ?? null;
-    } catch {
-      payload.lastKnownRemoteUpdatedAt = null;
-      payload.lastSuccessfulUploadAt = null;
-    }
+    await broadcastStatusUpdate(extra);
+    return;
   }
 
+  await sendAutoSyncRuntimeMessage({ action, ...extra });
+}
+
+async function broadcastStatusUpdate(extra = {}) {
+  const statusFields = await readDriveStatusBroadcastFields();
+  await sendAutoSyncRuntimeMessage({
+    action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
+    ...extra,
+    ...statusFields,
+  });
+}
+
+async function readDriveStatusBroadcastFields() {
+  try {
+    const metadata = await getDriveSyncMetadata();
+    return {
+      lastKnownRemoteUpdatedAt: metadata.lastKnownRemoteUpdatedAt ?? null,
+      lastSuccessfulUploadAt: metadata.lastSuccessfulUploadAt ?? null,
+    };
+  } catch {
+    return {
+      lastKnownRemoteUpdatedAt: null,
+      lastSuccessfulUploadAt: null,
+    };
+  }
+}
+
+async function sendAutoSyncRuntimeMessage(payload) {
   await chrome.runtime.sendMessage(payload).catch(() => {
     // 其他 UI 頁面可能未開啟，忽略
   });
@@ -137,6 +171,19 @@ async function resolveLoginState(context) {
     });
     return { ...context, isAccountLoggedIn: false };
   }
+}
+
+async function writeAutoSyncDecisionTelemetry({ decision, skipReason, decisionAt, alarmFiredAt }) {
+  await writeDriveAutoSyncTelemetry({
+    decision,
+    skipReason,
+    decisionAt,
+    alarmFiredAt,
+  }).catch(error => {
+    Logger.warn(`[DriveAutoSync] 寫入 ${decision} telemetry 失敗`, {
+      reason: error instanceof Error ? error.message : String(error),
+    });
+  });
 }
 
 /**
@@ -214,6 +261,58 @@ async function handleUploadSuccess(result, snapshot, metadata, expectedDirtyRevi
   await broadcastAutoSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED);
 }
 
+async function buildAutoUploadSnapshot(metadata, installationId) {
+  const { pages, urlAliases } = await buildUnifiedPageStateFromLocalStorage();
+  return buildDriveSnapshot(pages, urlAliases, {
+    installationId,
+    profileId: metadata.profileId,
+  });
+}
+
+async function uploadAutoSnapshot(snapshot, metadata, installationId) {
+  return uploadDriveSnapshot(snapshot, false, {
+    lastKnownRemoteUpdatedAt: metadata.lastKnownRemoteUpdatedAt,
+    sourceInstallationId: installationId,
+    sourceProfileId: metadata.profileId,
+  });
+}
+
+async function runAutoUploadAttempt(metadata) {
+  const expectedDirtyRevision = metadata.dirtyRevision;
+
+  try {
+    const installationId = await ensureDriveSyncIdentity();
+    const snapshot = await buildAutoUploadSnapshot(metadata, installationId);
+    const result = await uploadAutoSnapshot(snapshot, metadata, installationId);
+
+    if (!result.success) {
+      await handleUploadFailure(result);
+      return;
+    }
+
+    await handleUploadSuccess(result, snapshot, metadata, expectedDirtyRevision);
+  } catch (error) {
+    await handleAutoUploadException(error);
+  }
+}
+
+async function handleAutoUploadException(error) {
+  await updateDriveSyncRunMetadata({
+    type: 'upload',
+    success: false,
+    errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
+  });
+
+  Logger.error('[DriveAutoSync] 自動上傳例外', {
+    action: 'auto_sync_upload',
+    result: 'failure',
+    reason: error instanceof Error ? error.message : String(error),
+    errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
+  });
+
+  await broadcastAutoSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED);
+}
+
 // =============================================================================
 // Auto Upload Executor
 // =============================================================================
@@ -247,71 +346,26 @@ export async function runAutoUpload(context = {}) {
   if (!shouldRun) {
     Logger.info('[DriveAutoSync] 跳過自動同步', { reason });
     // 記錄 skip telemetry；失敗不中斷主流程
-    await writeDriveAutoSyncTelemetry({
+    await writeAutoSyncDecisionTelemetry({
       decision: 'skip',
       skipReason: reason,
       decisionAt,
       alarmFiredAt: resolvedContext.alarmFiredAt,
-    }).catch(error => {
-      Logger.warn('[DriveAutoSync] 寫入 skip telemetry 失敗', {
-        reason: error instanceof Error ? error.message : String(error),
-      });
     });
     return;
   }
 
   Logger.info('[DriveAutoSync] 開始自動上傳', { frequency: metadata.frequency });
   // 記錄 run telemetry；失敗不中斷主流程
-  await writeDriveAutoSyncTelemetry({
+  await writeAutoSyncDecisionTelemetry({
     decision: 'run',
     decisionAt,
     alarmFiredAt: resolvedContext.alarmFiredAt,
-  }).catch(error => {
-    Logger.warn('[DriveAutoSync] 寫入 run telemetry 失敗', {
-      reason: error instanceof Error ? error.message : String(error),
-    });
   });
 
   // 在讀取 metadata 時同步捕獲當前 dirty revision。
   // upload 完成後，clearDriveDirty 會將此值寫入 LAST_UPLOADED_REVISION。
   // 若期間有新 markDriveDirty()（dirtyRevision 已變大），下次 shouldRunAutoSync
   // 會偵測到 dirtyRevision > lastUploadedRevision → 重新觸發上傳。
-  const expectedDirtyRevision = metadata.dirtyRevision;
-
-  try {
-    const installationId = await ensureDriveSyncIdentity();
-    const { pages, urlAliases } = await buildUnifiedPageStateFromLocalStorage();
-    const snapshot = await buildDriveSnapshot(pages, urlAliases, {
-      installationId,
-      profileId: metadata.profileId,
-    });
-
-    const result = await uploadDriveSnapshot(snapshot, false, {
-      lastKnownRemoteUpdatedAt: metadata.lastKnownRemoteUpdatedAt,
-      sourceInstallationId: installationId,
-      sourceProfileId: metadata.profileId,
-    });
-
-    if (!result.success) {
-      await handleUploadFailure(result);
-      return;
-    }
-
-    await handleUploadSuccess(result, snapshot, metadata, expectedDirtyRevision);
-  } catch (error) {
-    await updateDriveSyncRunMetadata({
-      type: 'upload',
-      success: false,
-      errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
-    });
-
-    Logger.error('[DriveAutoSync] 自動上傳例外', {
-      action: 'auto_sync_upload',
-      result: 'failure',
-      reason: error instanceof Error ? error.message : String(error),
-      errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
-    });
-
-    await broadcastAutoSyncUpdate(RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED);
-  }
+  await runAutoUploadAttempt(metadata);
 }

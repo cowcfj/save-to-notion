@@ -374,44 +374,22 @@ describe('TextSearch Utils Coverage Tests', () => {
   });
 
   describe('findTextFuzzy', () => {
-    test('should find text with different whitespace', () => {
-      document.body.innerHTML = '<p>Hello   World</p>';
+    test.each([
+      ['different whitespace', '<p>Hello   World</p>', 'Hello World', true],
+      ['case insensitive text', '<p>Hello World</p>', 'hello world', true],
+      ['text not found', '<p>Hello World</p>', 'NotFound', false],
+      ['multiple spaces in search text', '<p>Hello    World</p>', 'Hello  World', true],
+      ['normalized whitespace', '<p>Test\n\tcontent</p>', 'Test content', true],
+    ])('should handle fuzzy matching for %s', (_scenario, html, searchText, expectedFound) => {
+      document.body.innerHTML = html;
 
-      const range = findTextFuzzy('Hello World');
+      const range = findTextFuzzy(searchText);
 
-      expect(range).not.toBeNull();
-    });
-
-    test('should be case insensitive', () => {
-      document.body.innerHTML = '<p>Hello World</p>';
-
-      const range = findTextFuzzy('hello world');
-
-      expect(range).not.toBeNull();
-    });
-
-    test('should return null when text not found', () => {
-      document.body.innerHTML = '<p>Hello World</p>';
-
-      const range = findTextFuzzy('NotFound');
-
-      expect(range).toBeNull();
-    });
-
-    test('should handle multiple spaces in search text', () => {
-      document.body.innerHTML = '<p>Hello    World</p>';
-
-      const range = findTextFuzzy('Hello  World');
-
-      expect(range).not.toBeNull();
-    });
-
-    test('should match normalized whitespace', () => {
-      document.body.innerHTML = '<p>Test\n\tcontent</p>';
-
-      const range = findTextFuzzy('Test content');
-
-      expect(range).not.toBeNull();
+      if (expectedFound) {
+        expect(range).not.toBeNull();
+      } else {
+        expect(range).toBeNull();
+      }
     });
 
     test('should log structured context when fuzzy disambiguation fails', () => {

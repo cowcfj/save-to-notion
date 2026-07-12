@@ -329,17 +329,16 @@ describe('ImageUtils - extractBestUrlFromSrcset', () => {
     expect(extractBestUrlFromSrcset(srcset)).toBe('retina.jpg');
   });
 
-  test('應該忽略 data URL', () => {
-    const srcset =
-      'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw== 1x, real.jpg 2x';
-    expect(extractBestUrlFromSrcset(srcset)).toBe('real.jpg');
-  });
-
   test.each([
-    ['主解析路徑', 'DATA:image/png;base64== 3x, real.jpg 2x'],
-    ['fallback 路徑', 'real.jpg, Data:image/png;base64=='],
-  ])('應以不分大小寫方式忽略 data: URL（%s）', (_scenario, srcset) => {
-    expect(extractBestUrlFromSrcset(srcset)).toBe('real.jpg');
+    [
+      '一般 data URL',
+      'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw== 1x, real.jpg 2x',
+      'real.jpg',
+    ],
+    ['主解析路徑', 'DATA:image/png;base64== 3x, real.jpg 2x', 'real.jpg'],
+    ['fallback 路徑', 'real.jpg, Data:image/png;base64==', 'real.jpg'],
+  ])('應以不分大小寫方式忽略 data: URL（%s）', (_scenario, srcset, expected) => {
+    expect(extractBestUrlFromSrcset(srcset)).toBe(expected);
   });
 
   test('應該處理沒有描述符的條目', () => {

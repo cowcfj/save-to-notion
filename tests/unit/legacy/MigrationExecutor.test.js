@@ -100,29 +100,15 @@ describe('MigrationExecutor', () => {
   });
 
   describe('convertColorToName', () => {
-    it('should convert yellow RGB to yellow', () => {
-      const result = MigrationExecutor.convertColorToName('rgb(255, 243, 205)');
-      expect(result).toBe('yellow');
-    });
-
-    it('should convert yellow HEX to yellow', () => {
-      const result = MigrationExecutor.convertColorToName('#fff3cd');
-      expect(result).toBe('yellow');
-    });
-
-    it('should convert green RGB to green', () => {
-      const result = MigrationExecutor.convertColorToName('rgb(212, 237, 218)');
-      expect(result).toBe('green');
-    });
-
-    it('should convert green HEX to green', () => {
-      const result = MigrationExecutor.convertColorToName('#d4edda');
-      expect(result).toBe('green');
-    });
-
-    it('should return yellow for unknown colors', () => {
-      const result = MigrationExecutor.convertColorToName('rgb(0, 0, 0)');
-      expect(result).toBe('yellow');
+    it.each([
+      ['yellow RGB', 'rgb(255, 243, 205)', 'yellow'],
+      ['yellow HEX', '#fff3cd', 'yellow'],
+      ['green RGB', 'rgb(212, 237, 218)', 'green'],
+      ['green HEX', '#d4edda', 'green'],
+      ['unknown color', 'rgb(0, 0, 0)', 'yellow'],
+    ])('should convert %s', (_label, input, expected) => {
+      const result = MigrationExecutor.convertColorToName(input);
+      expect(result).toBe(expected);
     });
   });
 

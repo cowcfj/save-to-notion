@@ -89,42 +89,34 @@ describe('DomConverter', () => {
       expect(blocks).toHaveLength(0);
     });
 
-    test('preserves whitespace around inline formatting boundaries', () => {
-      const html = '<p>Hello <strong>world</strong> !</p>';
+    test.each([
+      [
+        'preserves whitespace around inline formatting boundaries',
+        '<p>Hello <strong>world</strong> !</p>',
+        'Hello world !',
+      ],
+      [
+        'preserves whitespace around links',
+        '<p>Read <a href="https://example.com">more</a> please</p>',
+        'Read more please',
+      ],
+      [
+        'preserves whitespace across multiple inline format switches',
+        '<p><em>A</em> <strong>B</strong> <code>C</code></p>',
+        'A B C',
+      ],
+      [
+        'still trims leading and trailing whitespace of entire block',
+        '<p>  Hello world  </p>',
+        'Hello world',
+      ],
+    ])('%s', (_description, html, expectedText) => {
       const blocks = domConverter.convert(html);
 
       expect(blocks).toHaveLength(1);
       expect(blocks[0].type).toBe('paragraph');
       expect(blocks[0].paragraph.rich_text.map(item => item.text.content).join('')).toBe(
-        'Hello world !'
-      );
-    });
-
-    test('preserves whitespace around links', () => {
-      const html = '<p>Read <a href="https://example.com">more</a> please</p>';
-      const blocks = domConverter.convert(html);
-
-      expect(blocks).toHaveLength(1);
-      expect(blocks[0].paragraph.rich_text.map(item => item.text.content).join('')).toBe(
-        'Read more please'
-      );
-    });
-
-    test('preserves whitespace across multiple inline format switches', () => {
-      const html = '<p><em>A</em> <strong>B</strong> <code>C</code></p>';
-      const blocks = domConverter.convert(html);
-
-      expect(blocks).toHaveLength(1);
-      expect(blocks[0].paragraph.rich_text.map(item => item.text.content).join('')).toBe('A B C');
-    });
-
-    test('still trims leading and trailing whitespace of entire block', () => {
-      const html = '<p>  Hello world  </p>';
-      const blocks = domConverter.convert(html);
-
-      expect(blocks).toHaveLength(1);
-      expect(blocks[0].paragraph.rich_text.map(item => item.text.content).join('')).toBe(
-        'Hello world'
+        expectedText
       );
     });
 
@@ -345,39 +337,38 @@ describe('DomConverter', () => {
   });
 
   describe('Long Text Handling', () => {
-    test('should truncate long LI text', () => {
-      const longText = 'A'.repeat(5200);
-      const html = `<ul><li>${longText}</li></ul>`;
-      const blocks = domConverter.convert(html);
+    test.each([
+      {
+        name: 'should truncate long LI text',
+        buildHtml: text => `<ul><li>${text}</li></ul>`,
+        repeatedChar: 'A',
+        length: 5200,
+        expectedType: 'bulleted_list_item',
+        getContent: block => block.bulleted_list_item.rich_text[0].text.content,
+      },
+      {
+        name: 'should truncate long BLOCKQUOTE text',
+        buildHtml: text => `<blockquote>${text}</blockquote>`,
+        repeatedChar: 'B',
+        length: 4500,
+        expectedType: 'quote',
+        getContent: block => block.quote.rich_text[0].text.content,
+      },
+      {
+        name: 'should truncate long paragraph text',
+        buildHtml: text => `<p>${text}</p>`,
+        repeatedChar: 'C',
+        length: 4000,
+        expectedType: 'paragraph',
+        getContent: block => block.paragraph.rich_text[0].text.content,
+      },
+    ])('$name', ({ buildHtml, repeatedChar, length, expectedType, getContent }) => {
+      const blocks = domConverter.convert(buildHtml(repeatedChar.repeat(length)));
 
       // DomConverter truncates instead of splitting
       expect(blocks).toHaveLength(1);
-      expect(blocks[0].type).toBe('bulleted_list_item');
-      expect(blocks[0].bulleted_list_item.rich_text[0].text.content.length).toBeLessThanOrEqual(
-        2000
-      );
-    });
-
-    test('should truncate long BLOCKQUOTE text', () => {
-      const longText = 'B'.repeat(4500);
-      const html = `<blockquote>${longText}</blockquote>`;
-      const blocks = domConverter.convert(html);
-
-      // DomConverter truncates instead of splitting
-      expect(blocks).toHaveLength(1);
-      expect(blocks[0].type).toBe('quote');
-      expect(blocks[0].quote.rich_text[0].text.content.length).toBeLessThanOrEqual(2000);
-    });
-
-    test('should truncate long paragraph text', () => {
-      const longText = 'C'.repeat(4000);
-      const html = `<p>${longText}</p>`;
-      const blocks = domConverter.convert(html);
-
-      // DomConverter truncates instead of splitting
-      expect(blocks).toHaveLength(1);
-      expect(blocks[0].type).toBe('paragraph');
-      expect(blocks[0].paragraph.rich_text[0].text.content.length).toBeLessThanOrEqual(2000);
+      expect(blocks[0].type).toBe(expectedType);
+      expect(getContent(blocks[0]).length).toBeLessThanOrEqual(2000);
     });
 
     test('should not split text under 2000 characters', () => {

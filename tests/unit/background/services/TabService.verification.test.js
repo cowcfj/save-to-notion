@@ -115,6 +115,53 @@ describe('TabService verification and deletion confirmation', () => {
       // 依然顯示勾勾
     });
 
+    it('failed cleanup re-arms pending deletion and keeps a clear failure', async () => {
+      mockExpiredPageVerification(false);
+      const cleanupError = new Error('cleanup failed');
+      service.clearNotionStateWithRetry = jest.fn().mockResolvedValue({
+        cleared: false,
+        attempts: 2,
+        recovered: false,
+        error: cleanupError,
+      });
+
+      await service.updateTabStatus(1, TEST_URL);
+      await service.updateTabStatus(1, TEST_URL);
+
+      expect(service.clearNotionStateWithRetry).toHaveBeenCalledWith(
+        TEST_URL,
+        expect.objectContaining({
+          source: 'TabService._handleNotionVerificationResult',
+          expectedPageId: NOTION_PAGE_ID,
+        })
+      );
+      expect(service.deletionPendingPages.has(NOTION_PAGE_ID)).toBe(true);
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        '[TabService] 自動驗證失敗，跳過並保留當前狀態',
+        expect.objectContaining({ error: cleanupError })
+      );
+      expect(chrome.action.setBadgeText).toHaveBeenLastCalledWith({ text: '✓', tabId: 1 });
+    });
+
+    it('existing remote page refreshes verification timestamp and clears pending state', async () => {
+      const now = 1_700_000_000_000;
+      jest.spyOn(Date, 'now').mockReturnValue(now);
+      mockExpiredPageVerification(true);
+      service.consumeDeletionConfirmation(NOTION_PAGE_ID, false);
+
+      await service.updateTabStatus(1, TEST_URL);
+
+      expect(service.deletionPendingPages.has(NOTION_PAGE_ID)).toBe(false);
+      expect(service.setSavedPageData).toHaveBeenCalledWith(
+        TEST_URL,
+        expect.objectContaining({
+          notionPageId: NOTION_PAGE_ID,
+          lastVerifiedAt: now,
+        })
+      );
+      expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '✓', tabId: 1 });
+    });
+
     it('getApiKey 返回 null 時不應清除 deletionPendingPages（OAuth 用戶迴歸）', async () => {
       // 情境：用戶使用 OAuth 模式，TabService.getApiKey 錯誤地返回 null
       // 預期行為：pending 狀態應被保留，不應被清除

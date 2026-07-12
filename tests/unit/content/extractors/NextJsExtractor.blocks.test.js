@@ -262,6 +262,46 @@ describe('NextJsExtractor Block Conversion', () => {
   });
 
   describe('convertBlocks', () => {
+    it('Yahoo body fallback appends paragraph and converts closing paragraphs and breaks to newlines', () => {
+      const rawBlocks = [];
+
+      NextJsExtractor._appendYahooBodyOrMarkupBlock(
+        { body: '<p>第一段</p><p>第二段<br>換行</p>' },
+        rawBlocks
+      );
+
+      expect(rawBlocks).toEqual([
+        {
+          blockType: 'paragraph',
+          text: '<p>第一段\n\n<p>第二段\n換行',
+        },
+      ]);
+    });
+
+    it('Yahoo markup fallback is used when body is not a string', () => {
+      const rawBlocks = [];
+
+      NextJsExtractor._appendYahooBodyOrMarkupBlock(
+        { body: { html: '<p>ignore</p>' }, markup: '<p>Markup paragraph</p>' },
+        rawBlocks
+      );
+
+      expect(rawBlocks).toEqual([
+        {
+          blockType: 'paragraph',
+          text: '<p>Markup paragraph',
+        },
+      ]);
+    });
+
+    it('empty Yahoo body and markup should append nothing', () => {
+      const rawBlocks = [];
+
+      NextJsExtractor._appendYahooBodyOrMarkupBlock({ body: '', markup: '' }, rawBlocks);
+
+      expect(rawBlocks).toEqual([]);
+    });
+
     it('should return empty array for non-array input', () => {
       expect(NextJsExtractor.convertBlocks(null)).toEqual([]);
       expect(NextJsExtractor.convertBlocks(undefined)).toEqual([]);
@@ -295,18 +335,32 @@ describe('NextJsExtractor Block Conversion', () => {
       expect(output[0].heading_1.rich_text[0].text.content).toBe('Title Italic');
     });
 
-    it('should strip script tags from content', () => {
-      const input = [{ blockType: 'paragraph', text: '<script>alert("xss")</script>Hello' }];
-      const output = NextJsExtractor.convertBlocks(input);
-      expect(output[0].type).toBe('paragraph');
-      expect(output[0].paragraph.rich_text[0].text.content).toBe('Hello');
+    it('paragraph block with no text should return no Notion block', () => {
+      expect(NextJsExtractor._convertParagraphBlock({ blockType: 'paragraph' })).toEqual([]);
+      expect(NextJsExtractor.convertBlocks([{ blockType: 'paragraph' }])).toEqual([]);
     });
 
-    it('should strip style tags from content', () => {
-      const input = [{ blockType: 'paragraph', text: '<style>body { color: red; }</style>Hello' }];
+    it.each([
+      {
+        name: 'script tags',
+        text: '<script>alert("xss")</script>Hello',
+        expectedContent: 'Hello',
+      },
+      {
+        name: 'style tags',
+        text: '<style>body { color: red; }</style>Hello',
+        expectedContent: 'Hello',
+      },
+      {
+        name: 'paragraph HTML',
+        text: '<p>Hello <b>World</b></p>',
+        expectedContent: 'Hello World',
+      },
+    ])('should strip $name from paragraph content', ({ text, expectedContent }) => {
+      const input = [{ blockType: 'paragraph', text }];
       const output = NextJsExtractor.convertBlocks(input);
       expect(output[0].type).toBe('paragraph');
-      expect(output[0].paragraph.rich_text[0].text.content).toBe('Hello');
+      expect(output[0].paragraph.rich_text[0].text.content).toBe(expectedContent);
     });
 
     it('should strip HTML from quote blocks', () => {
@@ -314,13 +368,6 @@ describe('NextJsExtractor Block Conversion', () => {
       const output = NextJsExtractor.convertBlocks(input);
       expect(output[0].type).toBe('quote');
       expect(output[0].quote.rich_text[0].text.content).toBe('Quote Bold');
-    });
-
-    it('should strip HTML from paragraph text', () => {
-      const input = [{ blockType: 'paragraph', text: '<p>Hello <b>World</b></p>' }];
-      const output = NextJsExtractor.convertBlocks(input);
-      expect(output[0].type).toBe('paragraph');
-      expect(output[0].paragraph.rich_text[0].text.content).toBe('Hello World');
     });
 
     it('should filter out images without URL', () => {
@@ -346,6 +393,23 @@ describe('NextJsExtractor Block Conversion', () => {
       expect(output[0].quote.rich_text[0].text.content).toBe('Summary line 1\nSummary line 2');
     });
 
+    it('invalid summary, htmlTokens, and list blocks should not pre-convert', () => {
+      expect(NextJsExtractor._isSummaryBlock({ blockType: 'summary', summary: 'not-array' })).toBe(
+        false
+      );
+      expect(
+        NextJsExtractor._convertSummaryBlock({ blockType: 'summary', summary: 'not-array' })
+      ).toBeNull();
+      expect(NextJsExtractor._isHtmlTokensBlock({ blockType: 'text', htmlTokens: {} })).toBe(false);
+      expect(
+        NextJsExtractor._convertHtmlTokensBlock({ blockType: 'text', htmlTokens: {} })
+      ).toBeNull();
+      expect(NextJsExtractor._isListBlock({ blockType: 'list', items: 'not-array' })).toBe(false);
+      expect(
+        NextJsExtractor._convertListBlock({ blockType: 'list', items: 'not-array' })
+      ).toBeNull();
+    });
+
     it('should convert HK01 text blocks (htmlTokens) to paragraphs', () => {
       const input = [
         {
@@ -365,6 +429,25 @@ describe('NextJsExtractor Block Conversion', () => {
       expect(output[0].paragraph.rich_text[0].text.content).toBe('Paragraph 1 part A, part B.');
       expect(output[1].type).toBe('paragraph');
       expect(output[1].paragraph.rich_text[0].text.content).toBe('Paragraph 2.');
+    });
+
+    it('blank htmlTokens token groups should be filtered out', () => {
+      const input = [
+        {
+          blockType: 'text',
+          htmlTokens: [
+            [{ type: 'text', content: '   ' }],
+            [{ type: 'text', content: 'Visible paragraph' }],
+            'not-a-token-group',
+          ],
+        },
+      ];
+
+      const output = NextJsExtractor.convertBlocks(input);
+
+      expect(output).toHaveLength(1);
+      expect(output[0].type).toBe('paragraph');
+      expect(output[0].paragraph.rich_text[0].text.content).toBe('Visible paragraph');
     });
 
     it('should convert HK01 complex tokens (boldLink, link) to paragraphs', () => {
@@ -414,6 +497,122 @@ describe('NextJsExtractor Block Conversion', () => {
       expect(output).toHaveLength(1);
       expect(output[0].type).toBe('paragraph');
       expect(output[0].paragraph.rich_text[0].text.content).toBe('console.log("hello")');
+    });
+  });
+
+  describe('Story Atoms wrappers', () => {
+    it('text wrapper should preserve rich text chunking after delegating conversion', () => {
+      const longText = 'A'.repeat(2100);
+
+      const block = NextJsExtractor._createBlockFromTextAtom({
+        type: 'text',
+        tagName: 'blockquote',
+        content: `<p>${longText}</p>`,
+      });
+
+      expect(block.type).toBe('quote');
+      expect(block.quote.rich_text).toHaveLength(2);
+      expect(block.quote.rich_text.map(chunk => chunk.text.content).join('')).toBe(longText);
+    });
+
+    it('image wrapper should preserve caption rich text chunking after delegating conversion', () => {
+      const longCaption = 'C'.repeat(2100);
+
+      const block = NextJsExtractor._createBlockFromImageAtom({
+        type: 'image',
+        size: { resized: { url: 'https://example.com/yahoo.jpg' } },
+        caption: longCaption,
+      });
+
+      expect(block.type).toBe('image');
+      expect(block.image.external.url).toBe('https://example.com/yahoo.jpg');
+      expect(block.image.caption).toHaveLength(2);
+      expect(block.image.caption.map(chunk => chunk.text.content).join('')).toBe(longCaption);
+    });
+
+    it('convertStoryAtoms wrapper should filter invalid atoms and return delegated output', () => {
+      const output = NextJsExtractor._convertStoryAtoms([
+        null,
+        { type: 'unknown', content: '<p>ignored</p>' },
+        { type: 'text', tagName: 'h3', content: '<h3>Heading atom</h3>' },
+        { type: 'image', url: 'https://example.com/atom.jpg', caption: 'Caption atom' },
+      ]);
+
+      expect(output).toHaveLength(2);
+      expect(output[0].type).toBe('heading_3');
+      expect(output[0].heading_3.rich_text[0].text.content).toBe('Heading atom');
+      expect(output[1].type).toBe('image');
+      expect(output[1].image.external.url).toBe('https://example.com/atom.jpg');
+      expect(output[1].image.caption[0].text.content).toBe('Caption atom');
+    });
+  });
+
+  describe('BBC wrapper methods', () => {
+    it('should delegate BBC heading, text, image, fallback, and extract helpers', () => {
+      const headingModel = { blocks: [{ model: { text: 'BBC Heading' } }] };
+      const textModel = {
+        blocks: [{ type: 'paragraph', model: { text: 'BBC Paragraph', blocks: [] } }],
+      };
+      const imageModel = {
+        blocks: [
+          {
+            type: 'rawImage',
+            model: { locator: 'image-locator.jpg', originCode: 'origin-code' },
+          },
+          { type: 'caption', model: { text: 'BBC Caption' } },
+        ],
+      };
+      const fallbackModel = { text: 'BBC Fallback' };
+
+      expect(NextJsExtractor._extractBbcText({ text: 'Plain text' })).toBe('Plain text');
+      expect(NextJsExtractor._buildBbcHeadingBlock(headingModel, true)).toEqual({
+        object: 'block',
+        type: 'heading_2',
+        heading_2: { rich_text: [{ type: 'text', text: { content: 'BBC Heading' } }] },
+      });
+      expect(NextJsExtractor._buildBbcTextBlocks(textModel)).toEqual([
+        {
+          object: 'block',
+          type: 'paragraph',
+          paragraph: { rich_text: [{ type: 'text', text: { content: 'BBC Paragraph' } }] },
+        },
+      ]);
+      expect(NextJsExtractor._buildBbcImageBlock(imageModel)).toEqual({
+        object: 'block',
+        type: 'image',
+        image: {
+          type: 'external',
+          external: {
+            url: 'https://ichef.bbci.co.uk/ace/ws/1024/origin-code/image-locator.jpg.webp',
+          },
+          caption: [{ type: 'text', text: { content: 'BBC Caption' } }],
+        },
+      });
+      expect(NextJsExtractor._buildBbcFallbackBlock(fallbackModel)).toEqual({
+        object: 'block',
+        type: 'paragraph',
+        paragraph: { rich_text: [{ type: 'text', text: { content: 'BBC Fallback' } }] },
+      });
+    });
+
+    it('processSingleBbcBlock wrapper should mutate result with converter output', () => {
+      const result = [];
+      const block = {
+        type: 'text',
+        model: {
+          blocks: [{ type: 'paragraph', model: { text: 'Delegated paragraph', blocks: [] } }],
+        },
+      };
+
+      NextJsExtractor._processSingleBbcBlock(block, result);
+
+      expect(result).toEqual([
+        {
+          object: 'block',
+          type: 'paragraph',
+          paragraph: { rich_text: [{ type: 'text', text: { content: 'Delegated paragraph' } }] },
+        },
+      ]);
     });
   });
 

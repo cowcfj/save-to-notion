@@ -6,32 +6,12 @@ import { ConverterFactory } from '../../../../scripts/content/converters/Convert
 import { domConverter } from '../../../../scripts/content/converters/DomConverter.js';
 
 describe('ConverterFactory', () => {
-  test('should return domConverter for "markdown"', () => {
-    // Markdown now falls back to DomConverter or a specific handler
-    // But ConverterFactory just returns domConverter for everything now
-    const converter = ConverterFactory.getConverter('markdown');
-    expect(converter).toBe(domConverter);
-  });
-
-  test('should return domConverter for "md"', () => {
-    const converter = ConverterFactory.getConverter('md');
-    expect(converter).toBe(domConverter);
-  });
-
-  test('should return domConverter for "html"', () => {
-    const converter = ConverterFactory.getConverter('html');
-    expect(converter).toBe(domConverter);
-  });
-
-  test('should return domConverter for "dom"', () => {
-    const converter = ConverterFactory.getConverter('dom');
-    expect(converter).toBe(domConverter);
-  });
-
-  test('should return domConverter by default', () => {
-    const converter = ConverterFactory.getConverter('unknown');
-    expect(converter).toBe(domConverter);
-  });
+  test.each(['markdown', 'md', 'html', 'dom', 'unknown'])(
+    'should return domConverter for "%s"',
+    format => {
+      expect(ConverterFactory.getConverter(format)).toBe(domConverter);
+    }
+  );
 
   test('should return domConverter for null/undefined', () => {
     expect(ConverterFactory.getConverter(null)).toBe(domConverter);

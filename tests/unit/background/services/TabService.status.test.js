@@ -30,6 +30,37 @@ describe('TabService status updates', () => {
     service = createTabService();
   });
 
+  const mockStableUrlAliasFlow = ({
+    stableUrl = 'https://example.com/?p=2928',
+    originalUrl = 'https://example.com/long-path',
+    hasStableUrl = true,
+  } = {}) => {
+    service.resolveTabUrl = jest.fn().mockResolvedValue({
+      stableUrl,
+      originalUrl,
+      hasStableUrl,
+    });
+    service._verifyAndUpdateStatus = jest.fn().mockResolvedValue();
+    service._getHighlightsFromStorage = jest.fn().mockResolvedValue(null);
+    jest.spyOn(service, 'migrateLegacyHighlights').mockResolvedValue();
+  };
+
+  const buildStablePageEvidence = (
+    stableUrl = 'https://example.com/?p=2928',
+    { notion = null, highlights = [{ id: 'h', text: 'evidence', color: 'yellow' }] } = {}
+  ) => ({
+    [`${PAGE_PREFIX}${stableUrl}`]: {
+      notion,
+      highlights,
+      metadata: { lastUpdated: 1 },
+    },
+  });
+
+  const getAliasSetCalls = () =>
+    chrome.storage.local.set.mock.calls.filter(([arg]) =>
+      Object.keys(arg).some(key => key.startsWith(URL_ALIAS_PREFIX))
+    );
+
   describe('updateTabStatus', () => {
     it('should skip invalid URLs', async () => {
       await service.updateTabStatus(1, null);
@@ -81,6 +112,30 @@ describe('TabService status updates', () => {
       await service.updateTabStatus(1, 'https://example.com');
 
       expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 1 });
+    });
+
+    it('_verifyAndUpdateStatus clears badge when no saved data exists', async () => {
+      service.getSavedPageData = jest.fn().mockResolvedValue(null);
+
+      await service._verifyAndUpdateStatus(1, 'https://example.com/missing');
+
+      expect(service.getSavedPageData).toHaveBeenCalledWith('https://example.com/missing');
+      expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '', tabId: 1 });
+      expect(service.getApiKey).not.toHaveBeenCalled();
+    });
+
+    it('_verifyAndUpdateStatus uses fresh cache without requesting an API key', async () => {
+      const savedData = {
+        notionPageId: 'page-123',
+        lastVerifiedAt: Date.now(),
+      };
+      service.getSavedPageData = jest.fn().mockResolvedValue(savedData);
+
+      await service._verifyAndUpdateStatus(1, 'https://example.com/cached');
+
+      expect(service.getApiKey).not.toHaveBeenCalled();
+      expect(service.checkPageExists).not.toHaveBeenCalled();
+      expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '✓', tabId: 1 });
     });
 
     it('should inject bundle for auto-restore when highlights exist', async () => {
@@ -140,14 +195,7 @@ describe('TabService status updates', () => {
     it('Phase 4 (tighten)：hasStableUrl=true 但 stableUrl 無 evidence 時，MUST NOT 寫入 url_alias', async () => {
       // 情境：Preloader 解析出 stableUrl，但 page_<stable> 與 highlights_<stable> 都無資料
       // 預期：tighten 模式下 alias 寫入應被跳過，避免 canonical 漂移
-      service.resolveTabUrl = jest.fn().mockResolvedValue({
-        stableUrl: 'https://example.com/?p=2928',
-        originalUrl: 'https://example.com/long-path',
-        hasStableUrl: true,
-      });
-      service._verifyAndUpdateStatus = jest.fn().mockResolvedValue();
-      service._getHighlightsFromStorage = jest.fn().mockResolvedValue(null);
-      jest.spyOn(service, 'migrateLegacyHighlights').mockResolvedValue();
+      mockStableUrlAliasFlow();
 
       // 無 evidence：所有 key 都返回空
       chrome.storage.local.get.mockResolvedValue({});
@@ -156,30 +204,13 @@ describe('TabService status updates', () => {
       await service._updateTabStatusInternal(1, 'https://example.com/long-path');
 
       // alias key MUST NOT 被寫入
-      const aliasSets = chrome.storage.local.set.mock.calls.filter(call =>
-        Object.keys(call[0]).some(k => k.startsWith(URL_ALIAS_PREFIX))
-      );
-      expect(aliasSets).toHaveLength(0);
+      expect(getAliasSetCalls()).toHaveLength(0);
     });
 
     it('Phase 4 (tighten)：hasStableUrl=true 且 stableUrl 已有 page_* evidence 時，建立 url_alias', async () => {
       // 情境：stableUrl 對應的 page_* 已有 highlights → 滿足 tighten 條件
-      service.resolveTabUrl = jest.fn().mockResolvedValue({
-        stableUrl: 'https://example.com/?p=2928',
-        originalUrl: 'https://example.com/long-path',
-        hasStableUrl: true,
-      });
-      service._verifyAndUpdateStatus = jest.fn().mockResolvedValue();
-      service._getHighlightsFromStorage = jest.fn().mockResolvedValue(null);
-      jest.spyOn(service, 'migrateLegacyHighlights').mockResolvedValue();
-
-      chrome.storage.local.get.mockResolvedValue({
-        'page_https://example.com/?p=2928': {
-          notion: null,
-          highlights: [{ id: 'h', text: 'evidence', color: 'yellow' }],
-          metadata: { lastUpdated: 1 },
-        },
-      });
+      mockStableUrlAliasFlow();
+      chrome.storage.local.get.mockResolvedValue(buildStablePageEvidence());
       chrome.storage.local.set.mockResolvedValue(undefined);
 
       await service._updateTabStatusInternal(1, 'https://example.com/long-path');
@@ -190,27 +221,68 @@ describe('TabService status updates', () => {
       });
     });
 
-    it('應等待 url_alias 寫入完成後才繼續更新狀態', async () => {
-      service.resolveTabUrl = jest.fn().mockResolvedValue({
-        stableUrl: 'https://example.com/?p=2928',
-        originalUrl: 'https://example.com/long-path',
-        hasStableUrl: true,
+    it('stable page evidence with notion object creates url_alias when highlights are empty', async () => {
+      mockStableUrlAliasFlow();
+      chrome.storage.local.get.mockResolvedValue(
+        buildStablePageEvidence('https://example.com/?p=2928', {
+          notion: { pageId: 'notion-page' },
+          highlights: [],
+        })
+      );
+
+      await service._updateTabStatusInternal(1, 'https://example.com/long-path');
+
+      expect(chrome.storage.local.set).toHaveBeenCalledWith({
+        [`${URL_ALIAS_PREFIX}https://example.com/long-path`]: 'https://example.com/?p=2928',
       });
-      service._verifyAndUpdateStatus = jest.fn().mockResolvedValue();
-      service._getHighlightsFromStorage = jest.fn().mockResolvedValue(null);
-      jest.spyOn(service, 'migrateLegacyHighlights').mockResolvedValue();
+    });
+
+    it('legacy highlights evidence creates url_alias for stable URL', async () => {
+      mockStableUrlAliasFlow();
+
+      chrome.storage.local.get.mockResolvedValue({
+        [`${HIGHLIGHTS_PREFIX}https://example.com/?p=2928`]: [{ id: 'legacy-highlight' }],
+      });
+
+      await service._updateTabStatusInternal(1, 'https://example.com/long-path');
+
+      expect(chrome.storage.local.set).toHaveBeenCalledWith({
+        [`${URL_ALIAS_PREFIX}https://example.com/long-path`]: 'https://example.com/?p=2928',
+      });
+    });
+
+    it('stable evidence lookup failure logs warning and continues status verification', async () => {
+      const storageError = new Error('storage get failed');
+      mockStableUrlAliasFlow();
+      chrome.storage.local.get.mockRejectedValue(storageError);
+
+      await service._updateTabStatusInternal(1, 'https://example.com/long-path');
+
+      expect(chrome.storage.local.set).not.toHaveBeenCalled();
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        '[TabService] url_alias 寫入或檢查失敗，將繼續後續狀態更新',
+        expect.objectContaining({
+          action: 'updateTabStatus',
+          originalUrl: expect.any(String),
+          stableUrl: expect.any(String),
+          error: storageError,
+        })
+      );
+      expect(service._verifyAndUpdateStatus).toHaveBeenCalledWith(
+        1,
+        'https://example.com/?p=2928',
+        'https://example.com/long-path'
+      );
+    });
+
+    it('應等待 url_alias 寫入完成後才繼續更新狀態', async () => {
+      mockStableUrlAliasFlow();
 
       // Phase 4 follow-up（2026-05-03 plan §4）：顯式 mock chrome.storage.local.get,
       // 提供 stableUrl 的 page_* evidence,讓 _persistUrlAliasIfNeeded 真的走到 set 寫入路徑。
       // 不再依賴前一 test 的 mockResolvedValue 殘留（jest.clearAllMocks 不清 implementation,
       // 順序變動會讓本 test 偷偷走到 throw catch 路徑而非真的等 set 完成）。
-      chrome.storage.local.get.mockResolvedValue({
-        'page_https://example.com/?p=2928': {
-          notion: null,
-          highlights: [{ id: 'evidence-h', text: 'evidence', color: 'yellow' }],
-          metadata: { lastUpdated: 1 },
-        },
-      });
+      chrome.storage.local.get.mockResolvedValue(buildStablePageEvidence());
 
       let resolveStorageSet;
       chrome.storage.local.set.mockReturnValue(
@@ -235,23 +307,10 @@ describe('TabService status updates', () => {
     });
 
     it('url_alias 寫入失敗時應記錄警告並繼續更新狀態', async () => {
-      service.resolveTabUrl = jest.fn().mockResolvedValue({
-        stableUrl: 'https://example.com/?p=2928',
-        originalUrl: 'https://example.com/long-path',
-        hasStableUrl: true,
-      });
-      service._verifyAndUpdateStatus = jest.fn().mockResolvedValue();
-      service._getHighlightsFromStorage = jest.fn().mockResolvedValue(null);
-      jest.spyOn(service, 'migrateLegacyHighlights').mockResolvedValue();
+      mockStableUrlAliasFlow();
 
       // Phase 4 (tighten)：先 seed evidence 才會走到 alias 寫入路徑，從而觸發 set 失敗
-      chrome.storage.local.get.mockResolvedValue({
-        'page_https://example.com/?p=2928': {
-          notion: null,
-          highlights: [{ id: 'h', text: 'evidence', color: 'yellow' }],
-          metadata: { lastUpdated: 1 },
-        },
-      });
+      chrome.storage.local.get.mockResolvedValue(buildStablePageEvidence());
       chrome.storage.local.set.mockRejectedValue(new Error('alias write failed'));
 
       await service._updateTabStatusInternal(1, 'https://example.com/long-path');
@@ -274,23 +333,17 @@ describe('TabService status updates', () => {
 
     it('hasStableUrl=false 時不應建立 url_alias', async () => {
       // 情境：Preloader 超時，stableUrl = originalUrl
-      service.resolveTabUrl = jest.fn().mockResolvedValue({
+      mockStableUrlAliasFlow({
         stableUrl: 'https://example.com/long-path',
         originalUrl: 'https://example.com/long-path',
         hasStableUrl: false,
       });
-      service._verifyAndUpdateStatus = jest.fn().mockResolvedValue();
-      service._getHighlightsFromStorage = jest.fn().mockResolvedValue(null);
-      jest.spyOn(service, 'migrateLegacyHighlights').mockResolvedValue();
       chrome.storage.local.set.mockResolvedValue(undefined);
 
       await service._updateTabStatusInternal(1, 'https://example.com/long-path');
 
       // 不應有任何 alias 建立調用（storage.local.set 未因 alias 而被呼叫）
-      const aliasCalls = chrome.storage.local.set.mock.calls.filter(([arg]) =>
-        Object.keys(arg).some(k => k.startsWith(URL_ALIAS_PREFIX))
-      );
-      expect(aliasCalls).toHaveLength(0);
+      expect(getAliasSetCalls()).toHaveLength(0);
     });
 
     it('stableUrl 查無 highlights 時應 fallback 到 originalUrl 並成功回傳 highlights', async () => {
@@ -395,10 +448,7 @@ describe('TabService status updates', () => {
       );
 
       // 修復後：不應在 fallback 命中後補寫 alias
-      const aliasCalls = chrome.storage.local.set.mock.calls.filter(([arg]) =>
-        Object.keys(arg).some(k => k.startsWith(URL_ALIAS_PREFIX))
-      );
-      expect(aliasCalls).toHaveLength(0);
+      expect(getAliasSetCalls()).toHaveLength(0);
     });
 
     it('refresh 後解析出 stableUrl 且僅有 highlights 時，應保持未保存 badge 並注入 bundle', async () => {

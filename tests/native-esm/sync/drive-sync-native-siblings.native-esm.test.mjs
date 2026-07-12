@@ -410,4 +410,59 @@ describe('drive handler native ESM siblings with mocked collaborators', () => {
       remoteUpdatedAt: '2026-06-28T03:00:00.000Z',
     });
   });
+
+  test('driveAutoSync records upload failure metadata when snapshot build throws', async () => {
+    const metadata = baseDriveMetadata();
+    const buildError = new Error('snapshot build failed');
+    const driveClient = {
+      getDriveSyncMetadata: jest.fn(async () => metadata),
+      ensureDriveSyncIdentity: jest.fn(async () => metadata.installationId),
+      updateDriveSyncRunMetadata: jest.fn(async () => {}),
+      clearDriveDirty: jest.fn(async () => {}),
+      uploadDriveSnapshot: jest.fn(),
+      writeDriveAutoSyncTelemetry: jest.fn(async () => {}),
+    };
+    const driveSnapshot = {
+      buildUnifiedPageStateFromLocalStorage: jest.fn(async () => {
+        throw buildError;
+      }),
+      buildDriveSnapshot: jest.fn(),
+    };
+
+    await jest.unstable_mockModule('../../../scripts/auth/driveClient.js', () => driveClient);
+    await jest.unstable_mockModule('../../../scripts/auth/accountSession.js', () => ({
+      getAccountAccessToken: jest.fn(async () => 'account-token-native'),
+    }));
+    await jest.unstable_mockModule('../../../scripts/sync/driveSnapshot.js', () => driveSnapshot);
+
+    const { RUNTIME_ACTIONS } = await import('../../../scripts/config/shared/runtimeActions.js');
+    const { DRIVE_SYNC_ERROR_CODES } =
+      await import('../../../scripts/config/extension/driveSyncErrorCodes.js');
+    const { default: Logger } = await import('../../../scripts/utils/Logger.js');
+    const { runAutoUpload } = await import('../../../scripts/background/handlers/driveAutoSync.js');
+    jest.spyOn(Logger, 'error').mockImplementation(() => {});
+
+    await runAutoUpload({ isAccountLoggedIn: true });
+
+    expect(driveClient.uploadDriveSnapshot).not.toHaveBeenCalled();
+    expect(driveClient.updateDriveSyncRunMetadata).toHaveBeenCalledWith({
+      type: 'upload',
+      success: false,
+      errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
+    });
+    expect(Logger.error).toHaveBeenCalledWith(
+      '[DriveAutoSync] 自動上傳例外',
+      expect.objectContaining({
+        action: 'auto_sync_upload',
+        result: 'failure',
+        reason: 'snapshot build failed',
+        errorCode: DRIVE_SYNC_ERROR_CODES.UPLOAD_FAILED,
+      })
+    );
+    expect(globalThis.chrome.runtime.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: RUNTIME_ACTIONS.DRIVE_SYNC_STATUS_UPDATED,
+      })
+    );
+  });
 });

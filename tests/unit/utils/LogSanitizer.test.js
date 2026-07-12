@@ -529,10 +529,97 @@ describe('LogSanitizer', () => {
         const secretObj = { toString: () => 'Token is secret_123' };
         expect(LogSanitizer.sanitizeEntry(secretObj, {}).message).toContain('[REDACTED_TOKEN]');
       });
+
+      test('should return invalid string marker when string conversion throws', () => {
+        const input = {
+          [Symbol.toPrimitive]() {
+            throw new Error('conversion failed');
+          },
+        };
+
+        const entry = LogSanitizer.sanitizeEntry(input, {});
+
+        expect(entry.message).toBe('[INVALID_STRING_INPUT]');
+      });
+
+      test('should redact JWT while preserving dot-containing non-JWT strings', () => {
+        const jwt = ['eyJsyntheticHeader', 'syntheticPayload', 'syntheticSignature'].join('.');
+        const entry = LogSanitizer.sanitizeEntry(`jwt=${jwt} version=1.2.3`, {});
+
+        expect(entry.message).toContain('jwt=[REDACTED_JWT]');
+        expect(entry.message).toContain('version=1.2.3');
+        expect(entry.message).not.toContain(jwt);
+      });
+
+      test('should truncate standard UUID and preserve non-standard UUID-like strings', () => {
+        const standardUuid = '550e8400-e29b-41d4-a716-446655440000';
+        const nonStandardUuidLike = '550e8400e29b-41d4-a716-446655440000';
+        const entry = LogSanitizer.sanitizeEntry(
+          `standard=${standardUuid} nonstandard=${nonStandardUuidLike}`,
+          {}
+        );
+
+        expect(entry.message).toContain('standard=550e8400***');
+        expect(entry.message).toContain(`nonstandard=${nonStandardUuidLike}`);
+        expect(entry.message).not.toContain(`standard=${standardUuid}`);
+      });
+    });
+
+    describe('_sanitizeValue edge cases', () => {
+      test('should not treat shared sibling object references as circular', () => {
+        const shared = { nested: { count: 1 } };
+        const entry = LogSanitizer.sanitizeEntry('shared object', {
+          first: shared,
+          second: shared,
+        });
+
+        expect(entry.context.first).toEqual({ nested: { count: 1 } });
+        expect(entry.context.second).toEqual({ nested: { count: 1 } });
+      });
+
+      test('should mark actual circular references as circular', () => {
+        const root = { label: 'root' };
+        root.self = root;
+
+        const entry = LogSanitizer.sanitizeEntry('circular object', root);
+
+        expect(entry.context).toEqual({
+          label: 'root',
+          self: '[Circular]',
+        });
+      });
+
+      test('should mark function values and objects exceeding max depth', () => {
+        const entry = LogSanitizer.sanitizeEntry('mixed values', {
+          callback: () => 'done',
+          level1: {
+            level2: {
+              level3: {
+                level4: {
+                  value: 'too deep',
+                },
+              },
+            },
+          },
+        });
+
+        expect(entry.context.callback).toBe('[Function]');
+        expect(entry.context.level1.level2.level3.level4).toBe('[MAX_DEPTH_REACHED]');
+      });
     });
   });
 
   describe('LOG_TRACKING_PARAMS 追蹤參數移除', () => {
+    test.each([
+      ['', '[empty-url]'],
+      [null, '[empty-url]'],
+      [undefined, '[empty-url]'],
+      [0, '[empty-url]'],
+      ['not-a-valid-url', '[invalid-url]'],
+    ])('sanitizeUrlForLogging 應處理空值、非字串與無效非路徑輸入 %#', (input, expected) => {
+      expect(sanitizeUrlForLogging(input)).toBe(expected);
+    });
+
     test('LOG_TRACKING_PARAMS 應與 URL_NORMALIZATION.TRACKING_PARAMS 保持同步', () => {
       expect(LOG_TRACKING_PARAMS).toHaveLength(URL_NORMALIZATION.TRACKING_PARAMS.length);
       expect(new Set(LOG_TRACKING_PARAMS)).toEqual(new Set(URL_NORMALIZATION.TRACKING_PARAMS));
@@ -589,8 +676,39 @@ describe('LogSanitizer', () => {
       expect(sanitized).toBe('http://localhost/relative/path?keep=1');
     });
 
+    test('sanitizeUrlForLogging 應在 baseOrigin 無效時 fallback 到 localhost', () => {
+      const sanitized = sanitizeUrlForLogging('/relative/path?keep=1', 'not a valid origin');
+
+      expect(sanitized).toBe('http://localhost/relative/path?keep=1');
+    });
+
     test('sanitizeUrlForLogging 不應把一般非 URL 字串誤判為相對路徑', () => {
       expect(sanitizeUrlForLogging('not-a-valid-url')).toBe('[invalid-url]');
+    });
+
+    test('sanitizeUrlForLogging 應遮蔽 encoded sensitive query key value', () => {
+      const sanitized = sanitizeUrlForLogging(
+        'https://example.com/callback?access%5Ftoken=value&keep=1'
+      );
+
+      expect(sanitized).toBe('https://example.com/callback?access_token=[REDACTED_TOKEN]&keep=1');
+      expect(sanitized).not.toContain('value');
+    });
+
+    test('sanitizeUrlForLogging 應保留沒有等號的 query key', () => {
+      const sanitized = sanitizeUrlForLogging('https://example.com/page?preview&keep=1');
+
+      expect(sanitized).toBe('https://example.com/page?preview=&keep=1');
+    });
+
+    test('sanitizeUrlForLogging 應移除 tracking params 並保留有意義 query params', () => {
+      const sanitized = sanitizeUrlForLogging(
+        'https://example.com/page?utm_source=newsletter&page=2&filter=active&gclid=abc'
+      );
+
+      expect(sanitized).toBe('https://example.com/page?page=2&filter=active');
+      expect(sanitized).not.toContain('utm_source=');
+      expect(sanitized).not.toContain('gclid=');
     });
   });
 
@@ -625,6 +743,34 @@ describe('LogSanitizer', () => {
         'chrome-extension://abcdefgh/pages/options.html?token=[REDACTED_TOKEN]'
       );
       expect(sanitized).not.toContain('#debug');
+    });
+  });
+
+  describe('Stack trace path privacy contract', () => {
+    test.each([
+      [
+        'protocol URL stack line strips directory path but keeps file name',
+        '    at load (chrome-extension://abcdefgh/scripts/utils/LogExporter.js:16:13)',
+        '    at load (chrome-extension://[ID]/LogExporter.js:16:13)',
+      ],
+      [
+        'parenthesized bare path strips directory',
+        '    at fn (/a/b/file.js:1:2)',
+        '    at fn (file.js:1:2)',
+      ],
+      ['at bare path strips directory', '    at /a/b/file.js:1:2', '    at file.js:1:2'],
+      [
+        'bare path strips directory while preserving leading whitespace',
+        '    /a/b/file.js:1:2',
+        '    file.js:1:2',
+      ],
+      [
+        'invalid path-like line with whitespace is left unchanged',
+        '    at /a/b/file name.js:1:2',
+        '    at /a/b/file name.js:1:2',
+      ],
+    ])('%s', (_caseName, input, expected) => {
+      expect(LogSanitizer._sanitizeStackTrace(input)).toBe(expected);
     });
   });
 });

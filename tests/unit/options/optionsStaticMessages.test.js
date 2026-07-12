@@ -21,6 +21,35 @@ const readProjectFile = (...segments) =>
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- test helper reads fixed repo fixtures from call sites.
   fs.readFileSync(path.resolve(process.cwd(), ...segments), 'utf8');
 
+const STATIC_UI_BINDINGS = [
+  { selector: '[data-ui-message]', attr: 'data-ui-message', readFallback: el => el.textContent },
+  {
+    selector: '[data-ui-placeholder]',
+    attr: 'data-ui-placeholder',
+    readFallback: el => el.getAttribute('placeholder') || '',
+  },
+  {
+    selector: '[data-ui-title]',
+    attr: 'data-ui-title',
+    readFallback: el => el.getAttribute('title') || '',
+  },
+  {
+    selector: '[data-ui-aria-label]',
+    attr: 'data-ui-aria-label',
+    readFallback: el => el.getAttribute('aria-label') || '',
+  },
+];
+
+const normalizeFallbackText = text => text.replaceAll(/\s+/g, ' ').trim();
+
+const resolveMessagePath = messagePath => {
+  let value = UI_MESSAGES;
+  for (const key of messagePath.split('.')) {
+    value = value?.[key];
+  }
+  return value;
+};
+
 beforeAll(async () => {
   const optionsModule = await import('../../../pages/options/options.js');
   applyStaticOptionMessages = optionsModule.applyStaticOptionMessages;
@@ -104,46 +133,48 @@ describe('optionsStaticMessages', () => {
       expect(document.querySelector('#aria').getAttribute('aria-label')).toBe('Fallback aria');
     });
 
-    it('options.html 內所有 data-ui-* 綁定 key 皆能解析為非空字串', () => {
+    it('options.html 內所有 data-ui-* 綁定 key 皆存在且 fallback 與字典一致', () => {
       const html = readProjectFile('pages/options/options.html');
       const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
       expect(bodyMatch).not.toBeNull();
       document.body.innerHTML = bodyMatch[1];
 
-      applyStaticOptionMessages();
-
-      const bindings = [
-        { selector: '[data-ui-message]', attr: 'data-ui-message', check: el => el.textContent },
-        {
-          selector: '[data-ui-placeholder]',
-          attr: 'data-ui-placeholder',
-          check: el => el.getAttribute('placeholder'),
-        },
-        {
-          selector: '[data-ui-title]',
-          attr: 'data-ui-title',
-          check: el => el.getAttribute('title'),
-        },
-        {
-          selector: '[data-ui-aria-label]',
-          attr: 'data-ui-aria-label',
-          check: el => el.getAttribute('aria-label'),
-        },
-      ];
-
       let totalBindings = 0;
-      bindings.forEach(({ selector, attr, check }) => {
+      const missingBindings = [];
+      const mismatchedFallbacks = [];
+
+      STATIC_UI_BINDINGS.forEach(({ selector, attr, readFallback }) => {
         document.querySelectorAll(selector).forEach(el => {
           totalBindings += 1;
           const key = el.getAttribute(attr);
-          const resolved = check(el);
-          expect(typeof resolved).toBe('string');
-          expect(resolved.length).toBeGreaterThan(0);
-          expect({ key, resolved }).toEqual({ key, resolved: expect.any(String) });
+          const resolved = resolveMessagePath(key);
+          const fallback = normalizeFallbackText(readFallback(el));
+
+          if (typeof resolved !== 'string' || resolved.length === 0) {
+            missingBindings.push({ attr, key, fallback });
+            return;
+          }
+
+          if (fallback && fallback !== resolved) {
+            mismatchedFallbacks.push({ attr, key, fallback, resolved });
+          }
         });
       });
 
       expect(totalBindings).toBeGreaterThan(20);
+      expect(missingBindings).toEqual([]);
+      expect(mismatchedFallbacks).toEqual([]);
+    });
+
+    it('guide 問答與功能說明應使用全形標點', () => {
+      expect(UI_MESSAGES.OPTIONS.GUIDE).toEqual(
+        expect.objectContaining({
+          FEATURES_MULTI_COLOR_DESC: '支持 4 種顏色與 3 種樣式（背景/文字/底線）',
+          FAQ_TOKEN_QUESTION: 'API Key 無法連接？',
+          FAQ_DATABASE_QUESTION: '數據庫列表為空？',
+          FAQ_HIGHLIGHT_QUESTION: '標註沒有顯示？',
+        })
+      );
     });
 
     it('debug logs 開關標籤應透過 UI_MESSAGES 綁定', () => {
@@ -162,6 +193,26 @@ describe('optionsStaticMessages', () => {
 
       expect(labelText.textContent).toBe(resolveUiMessage(expectedKey));
       expect(labelText.textContent).toBe(UI_MESSAGES.OPTIONS.DIAGNOSTICS.ENABLE_DEBUG_LOGS_LABEL);
+    });
+
+    it('data management section title and description should use UI_MESSAGES bindings', () => {
+      const html = readProjectFile('pages/options/options.html');
+      const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+      expect(bodyMatch).not.toBeNull();
+      document.body.innerHTML = bodyMatch[1];
+
+      const sectionTitle = document.querySelector('#section-data > header > h2');
+      const sectionDesc = document.querySelector('#section-data > header > .section-desc');
+
+      expect(sectionTitle).not.toBeNull();
+      expect(sectionDesc).not.toBeNull();
+      expect(sectionTitle.dataset.uiMessage).toBe('OPTIONS.DATA_MANAGEMENT.SECTION_TITLE');
+      expect(sectionDesc.dataset.uiMessage).toBe('OPTIONS.DATA_MANAGEMENT.SECTION_DESC');
+
+      applyStaticOptionMessages();
+
+      expect(sectionTitle.textContent).toBe(UI_MESSAGES.OPTIONS.DATA_MANAGEMENT.SECTION_TITLE);
+      expect(sectionDesc.textContent).toBe(UI_MESSAGES.OPTIONS.DATA_MANAGEMENT.SECTION_DESC);
     });
 
     it('destination help link 應提供靜態 accessible name 並保留 runtime i18n 綁定', () => {

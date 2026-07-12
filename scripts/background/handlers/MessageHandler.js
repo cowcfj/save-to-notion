@@ -13,6 +13,73 @@
 
 import { ErrorHandler, AppError, ErrorTypes } from '../../utils/ErrorHandler.js';
 
+function createSafeSendResponse({ action, logger, sendResponse }) {
+  let responseSent = false;
+
+  return (payload, options = {}) => {
+    if (responseSent) {
+      logger.debug?.(`偵測到 '${action}' 的重複 sendResponse，已忽略`);
+      return;
+    }
+
+    responseSent = true;
+    try {
+      sendResponse(payload);
+    } catch (sendError) {
+      logFallbackSendResponseFailure({
+        action,
+        logger,
+        phase: options.phase ?? 'sendResponse',
+        sendError,
+      });
+    }
+  };
+}
+
+function logFallbackSendResponseFailure({ action, logger, phase, sendError }) {
+  logger.warn?.('錯誤回應發送失敗', {
+    action,
+    operation: 'fallbackSendResponse',
+    phase,
+    result: 'failed',
+    reason: 'response_channel_closed',
+    error: sendError,
+  });
+}
+
+function sendHandlerErrorResponse({ action, error, phase, safeSendResponse }) {
+  const errorResponse = MessageHandler._formatError(error, action);
+  safeSendResponse(errorResponse, { phase });
+}
+
+function sendReturnedHandlerResult(result, safeSendResponse) {
+  if (result === undefined) {
+    return;
+  }
+
+  try {
+    safeSendResponse(result);
+  } catch {
+    /* handler 可能已直接呼叫 safeSendResponse，忽略二次呼叫錯誤 */
+  }
+}
+
+function attachAsyncHandlerResponse({ action, logger, handlerPromise, safeSendResponse }) {
+  handlerPromise
+    .then(result => {
+      sendReturnedHandlerResult(result, safeSendResponse);
+    })
+    .catch(error => {
+      logger.error?.(`Handler error for action '${action}':`, error);
+      sendHandlerErrorResponse({
+        action,
+        error,
+        phase: 'promiseCatch',
+        safeSendResponse,
+      });
+    });
+}
+
 /**
  * MessageHandler 類
  */
@@ -95,25 +162,11 @@ class MessageHandler {
    */
   handle(request, sender, sendResponse) {
     const { action } = request;
-    let responseSent = false;
-    const safeSendResponse = payload => {
-      if (responseSent) {
-        this.logger.debug?.(`偵測到 '${action}' 的重複 sendResponse，已忽略`);
-        return;
-      }
-      responseSent = true;
-      sendResponse(payload);
-    };
-    const logFallbackSendResponseFailure = (sendError, phase) => {
-      this.logger.warn?.('錯誤回應發送失敗', {
-        action,
-        operation: 'fallbackSendResponse',
-        phase,
-        result: 'failed',
-        reason: 'response_channel_closed',
-        error: sendError,
-      });
-    };
+    const safeSendResponse = createSafeSendResponse({
+      action,
+      logger: this.logger,
+      sendResponse,
+    });
 
     try {
       // 檢查是否有對應的處理函數
@@ -125,36 +178,22 @@ class MessageHandler {
       const handler = this.handlers.get(action);
 
       // 執行處理函數，支持 Promise
-      Promise.resolve(handler(request, sender, safeSendResponse))
-        .then(result => {
-          if (result !== undefined) {
-            try {
-              safeSendResponse(result);
-            } catch {
-              /* handler 可能已直接呼叫 safeSendResponse，忽略二次呼叫錯誤 */
-            }
-          }
-        })
-        .catch(error => {
-          const errorResponse = MessageHandler._formatError(error, action);
-          this.logger.error?.(`Handler error for action '${action}':`, error);
-          try {
-            safeSendResponse(errorResponse);
-          } catch (sendError) {
-            logFallbackSendResponseFailure(sendError, 'promiseCatch');
-          }
-        });
+      attachAsyncHandlerResponse({
+        action,
+        logger: this.logger,
+        handlerPromise: Promise.resolve(handler(request, sender, safeSendResponse)),
+        safeSendResponse,
+      });
 
       return true; // 表示異步響應
     } catch (error) {
-      const errorResponse = MessageHandler._formatError(error, action);
       this.logger.error?.('MessageHandler error:', error);
-
-      try {
-        safeSendResponse(errorResponse);
-      } catch (sendError) {
-        logFallbackSendResponseFailure(sendError, 'handleCatch');
-      }
+      sendHandlerErrorResponse({
+        action,
+        error,
+        phase: 'handleCatch',
+        safeSendResponse,
+      });
       return false;
     }
   }

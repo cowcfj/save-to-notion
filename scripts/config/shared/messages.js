@@ -74,7 +74,9 @@ const OPTIONS = {
     SELECTOR_TOGGLE_ARIA_LABEL: '切換資料來源選單',
     REFRESH_TITLE: '重新整理',
     LOADING_INLINE: '載入中...',
+
     FALLBACK_OPTION: '選擇資料來源...',
+    FALLBACK_LABEL: '選擇資料庫',
     DEFAULT_PROFILE_NAME: BACKGROUND_MESSAGES.DESTINATION_PROFILE.DEFAULT_PROFILE_NAME,
     DEFAULT_NAME: suffix => `保存目標 ${suffix}`,
     PROFILE_NAME_REQUIRED: '保存目標名稱不可為空白。',
@@ -122,6 +124,11 @@ const OPTIONS = {
   SETTINGS: {
     SAVE_BUTTON: '儲存設定',
     VALIDATE_AND_SAVE_API_KEY: '驗證並保存',
+  },
+  DATA_MANAGEMENT: {
+    SECTION_TITLE: '數據管理',
+    SECTION_DESC: '管理本地存儲的標記數據與備份',
+    IMPORT_FILE_LABEL: '選擇備份檔案',
   },
   DIAGNOSTICS: {
     ENABLE_DEBUG_LOGS_LABEL: '啟用除錯日誌 (Debug Logs)',
@@ -184,7 +191,7 @@ const OPTIONS = {
     FEATURES_ONE_CLICK_TITLE: '一鍵保存',
     FEATURES_ONE_CLICK_DESC: '智能提取文章內容、圖片與 icon',
     FEATURES_MULTI_COLOR_TITLE: '多色標註',
-    FEATURES_MULTI_COLOR_DESC: '支持 4 種顏色與 3 種樣式(背景/文字/底線)',
+    FEATURES_MULTI_COLOR_DESC: '支持 4 種顏色與 3 種樣式（背景/文字/底線）',
     FEATURES_SHORTCUT_TITLE: '快捷鍵支援',
     FEATURES_SHORTCUT_DESC_PREFIX: '按 ',
     FEATURES_SHORTCUT_CTRL_KEY: 'Ctrl+S',
@@ -199,14 +206,14 @@ const OPTIONS = {
     FEATURES_SIDEBAR_DESC: '在右側邊欄集中查看、管理與刪除所有標註',
     FAQ_TITLE: '常見問題',
     FAQ_VIEW_FULL_GUIDE: '查看完整指南',
-    FAQ_TOKEN_QUESTION: 'API Key 無法連接?',
+    FAQ_TOKEN_QUESTION: 'API Key 無法連接？',
     FAQ_TOKEN_ANSWER_PREFIX: '請確認 Token 格式正確(以 ',
     FAQ_TOKEN_ANSWER_CODE: 'secret_',
     FAQ_TOKEN_ANSWER_SUFFIX: ' 開頭),並確保網路連接正常。',
-    FAQ_DATABASE_QUESTION: '數據庫列表為空?',
+    FAQ_DATABASE_QUESTION: '數據庫列表為空？',
     FAQ_DATABASE_ANSWER:
       '請在 Notion 頁面右上角的三點菜單中，找到 "Connections" 並添加您的 Integration。',
-    FAQ_HIGHLIGHT_QUESTION: '標註沒有顯示?',
+    FAQ_HIGHLIGHT_QUESTION: '標註沒有顯示？',
     FAQ_HIGHLIGHT_ANSWER: '請嘗試刷新頁面。此功能需要 Chrome 105+ 支持。',
     CTA_READ_FULL_GUIDE: '閱讀完整用戶指南與 FAQ',
   },

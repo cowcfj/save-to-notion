@@ -35,6 +35,7 @@ let disconnectDrive;
 let setLastKnownRemoteUpdatedAt;
 let accountSession;
 let DRIVE_SYNC_ERROR_CODES;
+let BACKGROUND_MESSAGES;
 let Logger;
 
 beforeAll(async () => {
@@ -57,6 +58,7 @@ beforeAll(async () => {
   accountSession = await import('../../scripts/auth/accountSession.js');
   ({ DRIVE_SYNC_ERROR_CODES } =
     await import('../../scripts/config/extension/driveSyncErrorCodes.js'));
+  ({ BACKGROUND_MESSAGES } = await import('../../scripts/config/messages/backgroundMessages.js'));
   ({ default: Logger } = await import('../../scripts/utils/Logger.js'));
 });
 
@@ -315,6 +317,32 @@ describe('Drive Client API', () => {
       );
       expect(globalThis.chrome.tabs.create).not.toHaveBeenCalled();
     });
+
+    it('startDriveOAuthFlow should throw on non-OK start URL response', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 503,
+        json: async () => ({ message: 'unavailable' }),
+      });
+
+      await expect(startDriveOAuthFlow()).rejects.toThrow(
+        'GET /account/drive/start-url failed: 503'
+      );
+      expect(globalThis.chrome.tabs.create).not.toHaveBeenCalled();
+    });
+
+    it('startDriveOAuthFlow should throw when authorizationUrl is blank', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ authorizationUrl: '   ' }),
+      });
+
+      await expect(startDriveOAuthFlow()).rejects.toThrow(
+        'GET /account/drive/start-url failed: authorizationUrl missing'
+      );
+      expect(globalThis.chrome.tabs.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('API Endpoints', () => {
@@ -329,7 +357,9 @@ describe('Drive Client API', () => {
         accountSession.buildAccountAuthHeaders.mockResolvedValueOnce({});
         mockFetch.mockClear();
 
-        await expect(fetchDriveConnectionStatus()).rejects.toThrow('臨時登入失效');
+        await expect(fetchDriveConnectionStatus()).rejects.toThrow(
+          BACKGROUND_MESSAGES.DRIVE_SYNC.TRANSIENT_AUTH_ERROR
+        );
         expect(mockFetch).not.toHaveBeenCalled();
       });
 
@@ -395,7 +425,7 @@ describe('Drive Client API', () => {
       it('returns false on 404', async () => {
         mockFetch.mockResolvedValue({ ok: false, status: 404 });
         const res = await fetchDriveConnectionStatus();
-        expect(res.connected).toBe(false);
+        expect(res).toEqual({ connected: false, email: null, connectedAt: null });
       });
 
       it('throws on 500', async () => {
@@ -418,7 +448,21 @@ describe('Drive Client API', () => {
       it('returns false on 404', async () => {
         mockFetch.mockResolvedValue({ ok: false, status: 404 });
         const res = await fetchDriveSnapshotStatus();
-        expect(res.exists).toBe(false);
+        expect(res).toEqual({
+          exists: false,
+          updatedAt: null,
+          size: null,
+          sourceInstallationId: null,
+          sourceProfileId: null,
+        });
+      });
+
+      it('throws on non-OK non-404 response', async () => {
+        mockFetch.mockResolvedValue({ ok: false, status: 503, text: async () => 'err' });
+
+        await expect(fetchDriveSnapshotStatus()).rejects.toThrow(
+          'GET /drive/snapshot/status failed: 503'
+        );
       });
 
       it.each([
@@ -592,13 +636,17 @@ describe('Drive Client API', () => {
           status: 409,
           json: async () => ({
             code: 'REMOTE_SNAPSHOT_NEWER',
+            message: 'Remote changed after local snapshot',
             remote_updated_at: '2026-04-21T00:00:00.000Z',
           }),
         });
         const res = await uploadDriveSnapshot({});
-        expect(res.success).toBe(false);
-        expect(res.errorCode).toBe(DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER);
-        expect(res.remoteUpdatedAt).toBe('2026-04-21T00:00:00.000Z');
+        expect(res).toEqual({
+          success: false,
+          errorCode: DRIVE_SYNC_ERROR_CODES.REMOTE_SNAPSHOT_NEWER,
+          message: 'Remote changed after local snapshot',
+          remoteUpdatedAt: '2026-04-21T00:00:00.000Z',
+        });
       });
 
       it('warns when server returns an unexpected 409 error code', async () => {
@@ -629,7 +677,20 @@ describe('Drive Client API', () => {
 
       it('throws error on 500', async () => {
         mockFetch.mockResolvedValue({ ok: false, status: 500, text: async () => 'err' });
-        await expect(uploadDriveSnapshot({})).rejects.toThrow();
+        await expect(uploadDriveSnapshot({})).rejects.toThrow('PUT /drive/snapshot failed: 500');
+      });
+
+      it('returns top-level updatedAt when metadata is absent', async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({ updatedAt: '2026-04-22T00:00:00.000Z' }),
+        });
+
+        await expect(uploadDriveSnapshot({ payload: 1 })).resolves.toEqual({
+          success: true,
+          updatedAt: '2026-04-22T00:00:00.000Z',
+        });
       });
     });
 
@@ -668,7 +729,7 @@ describe('Drive Client API', () => {
 
       it('throws on non-ok', async () => {
         mockFetch.mockResolvedValue({ ok: false, status: 500, text: async () => '' });
-        await expect(disconnectDrive()).rejects.toThrow();
+        await expect(disconnectDrive()).rejects.toThrow('DELETE /drive/connection failed: 500');
 
         expect(mockFetch).toHaveBeenCalledTimes(1);
         expect(mockFetch).toHaveBeenCalledWith(

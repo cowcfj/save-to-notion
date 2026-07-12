@@ -319,6 +319,45 @@ describe('ReadabilityAdapter - 額外函數測試', () => {
       expect(result).toBeNull();
     });
 
+    test('應該擷取以換行項目符號呈現的類列表容器', () => {
+      document.body.innerHTML = `
+        <section>
+          - Install the extension\r\n
+          - Pin the extension\r\n
+          - Open the side panel\r\n
+          - Save the current page\r\n
+          Additional reference text for scoring.
+        </section>
+      `;
+
+      const result = extractLargestListFallback();
+
+      expect(result).toBeTruthy();
+      expect(result).toContain('Install the extension');
+      expect(result).toContain('Save the current page');
+    });
+
+    test('不應將 list fallback 的 NodeList 候選項目轉成中介陣列', () => {
+      document.body.innerHTML = `
+        <section>
+          - Install the extension
+          - Pin the extension
+          - Open the side panel
+          - Save the current page
+        </section>
+      `;
+      const arrayFromSpy = jest.spyOn(Array, 'from');
+
+      try {
+        const result = extractLargestListFallback();
+
+        expect(result).toBeTruthy();
+        expect(arrayFromSpy).not.toHaveBeenCalled();
+      } finally {
+        arrayFromSpy.mockRestore();
+      }
+    });
+
     test('當發生錯誤時應該返回 null', async () => {
       const result = await withFailingDocumentQuerySelectorAll(() => extractLargestListFallback());
 

@@ -80,6 +80,12 @@ describe('shouldRunAutoSync()', () => {
     expect(reason).toBe('all_conditions_met');
   });
 
+  it.each([null, undefined])('metadata 缺失時應跳過並回傳 missing_metadata', metadata => {
+    const { shouldRun, reason } = shouldRunAutoSync(metadata);
+    expect(shouldRun).toBe(false);
+    expect(reason).toBe('missing_metadata');
+  });
+
   it('account 未登入時跳過', () => {
     const { shouldRun, reason } = shouldRunAutoSync(baseMetadata(), { isAccountLoggedIn: false });
     expect(shouldRun).toBe(false);
