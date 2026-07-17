@@ -170,10 +170,6 @@ export function createContentRuntimeMessageHandler(dependencies) {
       handlePing(dependencies, sendResponse);
       return true;
     },
-    [HIGHLIGHTER_ACTIONS.SHOW_HIGHLIGHTER]: (_request, sendResponse) => {
-      withAvailableFloatingRail(sendResponse, revealFloatingRail);
-      return true;
-    },
     [CONTENT_BRIDGE_ACTIONS.SHOW_FLOATING_RAIL]: (_request, sendResponse) => {
       withAvailableFloatingRail(sendResponse, revealFloatingRail);
       return true;

@@ -75,12 +75,6 @@ describe('content runtime message handler native ESM depth coverage', () => {
     const handler = createContentRuntimeMessageHandler(dependencies);
     const response = jest.fn();
 
-    expect(handler({ action: HIGHLIGHTER_ACTIONS.SHOW_HIGHLIGHTER }, {}, response)).toBe(true);
-    expect(dependencies.withAvailableFloatingRail).toHaveBeenCalledWith(
-      response,
-      dependencies.revealFloatingRail
-    );
-
     expect(
       handler(
         { action: HIGHLIGHTER_ACTIONS.ACTIVATE_FLOATING_RAIL_HIGHLIGHT, sessionOverride: true },
