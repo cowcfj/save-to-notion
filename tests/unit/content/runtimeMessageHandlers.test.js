@@ -206,22 +206,15 @@ describe('content runtime message router', () => {
     expect(sendResponse).not.toHaveBeenCalled();
   });
 
-  test('SHOW_FLOATING_RAIL and showHighlighter use the injected floating rail reveal helper', () => {
+  test('SHOW_FLOATING_RAIL uses the injected floating rail reveal helper', () => {
     const { handler, dependencies } = createRouter();
     const sendResponse = jest.fn();
 
     expect(handler({ action: CONTENT_BRIDGE_ACTIONS.SHOW_FLOATING_RAIL }, {}, sendResponse)).toBe(
       true
     );
-    expect(handler({ action: HIGHLIGHTER_ACTIONS.SHOW_HIGHLIGHTER }, {}, sendResponse)).toBe(true);
 
-    expect(dependencies.withAvailableFloatingRail).toHaveBeenNthCalledWith(
-      1,
-      sendResponse,
-      dependencies.revealFloatingRail
-    );
-    expect(dependencies.withAvailableFloatingRail).toHaveBeenNthCalledWith(
-      2,
+    expect(dependencies.withAvailableFloatingRail).toHaveBeenCalledWith(
       sendResponse,
       dependencies.revealFloatingRail
     );

@@ -286,18 +286,6 @@ const SAVE_ACTIONS = {
  */
 
 /**
- * @typedef {object} ShowHighlighterRequest
- * @property {'showHighlighter'} action
- * @deprecated Legacy compatibility shim. Content script now only reveals/activates the floating rail.
- */
-
-/**
- * @typedef {object} ShowHighlighterResponse
- * @property {boolean} success
- * @property {string} [error]
- */
-
-/**
  * @typedef {object} RemoveHighlightDomRequest
  * @property {'REMOVE_HIGHLIGHT_DOM'} action
  * @property {string} [highlightId]
@@ -716,7 +704,6 @@ export { DEV_LOG_SINK, DEV_LOG_SINK_BATCH } from '../runtimeActions/diagnosticsA
  * @property {UpdateHighlightsRequest['action']} UPDATE_HIGHLIGHTS - Request: {@link UpdateHighlightsRequest}; Response: {@link UpdateHighlightsResponse}
  * @property {ClearHighlightsRequest['action']} CLEAR_HIGHLIGHTS - Request: {@link ClearHighlightsRequest}; Response: {@link ClearHighlightsResponse}
  * @property {ShowToolbarRequest['action']} SHOW_TOOLBAR - Request: {@link ShowToolbarRequest}; Response: {@link ShowToolbarResponse}
- * @property {ShowHighlighterRequest['action']} SHOW_HIGHLIGHTER - Request: {@link ShowHighlighterRequest}; Response: {@link ShowHighlighterResponse}
  * @property {RemoveHighlightDomRequest['action']} REMOVE_HIGHLIGHT_DOM - Request: {@link RemoveHighlightDomRequest}; Response: {@link RemoveHighlightDomResponse}
  * @property {UserActivateShortcutRequest['action']} USER_ACTIVATE_SHORTCUT - Request: {@link UserActivateShortcutRequest}; Response: {@link UserActivateShortcutResponse}
  * @property {ShowFloatingRailRequest['action']} SHOW_FLOATING_RAIL - Request: {@link ShowFloatingRailRequest}; Response: {@link ShowFloatingRailResponse}

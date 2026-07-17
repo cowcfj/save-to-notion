@@ -5,7 +5,6 @@
  */
 export const HIGHLIGHTER_ACTIONS = Object.freeze({
   SHOW_TOOLBAR: 'showToolbar',
-  SHOW_HIGHLIGHTER: 'showHighlighter',
   START_HIGHLIGHT: 'startHighlight',
 
   // Highlight sync/update actions (容易混淆，請參考各自用途)：
