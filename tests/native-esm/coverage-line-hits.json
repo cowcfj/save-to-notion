@@ -76,7 +76,7 @@
   },
   {
     "fileSuffix": "scripts/config/runtimeActions/highlighterActions.js",
-    "lines": [6, 15, 23],
+    "lines": [6, 14, 22],
     "rationale": "highlighter runtime action registry must be covered through the formal config ESM boundary."
   },
   {
@@ -631,7 +631,7 @@
     "fileSuffix": "scripts/content/runtimeMessageHandlers.js",
     "lines": [
       21, 22, 23, 35, 40, 50, 51, 53, 92, 94, 103, 105, 115, 130, 136, 140, 142, 163, 168, 169, 170,
-      191, 192, 195, 196, 209, 214, 219
+      187, 188, 191, 192, 205, 210, 215
     ],
     "rationale": "Second content breadth cohort must retain source-line hits for content runtime router ping, stable URL mutation, highlight DOM removal, and floating rail activation."
   },
