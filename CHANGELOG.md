@@ -1,5 +1,27 @@
 # 變更日誌 (CHANGELOG)
 
+## [2.82.1](https://github.com/cowcfj/save-to-notion/compare/v2.82.0...v2.82.1) (2026-07-18)
+
+
+### 🐛 Bug 修復
+
+* **content:** add AbortController timeout to Next.js fetch ([#840](https://github.com/cowcfj/save-to-notion/issues/840)) ([160ecf6](https://github.com/cowcfj/save-to-notion/commit/160ecf6fdce553ac5d0a9ed772ac04e73f18c269))
+* **i18n:** fix html fallback mismatch and missing keys ([#829](https://github.com/cowcfj/save-to-notion/issues/829)) ([50616ad](https://github.com/cowcfj/save-to-notion/commit/50616adb74d51158e121d92f38890f98c9c52ef5))
+
+
+### ♻️ 代碼重構
+
+* 🧹 Remove Deprecated API Key Fallback in DataSourceManager ([#826](https://github.com/cowcfj/save-to-notion/issues/826)) ([32155ff](https://github.com/cowcfj/save-to-notion/commit/32155ffc757bf03ba1ce02ddf580695771ec3301))
+* 🧹 移除不再使用的 showHighlighter legacy compatibility shim ([#839](https://github.com/cowcfj/save-to-notion/issues/839)) ([042c317](https://github.com/cowcfj/save-to-notion/commit/042c31772282467a4f15186531074d4366e01019))
+* obustness image collector url clean ([#831](https://github.com/cowcfj/save-to-notion/issues/831)) ([9d5d437](https://github.com/cowcfj/save-to-notion/commit/9d5d43775d45e9ebb13631877ef67d5246365c54))
+* reduce background handler complexity ([#832](https://github.com/cowcfj/save-to-notion/issues/832)) ([70cd276](https://github.com/cowcfj/save-to-notion/commit/70cd2768df32996472e456d2f0e20fb185f31f47))
+* reduce background service complexity ([#833](https://github.com/cowcfj/save-to-notion/issues/833)) ([d5703da](https://github.com/cowcfj/save-to-notion/commit/d5703da29289fbfc57471c3607795b9efca2ce06))
+
+
+### ⚡ 效能優化
+
+* **content:** ⚡ Bolt: replace array chain operations with single-pass iteration in ReadabilityAdapter ([#827](https://github.com/cowcfj/save-to-notion/issues/827)) ([31f7b9c](https://github.com/cowcfj/save-to-notion/commit/31f7b9c5dc98370554683d77bdbb312c51edd0d2))
+
 ## [2.82.0](https://github.com/cowcfj/save-to-notion/compare/v2.81.1...v2.82.0) (2026-07-05)
 
 
