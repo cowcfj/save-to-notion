@@ -641,8 +641,14 @@ export const NextJsExtractor = {
       return null;
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
     try {
-      const response = await fetch(dataUrl, { credentials: 'same-origin' });
+      const response = await fetch(dataUrl, {
+        credentials: 'same-origin',
+        signal: controller.signal,
+      });
       if (!response?.ok) {
         Logger.debug('Next.js data 取得失敗', {
           action,
@@ -659,6 +665,8 @@ export const NextJsExtractor = {
         url: sanitizeUrlForLogging(dataUrl),
       });
       return null;
+    } finally {
+      clearTimeout(timeoutId);
     }
   },
 
