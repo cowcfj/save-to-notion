@@ -785,7 +785,84 @@ describe('NextJsExtractor', () => {
     const originalFetch = globalThis.fetch;
 
     afterEach(() => {
+      jest.useRealTimers();
       globalThis.fetch = originalFetch;
+    });
+
+    it('response body 卡住時應在 5000ms 後 abort 並回傳 null', async () => {
+      jest.useFakeTimers();
+      setHk01ArticleLocation();
+      let requestSignal;
+      globalThis.fetch = jest.fn().mockImplementation((_url, options) => {
+        requestSignal = options.signal;
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            new Promise((_resolve, reject) => {
+              requestSignal.addEventListener(
+                'abort',
+                () => reject(new DOMException('The operation was aborted.', 'AbortError')),
+                { once: true }
+              );
+            }),
+        });
+      });
+
+      const resultPromise = NextJsExtractor._fetchNextData(mockDoc, DEFAULT_NEXT_DATA_BUILD_ID);
+      await Promise.resolve();
+
+      expect(requestSignal.aborted).toBe(false);
+      expect(globalThis.fetch).toHaveBeenCalledWith(HK01_NEXT_DATA_URL, {
+        credentials: 'same-origin',
+        signal: requestSignal,
+      });
+      await jest.advanceTimersByTimeAsync(4999);
+      expect(requestSignal.aborted).toBe(false);
+      await jest.advanceTimersByTimeAsync(1);
+      expect(requestSignal.aborted).toBe(true);
+      await expect(resultPromise).resolves.toBeNull();
+    });
+
+    it('response headers 前卡住時應在 5000ms 後 abort 並回傳 null', async () => {
+      jest.useFakeTimers();
+      setHk01ArticleLocation();
+      let requestSignal;
+      globalThis.fetch = jest.fn().mockImplementation((_url, options) => {
+        requestSignal = options.signal;
+        return new Promise((_resolve, reject) => {
+          requestSignal.addEventListener(
+            'abort',
+            () => reject(new DOMException('The operation was aborted.', 'AbortError')),
+            { once: true }
+          );
+        });
+      });
+
+      const resultPromise = NextJsExtractor._fetchNextData(mockDoc, DEFAULT_NEXT_DATA_BUILD_ID);
+
+      await jest.advanceTimersByTimeAsync(4999);
+      expect(requestSignal.aborted).toBe(false);
+      await jest.advanceTimersByTimeAsync(1);
+      expect(requestSignal.aborted).toBe(true);
+      await expect(resultPromise).resolves.toBeNull();
+    });
+
+    it('response body 完成後應清除 timer', async () => {
+      jest.useFakeTimers();
+      setHk01ArticleLocation();
+      const payload = buildArticlePayload(buildThreeParagraphArticle('Complete', ['A', 'B', 'C']));
+      globalThis.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue(payload),
+      });
+
+      const result = await NextJsExtractor._fetchNextData(mockDoc, DEFAULT_NEXT_DATA_BUILD_ID);
+      const requestSignal = globalThis.fetch.mock.calls[0][1].signal;
+
+      expect(result).toEqual(payload);
+      expect(requestSignal.aborted).toBe(false);
+      await jest.advanceTimersByTimeAsync(5000);
+      expect(requestSignal.aborted).toBe(false);
     });
 
     it('should return null when data URL cannot be built', async () => {
