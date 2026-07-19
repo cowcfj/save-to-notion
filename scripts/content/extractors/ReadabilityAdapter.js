@@ -110,9 +110,9 @@ function isContentGood(article) {
   const links = safeQueryElements(tempDiv, 'a');
 
   // 修復 JS-0086: 使用顯式語句而非箭頭函數中的賦值返回
-  Array.from(links).forEach(link => {
+  for (const link of links) {
     linkTextLength += (link.textContent || '').length;
-  });
+  }
 
   // 使用正確的總長度作為分母
   const linkDensity = contentLength > 0 ? linkTextLength / contentLength : 0;
@@ -232,27 +232,26 @@ function expandCollapsedClassElements(expanded) {
  * @param {Array} expanded - 用於記錄已展開元素的陣列
  */
 function revealHiddenContentElements(expanded) {
-  const hiddenByStyle = Array.from(
-    document.querySelectorAll('[style*="display" i], [hidden]')
-  ).filter(el => {
+  const elements = document.querySelectorAll('[style*="display" i], [hidden]');
+
+  for (const el of elements) {
     const style = el.getAttribute('style') || '';
-    return el.hasAttribute('hidden') || DISPLAY_NONE_STYLE_PATTERN.test(style);
-  });
-  hiddenByStyle.forEach(el => {
-    try {
-      const textLen = (el.textContent || '').trim().length;
-      if (textLen > 20) {
-        el.style.display = '';
-        el.removeAttribute('hidden');
-        expanded.push(el);
+    if (el.hasAttribute('hidden') || DISPLAY_NONE_STYLE_PATTERN.test(style)) {
+      try {
+        const textLen = (el.textContent || '').trim().length;
+        if (textLen > 20) {
+          el.style.display = '';
+          el.removeAttribute('hidden');
+          expanded.push(el);
+        }
+      } catch (error) {
+        Logger.warn('展開隱藏元素失敗', {
+          action: 'expandCollapsibleElements',
+          error: error.message,
+        });
       }
-    } catch (error) {
-      Logger.warn('展開隱藏元素失敗', {
-        action: 'expandCollapsibleElements',
-        error: error.message,
-      });
     }
-  });
+  }
 }
 
 /**

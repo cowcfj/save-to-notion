@@ -1,0 +1,17 @@
+⚡ Bolt automated perf scan
+
+💡 What
+重構 `ReadabilityAdapter.js` 中的 `isContentGood` 和 `revealHiddenContentElements`，將原本連續的陣列操作（`Array.from().filter().forEach()` 或 `Array.from().forEach()`）替換為單次的 `for...of` 迭代。
+
+🎯 Why
+在內容腳本的熱路徑 (hot path) 中，對大量 DOM 節點使用連續的 `.filter()` 或 `.map()` 操作會導致不必要的中間陣列配置 (memory allocations)。這個優化避免了多餘的陣列配置，降低了主執行緒的負擔並提升了執行效能，且完全保留了原始邏輯與錯誤捕捉機制。這符合 `.jules/bolt.md` 中對於單次迭代優化的指導原則。
+
+📊 Impact
+- 將 `Array.from(links).forEach()` 替換為 `for (const link of links)`。
+- 將 `Array.from(document.querySelectorAll(...)).filter(...).forEach(...)` 替換為單次的 `for (const el of elements)`。
+- 在本地測試 (模擬 10 萬次迭代) 中，效能差異微小但確實節省了中間層陣列的建立，長期可減輕 Garbage Collection 壓力。
+
+✅ Verification
+- `npm run lint` 通過。
+- `npm run test:coverage` 通過 (3646 個測試全數成功)。
+- `npm run build:prod:analyze` 通過，打包成功且無新增體積。
